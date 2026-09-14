@@ -95,6 +95,17 @@ function titleFor(answers: Answers): string {
   return a || b || "Untitled draft";
 }
 
+function versionFileName(answers: Answers, version: number, detailLevel: number): string {
+  const clean = (value: string | undefined) =>
+    ((value ?? "") === SKIPPED ? "" : (value ?? "").split("(")[0])
+      .replace(/[^a-zA-Z0-9 -]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .slice(0, 28);
+  const parties = [clean(answers.party_a), clean(answers.party_b)].filter(Boolean);
+  return ["NDA", ...parties, `V${version}`, `Detail-${detailLevel}`].join("-") + ".docx";
+}
+
 export async function POST(req: NextRequest) {
   let body: Body;
   try {
@@ -427,6 +438,19 @@ async function persist(input: {
     if (error || !draft) {
       console.error("[/api/generate] could not save draft:", error?.message);
       return null;
+    }
+
+    const { error: versionError } = await supabase.from("draft_versions").insert({
+      draft_id: draft.id,
+      user_id: input.userId,
+      version_number: 1,
+      detail_level: 3,
+      file_name: versionFileName(input.answers, 1, 3),
+      instruction: "Initial draft generated from the user's answers.",
+      output: input.output,
+    });
+    if (versionError) {
+      console.error("[/api/generate] could not save version 1:", versionError.message);
     }
 
     const { error: usageError } = await supabase.from("usage_log").insert({
