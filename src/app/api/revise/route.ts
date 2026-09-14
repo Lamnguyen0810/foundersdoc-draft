@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     draftId?: string;
     instruction?: string;
     text?: string;
-    targetDepth?: "Essential" | "Balanced" | "Comprehensive";
+    targetDetailLevel?: number;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -85,16 +85,19 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Malformed request body." }, { status: 400 });
   }
 
-  const depthInstructions = {
-    Essential:
-      "Rewrite the entire NDA as an Essential version of 500-800 words. Materially consolidate definitions and boilerplate while preserving every core confidentiality protection, standard exception and placeholder. This must be a genuine full-document rewrite, not light copy-editing.",
-    Balanced:
-      "Rewrite the entire NDA as a Balanced version of 900-1,400 words. Use practical standard definitions, procedures and general provisions for an ordinary business discussion. Rework the document throughout; do not merely adjust a few sentences.",
-    Comprehensive:
-      "Rewrite the entire NDA as a Comprehensive version of 1,400-2,000 words. Materially expand relevant definitions, handling duties, representative controls, compelled-disclosure procedure, return or destruction mechanics, remedies and general provisions. Do not invent facts or add a non-compete, indemnity, non-solicit or IP assignment unless already required by the document.",
+  const detailInstructions = {
+    1: "Rewrite the entire NDA as a concise level 1 version of 500-800 words. Consolidate definitions and boilerplate while preserving every core confidentiality protection, standard exception and placeholder.",
+    2: "Rewrite the entire NDA as a standard level 2 version of 750-1,050 words. Include the usual practical protections and procedures without unnecessary detail.",
+    3: "Rewrite the entire NDA as a detailed level 3 version of 1,000-1,400 words. Use complete standard definitions, confidentiality procedures and general provisions.",
+    4: "Rewrite the entire NDA as a thorough level 4 version of 1,350-1,800 words. Expand relevant definitions, handling duties, representative controls, compelled-disclosure procedure, return or destruction mechanics, remedies and general provisions.",
+    5: "Rewrite the entire NDA as a maximum-detail level 5 version of 1,750-2,300 words. Draft the relevant protections and procedures comprehensively, while remaining proportionate and avoiding repetition.",
   } as const;
-  const instruction = body.targetDepth
-    ? depthInstructions[body.targetDepth]
+  const targetDetailLevel = Number.isInteger(body.targetDetailLevel) &&
+    Number(body.targetDetailLevel) >= 1 && Number(body.targetDetailLevel) <= 5
+      ? (Number(body.targetDetailLevel) as 1 | 2 | 3 | 4 | 5)
+      : null;
+  const instruction = targetDetailLevel
+    ? `${detailInstructions[targetDetailLevel]} This must be a genuine full-document rewrite, not light copy-editing. Do not invent facts or add a non-compete, indemnity, non-solicit or IP assignment unless already required by the current document.`
     : (body.instruction ?? "").trim();
   const text = (body.text ?? "").trim();
   if (!instruction) return Response.json({ error: "Say what to change." }, { status: 400 });
@@ -162,7 +165,18 @@ export async function POST(req: NextRequest) {
             acc += event.value;
             controller.enqueue(line({ t: "text", v: event.value }));
           } else if (event.type === "done") {
-            if (body.targetDepth && !isMaterialDepthRewrite(text, acc)) {
+            const targetRanges = {
+              1: [500, 800],
+              2: [750, 1050],
+              3: [1000, 1400],
+              4: [1350, 1800],
+              5: [1750, 2300],
+            } as const;
+            const wordCount = acc.trim().split(/\s+/).length;
+            const range = targetDetailLevel ? targetRanges[targetDetailLevel] : null;
+            const reachesLevel = !range ||
+              (wordCount >= range[0] * 0.9 && wordCount <= range[1] * 1.1);
+            if (targetDetailLevel && (!isMaterialDepthRewrite(text, acc) || !reachesLevel)) {
               if (spendId) await refundCredit(spendId, "revision unchanged");
               controller.enqueue(
                 line({
