@@ -331,28 +331,30 @@ export default function DraftReady({
         </div>
 
         {ready && /non-disclosure/i.test(docLabel) && (
-          <div className="gen-depth">
-            <div className="gen-depth-head">
-              <p className="gen-section-label">Comprehensiveness</p>
-              <b>{sliderValue}/5 · {detailLabels[sliderValue - 1]}</b>
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={sliderValue}
-              disabled={busy}
-              aria-label="NDA comprehensiveness"
-              aria-valuetext={`Level ${sliderValue}: ${detailLabels[sliderValue - 1]}`}
-              onChange={(event) =>
-                chooseDetailLevel(Number(event.target.value) as 1 | 2 | 3 | 4 | 5)
-              }
-            />
-            <div className="gen-depth-scale" aria-hidden="true">
-              {[1, 2, 3, 4, 5].map((level) => (
-                <span key={level} className={sliderValue === level ? "on" : ""}>{level}</span>
-              ))}
+          <div className="gen-depth-row">
+            <div className="gen-depth">
+              <div className="gen-depth-head">
+                <p className="gen-section-label">Comprehensiveness</p>
+                <b>{sliderValue}/5 · {detailLabels[sliderValue - 1]}</b>
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={5}
+                step={1}
+                value={sliderValue}
+                disabled={busy}
+                aria-label="NDA comprehensiveness"
+                aria-valuetext={`Level ${sliderValue}: ${detailLabels[sliderValue - 1]}`}
+                onChange={(event) =>
+                  chooseDetailLevel(Number(event.target.value) as 1 | 2 | 3 | 4 | 5)
+                }
+              />
+              <div className="gen-depth-scale" aria-hidden="true">
+                {[1, 2, 3, 4, 5].map((level) => (
+                  <span key={level} className={sliderValue === level ? "on" : ""}>{level}</span>
+                ))}
+              </div>
             </div>
           </div>
         )}
