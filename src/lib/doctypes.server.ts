@@ -37,14 +37,36 @@ interface DocTypeRow {
  * the right thing to do (see supabase/002_seed_doctypes.sql), but forgetting to
  * no longer shows a dead question to a lawyer.
  *
- *   our_client — the form now asks for "your company" first, so which side we
- *                act for is implied by the answer rather than asked separately.
+ *   our_client       — which side we act for is implied by the answers.
+ *   party_*_address — the streamlined parties step asks for names only.
+ *
+ * Party-name labels are also normalised below so older Supabase field JSON
+ * cannot bring back the former UEN wording.
  */
-const RETIRED_FIELD_KEYS = new Set(["our_client"]);
+const RETIRED_FIELD_KEYS = new Set(["our_client", "party_a_address", "party_b_address"]);
 
 function fromRow(row: DocTypeRow): DocType {
   const rowExamples = row.examples ?? [];
-  const fields = (row.fields ?? []).filter((f) => !RETIRED_FIELD_KEYS.has(f.key));
+  const fields = (row.fields ?? [])
+    .filter((f) => !RETIRED_FIELD_KEYS.has(f.key))
+    .map((field) => {
+      if (row.slug !== "nda") return field;
+      if (field.key === "party_a") {
+        return {
+          ...field,
+          label: "Your name or organisation name",
+          placeholder: "Meridian Logistics",
+        };
+      }
+      if (field.key === "party_b") {
+        return {
+          ...field,
+          label: "Other party’s name or organisation name",
+          placeholder: "Kestrel Analytics",
+        };
+      }
+      return field;
+    });
   const builtIn = DOC_TYPES.find((docType) => docType.slug === row.slug);
   let systemPrompt = row.system_prompt;
   if (

@@ -2843,10 +2843,17 @@ html[data-theme=dark]{
 .gen-depth-scale span:last-child{text-align:right}
 .gen-depth-scale span:last-child:before{left:auto;right:2px}
 .gen-depth-scale span.on{color:var(--gold-deep);font-weight:700}
-#scr-chat.is-draft .gen-thread>.gen-depth{
-  width:220px;
-  max-width:100%;
-  margin-inline:0;
+#scr-chat.is-draft .gen-thread>.gen-depth-row{
+  width:100%;
+  max-width:720px;
+  margin-inline:auto;
+}
+.gen-depth-row .gen-depth{width:220px;max-width:100%}
+.gen-depth-length{
+  margin:4px 0 1px!important;
+  color:var(--tx-2)!important;
+  font-size:10.5px!important;
+  line-height:1.35!important;
 }
 .cg-summary-wrap{justify-content:flex-end}
 .cg-bubble.cg-summary{
