@@ -779,7 +779,10 @@ function Chat({
           .replace(/\s+/g, "-")
           .slice(0, 28);
       const parties = [clean(answers.party_a ?? ""), clean(answers.party_b ?? "")].filter(Boolean);
-      return ["NDA", ...parties, `V${version}`, `Detail-${detailLevel}`].join("-") + ".docx";
+      const detailName = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"]
+        [detailLevel - 1] ?? "Revised";
+      return ["NDA", ...parties, `V${version}`, ...(version > 1 ? [detailName] : [])]
+        .join("-") + ".docx";
     },
     [answers.party_a, answers.party_b],
   );
@@ -1289,7 +1292,11 @@ function Chat({
           } catch {
             continue;
           }
-          if (msg.t === "text" && msg.v) acc += msg.v;
+          if (msg.t === "retry") {
+            acc = "";
+            failed = false;
+            setError(null);
+          } else if (msg.t === "text" && msg.v) acc += msg.v;
           else if (msg.t === "error") {
             failed = true;
             setError(msg.v ?? "Could not revise the draft.");

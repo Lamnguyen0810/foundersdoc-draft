@@ -30,8 +30,8 @@ import { currentBalance, refundCredit, reserveCredit } from "@/lib/billing/credi
 export const runtime = "nodejs";
 // Matches /api/generate: the platform clamps anything higher and then kills
 // the function, which would refund nothing. See the note there.
-export const maxDuration = 60;
-const BUDGET_MS = 50_000;
+export const maxDuration = 120;
+const BUDGET_MS = 110_000;
 
 function line(obj: unknown): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(obj) + "\n");
@@ -154,7 +154,14 @@ export async function POST(req: NextRequest) {
       let acc = "";
       const startedAt = Date.now();
       try {
-        for await (const event of generateDraftStream({ system: SYSTEM, user: userMessage })) {
+        const maxAttempts = targetDetailLevel ? 2 : 1;
+        attempts: for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          acc = "";
+          const attemptMessage = attempt === 1
+            ? userMessage
+            : `${userMessage}\n\nRETRY REQUIREMENT: The previous attempt did not materially reach the requested comprehensiveness level. Rewrite the complete document more decisively and stay within the requested word range.`;
+
+        for await (const event of generateDraftStream({ system: SYSTEM, user: attemptMessage })) {
           if (Date.now() - startedAt > BUDGET_MS) {
             if (spendId) await refundCredit(spendId, "timed out");
             controller.enqueue(
@@ -164,7 +171,7 @@ export async function POST(req: NextRequest) {
                 code: "timeout",
               }),
             );
-            break;
+            return;
           }
           if (event.type === "text") {
             acc += event.value;
@@ -182,11 +189,16 @@ export async function POST(req: NextRequest) {
             const reachesLevel = !range ||
               (wordCount >= range[0] * 0.9 && wordCount <= range[1] * 1.1);
             if (targetDetailLevel && (!isMaterialDepthRewrite(text, acc) || !reachesLevel)) {
+              if (attempt < maxAttempts) {
+                controller.enqueue(line({ t: "retry" }));
+                continue attempts;
+              }
               if (spendId) await refundCredit(spendId, "revision unchanged");
               controller.enqueue(
                 line({
                   t: "error",
-                  v: "The model did not make a substantial enough change, so the original document was kept. Please try the level again.",
+                  code: "revision_validation_failed",
+                  v: "The model could not produce a sufficiently different document at that level. The original version was kept and nothing was charged.",
                 }),
               );
               return;
@@ -219,7 +231,9 @@ export async function POST(req: NextRequest) {
                     .replace(/\s+/g, "-").slice(0, 28);
                 const parties = [clean(answers.party_a), clean(answers.party_b)].filter(Boolean);
                 const detailLevel = targetDetailLevel ?? currentDetailLevel;
-                const fileName = ["NDA", ...parties, `V${nextVersion}`, `Detail-${detailLevel}`]
+                const detailName = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"]
+                  [detailLevel - 1] ?? "Revised";
+                const fileName = ["NDA", ...parties, `V${nextVersion}`, detailName]
                   .join("-") + ".docx";
                 const { error: versionError } = await supabase.from("draft_versions").insert({
                   draft_id: body.draftId,
@@ -240,10 +254,13 @@ export async function POST(req: NextRequest) {
             controller.enqueue(
               line({ t: "done", charged, creditsLeft: await currentBalance() }),
             );
+            return;
           } else {
             if (spendId) await refundCredit(spendId, "revision failed");
             controller.enqueue(line({ t: "error", v: event.message }));
+            return;
           }
+        }
         }
       } catch (err) {
         console.error("[/api/revise]", err);

@@ -103,7 +103,10 @@ function versionFileName(answers: Answers, version: number, detailLevel: number)
       .replace(/\s+/g, "-")
       .slice(0, 28);
   const parties = [clean(answers.party_a), clean(answers.party_b)].filter(Boolean);
-  return ["NDA", ...parties, `V${version}`, `Detail-${detailLevel}`].join("-") + ".docx";
+  const detailName = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"]
+    [detailLevel - 1] ?? "Revised";
+  return ["NDA", ...parties, `V${version}`, ...(version > 1 ? [detailName] : [])]
+    .join("-") + ".docx";
 }
 
 export async function POST(req: NextRequest) {
