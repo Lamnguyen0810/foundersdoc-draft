@@ -186,7 +186,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
 
-  let body: { text?: string; title?: string; includeNotes?: boolean };
+  let body: { text?: string; title?: string; fileName?: string; includeNotes?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -230,7 +230,10 @@ export async function POST(req: NextRequest) {
 
   const buffer = await Packer.toBuffer(doc);
   const date = new Date().toISOString().slice(0, 10);
-  const filename = `${safeName(body.title ?? "draft")}-${date}.docx`;
+  const requestedName = body.fileName?.replace(/\.docx$/i, "");
+  const filename = requestedName
+    ? `${safeName(requestedName)}.docx`
+    : `${safeName(body.title ?? "draft")}-${date}.docx`;
 
   return new Response(new Uint8Array(buffer), {
     headers: {
