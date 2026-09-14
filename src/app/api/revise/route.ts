@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
     instruction?: string;
     text?: string;
     targetDetailLevel?: number;
+    currentDetailLevel?: number;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -96,6 +97,10 @@ export async function POST(req: NextRequest) {
     Number(body.targetDetailLevel) >= 1 && Number(body.targetDetailLevel) <= 5
       ? (Number(body.targetDetailLevel) as 1 | 2 | 3 | 4 | 5)
       : null;
+  const currentDetailLevel = Number.isInteger(body.currentDetailLevel) &&
+    Number(body.currentDetailLevel) >= 1 && Number(body.currentDetailLevel) <= 5
+      ? Number(body.currentDetailLevel)
+      : 3;
   const instruction = targetDetailLevel
     ? `${detailInstructions[targetDetailLevel]} This must be a genuine full-document rewrite, not light copy-editing. Do not invent facts or add a non-compete, indemnity, non-solicit or IP assignment unless already required by the current document.`
     : (body.instruction ?? "").trim();
@@ -192,7 +197,7 @@ export async function POST(req: NextRequest) {
                 const supabase = await createClient();
                 const { data: row } = await supabase
                   .from("drafts")
-                  .select("revisions")
+                  .select("revisions,answers")
                   .eq("id", body.draftId)
                   .maybeSingle();
                 await supabase
@@ -206,6 +211,28 @@ export async function POST(req: NextRequest) {
                     revisions: Number(row?.revisions ?? 0) + 1,
                   })
                   .eq("id", body.draftId);
+
+                const nextVersion = Number(row?.revisions ?? 0) + 2;
+                const answers = (row?.answers ?? {}) as Record<string, string>;
+                const clean = (value: string | undefined) =>
+                  (value ?? "").split("(")[0].replace(/[^a-zA-Z0-9 -]/g, "").trim()
+                    .replace(/\s+/g, "-").slice(0, 28);
+                const parties = [clean(answers.party_a), clean(answers.party_b)].filter(Boolean);
+                const detailLevel = targetDetailLevel ?? currentDetailLevel;
+                const fileName = ["NDA", ...parties, `V${nextVersion}`, `Detail-${detailLevel}`]
+                  .join("-") + ".docx";
+                const { error: versionError } = await supabase.from("draft_versions").insert({
+                  draft_id: body.draftId,
+                  user_id: user.id,
+                  version_number: nextVersion,
+                  detail_level: detailLevel,
+                  file_name: fileName,
+                  instruction,
+                  output: acc,
+                });
+                if (versionError) {
+                  console.error("[/api/revise] could not save version:", versionError.message);
+                }
               } catch (err) {
                 console.error("[/api/revise] could not save the revision:", err);
               }
