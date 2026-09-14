@@ -1317,7 +1317,7 @@ function Chat({
         for (let index = 0; index < overlap; index += 1) {
           if (a[index] !== b[index]) changedAtPosition += 1;
         }
-        return lengthDelta >= 0.08 || changedAtPosition / Math.max(a.length, b.length, 1) >= 0.12;
+        return lengthDelta >= 0.03 || changedAtPosition / Math.max(a.length, b.length, 1) >= 0.06;
       };
       const changed = options?.targetDetailLevel
         ? materiallyChanged(output, acc)
