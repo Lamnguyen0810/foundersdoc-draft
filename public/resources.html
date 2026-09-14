@@ -15,7 +15,7 @@
     </script>
     <title>Insights for founders — the Founders Doc blog</title>
     <meta name="description" content="Clear answers to the legal questions that come with building a company: contracts, fundraising, company setup, hiring and AI in law, written and reviewed by practising lawyers." />
-    <link rel="canonical" href="/resources" />
+    <link rel="canonical" href="https://foundersdoc.com/resources/all/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Founders Doc" />
     <meta property="og:title" content="Insights for founders — the Founders Doc blog" />
@@ -50,6 +50,15 @@
           "url": "https://foundersdoc.com/resources/before-you-sign-an-nda/",
           "datePublished": "2026-09-10",
           "dateModified": "2026-09-10",
+          "author": { "@type": "Organization", "name": "Founders Doc" },
+          "articleSection": "Contracts"
+        },
+        {
+          "@type": "BlogPosting",
+          "headline": "Can Breaching an NDA Be Expensive?",
+          "url": "https://foundersdoc.com/resources/can-breaching-an-nda-be-expensive/",
+          "datePublished": "2026-09-14",
+          "dateModified": "2026-09-14",
           "author": { "@type": "Organization", "name": "Founders Doc" },
           "articleSection": "Contracts"
         }
@@ -376,35 +385,22 @@
         color: var(--black);
       }
       .logo {
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 9px;
-        font-weight: 600;
-        font-size: 15px;
-        letter-spacing: -0.02em;
         white-space: nowrap;
+        line-height: 0;
       }
-      .logo img {
+      .brand-logo {
         display: block;
-        height: 34px;
-        width: auto;
+        width: 154px;
+        height: auto;
+        object-fit: contain;
       }
-      .logo .logo-dark {
-        display: none;
-      }
-      html.dark .logo .logo-light {
-        display: none;
-      }
-      html.dark .logo .logo-dark {
-        display: block;
-      }
-      .logo-word {
-        font-family: var(--display);
-        font-weight: 600;
-        font-size: 17px;
-        letter-spacing: 0.01em;
-        color: var(--black);
-      }
+      .brand-logo.logo-dark { display: none; }
+      html.dark .brand-logo.logo-light { display: none; }
+      html.dark .brand-logo.logo-dark { display: block; }
+      .foot .brand-logo.logo-light { display: none; }
+      .foot .brand-logo.logo-dark { display: block; width: 154px; }
       .links {
         display: flex;
         gap: 28px;
@@ -741,8 +737,8 @@
       .eyebrow .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--gold-deep); }
 
       /* front: lead story (8 cols) + rail (4 cols), Bloomberg-style */
-      .front { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 5fr) minmax(0, 3fr); gap: clamp(24px, 3.5vw, 48px); align-items: start; padding-block: clamp(28px, 3.5vw, 40px) 0; }
-      .front::after { content: ""; grid-column: 1 / -1; height: 3px; background: var(--ink); margin-top: clamp(8px, 1.5vw, 16px); }
+      .front { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 5fr) minmax(280px, 3fr); gap: clamp(24px, 3.5vw, 48px); align-items: start; padding-block: clamp(28px, 3.5vw, 40px) clamp(26px, 3vw, 36px); }
+      .front::after { content: ""; grid-column: 1 / -1; height: 2px; background: var(--ink); margin-top: clamp(12px, 1.8vw, 22px); }
       .feature { display: flex; flex-direction: column; justify-content: flex-start; align-self: start; padding-top: 4px; }
       .art { position: relative; display: block; overflow: hidden; background: var(--gold); border-radius: 10px; aspect-ratio: 4 / 3; transition: box-shadow 0.25s var(--ease); }
       .art:hover { box-shadow: 0 24px 56px -32px rgba(15, 15, 15, 0.5); }
@@ -762,7 +758,7 @@
       .feature .read .arr { color: var(--gold-deep); display: inline-block; transition: transform 0.2s var(--ease); }
       .feature .read:hover .arr { transform: translate(2px, -2px); }
 
-      .rail { display: grid; gap: 24px; align-content: start; padding-left: clamp(0px, 2vw, 24px); border-left: 1px solid var(--grey-2); }
+      .rail { display: grid; gap: 18px; align-content: start; padding-left: clamp(0px, 2vw, 24px); border-left: 1px solid var(--grey-2); }
       .rail-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 2px solid var(--ink); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
       .rail-more { display: inline-flex; align-items: center; gap: 5px; font-family: var(--sans); font-size: 12.5px; font-weight: 500; letter-spacing: 0; color: var(--gold-deep); }
       .rail-more .arr { transition: transform 0.2s var(--ease); }
@@ -783,24 +779,26 @@
       .rail-brief .bt { display: block; font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: -0.015em; }
       .rail-brief p { margin: 6px 0 14px; font-size: 13.5px; line-height: 1.5; color: #b9b9b9; max-width: 32ch; }
       html.dark .rail-brief { background: #232323; }
-      .insights { padding: clamp(36px, 4.5vw, 56px) 0 clamp(64px, 8vw, 104px); }
+      .insights { padding: clamp(36px, 4.5vw, 54px) 0 clamp(56px, 7vw, 84px); }
       .insights h2 { font-size: clamp(24px, 2.6vw, 30px); font-weight: 600; letter-spacing: -0.03em; display: flex; align-items: baseline; }
-      .ins-h { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--grey-3); }
+      .ins-h { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding-bottom: 16px; border-bottom: 1px solid var(--grey-3); }
       .ins-h .cnt { margin-left: 12px; font-family: var(--sans); font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--grey-4); }
       .viewall { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: var(--gold-deep); white-space: nowrap; }
       .viewall .arr { transition: transform 0.2s var(--ease); }
       .viewall:hover .arr { transform: translateX(4px); }
-      .insights-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px, 3vw, 40px); margin-top: 32px; }
-      .m-card { display: flex; flex-direction: column; }
-      .thumb { display: block; width: 100%; aspect-ratio: 3 / 1; border-radius: 10px; margin-bottom: 18px; overflow: hidden; }
+      .insights-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(20px, 2.4vw, 30px); margin-top: 30px; align-items: stretch; }
+      .m-card { display: flex; flex-direction: column; min-height: 100%; padding: 14px; border: 1px solid var(--grey-2); border-radius: 14px; background: var(--white); transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s, background 0.25s; }
+      .m-card:hover { transform: translateY(-2px); border-color: var(--gold); box-shadow: 0 20px 44px -34px rgba(15, 15, 15, 0.3); }
+      .thumb { display: block; width: 100%; aspect-ratio: 3 / 1; border-radius: 10px; margin-bottom: 16px; overflow: hidden; border: 1px solid var(--grey-2); }
       .thumb svg { display: block; width: 100%; height: 100%; }
       .thumb.t-grey { background: var(--grey-1); }
       .thumb.t-gold { background: var(--gold-soft); }
       
-      .m-card h3 { margin-top: 8px; font-size: 18px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.32; flex: 1; }
+      .m-card h3 { margin-top: 7px; font-size: 18px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.3; flex: 1; }
       .m-card:hover h3 { text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 3px; }
-      .m-card .foot-row { display: block; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--grey-2); font-size: 13px; color: var(--grey-4); }
-      .m-card .arr { display: none; }
+      .m-card .foot-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 11px; border-top: 1px solid var(--grey-2); font-size: 12.5px; color: var(--grey-4); }
+      .m-card .arr { display: inline-block; transition: transform 0.2s var(--ease); }
+      .m-card:hover .arr { transform: translateX(4px); }
       .empty { margin: 26px 0 0; padding: 36px 24px; border: 1px dashed var(--grey-3); border-radius: 12px; color: var(--grey-5); font-size: 14px; text-align: center; }
 
       .brief-band { border-top: 3px solid var(--ink); background: var(--grey-1); }
@@ -825,9 +823,9 @@
         .front { grid-template-columns: 1fr 1fr; }
         .rail { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; padding-left: 0; border-left: 0; padding-top: 24px; border-top: 1px solid var(--grey-2); }
         .art { aspect-ratio: 4 / 3; }
-        .thumb { aspect-ratio: 2 / 1; }
+        .thumb { aspect-ratio: 3 / 1; }
         .art { max-width: 520px; }
-        .insights-grid { grid-template-columns: 1fr; }
+        .insights-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .front { grid-template-columns: 1fr; }
         .art { aspect-ratio: 16 / 10; }
       }
@@ -840,7 +838,7 @@
         .searchbox { flex: none; width: 100%; }
         .rail { grid-template-columns: 1fr; }
         .feature h2 { font-size: 30px; }
-        .insights-grid { gap: 28px; }
+        .insights-grid { grid-template-columns: 1fr; gap: 22px; }
       }
       @media (prefers-reduced-motion: reduce) {
         html {
@@ -852,21 +850,6 @@
           transition-delay: 0s !important;
         }
       }
-    
-      .fd-mark {
-        display: inline-block;
-        font-family: var(--sans, Inter, Arial, sans-serif);
-        font-size: 11.5px;
-        font-weight: 500;
-        letter-spacing: 0.3em;
-        text-transform: uppercase;
-        line-height: 1;
-        padding: 7px 10px 6px 12px;
-        border-top: 1px solid currentColor;
-        border-bottom: 1px solid currentColor;
-        white-space: nowrap;
-      }
-      .foot .fd-mark, footer .fd-mark { color: #fff; }
     </style>
     <script>
       document.documentElement.classList.add("js");
@@ -877,12 +860,12 @@
 
     <nav class="nav" aria-label="Main">
       <div class="wrap">
-        <a class="logo" href="/" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+        <a class="logo" href="/" aria-label="Founders Doc — home"><img class="brand-logo logo-light" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKQAAAAkCAYAAAAHBZGZAAAEYElEQVR42u2ca4hVVRTHf+akFNOYg834KDXRQlTKDEt8kVo2ouEjkInxMSoiRBompdgnlZFILSEzNPKD6IciAkVB85GPyNGskVIpIdC0lEwdZyxIx9uH/gc2p72v90wHu3dcPzjMPeesvc86e//3XnvtuTOtSktLMYx84S5rAsMEaRgmSMMEaRgJKQpcv2BNY9wGynMVZLm1lWEh2zBBWhMYJkjDMEEaJkjDMEEahUxRSvV0B/rFrv0CHM1SpkLPPwd8k8XuWeAwUO9c6wu0DdT/HHAa+CHmXzdgX8C+rT7fyhfX74gmYLvHri/wsD5ngK+A33Os+8eY/0n7IAPUAr/lUK4P0ENlDsTaOdtzMmr/X/NRkM8Ay2INsCcgmKeAT4CrwClgAPA1MDFQ9ztAJfCdc20K/+yVTvfYr9bPgUCD498MYGjAPgP8BdwDlACvAxs9tt2AD4ArKoPK7QcaY7ZT5PclnXcCVgFveeodDmwC6oCLwGjg3YBtrn1QDhyXDyFhfqhBcBR4SGWqgR0B+2XALOAE0Bp4BFgCrM3HkP058LhzzPfYFAPrgTWaQSZotHUFFqbkx03gjwT1NQGT5fOjQBVQ45nxcQQ41HnPgR4xRrzv2E0EXpYw47yiATBWg6wCGKf2am4fdNJsFxJ1NTAEeBJ4AegPvClxlQUiSTXwPDBCg6gSWKR2K8g15GDg3lgj1QMr9XJpkNGorVSDJ2U3cFCdlCZngRtAB8+9RqCnc14n3xv/4zNrgJGA70uv0zULuyH3I/XHaI/9eOBT+RbxhWbMa/koyMckrOh4wmPTOfZCET+r0UpS8uUnheLlzSx/BugVuNdGa606Hauy1FOs2aaXZuxLsaVHxEKgPXBeA6IqpXa4qAjQxXOvA/B94N199l2AI57rOzXY8moNmYTb9RX11cBLwGvOOi4JTYHrNyT0a07yFmKqwnCpEqZxAbvzwCiJsgJYoDXviJQixs3AZJS0L8oKadvnmDo/OnzZap1C04Ox60+r/FVPmdb8+8se5Tlmd/O1Puue8F0GBWaDaI26HdiqI9tOQrSGrNI7F2fZSWgHXAY2Ay8Gdi6aE7UySm7i1CrBdGkP9FaS6bMf5Lm+V/4X5BryW23hbFTGCjAJeBVYFyhTCyx2RDxJs8nuHJ73pbLXOTnM2mXKNDcAD6hcWuyXv4sC99+Ihf5RwN0KuUloo/coA8YA7wErArbrgWnATJ131BryLLDLY79JOyJLNbBKVH9H4FAhh+wZSmoO6/xPCXJLwH6uOiuaia6rA3fl+Ly3s4TKaAb+2AnHW4FhzpaRr9NPxbLuPoHZPe7HNiUrB2P3ZsmHC06bzGzGHt9IZ416BpgHfJZlsE5TVl3jJHSzA/anldisdWxOavA0pCWOVgX2V4f3aw+wpXKfolY9dyhFBebvlRbeHw3c4djvsg0TpGGYIA0TpGGYIA0TpGGkhf2jAOP/xP5RgGEh2zBMkIYJ0jBMkEbL4m+nLuUm6+Y09QAAAABJRU5ErkJggg==" alt="Founders Doc" /><img class="brand-logo logo-dark" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKQAAAAkCAYAAAAHBZGZAAAEX0lEQVR42u2cbYhVRRjHf+amJNuWi+36UmmhRaj0iillglq6kVIahLGkqxJB9IJFKvWpZGOpJKESMuqD2IdCgiQhX3oxo9bXDS1RQdCslNRcd29BuV4/9D8wTDOne7bDdu/6/OCw98x55pznzPxnnnlmL7dPoVDAMMqFi6wJDBOkYZggDROkYWSkKlJ+3JrG6AHqSxVkvbWVYSHbMEFaExgmSMMwQRomSMMwQRqVTFVO9xkBjPXKfgZ2ptRp0PN/Anal2N0NbAPanbIxQP/I/e8BDgP7Pf+GA19G7Pvr87/54vqd0AWsD9iNAa7R5yLwDXCyxHsf8PzP2gdFoBX4tYR6o4FrVecrr53TnlNU+/+SpyD75PRtnyZgmdcAnwGLAra3Ax8CZ4CDwK3ADmBW5N57gTnAHqeshb/3SucF7Pfp7zigw/FvPjAxYl8E/gQuAWqA54DVAdvhwBbgtOqgepOBTs+2RX6f0vkQYLnKfSYBa4A24AQwDXg9YltqH9QD38uHmDDf0SDYCVylOk3ApxH7ZcBC4AegL3Ad8CKwshxD9kbgJucIibEaWAW8qRnkAY22q4ElOflxDvg9w/26gIfk8/VAI9AcmPFxBDjRec9xATEmvOXYzQIelzB9ntAAuE+DrAGYofbqbh8M0WzXkiLgO4HbgJnAzcALElddJJI0AdM1ACdJ7EvVbhW5hrwDGOA1Ujvwml4uD4oatXPU4FnZDGxVJ+XJUeAsMChwrRMY6Zy3yffO//jMZmAKUBu4Nk+zsBty31V/TAvY3w+slW8JX2jGLJSjIG+UsJLjloDNUO+FEn5Uo9Xk5MshYAXwcjfrHwFGRa7101qrTcfylPtUa7YZpRn7lLf0SFgCDASOaUA05tQOJxQBhgWuDdJyKPTuIfthwPZA+QYNtrJKarJQ20PPWQE8DDzjrOOy0BUpPyuhF5zkLcYjCsO1SphmROyOAVMlygbgWa15J+cUMc5FJqOsfVFXSds+36nzkyOUrbYpNF3plY9X/TOBOn3555c96kvM7hZpfTYi47tMiMwGyRp1PbBOR9pOQrKGbNQ7V6fsJFwG/Aa8DzwY2bnoTtQqKrnxaVWC6TIQuEFJZsh+QqD8c/lfkWvI3drCWa2MFWA28DTwdqROK/C8I+LZmk02l/C8r5W9PlbCrF2nTPM94ArVy4st8ndp5PpiL/RPBS5WyM1CP71HHXAv8AbwasR2FTAXWKDzwVpDHgU2BezXaEfkJQ2sGt1/MPBtJYfs+Upqtun8Dwny44j9k+qsZCb6Sx24qcTnvZISKpMZ+AMnHK8D7nK2jEKdftDLukdHZnffj0+UrGz1ri2UD8edNlnQjT2+Kc4a9QjwFPBRymCdq6y62UnoHo3YH1Zis9Kx2afB01Fu+5A9xeXaA+ytXKqo1c4FSlWF+Xu6l/dHBxc49r9swwRpGCZIwwRpGCZIwwRpGHlhPxRg/J/YDwUYFrINwwRpmCANwwRp9C7OA1GE7ixQ27tSAAAAAElFTkSuQmCC" alt="" aria-hidden="true" /></a>
         <div class="links">
           <div class="has-sub" data-open="false">
             <button type="button" aria-expanded="false" aria-haspopup="true">FD AI <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
             <div class="nav-sub">
-              <a href="/draft">Draft</a>
+              <a href="/#ai">Draft</a>
               <a href="/#about">Review</a>
             </div>
           </div>
@@ -899,16 +882,16 @@
           <div class="has-sub" data-open="false">
             <button type="button" class="on" aria-expanded="false" aria-haspopup="true">Resources <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
             <div class="nav-sub">
-              <a href="/resources" aria-current="page">Blog</a>
-              <a href="/coming-soon?f=Courses">Courses</a>
-              <a href="/podcast">Podcast</a>
+              <a href="https://foundersdoc.com/resources/all/" aria-current="page">Blog</a>
+              <a href="https://foundersdoc.com/courses/">Courses</a>
+              <a href="https://foundersdoc.com/podcast/">Podcast</a>
             </div>
           </div>
-          <a href="/about">About us</a>
+          <a href="https://foundersdoc.com/about-us/">About us</a>
         </div>
         <div class="nav-cta">
-          <a class="btn btn-white" href="/contact">Book a consultation</a>
-          <a class="btn btn-gold" href="/draft">Launch FD AI</a>
+          <a class="btn btn-white" href="https://foundersdoc.com/contact-us/">Book a consultation</a>
+          <a class="btn btn-gold" href="https://foundersdoc.ai">Launch FD AI</a>
         </div>
         <button class="theme-btn" type="button" aria-label="Toggle light and dark mode" aria-pressed="false">
           <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5 5l1.8 1.8M17.2 17.2 19 19M19 5l-1.8 1.8M6.8 17.2 5 19"/></svg>
@@ -923,7 +906,7 @@
         <div class="wrap">
           <div class="menu-group">
             <span>FD AI</span>
-            <a href="/draft">Draft</a>
+            <a href="/#ai">Draft</a>
             <a href="/#about">Review</a>
           </div>
           <a href="/#lawyers">Ask a Lawyer</a>
@@ -934,12 +917,12 @@
           </div>
           <div class="menu-group">
             <span>Resources</span>
-            <a href="/resources" aria-current="page">Blog</a>
-            <a href="/coming-soon?f=Courses">Courses</a>
-            <a href="/podcast">Podcast</a>
+            <a href="https://foundersdoc.com/resources/all/" aria-current="page">Blog</a>
+            <a href="https://foundersdoc.com/courses/">Courses</a>
+            <a href="https://foundersdoc.com/podcast/">Podcast</a>
           </div>
-          <a href="/about">About us</a>
-          <a href="/contact">Contact us</a>
+          <a href="https://foundersdoc.com/about-us/">About us</a>
+          <a href="https://foundersdoc.com/contact-us/">Contact us</a>
         </div>
       </div>
     </nav>
@@ -969,13 +952,13 @@
         <article class="feature" data-cat="contracts">
           <div class="f-body">
             <span class="eyebrow">Featured<span class="dot" aria-hidden="true"></span>Contracts</span>
-            <h2><a href="/nda-vs-confidentiality-agreement">NDA vs Confidentiality Agreement: What is the Difference?</a></h2>
+            <h2><a href="/resources/nda-vs-confidentiality-agreement/">NDA vs Confidentiality Agreement: What is the Difference?</a></h2>
             <p class="deck">The terms are often interchangeable. What matters is the scope of the obligations inside the agreement.</p>
             <p class="time">By Founders Doc · 8 Sep 2026 · 6 min read</p>
-            <a class="read" href="/nda-vs-confidentiality-agreement"><span class="txt">Read article</span><span class="arr" aria-hidden="true">↗</span></a>
+            <a class="read" href="/resources/nda-vs-confidentiality-agreement/"><span class="txt">Read article</span><span class="arr" aria-hidden="true">↗</span></a>
           </div>
         </article>
-        <a class="art" data-rv href="/nda-vs-confidentiality-agreement" aria-label="Read the article">
+        <a class="art" data-rv href="/resources/nda-vs-confidentiality-agreement/" aria-label="Read the article">
           <svg viewBox="34 8 332 190" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" text-rendering="geometricPrecision" font-family="Geist, Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif">
               <defs>
                 <filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#5a3f08" flood-opacity=".16"/></filter>
@@ -1010,30 +993,44 @@
           <section class="rail-sec">
             <h3 class="rail-h">Latest<a class="rail-more" href="#more">All articles<span class="arr" aria-hidden="true">→</span></a></h3>
             <ul class="latest">
-              <li><a href="/before-you-sign-an-nda"><span class="l-tag">Contracts</span><strong>Before You Sign an NDA: 10 Things Founders Should Know</strong><span class="l-time">10 Sep 2026 · 9 min read</span></a></li>
-              <li><a href="/nda-vs-confidentiality-agreement"><span class="l-tag">Contracts</span><strong>NDA vs Confidentiality Agreement: What is the Difference?</strong><span class="l-time">8 Sep 2026 · 6 min read</span></a></li>
+              <li><a href="/resources/can-breaching-an-nda-be-expensive/"><span class="l-tag">Contracts</span><strong>Can Breaching an NDA Be Expensive?</strong><span class="l-time">14 Sep 2026 · 9 min read</span></a></li>
+              <li><a href="/resources/before-you-sign-an-nda/"><span class="l-tag">Contracts</span><strong>Before You Sign an NDA: 10 Things Founders Should Know</strong><span class="l-time">10 Sep 2026 · 9 min read</span></a></li>
+              <li><a href="/resources/nda-vs-confidentiality-agreement/"><span class="l-tag">Contracts</span><strong>NDA vs Confidentiality Agreement: What is the Difference?</strong><span class="l-time">8 Sep 2026 · 6 min read</span></a></li>
             </ul>
           </section>
-          <section class="rail-sec">
-            <h3 class="rail-h">Topics</h3>
-            <ul class="topics">
-              <li><button type="button" data-topic="contracts"><span>Contracts</span><span class="n">2</span></button></li>
-              <li><button type="button" data-topic="fundraising"><span>Fundraising</span><span class="n">Soon</span></button></li>
-              <li><button type="button" data-topic="company"><span>Company setup</span><span class="n">Soon</span></button></li>
-              <li><button type="button" data-topic="hiring"><span>Hiring</span><span class="n">Soon</span></button></li>
-              <li><button type="button" data-topic="ai"><span>AI &amp; law</span><span class="n">Soon</span></button></li>
-            </ul>
-          </section>
+
         </aside>
       </section>
 
       <section class="wrap">
 
-        <!-- The first card below is live. The remaining cards are placeholders linking back to this page — replace them with live posts as they are published. -->
+        <!-- Published articles -->
         <section class="insights" id="more">
           <div class="ins-h"><h2>Latest insights<span class="cnt" id="n-posts"></span></h2><a class="viewall" href="#more">View all articles<span class="arr" aria-hidden="true">→</span></a></div>
           <div class="insights-grid">
-            <a class="m-card" data-cat="contracts" href="/before-you-sign-an-nda">
+            <a class="m-card" data-cat="contracts" href="/resources/can-breaching-an-nda-be-expensive/">
+              <span class="thumb t-gold">
+                <svg viewBox="0 0 300 100" aria-hidden="true">
+                  <g transform="translate(48 14)">
+                    <rect x="42" y="8" width="78" height="64" rx="8" fill="var(--white)" stroke="var(--grey-3)"/>
+                    <path d="M99 8v15h21" fill="none" stroke="var(--grey-3)" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M99 8l21 15" fill="var(--grey-1)" stroke="var(--grey-3)" stroke-width="2" stroke-linejoin="round"/>
+                    <rect x="56" y="24" width="30" height="3" rx="1.5" fill="var(--gold)"/>
+                    <rect x="56" y="36" width="48" height="3" rx="1.5" fill="var(--grey-3)"/>
+                    <rect x="56" y="46" width="40" height="3" rx="1.5" fill="var(--grey-3)"/>
+                    <path d="M64 58L96 26" stroke="var(--miss)" stroke-width="3" stroke-linecap="round" opacity="0.95"/>
+                    <circle cx="148" cy="50" r="20" fill="var(--white)" stroke="var(--gold-deep)" stroke-width="2"/>
+                    <circle cx="148" cy="50" r="14" fill="none" stroke="var(--gold)" stroke-width="1.6" opacity="0.9"/>
+                    <text x="148" y="56" text-anchor="middle" font-family="var(--display)" font-size="18" font-weight="700" fill="var(--gold-deep)">$</text>
+                  </g>
+                </svg>
+              </span>
+              <span class="eyebrow">Contracts</span>
+              <h3>Can Breaching an NDA Be Expensive?</h3>
+              <span class="foot-row"><span>14 Sep 2026 · 9 min read</span><span class="arr" aria-hidden="true">→</span></span>
+            </a>
+
+            <a class="m-card" data-cat="contracts" href="/resources/before-you-sign-an-nda/">
               <span class="thumb t-gold">
                 <svg viewBox="0 0 300 100" aria-hidden="true">
                   <rect x="103" y="12" width="94" height="80" rx="5" fill="var(--white)" stroke="var(--grey-3)"/>
@@ -1048,17 +1045,24 @@
               <h3>Before You Sign an NDA: 10 Things Founders Should Know</h3>
               <span class="foot-row"><span>10 Sep 2026 · 9 min read</span><span class="arr" aria-hidden="true">→</span></span>
             </a>
-            <a class="m-card" data-cat="company" href="/resources">
-              <span class="thumb t-grey"><svg viewBox="0 0 300 100" aria-hidden="true"><rect x="108" y="56" width="22" height="44" fill="var(--grey-3)"/><rect x="136" y="30" width="28" height="70" fill="var(--grey-4)"/><rect x="146" y="30" width="8" height="70" fill="var(--gold)"/><rect x="170" y="46" width="22" height="54" fill="var(--grey-3)"/></svg></span>
-              <span class="eyebrow">Company setup</span>
-              <h3>Incorporating in Singapore vs Delaware: a founder's decision tree</h3>
-              <span class="foot-row"><span>15 Jul 2026 · 7 min read</span><span class="arr" aria-hidden="true">→</span></span>
-            </a>
-            <a class="m-card" data-cat="fundraising" href="/resources">
-              <span class="thumb t-gold"><svg viewBox="0 0 300 100" aria-hidden="true"><path d="M100 78 L138 60 L166 66 L200 30" stroke="var(--gold-deep)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="200" cy="30" r="5" fill="var(--gold-soft)" stroke="var(--gold-deep)" stroke-width="2.5"/></svg></span>
-              <span class="eyebrow">Fundraising</span>
-              <h3>SAFE, convertible note, or priced round: choosing your first instrument</h3>
-              <span class="foot-row"><span>12 Aug 2026 · 8 min read</span><span class="arr" aria-hidden="true">→</span></span>
+
+            <a class="m-card" data-cat="contracts" href="/resources/nda-vs-confidentiality-agreement/">
+              <span class="thumb t-grey">
+                <svg viewBox="0 0 300 100" aria-hidden="true">
+                  <g transform="translate(48 10)">
+                    <rect x="30" y="10" width="82" height="68" rx="6" fill="#232323"/>
+                    <text x="71" y="47" text-anchor="middle" font-family="var(--display)" font-size="17" font-weight="600" fill="#fff">NDA</text>
+                    <rect x="126" y="14" width="92" height="68" rx="6" fill="var(--white)" stroke="var(--grey-3)"/>
+                    <rect x="143" y="30" width="58" height="3" rx="1.5" fill="var(--gold)"/>
+                    <rect x="143" y="42" width="46" height="3" rx="1.5" fill="var(--grey-3)"/>
+                    <rect x="143" y="52" width="52" height="3" rx="1.5" fill="var(--grey-3)"/>
+                    <path d="M112 45h14" stroke="var(--gold-deep)" stroke-width="2.2" stroke-linecap="round"/>
+                  </g>
+                </svg>
+              </span>
+              <span class="eyebrow">Contracts</span>
+              <h3>NDA vs Confidentiality Agreement: What is the Difference?</h3>
+              <span class="foot-row"><span>8 Sep 2026 · 6 min read</span><span class="arr" aria-hidden="true">→</span></span>
             </a>
           </div>
           <p class="empty" id="empty" hidden>No articles match your search. Try a different word, or clear the filters.</p>
@@ -1086,7 +1090,7 @@
       <div class="wrap">
         <div class="grid">
           <div>
-            <a class="logo" href="#top" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+            <a class="logo" href="#top" aria-label="Founders Doc — home"><img class="brand-logo logo-light" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKQAAAAkCAYAAAAHBZGZAAAEYElEQVR42u2ca4hVVRTHf+akFNOYg834KDXRQlTKDEt8kVo2ouEjkInxMSoiRBompdgnlZFILSEzNPKD6IciAkVB85GPyNGskVIpIdC0lEwdZyxIx9uH/gc2p72v90wHu3dcPzjMPeesvc86e//3XnvtuTOtSktLMYx84S5rAsMEaRgmSMMEaRgJKQpcv2BNY9wGynMVZLm1lWEh2zBBWhMYJkjDMEEaJkjDMEEahUxRSvV0B/rFrv0CHM1SpkLPPwd8k8XuWeAwUO9c6wu0DdT/HHAa+CHmXzdgX8C+rT7fyhfX74gmYLvHri/wsD5ngK+A33Os+8eY/0n7IAPUAr/lUK4P0ENlDsTaOdtzMmr/X/NRkM8Ay2INsCcgmKeAT4CrwClgAPA1MDFQ9ztAJfCdc20K/+yVTvfYr9bPgUCD498MYGjAPgP8BdwDlACvAxs9tt2AD4ArKoPK7QcaY7ZT5PclnXcCVgFveeodDmwC6oCLwGjg3YBtrn1QDhyXDyFhfqhBcBR4SGWqgR0B+2XALOAE0Bp4BFgCrM3HkP058LhzzPfYFAPrgTWaQSZotHUFFqbkx03gjwT1NQGT5fOjQBVQ45nxcQQ41HnPgR4xRrzv2E0EXpYw47yiATBWg6wCGKf2am4fdNJsFxJ1NTAEeBJ4AegPvClxlQUiSTXwPDBCg6gSWKR2K8g15GDg3lgj1QMr9XJpkNGorVSDJ2U3cFCdlCZngRtAB8+9RqCnc14n3xv/4zNrgJGA70uv0zULuyH3I/XHaI/9eOBT+RbxhWbMa/koyMckrOh4wmPTOfZCET+r0UpS8uUnheLlzSx/BugVuNdGa606Hauy1FOs2aaXZuxLsaVHxEKgPXBeA6IqpXa4qAjQxXOvA/B94N199l2AI57rOzXY8moNmYTb9RX11cBLwGvOOi4JTYHrNyT0a07yFmKqwnCpEqZxAbvzwCiJsgJYoDXviJQixs3AZJS0L8oKadvnmDo/OnzZap1C04Ox60+r/FVPmdb8+8se5Tlmd/O1Puue8F0GBWaDaI26HdiqI9tOQrSGrNI7F2fZSWgHXAY2Ay8Gdi6aE7UySm7i1CrBdGkP9FaS6bMf5Lm+V/4X5BryW23hbFTGCjAJeBVYFyhTCyx2RDxJs8nuHJ73pbLXOTnM2mXKNDcAD6hcWuyXv4sC99+Ihf5RwN0KuUloo/coA8YA7wErArbrgWnATJ131BryLLDLY79JOyJLNbBKVH9H4FAhh+wZSmoO6/xPCXJLwH6uOiuaia6rA3fl+Ly3s4TKaAb+2AnHW4FhzpaRr9NPxbLuPoHZPe7HNiUrB2P3ZsmHC06bzGzGHt9IZ416BpgHfJZlsE5TVl3jJHSzA/anldisdWxOavA0pCWOVgX2V4f3aw+wpXKfolY9dyhFBebvlRbeHw3c4djvsg0TpGGYIA0TpGGYIA0TpGGkhf2jAOP/xP5RgGEh2zBMkIYJ0jBMkEbL4m+nLuUm6+Y09QAAAABJRU5ErkJggg==" alt="Founders Doc" /><img class="brand-logo logo-dark" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKQAAAAkCAYAAAAHBZGZAAAEX0lEQVR42u2cbYhVRRjHf+amJNuWi+36UmmhRaj0iillglq6kVIahLGkqxJB9IJFKvWpZGOpJKESMuqD2IdCgiQhX3oxo9bXDS1RQdCslNRcd29BuV4/9D8wTDOne7bDdu/6/OCw98x55pznzPxnnnlmL7dPoVDAMMqFi6wJDBOkYZggDROkYWSkKlJ+3JrG6AHqSxVkvbWVYSHbMEFaExgmSMMwQRomSMMwQRqVTFVO9xkBjPXKfgZ2ptRp0PN/Anal2N0NbAPanbIxQP/I/e8BDgP7Pf+GA19G7Pvr87/54vqd0AWsD9iNAa7R5yLwDXCyxHsf8PzP2gdFoBX4tYR6o4FrVecrr53TnlNU+/+SpyD75PRtnyZgmdcAnwGLAra3Ax8CZ4CDwK3ADmBW5N57gTnAHqeshb/3SucF7Pfp7zigw/FvPjAxYl8E/gQuAWqA54DVAdvhwBbgtOqgepOBTs+2RX6f0vkQYLnKfSYBa4A24AQwDXg9YltqH9QD38uHmDDf0SDYCVylOk3ApxH7ZcBC4AegL3Ad8CKwshxD9kbgJucIibEaWAW8qRnkAY22q4ElOflxDvg9w/26gIfk8/VAI9AcmPFxBDjRec9xATEmvOXYzQIelzB9ntAAuE+DrAGYofbqbh8M0WzXkiLgO4HbgJnAzcALElddJJI0AdM1ACdJ7EvVbhW5hrwDGOA1Ujvwml4uD4oatXPU4FnZDGxVJ+XJUeAsMChwrRMY6Zy3yffO//jMZmAKUBu4Nk+zsBty31V/TAvY3w+slW8JX2jGLJSjIG+UsJLjloDNUO+FEn5Uo9Xk5MshYAXwcjfrHwFGRa7101qrTcfylPtUa7YZpRn7lLf0SFgCDASOaUA05tQOJxQBhgWuDdJyKPTuIfthwPZA+QYNtrJKarJQ20PPWQE8DDzjrOOy0BUpPyuhF5zkLcYjCsO1SphmROyOAVMlygbgWa15J+cUMc5FJqOsfVFXSds+36nzkyOUrbYpNF3plY9X/TOBOn3555c96kvM7hZpfTYi47tMiMwGyRp1PbBOR9pOQrKGbNQ7V6fsJFwG/Aa8DzwY2bnoTtQqKrnxaVWC6TIQuEFJZsh+QqD8c/lfkWvI3drCWa2MFWA28DTwdqROK/C8I+LZmk02l/C8r5W9PlbCrF2nTPM94ArVy4st8ndp5PpiL/RPBS5WyM1CP71HHXAv8AbwasR2FTAXWKDzwVpDHgU2BezXaEfkJQ2sGt1/MPBtJYfs+Upqtun8Dwny44j9k+qsZCb6Sx24qcTnvZISKpMZ+AMnHK8D7nK2jEKdftDLukdHZnffj0+UrGz1ri2UD8edNlnQjT2+Kc4a9QjwFPBRymCdq6y62UnoHo3YH1Zis9Kx2afB01Fu+5A9xeXaA+ytXKqo1c4FSlWF+Xu6l/dHBxc49r9swwRpGCZIwwRpGCZIwwRpGHlhPxRg/J/YDwUYFrINwwRpmCANwwRp9C7OA1GE7ixQ27tSAAAAAElFTkSuQmCC" alt="" aria-hidden="true" /></a>
             <p class="about">
               Contracts for founders everywhere, reviewed and drafted by Jessica, our AI, and the practising
               lawyers behind her.
@@ -1096,18 +1100,18 @@
             <h4>Quick links</h4>
             <ul>
               <li><a href="#top">Home</a></li>
-              <li><a href="/about">About us</a></li>
-              <li><a href="/#services">Our services</a></li>
-              <li><a href="/resources">Blog</a></li>
-              <li><a href="/coming-soon?f=Courses">Courses</a></li>
-              <li><a href="/podcast">Podcast</a></li>
-              <li><a href="/contact">Contact us</a></li>
+              <li><a href="https://foundersdoc.com/about-us/">About us</a></li>
+              <li><a href="https://foundersdoc.com/services/">Our services</a></li>
+              <li><a href="https://foundersdoc.com/resources/all/">Blog</a></li>
+              <li><a href="https://foundersdoc.com/courses/">Courses</a></li>
+              <li><a href="https://foundersdoc.com/podcast/">Podcast</a></li>
+              <li><a href="https://foundersdoc.com/contact-us/">Contact us</a></li>
             </ul>
           </div>
           <div>
             <h4>Useful links</h4>
             <ul>
-              <li><a href="/draft">Launch FD AI</a></li>
+              <li><a href="https://foundersdoc.ai">Launch FD AI</a></li>
               <li><a href="https://foundersdoc.com/terms-conditions/">Terms &amp; conditions</a></li>
               <li><a href="https://foundersdoc.com/privacy-policy/">Privacy policy</a></li>
               <li><a href="https://foundersdoc.com/community-guidelines/">Community guidelines</a></li>
@@ -1374,6 +1378,5 @@
         }
       })();
     </script>
-  <script defer src="/fd-track.js"></script>
-</body>
+  </body>
 </html>
