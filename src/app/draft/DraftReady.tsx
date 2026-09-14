@@ -79,6 +79,13 @@ export interface DraftReadyProps {
   error?: string | null;
   paywalled?: boolean;
   onChangeNdaDetailLevel: (level: 1 | 2 | 3 | 4 | 5) => void;
+  /** The full questionnaire transcript, retained while drafting and afterwards. */
+  conversation?: {
+    who: "fd" | "me";
+    text: string;
+    label?: string;
+    skipped?: boolean;
+  }[];
   /** Follow-up turns, oldest first. */
   follow: {
     who: "me" | "fd";
@@ -106,6 +113,7 @@ export default function DraftReady({
   error,
   paywalled = false,
   onChangeNdaDetailLevel,
+  conversation = [],
   follow,
 }: DraftReadyProps) {
   const [text, setText] = useState("");
@@ -129,7 +137,7 @@ export default function DraftReady({
       if (thread) thread.scrollTo({ top: thread.scrollHeight, behavior: "smooth" });
     });
     return () => cancelAnimationFrame(frame);
-  }, [follow, busy, error, paywalled]);
+  }, [conversation, follow, busy, error, paywalled]);
 
   function chooseDetailLevel(level: 1 | 2 | 3 | 4 | 5) {
     setSliderValue(level);
@@ -166,6 +174,23 @@ export default function DraftReady({
       </div>
 
       <div className="gen-thread" ref={threadRef}>
+        <div className="gen-follow-stream" aria-label="Question and answer history">
+          {conversation.map((message, index) =>
+            message.who === "fd" ? (
+              <div className="cg-turn" key={`question-${index}`}>
+                <div className="cg-msg"><p>{message.text}</p></div>
+              </div>
+            ) : (
+              <div className="cg-user" key={`answer-${index}`}>
+                <div className="cg-bubble">
+                  {message.label && <b>{message.label}</b>}
+                  <p style={{ margin: message.label ? "4px 0 0" : 0 }}>{message.text}</p>
+                </div>
+              </div>
+            ),
+          )}
+        </div>
+
         {/* The person's own message, with their answers summarised back. Seeing
             what was actually sent is how someone spots that they answered a
             question wrongly — before reading 3,000 words of contract looking
