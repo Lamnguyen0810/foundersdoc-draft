@@ -297,11 +297,11 @@ export default function DocumentEditor({
     const onScroll = () => setPageNow(currentPage());
 
     const onInput = () => {
+      onContentChange?.(snapshot(), docText());
       if (statusT) clearTimeout(statusT);
       statusT = setTimeout(() => {
         countWords();
         markDirty();
-        onContentChange?.(snapshot(), docText());
       }, 250);
       if (histTimer.current) clearTimeout(histTimer.current);
       histTimer.current = setTimeout(pushHist, 600);
@@ -356,7 +356,18 @@ export default function DocumentEditor({
       if (statusT) clearTimeout(statusT);
       if (resizeT) clearTimeout(resizeT);
     };
-  }, [countWords, markDirty, pushHist, paginate, save, undo, redo]);
+  }, [
+    countWords,
+    markDirty,
+    pushHist,
+    paginate,
+    save,
+    undo,
+    redo,
+    onContentChange,
+    snapshot,
+    docText,
+  ]);
 
   /* ── toolbar commands ─────────────────────────────────────────────────── */
 
