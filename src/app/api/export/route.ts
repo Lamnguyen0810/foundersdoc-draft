@@ -9,6 +9,7 @@ import {
   PageNumber,
   Paragraph,
   TextRun,
+  UnderlineType,
 } from "docx";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -23,11 +24,15 @@ export const maxDuration = 60;
 const PT = (n: number) => n * 2; // docx sizes are half-points
 const FONT = LETTERHEAD.font;
 
-function run(text: string, opts: { b?: boolean; i?: boolean; size?: number; color?: string } = {}) {
+function run(
+  text: string,
+  opts: { b?: boolean; i?: boolean; u?: boolean; size?: number; color?: string } = {},
+) {
   return new TextRun({
     text,
     bold: opts.b,
     italics: opts.i,
+    underline: opts.u ? { type: UnderlineType.SINGLE } : undefined,
     font: FONT,
     size: opts.size ?? PT(LETTERHEAD.bodyPt),
     color: opts.color,
@@ -42,6 +47,74 @@ function run(text: string, opts: { b?: boolean; i?: boolean; size?: number; colo
  * justified body paragraph. Deliberately simple: a clever parser that guesses
  * wrong is worse than a plain one a lawyer can fix in ten seconds.
  */
+
+function decodeHtml(value: string): string {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, n: string) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([\da-f]+);/gi, (_, n: string) => String.fromCodePoint(parseInt(n, 16)));
+}
+
+function runsFromHtml(fragment: string): TextRun[] {
+  const prepared = fragment
+    .replace(/<span\b[^>]*class=["'][^"']*placeholder[^"']*["'][^>]*>\s*<\/span>/gi, "____________")
+    .replace(/<br\s*\/?>/gi, "\n");
+  const tokens = prepared.split(/(<\/?(?:strong|b|em|i|u)\b[^>]*>)/gi);
+  let bold = 0;
+  let italics = 0;
+  let underline = 0;
+  const runs: TextRun[] = [];
+  for (const token of tokens) {
+    const tag = token.match(/^<\/?(strong|b|em|i|u)\b/i);
+    if (tag) {
+      const closing = /^<\//.test(token);
+      const delta = closing ? -1 : 1;
+      if (/^(strong|b)$/i.test(tag[1])) bold = Math.max(0, bold + delta);
+      if (/^(em|i)$/i.test(tag[1])) italics = Math.max(0, italics + delta);
+      if (/^u$/i.test(tag[1])) underline = Math.max(0, underline + delta);
+      continue;
+    }
+    const value = decodeHtml(token.replace(/<[^>]+>/g, ""));
+    if (value) runs.push(run(value, { b: bold > 0, i: italics > 0, u: underline > 0 }));
+  }
+  return runs;
+}
+
+function bodyParagraphsFromHtml(html: string, includeNotes: boolean): Paragraph[] {
+  const paragraphs: Paragraph[] = [];
+  const pattern = /<p\b([^>]*)>([\s\S]*?)<\/p>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html))) {
+    const attrs = match[1];
+    const fragment = match[2];
+    const className = /class=["']([^"']*)["']/i.exec(attrs)?.[1] ?? "";
+    if (/doc-end-note/.test(className)) continue;
+    if (!includeNotes && /doc-notes-title|doc-note/.test(className)) continue;
+
+    const children = runsFromHtml(fragment);
+    if (!children.length) continue;
+
+    const heading = /doc-title|doc-section|doc-label|doc-notes-title/.test(className);
+    const centered = /doc-title|doc-date/.test(className);
+    const subClause = /doc-subclause/.test(className);
+    const clause = /doc-clause|doc-party|doc-recital/.test(className);
+    paragraphs.push(
+      new Paragraph({
+        alignment: centered ? AlignmentType.CENTER : heading ? AlignmentType.LEFT : AlignmentType.JUSTIFIED,
+        spacing: heading ? { before: 240, after: 120 } : { after: 140 },
+        indent: subClause ? { left: 720 } : clause ? { left: 360 } : undefined,
+        children,
+      }),
+    );
+  }
+  return paragraphs;
+}
+
 function bodyParagraphs(text: string): Paragraph[] {
   const out: Paragraph[] = [];
 
@@ -186,7 +259,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
 
-  let body: { text?: string; title?: string; fileName?: string; includeNotes?: boolean };
+  let body: { text?: string; html?: string; title?: string; fileName?: string; includeNotes?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -199,7 +272,8 @@ export async function POST(req: NextRequest) {
   // The drafter's notes are for the lawyer, not the counterparty. Excluded by
   // default so a download can never accidentally send [[TO CONFIRM]] markers out.
   const { body: documentBody, notes } = splitNotes(text);
-  const children = bodyParagraphs(documentBody);
+  const html = (body.html ?? "").trim();
+  const children = html ? bodyParagraphsFromHtml(html, Boolean(body.includeNotes)) : bodyParagraphs(documentBody);
 
   if (body.includeNotes && notes) {
     children.push(

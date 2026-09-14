@@ -97,6 +97,10 @@ export interface DraftReadyProps {
   }[];
 }
 
+function FdAvatar() {
+  return <div className="cg-avatar" aria-hidden="true">FD</div>;
+}
+
 export default function DraftReady({
   docLabel,
   state,
@@ -118,6 +122,13 @@ export default function DraftReady({
 }: DraftReadyProps) {
   const [text, setText] = useState("");
   const detailLabels = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"] as const;
+  const detailLengths = [
+    "about 500–800 words",
+    "about 750–1,050 words",
+    "about 1,000–1,400 words",
+    "about 1,250–1,750 words",
+    "about 1,500–2,200 words",
+  ] as const;
   const [sliderValue, setSliderValue] = useState(ndaDetailLevel);
   const sliderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -178,6 +189,7 @@ export default function DraftReady({
           {conversation.map((message, index) =>
             message.who === "fd" ? (
               <div className="cg-turn" key={`question-${index}`}>
+                <FdAvatar />
                 <div className="cg-msg"><p>{message.text}</p></div>
               </div>
             ) : (
@@ -221,6 +233,7 @@ export default function DraftReady({
 
         {!ready && (
           <div className="cg-turn">
+                <FdAvatar />
             <div className="cg-msg">
               <p className="cg-typing" aria-label="Drafting">
                 <i />
@@ -233,6 +246,7 @@ export default function DraftReady({
 
         {ready && (
         <div className="cg-turn">
+                <FdAvatar />
           <div className="cg-msg">
             <p>
               Done. I’ve drafted your <b>{docLabel}</b> on a Singapore-law precedent.{" "}
@@ -278,6 +292,7 @@ export default function DraftReady({
               </div>
             ) : (
               <div className="cg-turn" key={k}>
+                <FdAvatar />
                 <div className="cg-msg">
                   <p>{m.text}</p>
                   {m.fileName && m.documentText && (
@@ -303,6 +318,7 @@ export default function DraftReady({
           )}
           {busy && ready && (
             <div className="cg-turn">
+                <FdAvatar />
               <div className="cg-msg">
                 <p className="cg-typing">
                   <i />
@@ -314,6 +330,7 @@ export default function DraftReady({
           )}
           {error && !busy && (
             <div className="cg-turn" role="alert">
+                <FdAvatar />
               <div className="cg-msg">
                 <p>{error}</p>
                 <small>Your current document has been kept. You can try the request again.</small>
@@ -322,6 +339,7 @@ export default function DraftReady({
           )}
           {paywalled && !busy && (
             <div className="cg-turn">
+                <FdAvatar />
               <div className="cg-msg">
                 <p>You’ve used the free revisions included with this draft.</p>
                 <a className="btn btn-gold" href="/billing">Add credits</a>
@@ -355,6 +373,7 @@ export default function DraftReady({
                   <span key={level} className={sliderValue === level ? "on" : ""}>{level}</span>
                 ))}
               </div>
+              <p className="gen-depth-length">{detailLengths[sliderValue - 1]}</p>
             </div>
           </div>
         )}

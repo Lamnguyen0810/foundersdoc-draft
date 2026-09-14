@@ -732,6 +732,10 @@ function Chat({
   // draft
   const [view, setView] = useState<"chat" | "draft">("chat");
   const [output, setOutput] = useState("");
+  const editorExportRef = useRef<{ html: string; plain: string } | null>(null);
+  const captureEditorContent = useCallback((html: string, plain: string) => {
+    editorExportRef.current = { html, plain };
+  }, []);
   const [busy, setBusy] = useState(false);
   /** Immediate re-entrancy guard for generate(); see the comment there. */
   const generatingRef = useRef(false);
@@ -1078,6 +1082,7 @@ function Chat({
     setDocOpen(false);
     setBusy(true);
     setError(null);
+    editorExportRef.current = null;
     setOutput("");
     setSkippedLabels([]);
     setView("draft");
@@ -1373,6 +1378,7 @@ function Chat({
         const nextDetailLevel = options?.targetDetailLevel ?? ndaDetailLevel;
         const nextFileName = fileNameFor(nextVersion, nextDetailLevel);
         versionCounterRef.current = nextVersion;
+        editorExportRef.current = null;
         setOutput(acc);
         setSavedHtml(null); // the lawyer's edits are superseded by the revision
         if (options?.targetDetailLevel) setNdaDetailLevel(options.targetDetailLevel);
@@ -1423,7 +1429,13 @@ function Chat({
       const res = await fetch("/api/export", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: documentText, title, fileName, includeNotes: false }),
+        body: JSON.stringify({
+          text: documentText === output ? editorExportRef.current?.plain ?? documentText : documentText,
+          html: documentText === output ? editorExportRef.current?.html : undefined,
+          title,
+          fileName,
+          includeNotes: false,
+        }),
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -1806,6 +1818,7 @@ function Chat({
           busy={busy || revising}
           onOpenDocument={() => setDocOpen(true)}
           onOpenVersion={({ documentText, version, detailLevel }) => {
+            editorExportRef.current = null;
             setOutput(documentText);
             setDocumentVersion(version);
             setNdaDetailLevel(detailLevel);
@@ -1896,6 +1909,7 @@ function Chat({
             key={`${draftId ?? "unsaved"}:v${documentVersion}`}
             text={output}
             savedHtml={savedHtml}
+            onContentChange={captureEditorContent}
             onSave={saveDocument}
           />
         )}
