@@ -732,10 +732,12 @@ function Chat({
     version?: number;
     fileName?: string;
     documentText?: string;
+    detailLevel?: number;
   }[]>([]);
   const [revising, setRevising] = useState(false);
-  const [ndaDepth, setNdaDepth] = useState<"Essential" | "Balanced" | "Comprehensive">("Balanced");
+  const [ndaDetailLevel, setNdaDetailLevel] = useState(3);
   const [documentVersion, setDocumentVersion] = useState(1);
+  const versionCounterRef = useRef(1);
   const [skippedLabels, setSkippedLabels] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [acctOpen, setAcctOpen] = useState(false);
@@ -763,7 +765,7 @@ function Chat({
   const step = finished ? null : steps[i];
 
   const fileNameFor = useCallback(
-    (version: number, depth: "Essential" | "Balanced" | "Comprehensive") => {
+    (version: number, detailLevel: number) => {
       const clean = (value: string) =>
         (value === SKIPPED ? "" : value.split("(")[0])
           .replace(/[^a-zA-Z0-9 -]/g, "")
@@ -771,11 +773,11 @@ function Chat({
           .replace(/\s+/g, "-")
           .slice(0, 28);
       const parties = [clean(answers.party_a ?? ""), clean(answers.party_b ?? "")].filter(Boolean);
-      return ["NDA", ...parties, `V${version}`, depth].join("-") + ".docx";
+      return ["NDA", ...parties, `V${version}`, `Detail-${detailLevel}`].join("-") + ".docx";
     },
     [answers.party_a, answers.party_b],
   );
-  const currentFileName = fileNameFor(documentVersion, ndaDepth);
+  const currentFileName = fileNameFor(documentVersion, ndaDetailLevel);
 
   useEffect(() => {
     const el = threadRef.current;
@@ -1208,7 +1210,7 @@ function Chat({
   async function revise(
     instruction: string,
     options?: {
-      targetDepth?: "Essential" | "Balanced" | "Comprehensive";
+      targetDetailLevel?: 1 | 2 | 3 | 4 | 5;
     },
   ) {
     if (revising || busy) return;
@@ -1225,7 +1227,7 @@ function Chat({
           draftId,
           instruction,
           text: output,
-          targetDepth: options?.targetDepth,
+          targetDetailLevel: options?.targetDetailLevel,
         }),
       });
 
@@ -1287,28 +1289,30 @@ function Chat({
         }
         return lengthDelta >= 0.08 || changedAtPosition / Math.max(a.length, b.length, 1) >= 0.12;
       };
-      const changed = options?.targetDepth
+      const changed = options?.targetDetailLevel
         ? materiallyChanged(output, acc)
         : normalise(acc) !== normalise(output);
       if (!failed && acc.trim() && changed) {
-        const nextVersion = documentVersion + 1;
-        const nextDepth = options?.targetDepth ?? ndaDepth;
-        const nextFileName = fileNameFor(nextVersion, nextDepth);
+        const nextVersion = versionCounterRef.current + 1;
+        const nextDetailLevel = options?.targetDetailLevel ?? ndaDetailLevel;
+        const nextFileName = fileNameFor(nextVersion, nextDetailLevel);
+        versionCounterRef.current = nextVersion;
         setOutput(acc);
         setSavedHtml(null); // the lawyer's edits are superseded by the revision
-        if (options?.targetDepth) setNdaDepth(options.targetDepth);
+        if (options?.targetDetailLevel) setNdaDetailLevel(options.targetDetailLevel);
         setDocumentVersion(nextVersion);
         setDocOpen(true);
         setFollow((f) => [
           ...f,
           {
             who: "fd",
-            text: options?.targetDepth
-              ? `Version ${nextVersion} is ready. I rewrote the NDA at the ${options.targetDepth.toLowerCase()} level and updated the document beside the chat.`
+            text: options?.targetDetailLevel
+              ? `Version ${nextVersion} is ready. I rewrote the NDA at comprehensiveness level ${options.targetDetailLevel} and updated the document beside the chat.`
               : `Version ${nextVersion} is ready. I revised the NDA following your request and updated the document beside the chat.`,
             version: nextVersion,
             fileName: nextFileName,
             documentText: acc,
+            detailLevel: nextDetailLevel,
           },
         ]);
         track("draft_revised", { doc_type: docType.slug });
@@ -1679,15 +1683,22 @@ function Chat({
           skippedCount={skippedLabels.length}
           docOpen={docOpen}
           busy={busy || revising}
-          onOpenDocument={() => setDocOpen((v) => !v)}
-          onDownload={(documentText, fileName) => void exportDocx(documentText, fileName)}
+          onOpenDocument={() => setDocOpen(true)}
+          onDownload={() => void exportDocx()}
+          onOpenVersion={({ documentText, version, detailLevel }) => {
+            setOutput(documentText);
+            setDocumentVersion(version);
+            setNdaDetailLevel(detailLevel);
+            setSavedHtml(null);
+            setDocOpen(true);
+          }}
           onAsk={(prompt) => void revise(prompt)}
           fileName={currentFileName}
           version={documentVersion}
-          ndaDepth={ndaDepth}
-          onChangeNdaDepth={(depth) =>
-            void revise(`Rewrite this NDA at the ${depth.toLowerCase()} level.`, {
-              targetDepth: depth,
+          ndaDetailLevel={ndaDetailLevel}
+          onChangeNdaDetailLevel={(level) =>
+            void revise(`Rewrite this NDA at comprehensiveness level ${level} of 5.`, {
+              targetDetailLevel: level,
             })
           }
           follow={follow}
@@ -1704,7 +1715,7 @@ function Chat({
             <i />
             {busy
               ? "Drafting…"
-              : `${output.length.toLocaleString()} characters · Version ${documentVersion} · ${ndaDepth}${
+              : `${output.length.toLocaleString()} characters · Version ${documentVersion} · Detail ${ndaDetailLevel}/5${
                   skippedLabels.length ? ` · ${skippedLabels.length} to confirm` : ""
                 }`}
           </span>

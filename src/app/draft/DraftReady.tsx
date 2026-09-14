@@ -71,12 +71,13 @@ export interface DraftReadyProps {
   docOpen: boolean;
   busy: boolean;
   onOpenDocument: () => void;
-  onDownload: (documentText?: string, fileName?: string) => void;
+  onDownload: () => void;
+  onOpenVersion: (version: { documentText: string; version: number; detailLevel: number }) => void;
   onAsk: (prompt: string) => void;
   fileName: string;
   version: number;
-  ndaDepth: "Essential" | "Balanced" | "Comprehensive";
-  onChangeNdaDepth: (depth: "Essential" | "Balanced" | "Comprehensive") => void;
+  ndaDetailLevel: number;
+  onChangeNdaDetailLevel: (level: 1 | 2 | 3 | 4 | 5) => void;
   /** Follow-up turns, oldest first. */
   follow: {
     who: "me" | "fd";
@@ -84,6 +85,7 @@ export interface DraftReadyProps {
     version?: number;
     fileName?: string;
     documentText?: string;
+    detailLevel?: number;
   }[];
 }
 
@@ -96,16 +98,17 @@ export default function DraftReady({
   busy,
   onOpenDocument,
   onDownload,
+  onOpenVersion,
   onAsk,
   fileName,
   version,
-  ndaDepth,
-  onChangeNdaDepth,
+  ndaDetailLevel,
+  onChangeNdaDetailLevel,
   follow,
 }: DraftReadyProps) {
   const [text, setText] = useState("");
-  const depthOptions = ["Essential", "Balanced", "Comprehensive"] as const;
-  const [sliderValue, setSliderValue] = useState(() => depthOptions.indexOf(ndaDepth));
+  const detailLabels = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"] as const;
+  const [sliderValue, setSliderValue] = useState(ndaDetailLevel);
 
   const short = /non-disclosure/i.test(docLabel) ? "NDA" : docLabel;
   const ready = state === "ready";
@@ -194,7 +197,7 @@ export default function DraftReady({
               )}
             </p>
 
-            <button type="button" className="cg-link cg-dl" onClick={() => onDownload()}>
+            <button type="button" className="cg-link cg-dl" onClick={onDownload}>
               <DocIcon />
               <span>Download {short} · Version {version}</span>
             </button>
@@ -223,29 +226,29 @@ export default function DraftReady({
         <div className="gen-depth">
           <div className="gen-depth-head">
             <p className="gen-section-label">NDA detail</p>
-            <b>{depthOptions[sliderValue]}</b>
+            <b>Level {sliderValue} · {detailLabels[sliderValue - 1]}</b>
           </div>
           <input
             type="range"
-            min={0}
-            max={2}
+            min={1}
+            max={5}
             step={1}
             value={sliderValue}
             disabled={busy}
             aria-label="NDA detail"
-            aria-valuetext={depthOptions[sliderValue]}
+            aria-valuetext={`Level ${sliderValue}: ${detailLabels[sliderValue - 1]}`}
             onChange={(event) => setSliderValue(Number(event.target.value))}
             onPointerUp={(event) =>
-              onChangeNdaDepth(depthOptions[Number(event.currentTarget.value)])
+              onChangeNdaDetailLevel(Number(event.currentTarget.value) as 1 | 2 | 3 | 4 | 5)
             }
             onKeyUp={(event) => {
               if (["ArrowLeft", "ArrowRight", "Home", "End", "Enter"].includes(event.key)) {
-                onChangeNdaDepth(depthOptions[Number(event.currentTarget.value)]);
+                onChangeNdaDetailLevel(Number(event.currentTarget.value) as 1 | 2 | 3 | 4 | 5);
               }
             }}
           />
           <div className="gen-depth-labels" aria-hidden="true">
-            {depthOptions.map((depth) => <span key={depth}>{depth}</span>)}
+            <span>1 · Concise</span><span>3 · Detailed</span><span>5 · Maximum</span>
           </div>
           <p className="hint">Release the slider to rewrite and send a new version.</p>
         </div>
@@ -278,12 +281,16 @@ export default function DraftReady({
                     <button
                       type="button"
                       className="gen-doc-card cg-file"
-                      onClick={() => onDownload(m.documentText, m.fileName)}
+                      onClick={() => onOpenVersion({
+                        documentText: m.documentText!,
+                        version: m.version!,
+                        detailLevel: m.detailLevel ?? 3,
+                      })}
                     >
                       <span className="cg-file-ic"><DocIcon /></span>
                       <span>
                         <b>{m.fileName}</b>
-                        <small>Version {m.version} · click to download</small>
+                        <small>Version {m.version} · click to display</small>
                       </span>
                     </button>
                   )}
