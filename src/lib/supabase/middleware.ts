@@ -39,11 +39,26 @@ const SITE_PAGES = [
   "/terms-of-service",
   "/nda-vs-confidentiality-agreement",
   "/before-you-sign-an-nda",
+  "/can-breaching-an-nda-be-expensive",
 ];
+
+/**
+ * Sections of the marketing site that are public all the way down.
+ *
+ * The blog index lives at /resources and every article is linked as
+ * /resources/<slug>/. Listing articles one by one in SITE_PAGES is how they came
+ * to be gated: next.config.ts grew a third article and this file did not, so the
+ * whole blog answered with a redirect to /login. Middleware runs BEFORE the
+ * rewrites, so what arrives here is the pretty URL, not the .html target.
+ *
+ * A prefix cannot drift. Nothing private has ever lived under /resources.
+ */
+const PUBLIC_PREFIXES = ["/resources"];
 
 function isPublic(pathname: string): boolean {
   const path = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
   if (SITE_PAGES.includes(path)) return true;
+  if (PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))) return true;
   // The rewrite target, in case anyone reaches the file directly.
   if (path.endsWith(".html")) return true;
   return PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
