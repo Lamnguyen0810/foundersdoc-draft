@@ -738,6 +738,12 @@ function Chat({
   const [ndaDetailLevel, setNdaDetailLevel] = useState(3);
   const [documentVersion, setDocumentVersion] = useState(1);
   const versionCounterRef = useRef(1);
+  const [documentVersions, setDocumentVersions] = useState<{
+    documentText: string;
+    version: number;
+    detailLevel: number;
+    fileName: string;
+  }[]>([]);
   const [skippedLabels, setSkippedLabels] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [acctOpen, setAcctOpen] = useState(false);
@@ -1025,6 +1031,10 @@ function Chat({
 
     const startedAt = Date.now();
     setFollow([]);
+    setDocumentVersions([]);
+    setDocumentVersion(1);
+    setNdaDetailLevel(3);
+    versionCounterRef.current = 1;
     setDocOpen(false);
     setBusy(true);
     setError(null);
@@ -1128,6 +1138,17 @@ function Chat({
             setSkippedLabels(msg.skipped ?? []);
             setDraftId(msg.draftId ?? null);
             setSavedHtml(null); // a fresh generation replaces any saved edits
+            if (!msg.partial && acc.trim()) {
+              setDocumentVersions([{
+                documentText: acc,
+                version: 1,
+                detailLevel: 3,
+                fileName: fileNameFor(1, 3),
+              }]);
+              setDocumentVersion(1);
+              setNdaDetailLevel(3);
+              versionCounterRef.current = 1;
+            }
             if (msg.partial) {
               /* Cut short. Say so where it cannot be missed, and do not let
                  the credit counter tick down for a document that is not whole. */
@@ -1228,6 +1249,7 @@ function Chat({
           instruction,
           text: output,
           targetDetailLevel: options?.targetDetailLevel,
+          currentDetailLevel: ndaDetailLevel,
         }),
       });
 
@@ -1302,6 +1324,15 @@ function Chat({
         if (options?.targetDetailLevel) setNdaDetailLevel(options.targetDetailLevel);
         setDocumentVersion(nextVersion);
         setDocOpen(true);
+        setDocumentVersions((versions) => [
+          ...versions,
+          {
+            documentText: acc,
+            version: nextVersion,
+            detailLevel: nextDetailLevel,
+            fileName: nextFileName,
+          },
+        ]);
         setFollow((f) => [
           ...f,
           {
@@ -1684,7 +1715,6 @@ function Chat({
           docOpen={docOpen}
           busy={busy || revising}
           onOpenDocument={() => setDocOpen(true)}
-          onDownload={() => void exportDocx()}
           onOpenVersion={({ documentText, version, detailLevel }) => {
             setOutput(documentText);
             setDocumentVersion(version);
@@ -1694,7 +1724,7 @@ function Chat({
           }}
           onAsk={(prompt) => void revise(prompt)}
           fileName={currentFileName}
-          version={documentVersion}
+          initialVersion={documentVersions[0]}
           ndaDetailLevel={ndaDetailLevel}
           onChangeNdaDetailLevel={(level) =>
             void revise(`Rewrite this NDA at comprehensiveness level ${level} of 5.`, {
