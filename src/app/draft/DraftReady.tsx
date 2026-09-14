@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * "Your draft is ready" — the conversation beside the document.
@@ -107,8 +107,25 @@ export default function DraftReady({
   const [text, setText] = useState("");
   const detailLabels = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"] as const;
   const [sliderValue, setSliderValue] = useState(ndaDetailLevel);
+  const sliderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const ready = state === "ready";
+
+  useEffect(
+    () => () => {
+      if (sliderTimer.current) clearTimeout(sliderTimer.current);
+    },
+    [],
+  );
+
+  function chooseDetailLevel(level: 1 | 2 | 3 | 4 | 5) {
+    setSliderValue(level);
+    if (sliderTimer.current) clearTimeout(sliderTimer.current);
+    sliderTimer.current = setTimeout(() => {
+      onChangeNdaDetailLevel(level);
+      sliderTimer.current = null;
+    }, 350);
+  }
 
   function send() {
     const t = text.trim();
@@ -272,15 +289,9 @@ export default function DraftReady({
               disabled={busy}
               aria-label="NDA comprehensiveness"
               aria-valuetext={`Level ${sliderValue}: ${detailLabels[sliderValue - 1]}`}
-              onChange={(event) => setSliderValue(Number(event.target.value))}
-              onPointerUp={(event) =>
-                onChangeNdaDetailLevel(Number(event.currentTarget.value) as 1 | 2 | 3 | 4 | 5)
+              onChange={(event) =>
+                chooseDetailLevel(Number(event.target.value) as 1 | 2 | 3 | 4 | 5)
               }
-              onKeyUp={(event) => {
-                if (["ArrowLeft", "ArrowRight", "Home", "End", "Enter"].includes(event.key)) {
-                  onChangeNdaDetailLevel(Number(event.currentTarget.value) as 1 | 2 | 3 | 4 | 5);
-                }
-              }}
             />
             <div className="gen-depth-labels" aria-hidden="true">
               <span>Concise</span><span>Maximum</span>
