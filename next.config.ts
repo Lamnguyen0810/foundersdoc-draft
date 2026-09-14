@@ -23,6 +23,13 @@ const SITE_PAGES = [
   "terms-of-service",
   "nda-vs-confidentiality-agreement",
   "before-you-sign-an-nda",
+  "can-breaching-an-nda-be-expensive",
+];
+
+const RESOURCE_ARTICLES = [
+  "nda-vs-confidentiality-agreement",
+  "before-you-sign-an-nda",
+  "can-breaching-an-nda-be-expensive",
 ];
 
 const nextConfig: NextConfig = {
@@ -33,6 +40,16 @@ const nextConfig: NextConfig = {
         ...SITE_PAGES.map((p) => ({ source: `/${p}`, destination: `/${p}.html` })),
         // Trailing-slash variants, because links out in the wild have both.
         ...SITE_PAGES.map((p) => ({ source: `/${p}/`, destination: `/${p}.html` })),
+        { source: "/resources/all", destination: "/resources.html" },
+        { source: "/resources/all/", destination: "/resources.html" },
+        ...RESOURCE_ARTICLES.map((p) => ({
+          source: `/resources/${p}`,
+          destination: `/${p}.html`,
+        })),
+        ...RESOURCE_ARTICLES.map((p) => ({
+          source: `/resources/${p}/`,
+          destination: `/${p}.html`,
+        })),
       ],
       afterFiles: [],
       fallback: [],
