@@ -28,13 +28,20 @@ export interface DocumentEditorProps {
   onSave?: (html: string, plain: string) => Promise<void> | void;
   /** Previously saved HTML, if this draft has been edited before. */
   savedHtml?: string | null;
+  /** Keeps the parent in sync with the exact content currently shown in the editor. */
+  onContentChange?: (html: string, plain: string) => void;
 }
 
 const A4_RATIO = 297 / 210;
 /** Keep a heading with the paragraph beneath it rather than orphaning it. */
 const KEEP_WITH_NEXT = /doc-section|doc-label|doc-notes-title/;
 
-export default function DocumentEditor({ text, onSave, savedHtml }: DocumentEditorProps) {
+export default function DocumentEditor({
+  text,
+  onSave,
+  savedHtml,
+  onContentChange,
+}: DocumentEditorProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
 
@@ -262,10 +269,11 @@ export default function DocumentEditor({ text, onSave, savedHtml }: DocumentEdit
     savedSnap.current = first;
     syncUndo();
     setDirty(false);
+    onContentChange?.(first, docText());
     // Built from `text` once. Re-running on every render would throw away
     // whatever the person has typed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [text, savedHtml]);
+  }, [text, savedHtml, onContentChange, docText]);
 
   /* ── live status ──────────────────────────────────────────────────────── */
 
@@ -293,6 +301,7 @@ export default function DocumentEditor({ text, onSave, savedHtml }: DocumentEdit
       statusT = setTimeout(() => {
         countWords();
         markDirty();
+        onContentChange?.(snapshot(), docText());
       }, 250);
       if (histTimer.current) clearTimeout(histTimer.current);
       histTimer.current = setTimeout(pushHist, 600);
