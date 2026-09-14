@@ -71,11 +71,10 @@ export interface DraftReadyProps {
   docOpen: boolean;
   busy: boolean;
   onOpenDocument: () => void;
-  onDownload: () => void;
   onOpenVersion: (version: { documentText: string; version: number; detailLevel: number }) => void;
   onAsk: (prompt: string) => void;
   fileName: string;
-  version: number;
+  initialVersion?: { documentText: string; version: number; detailLevel: number; fileName: string };
   ndaDetailLevel: number;
   onChangeNdaDetailLevel: (level: 1 | 2 | 3 | 4 | 5) => void;
   /** Follow-up turns, oldest first. */
@@ -97,11 +96,10 @@ export default function DraftReady({
   docOpen,
   busy,
   onOpenDocument,
-  onDownload,
   onOpenVersion,
   onAsk,
   fileName,
-  version,
+  initialVersion,
   ndaDetailLevel,
   onChangeNdaDetailLevel,
   follow,
@@ -110,7 +108,6 @@ export default function DraftReady({
   const detailLabels = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"] as const;
   const [sliderValue, setSliderValue] = useState(ndaDetailLevel);
 
-  const short = /non-disclosure/i.test(docLabel) ? "NDA" : docLabel;
   const ready = state === "ready";
 
   function send() {
@@ -197,72 +194,21 @@ export default function DraftReady({
               )}
             </p>
 
-            <button type="button" className="cg-link cg-dl" onClick={onDownload}>
-              <DocIcon />
-              <span>Download {short} · Version {version}</span>
-            </button>
-
             <button
               type="button"
               className="gen-doc-card cg-file"
               title="Open in the document view"
-              onClick={onOpenDocument}
+              onClick={() => initialVersion ? onOpenVersion(initialVersion) : onOpenDocument()}
               aria-pressed={docOpen}
             >
               <span className="cg-file-ic">
                 <DocIcon />
               </span>
               <span>
-                <b>{fileName}</b>
-                <small>{docOpen ? "Open beside the chat" : "Document — click to open"}</small>
+                <b>{initialVersion?.fileName ?? fileName}</b>
+                <small>Version 1 · click to display</small>
               </span>
             </button>
-          </div>
-        </div>
-        )}
-
-        {ready && (
-        /non-disclosure/i.test(docLabel) && (
-        <div className="gen-depth">
-          <div className="gen-depth-head">
-            <p className="gen-section-label">NDA detail</p>
-            <b>Level {sliderValue} · {detailLabels[sliderValue - 1]}</b>
-          </div>
-          <input
-            type="range"
-            min={1}
-            max={5}
-            step={1}
-            value={sliderValue}
-            disabled={busy}
-            aria-label="NDA detail"
-            aria-valuetext={`Level ${sliderValue}: ${detailLabels[sliderValue - 1]}`}
-            onChange={(event) => setSliderValue(Number(event.target.value))}
-            onPointerUp={(event) =>
-              onChangeNdaDetailLevel(Number(event.currentTarget.value) as 1 | 2 | 3 | 4 | 5)
-            }
-            onKeyUp={(event) => {
-              if (["ArrowLeft", "ArrowRight", "Home", "End", "Enter"].includes(event.key)) {
-                onChangeNdaDetailLevel(Number(event.currentTarget.value) as 1 | 2 | 3 | 4 | 5);
-              }
-            }}
-          />
-          <div className="gen-depth-labels" aria-hidden="true">
-            <span>1 · Concise</span><span>3 · Detailed</span><span>5 · Maximum</span>
-          </div>
-          <p className="hint">Release the slider to rewrite and send a new version.</p>
-        </div>
-        ))}
-
-        {ready && (
-        <div className="gen-quick">
-          <p className="gen-section-label">Quick refinements</p>
-          <div className="gen-quick-row">
-            {QUICK_REFINEMENTS.map((q) => (
-              <button key={q.label} type="button" disabled={busy} onClick={() => onAsk(q.prompt)}>
-                {q.label}
-              </button>
-            ))}
           </div>
         </div>
         )}
@@ -310,6 +256,50 @@ export default function DraftReady({
             </div>
           )}
         </div>
+
+        {ready && /non-disclosure/i.test(docLabel) && (
+          <div className="gen-depth">
+            <div className="gen-depth-head">
+              <p className="gen-section-label">Comprehensiveness</p>
+              <b>{sliderValue}/5 · {detailLabels[sliderValue - 1]}</b>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              step={1}
+              value={sliderValue}
+              disabled={busy}
+              aria-label="NDA comprehensiveness"
+              aria-valuetext={`Level ${sliderValue}: ${detailLabels[sliderValue - 1]}`}
+              onChange={(event) => setSliderValue(Number(event.target.value))}
+              onPointerUp={(event) =>
+                onChangeNdaDetailLevel(Number(event.currentTarget.value) as 1 | 2 | 3 | 4 | 5)
+              }
+              onKeyUp={(event) => {
+                if (["ArrowLeft", "ArrowRight", "Home", "End", "Enter"].includes(event.key)) {
+                  onChangeNdaDetailLevel(Number(event.currentTarget.value) as 1 | 2 | 3 | 4 | 5);
+                }
+              }}
+            />
+            <div className="gen-depth-labels" aria-hidden="true">
+              <span>Concise</span><span>Maximum</span>
+            </div>
+          </div>
+        )}
+
+        {ready && (
+          <div className="gen-quick">
+            <p className="gen-section-label">Quick refinements</p>
+            <div className="gen-quick-row">
+              {QUICK_REFINEMENTS.map((q) => (
+                <button key={q.label} type="button" disabled={busy} onClick={() => onAsk(q.prompt)}>
+                  {q.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="gen-compose">
