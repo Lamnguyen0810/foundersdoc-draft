@@ -68,7 +68,20 @@ const BUDGET_MS = (() => {
   return Math.floor(raw);
 })();
 
-type Body = { docTypeSlug?: string; answers?: Answers; sourceText?: string };
+type Body = {
+  docTypeSlug?: string;
+  answers?: Answers;
+  sourceText?: string;
+  detailLevel?: number;
+};
+
+const DETAIL_INSTRUCTIONS = {
+  1: "Draft a concise NDA of approximately 500-800 words. Consolidate boilerplate while preserving the essential confidentiality protections, exceptions and placeholders.",
+  2: "Draft a standard NDA of approximately 750-1,050 words with the usual practical protections and procedures.",
+  3: "Draft a detailed NDA of approximately 1,000-1,400 words with complete standard definitions, confidentiality procedures and general provisions.",
+  4: "Draft a thorough NDA of approximately 1,250-1,750 words. Expand relevant definitions, handling duties, representative controls, compelled-disclosure procedure, return or destruction mechanics, remedies and general provisions.",
+  5: "Draft a maximum-detail NDA of approximately 1,500-2,200 words. Cover the relevant protections and procedures comprehensively while remaining proportionate and avoiding repetition.",
+} as const;
 
 function line(obj: unknown): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(obj) + "\n");
@@ -105,8 +118,7 @@ function versionFileName(answers: Answers, version: number, detailLevel: number)
   const parties = [clean(answers.party_a), clean(answers.party_b)].filter(Boolean);
   const detailName = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"]
     [detailLevel - 1] ?? "Revised";
-  return ["NDA", ...parties, `V${version}`, ...(version > 1 ? [detailName] : [])]
-    .join("-") + ".docx";
+  return ["NDA", ...parties, `V${version}`, detailName].join("-") + ".docx";
 }
 
 export async function POST(req: NextRequest) {
@@ -166,8 +178,21 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const detailLevel = Number.isInteger(body.detailLevel) &&
+    Number(body.detailLevel) >= 1 && Number(body.detailLevel) <= 5
+      ? (Number(body.detailLevel) as 1 | 2 | 3 | 4 | 5)
+      : 3;
   const system = buildSystem(docType);
-  const user_message = buildUser(docType, answers, body.sourceText);
+  const baseUserMessage = buildUser(docType, answers, body.sourceText);
+  const user_message = docType.slug === "nda"
+    ? [
+        baseUserMessage,
+        "",
+        "REQUIRED COMPREHENSIVENESS",
+        DETAIL_INSTRUCTIONS[detailLevel],
+        "The selected level must materially control the length, clause coverage and procedural detail of this first draft.",
+      ].join("\n")
+    : baseUserMessage;
 
   const startedGenerating = Date.now();
   let timedOut = false;
@@ -270,6 +295,7 @@ export async function POST(req: NextRequest) {
                   outputTokens,
                   costUsd: actual,
                   paidBenchmarkUsd: benchmark,
+                  detailLevel,
                 });
               }
 
@@ -414,6 +440,7 @@ async function persist(input: {
   outputTokens: number;
   costUsd: number;
   paidBenchmarkUsd: number;
+  detailLevel: number;
 }): Promise<string | null> {
   try {
     const supabase = await createClient();
@@ -447,8 +474,8 @@ async function persist(input: {
       draft_id: draft.id,
       user_id: input.userId,
       version_number: 1,
-      detail_level: 3,
-      file_name: versionFileName(input.answers, 1, 3),
+      detail_level: input.detailLevel,
+      file_name: versionFileName(input.answers, 1, input.detailLevel),
       instruction: "Initial draft generated from the user's answers.",
       output: input.output,
     });
