@@ -728,6 +728,7 @@ function Chat({
   const [docOpen, setDocOpen] = useState(false);
   const [follow, setFollow] = useState<{ who: "me" | "fd"; text: string }[]>([]);
   const [revising, setRevising] = useState(false);
+  const [ndaDepth, setNdaDepth] = useState<"Essential" | "Balanced" | "Comprehensive">("Balanced");
   const [skippedLabels, setSkippedLabels] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [acctOpen, setAcctOpen] = useState(false);
@@ -1182,7 +1183,12 @@ function Chat({
    * why the editor is keyed on the output's length: a new document must be a
    * new editor, or the pages would still be showing the previous text.
    */
-  async function revise(instruction: string) {
+  async function revise(
+    instruction: string,
+    options?: {
+      targetDepth?: "Essential" | "Balanced" | "Comprehensive";
+    },
+  ) {
     if (revising || busy) return;
     setRevising(true);
     setError(null);
@@ -1193,7 +1199,12 @@ function Chat({
       const res = await fetch("/api/revise", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ draftId, instruction, text: output }),
+        body: JSON.stringify({
+          draftId,
+          instruction,
+          text: output,
+          targetDepth: options?.targetDepth,
+        }),
       });
 
       if (!res.ok || !res.body) {
@@ -1242,14 +1253,38 @@ function Chat({
         }
       }
 
-      if (!failed && acc.trim()) {
+      const normalise = (value: string) => value.replace(/\s+/g, " ").trim();
+      const materiallyChanged = (before: string, after: string) => {
+        const a = normalise(before).split(" ");
+        const b = normalise(after).split(" ");
+        const lengthDelta = Math.abs(a.length - b.length) / Math.max(a.length, 1);
+        const overlap = Math.min(a.length, b.length);
+        let changedAtPosition = Math.abs(a.length - b.length);
+        for (let index = 0; index < overlap; index += 1) {
+          if (a[index] !== b[index]) changedAtPosition += 1;
+        }
+        return lengthDelta >= 0.08 || changedAtPosition / Math.max(a.length, b.length, 1) >= 0.12;
+      };
+      const changed = options?.targetDepth
+        ? materiallyChanged(output, acc)
+        : normalise(acc) !== normalise(output);
+      if (!failed && acc.trim() && changed) {
         setOutput(acc);
         setSavedHtml(null); // the lawyer's edits are superseded by the revision
+        if (options?.targetDepth) setNdaDepth(options.targetDepth);
         setFollow((f) => [
           ...f,
-          { who: "fd", text: "Done — the document beside this has been updated." },
+          {
+            who: "fd",
+            text: options?.targetDepth
+              ? `Done — I rewrote the document at the ${options.targetDepth.toLowerCase()} level.`
+              : "Done — the document beside this has been updated.",
+          },
         ]);
         track("draft_revised", { doc_type: docType.slug });
+      } else if (!failed && acc.trim()) {
+        setError("The revision did not materially change the document. Please try again.");
+        setFollow((f) => f.slice(0, -1));
       } else if (failed) {
         setFollow((f) => f.slice(0, -1));
       }
@@ -1617,6 +1652,12 @@ function Chat({
           onOpenDocument={() => setDocOpen((v) => !v)}
           onDownload={() => void exportDocx()}
           onAsk={(prompt) => void revise(prompt)}
+          ndaDepth={ndaDepth}
+          onChangeNdaDepth={(depth) =>
+            void revise(`Rewrite this NDA at the ${depth.toLowerCase()} level.`, {
+              targetDepth: depth,
+            })
+          }
           follow={follow}
         />
 
