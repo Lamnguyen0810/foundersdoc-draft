@@ -59,7 +59,7 @@ function isMaterialDepthRewrite(before: string, after: string): boolean {
   for (let index = 0; index < overlap; index += 1) {
     if (a[index] !== b[index]) changedAtPosition += 1;
   }
-  return lengthDelta >= 0.08 || changedAtPosition / Math.max(a.length, b.length, 1) >= 0.12;
+  return lengthDelta >= 0.03 || changedAtPosition / Math.max(a.length, b.length, 1) >= 0.06;
 }
 
 const SYSTEM = `You are revising a legal document that you previously drafted for FoundersDoc, a Singapore law firm.
@@ -154,7 +154,10 @@ export async function POST(req: NextRequest) {
       let acc = "";
       const startedAt = Date.now();
       try {
-        const maxAttempts = targetDetailLevel ? 2 : 1;
+        // A completed, materially rewritten document is preferable to throwing
+        // it away and starting a second generation that can exceed Vercel's
+        // request limit. Depth is directed by the prompt and checked below.
+        const maxAttempts = 1;
         attempts: for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
           acc = "";
           const attemptMessage = attempt === 1
@@ -177,36 +180,19 @@ export async function POST(req: NextRequest) {
             acc += event.value;
             controller.enqueue(line({ t: "text", v: event.value }));
           } else if (event.type === "done") {
-            // Legal drafts do not become invalid because a sensible clause puts
-            // them just outside an arbitrary word band. Validate a broad band
-            // and, more importantly, movement in the requested direction.
-            // This avoids throwing away a genuinely expanded Maximum draft and
-            // spending the remainder of the request budget on an unnecessary retry.
-            const targetRanges = {
-              1: [350, 900],
-              2: [550, 1250],
-              3: [800, 1650],
-              4: [1050, 2100],
-              5: [1200, 2800],
-            } as const;
             const wordCount = acc.trim().split(/\s+/).length;
             const currentWordCount = text.trim().split(/\s+/).length;
-            const range = targetDetailLevel ? targetRanges[targetDetailLevel] : null;
             const levelDifference = targetDetailLevel
               ? targetDetailLevel - currentDetailLevel
               : 0;
-            const directionalMinimum = levelDifference > 0
-              ? currentWordCount * (1 + Math.min(levelDifference * 0.12, 0.48))
-              : 0;
-            const directionalMaximum = levelDifference < 0
-              ? currentWordCount * (1 - Math.min(Math.abs(levelDifference) * 0.1, 0.4))
-              : Number.POSITIVE_INFINITY;
-            const reachesLevel = !range || (
-              wordCount >= range[0] &&
-              wordCount <= range[1] &&
-              wordCount >= directionalMinimum &&
-              wordCount <= directionalMaximum
-            );
+            // Only reject output that moves in the opposite direction. The
+            // model's clause choices, not a rigid word quota, determine whether
+            // a legally sensible NDA is Standard, Detailed, Thorough or Maximum.
+            const reachesLevel = levelDifference > 0
+              ? wordCount >= currentWordCount * 1.02
+              : levelDifference < 0
+                ? wordCount <= currentWordCount * 0.98
+                : true;
             if (targetDetailLevel && (!isMaterialDepthRewrite(text, acc) || !reachesLevel)) {
               if (attempt < maxAttempts) {
                 controller.enqueue(line({ t: "retry" }));
