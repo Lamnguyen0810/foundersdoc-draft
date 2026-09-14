@@ -1170,6 +1170,11 @@ html[data-theme=dark] .chip.on{background:var(--gold);color:#141416;border-color
 .chipq{font-size:13px;color:var(--tx-2);margin:2px 0 -2px}
 .m .ans .card{display:grid;gap:12px;padding:14px 16px;border:1px solid var(--rule);border-radius:14px;background:var(--card)}
 .m .ans .card.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+/* A textarea on a two-column card takes the full width and stands taller than a
+   name field: the answers that go in one (addresses, party particulars) are
+   several lines, and half a column made them look optional. */
+.m .ans .card.two>label:has(textarea){grid-column:1/-1}
+.m .ans .card textarea.input{min-height:96px;resize:vertical}
 .m.me .txt{max-width:70%}
 .m .ans .card>label{display:grid!important;gap:6px;min-width:0}
 .m .ans .card>label .field-label{font-size:13px;font-weight:500;color:var(--tx);margin:0}
@@ -2922,4 +2927,83 @@ html[data-theme=dark]{
 @media(max-width:520px){
   .cg-answers>div{grid-template-columns:1fr;gap:3px}
   .cg-summary-head{align-items:flex-start;flex-direction:column;gap:2px}
+}
+
+
+/* ── comprehensiveness slider ──────────────────────────────────────────────
+   Wider and flatter than the old 240px native range. The native input is still
+   the control — it is kept on top at zero opacity so keyboard, screen reader
+   and click-anywhere-on-the-track all keep working — and everything visible is
+   drawn beneath it. Dots sit on a 5-column grid, so the rail, the dots and the
+   labels underneath share one set of centres and cannot drift apart.
+   Ring colour is var(--card), not white, so the active dot reads in dark mode. */
+.gd{
+  width:min(520px,100%);
+  margin:6px 0 14px;
+  padding:15px 20px 13px;
+  border:1px solid var(--rule);
+  border-radius:14px;
+  background:var(--card);
+}
+.gd-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.gd-title{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:11px;letter-spacing:.13em;text-transform:uppercase;
+  font-weight:600;color:var(--tx-3);
+}
+.gd-info{
+  width:15px;height:15px;flex:none;border-radius:50%;
+  display:grid;place-items:center;
+  background:var(--rule-2);color:var(--card);
+  font-family:var(--display,inherit);font-size:10px;font-weight:700;
+  font-style:normal;letter-spacing:0;text-transform:none;cursor:help;
+}
+.gd-readout{display:grid;justify-items:end;gap:1px;line-height:1.15}
+.gd-readout b{font-size:15px;font-weight:700;color:var(--gold)}
+.gd-readout em{font-style:normal;font-size:12.5px;font-weight:600;color:var(--gold-deep)}
+
+.gd-track{position:relative;height:30px;margin-top:14px}
+.gd-rail{
+  position:absolute;left:10%;right:10%;top:50%;transform:translateY(-50%);
+  height:4px;border-radius:999px;background:var(--rule-2);
+}
+.gd-fill{display:block;height:100%;border-radius:999px;background:var(--gold);transition:width .18s ease}
+.gd-dots{position:absolute;inset:0;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;justify-items:center}
+.gd-dot{width:22px;height:22px;display:grid;place-items:center}
+.gd-dot:before{
+  content:"";width:13px;height:13px;border-radius:50%;
+  background:var(--rule-2);transition:width .18s ease,height .18s ease,background .18s ease;
+}
+.gd-dot.on:before{background:var(--gold)}
+.gd-dot.now:before{
+  width:20px;height:20px;
+  box-shadow:0 0 0 4px var(--card),0 3px 10px -3px rgba(0,0,0,.28);
+}
+/* The real control: invisible, full-bleed, still focusable. */
+.gd-track input[type="range"]{
+  position:absolute;inset:0;width:100%;height:100%;
+  margin:0;padding:0;opacity:0;cursor:pointer;-webkit-appearance:none;appearance:none;background:transparent;
+}
+.gd-track input[type="range"]:focus-visible{opacity:1;outline:2px solid var(--gold);outline-offset:3px;border-radius:999px}
+
+.gd-scale{display:grid;grid-template-columns:repeat(5,1fr);margin-top:8px;text-align:center}
+.gd-scale span{display:grid;gap:1px;min-width:0}
+.gd-scale b{font-size:14px;font-weight:500;color:var(--tx-3);transition:color .18s}
+/* No clipping: "Comprehensive" is wider than a fifth of the card, so the outer
+   two labels tuck to the edges instead of being cut to an ellipsis. */
+.gd-scale em{font-style:normal;font-size:11.5px;color:var(--tx-3);transition:color .18s;white-space:nowrap}
+.gd-scale span:first-child{text-align:left}
+.gd-scale span:last-child{text-align:right}
+.gd-scale span.on b{color:var(--tx);font-weight:700}
+.gd-scale span.on em{color:var(--tx);font-weight:600}
+
+.gd-length{
+  display:inline-block;margin:13px 0 0;padding:7px 14px;
+  border-radius:9px;background:var(--bg-2);
+  font-size:13px;color:var(--tx-2);
+}
+@media (max-width:560px){
+  .gd{padding:13px 14px 11px}
+  .gd-scale em{font-size:10px}
+  .gd-readout b{font-size:14px}
 }
