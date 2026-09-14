@@ -108,7 +108,10 @@ const ASK: Record<string, { name: string; question: string }> = {
     question: "Anything else you’d like included?",
   },
 };
-
+/** The five comprehensiveness steps, in order. One list, used by the slider, the
+ *  echoed summary and the progress pane — three places that used to drift apart.
+ *  The NUMBER is what reaches the prompt; these words are only how it reads. */
+const DETAIL_LABELS = ["Minimal", "Basic", "Standard", "Detailed", "Comprehensive"] as const;
 const DETAIL_LENGTHS = [
   "about 500–800 words",
   "about 750–1,050 words",
@@ -810,7 +813,7 @@ function Chat({
           .replace(/\s+/g, "-")
           .slice(0, 28);
       const parties = [clean(answers.party_a ?? ""), clean(answers.party_b ?? "")].filter(Boolean);
-      const detailName = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"]
+      const label = DETAIL_LABELS[level - 1];
         [detailLevel - 1] ?? "Revised";
       return ["NDA", ...parties, `V${version}`, detailName].join("-") + ".docx";
     },
@@ -1473,31 +1476,42 @@ function Chat({
   function stepAnswerUI(s: Step) {
     if (s.kind === "detail") {
       const level = Math.min(5, Math.max(1, Number(answers._nda_detail_level) || 3));
-      const labels = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"];
+      const labels = DETAIL_LABELS;
       return (
         <>
-          <div className="gen-depth" style={{ width: 240, maxWidth: "100%", margin: "4px 0 14px" }}>
-            <div className="gen-depth-head">
-              <span className="gen-section-label">Comprehensiveness</span>
-              <b>{level}/5 · {labels[level - 1]}</b>
+          <div className="gd">
+            <div className="gd-head">
+              <span className="gd-title">
+                Comprehensiveness
+                <i
+                  className="gd-info"
+                  title={`Level ${level} of 5 — ${labels[level - 1]}. ${DETAIL_LENGTHS[level - 1]}. Changes drafting detail, never the commercial position.`}
+                  aria-hidden="true"
+                >
+                  i
+                </i>
+              </span>
+              <span className="gd-readout">
+                <b>{level} / 5</b>
+                <em>{labels[level - 1]}</em>
+              </span>
             </div>
-            <input
-              type="range"
-              min={1}
-              max={5}
-              step={1}
-              value={level}
-              aria-label="Initial NDA comprehensiveness"
-              aria-valuetext={`Level ${level}: ${labels[level - 1]}`}
-              onChange={(event) => setAnswer("_nda_detail_level", event.target.value)}
-            />
-            <div className="gen-depth-scale" aria-hidden="true">
-              {[1, 2, 3, 4, 5].map((mark) => (
-                <span key={mark} className={level === mark ? "on" : ""}>{mark}</span>
-              ))}
-            </div>
-            <p className="gen-depth-length">{DETAIL_LENGTHS[level - 1]}</p>
-          </div>
+
+            <div className="gd-track">
+              <span className="gd-rail" aria-hidden="true">
+                <span className="gd-fill" style={{ width: `${((level - 1) / 4) * 100}%` }} />
+              </span>
+              <span className="gd-dots" aria-hidden="true">
+                {[1, 2, 3, 4, 5].map((mark) => (
+                  <span
+                    key={mark}
+                    className={`gd-dot${mark <= level ? " on" : ""}${mark === level ? " now" : ""}`}
+                  />
+                ))}
+              </span>
+              <input
+                type="range"
+                min={1}
           <div className="chips">
             <button type="button" className="go" onClick={() => commit(false)}>
               Use this level →
