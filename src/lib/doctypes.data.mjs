@@ -94,8 +94,18 @@ SKIPPED ANSWERS
 - A draft built from a partial set of answers is still a proper draft. Do not shorten it,
   hedge it, or add a warning of your own — the application already tells the user.
 
-LENGTH: 900-1,400 words for a standard NDA; under 400 if the facts fit a short form and no
-optional clause is requested. Length is not a measure of protection.`;
+COMPREHENSIVENESS
+- Essential: produce a concise NDA of about 500-800 words. Include every legally important
+  protection and the four standard exceptions, but keep definitions and boilerplate lean.
+- Balanced: produce a practical standard NDA of about 900-1,400 words, following the full
+  structure above without unnecessary repetition.
+- Comprehensive: produce a fuller NDA of about 1,400-2,000 words. Use more detailed
+  definitions, confidentiality procedures, representative controls, compelled-disclosure
+  mechanics, return or destruction steps, remedies and general provisions where relevant.
+- Comprehensiveness changes drafting detail, not the commercial position. Never invent facts,
+  add a non-compete, indemnity, non-solicit, IP assignment or other aggressive term merely
+  because the user selected Comprehensive.
+- If comprehensiveness is not provided, use Balanced. Length is not a measure of protection.`;
 
 export const NDA_DATA = {
   slug: "nda",
@@ -112,6 +122,16 @@ export const NDA_DATA = {
       required: true,
       group: "The shape of it",
       help: "Changes which obligations are reciprocal. The single most structural choice on this form.",
+    },
+    {
+      key: "drafting_depth",
+      label: "How comprehensive should the NDA be?",
+      type: "select",
+      options: ["Essential", "Balanced", "Comprehensive"],
+      required: true,
+      defaultValue: "Balanced",
+      group: "The shape of it",
+      help: "Essential is concise, Balanced covers the usual detail, and Comprehensive adds fuller drafting without changing the commercial position.",
     },
     {
       key: "party_a",
