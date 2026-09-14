@@ -42,24 +42,10 @@ interface DocTypeRow {
  */
 const RETIRED_FIELD_KEYS = new Set(["our_client"]);
 
-/**
- * Fields introduced in code that must remain available while an existing
- * Supabase catalogue row is waiting to be re-seeded. This avoids a deploy
- * showing the old form merely because the database still has yesterday's JSON.
- */
-const COMPAT_FIELD_KEYS = new Set(["drafting_depth"]);
-
 function fromRow(row: DocTypeRow): DocType {
   const rowExamples = row.examples ?? [];
   const fields = (row.fields ?? []).filter((f) => !RETIRED_FIELD_KEYS.has(f.key));
   const builtIn = DOC_TYPES.find((docType) => docType.slug === row.slug);
-  for (const field of builtIn?.fields ?? []) {
-    if (COMPAT_FIELD_KEYS.has(field.key) && !fields.some((candidate) => candidate.key === field.key)) {
-      const directionIndex = fields.findIndex((candidate) => candidate.key === "nda_direction");
-      fields.splice(directionIndex >= 0 ? directionIndex + 1 : 0, 0, field);
-    }
-  }
-
   let systemPrompt = row.system_prompt;
   if (
     row.slug === "nda" &&

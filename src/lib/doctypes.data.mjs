@@ -124,16 +124,6 @@ export const NDA_DATA = {
       help: "Changes which obligations are reciprocal. The single most structural choice on this form.",
     },
     {
-      key: "drafting_depth",
-      label: "How comprehensive should the NDA be?",
-      type: "select",
-      options: ["Essential", "Balanced", "Comprehensive"],
-      required: true,
-      defaultValue: "Balanced",
-      group: "The shape of it",
-      help: "Essential is concise, Balanced covers the usual detail, and Comprehensive adds fuller drafting without changing the commercial position.",
-    },
-    {
       key: "party_a",
       label: "Your company — legal name and UEN",
       type: "text",

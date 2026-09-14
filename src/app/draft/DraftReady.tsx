@@ -73,6 +73,8 @@ export interface DraftReadyProps {
   onOpenDocument: () => void;
   onDownload: () => void;
   onAsk: (prompt: string) => void;
+  ndaDepth: "Essential" | "Balanced" | "Comprehensive";
+  onChangeNdaDepth: (depth: "Essential" | "Balanced" | "Comprehensive") => void;
   /** Follow-up turns, oldest first. */
   follow: { who: "me" | "fd"; text: string }[];
 }
@@ -87,6 +89,8 @@ export default function DraftReady({
   onOpenDocument,
   onDownload,
   onAsk,
+  ndaDepth,
+  onChangeNdaDepth,
   follow,
 }: DraftReadyProps) {
   const [text, setText] = useState("");
@@ -202,6 +206,31 @@ export default function DraftReady({
           </div>
         </div>
         )}
+
+        {ready && (
+        /non-disclosure/i.test(docLabel) && (
+        <div className="gen-quick">
+          <p className="gen-section-label">NDA detail</p>
+          <div className="gen-quick-row" role="radiogroup" aria-label="NDA detail">
+            {(["Essential", "Balanced", "Comprehensive"] as const).map((depth) => (
+              <button
+                key={depth}
+                type="button"
+                role="radio"
+                aria-checked={ndaDepth === depth}
+                className={ndaDepth === depth ? "is-active" : undefined}
+                disabled={busy}
+                onClick={() => onChangeNdaDepth(depth)}
+              >
+                {depth}
+              </button>
+            ))}
+          </div>
+          <p className="hint" style={{ margin: "7px 0 0" }}>
+            Selecting a level rewrites the full document. Balanced suits most discussions.
+          </p>
+        </div>
+        ))}
 
         {ready && (
         <div className="gen-quick">

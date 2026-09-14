@@ -49,6 +49,19 @@ function friendly(err: unknown): string {
   return "The drafting service returned an error while revising.";
 }
 
+function isMaterialDepthRewrite(before: string, after: string): boolean {
+  const words = (value: string) => value.replace(/\s+/g, " ").trim().split(" ");
+  const a = words(before);
+  const b = words(after);
+  const lengthDelta = Math.abs(a.length - b.length) / Math.max(a.length, 1);
+  const overlap = Math.min(a.length, b.length);
+  let changedAtPosition = Math.abs(a.length - b.length);
+  for (let index = 0; index < overlap; index += 1) {
+    if (a[index] !== b[index]) changedAtPosition += 1;
+  }
+  return lengthDelta >= 0.08 || changedAtPosition / Math.max(a.length, b.length, 1) >= 0.12;
+}
+
 const SYSTEM = `You are revising a legal document that you previously drafted for FoundersDoc, a Singapore law firm.
 
 RULES
@@ -60,14 +73,29 @@ RULES
 - British spelling. Formal but plain English.`;
 
 export async function POST(req: NextRequest) {
-  let body: { draftId?: string; instruction?: string; text?: string };
+  let body: {
+    draftId?: string;
+    instruction?: string;
+    text?: string;
+    targetDepth?: "Essential" | "Balanced" | "Comprehensive";
+  };
   try {
     body = (await req.json()) as typeof body;
   } catch {
     return Response.json({ error: "Malformed request body." }, { status: 400 });
   }
 
-  const instruction = (body.instruction ?? "").trim();
+  const depthInstructions = {
+    Essential:
+      "Rewrite the entire NDA as an Essential version of 500-800 words. Materially consolidate definitions and boilerplate while preserving every core confidentiality protection, standard exception and placeholder. This must be a genuine full-document rewrite, not light copy-editing.",
+    Balanced:
+      "Rewrite the entire NDA as a Balanced version of 900-1,400 words. Use practical standard definitions, procedures and general provisions for an ordinary business discussion. Rework the document throughout; do not merely adjust a few sentences.",
+    Comprehensive:
+      "Rewrite the entire NDA as a Comprehensive version of 1,400-2,000 words. Materially expand relevant definitions, handling duties, representative controls, compelled-disclosure procedure, return or destruction mechanics, remedies and general provisions. Do not invent facts or add a non-compete, indemnity, non-solicit or IP assignment unless already required by the document.",
+  } as const;
+  const instruction = body.targetDepth
+    ? depthInstructions[body.targetDepth]
+    : (body.instruction ?? "").trim();
   const text = (body.text ?? "").trim();
   if (!instruction) return Response.json({ error: "Say what to change." }, { status: 400 });
   if (!text) return Response.json({ error: "There is no draft to revise." }, { status: 400 });
@@ -134,6 +162,16 @@ export async function POST(req: NextRequest) {
             acc += event.value;
             controller.enqueue(line({ t: "text", v: event.value }));
           } else if (event.type === "done") {
+            if (body.targetDepth && !isMaterialDepthRewrite(text, acc)) {
+              if (spendId) await refundCredit(spendId, "revision unchanged");
+              controller.enqueue(
+                line({
+                  t: "error",
+                  v: "The model did not make a substantial enough change, so the original document was kept. Please try the level again.",
+                }),
+              );
+              return;
+            }
             // Persist the revision and count it.
             if (isSupabaseConfigured() && body.draftId && user) {
               try {
