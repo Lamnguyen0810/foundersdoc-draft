@@ -71,12 +71,20 @@ export interface DraftReadyProps {
   docOpen: boolean;
   busy: boolean;
   onOpenDocument: () => void;
-  onDownload: () => void;
+  onDownload: (documentText?: string, fileName?: string) => void;
   onAsk: (prompt: string) => void;
+  fileName: string;
+  version: number;
   ndaDepth: "Essential" | "Balanced" | "Comprehensive";
   onChangeNdaDepth: (depth: "Essential" | "Balanced" | "Comprehensive") => void;
   /** Follow-up turns, oldest first. */
-  follow: { who: "me" | "fd"; text: string }[];
+  follow: {
+    who: "me" | "fd";
+    text: string;
+    version?: number;
+    fileName?: string;
+    documentText?: string;
+  }[];
 }
 
 export default function DraftReady({
@@ -89,13 +97,16 @@ export default function DraftReady({
   onOpenDocument,
   onDownload,
   onAsk,
+  fileName,
+  version,
   ndaDepth,
   onChangeNdaDepth,
   follow,
 }: DraftReadyProps) {
   const [text, setText] = useState("");
+  const depthOptions = ["Essential", "Balanced", "Comprehensive"] as const;
+  const [sliderValue, setSliderValue] = useState(() => depthOptions.indexOf(ndaDepth));
 
-  const fileName = `${docLabel.replace(/\s+/g, " ").trim()}.docx`;
   const short = /non-disclosure/i.test(docLabel) ? "NDA" : docLabel;
   const ready = state === "ready";
 
@@ -183,9 +194,9 @@ export default function DraftReady({
               )}
             </p>
 
-            <button type="button" className="cg-link cg-dl" onClick={onDownload}>
+            <button type="button" className="cg-link cg-dl" onClick={() => onDownload()}>
               <DocIcon />
-              <span>Download the {short} DOCX</span>
+              <span>Download {short} · Version {version}</span>
             </button>
 
             <button
@@ -209,26 +220,34 @@ export default function DraftReady({
 
         {ready && (
         /non-disclosure/i.test(docLabel) && (
-        <div className="gen-quick">
-          <p className="gen-section-label">NDA detail</p>
-          <div className="gen-quick-row" role="radiogroup" aria-label="NDA detail">
-            {(["Essential", "Balanced", "Comprehensive"] as const).map((depth) => (
-              <button
-                key={depth}
-                type="button"
-                role="radio"
-                aria-checked={ndaDepth === depth}
-                className={ndaDepth === depth ? "is-active" : undefined}
-                disabled={busy}
-                onClick={() => onChangeNdaDepth(depth)}
-              >
-                {depth}
-              </button>
-            ))}
+        <div className="gen-depth">
+          <div className="gen-depth-head">
+            <p className="gen-section-label">NDA detail</p>
+            <b>{depthOptions[sliderValue]}</b>
           </div>
-          <p className="hint" style={{ margin: "7px 0 0" }}>
-            Selecting a level rewrites the full document. Balanced suits most discussions.
-          </p>
+          <input
+            type="range"
+            min={0}
+            max={2}
+            step={1}
+            value={sliderValue}
+            disabled={busy}
+            aria-label="NDA detail"
+            aria-valuetext={depthOptions[sliderValue]}
+            onChange={(event) => setSliderValue(Number(event.target.value))}
+            onPointerUp={(event) =>
+              onChangeNdaDepth(depthOptions[Number(event.currentTarget.value)])
+            }
+            onKeyUp={(event) => {
+              if (["ArrowLeft", "ArrowRight", "Home", "End", "Enter"].includes(event.key)) {
+                onChangeNdaDepth(depthOptions[Number(event.currentTarget.value)]);
+              }
+            }}
+          />
+          <div className="gen-depth-labels" aria-hidden="true">
+            {depthOptions.map((depth) => <span key={depth}>{depth}</span>)}
+          </div>
+          <p className="hint">Release the slider to rewrite and send a new version.</p>
         </div>
         ))}
 
@@ -255,6 +274,19 @@ export default function DraftReady({
               <div className="cg-turn" key={k}>
                 <div className="cg-msg">
                   <p>{m.text}</p>
+                  {m.fileName && m.documentText && (
+                    <button
+                      type="button"
+                      className="gen-doc-card cg-file"
+                      onClick={() => onDownload(m.documentText, m.fileName)}
+                    >
+                      <span className="cg-file-ic"><DocIcon /></span>
+                      <span>
+                        <b>{m.fileName}</b>
+                        <small>Version {m.version} · click to download</small>
+                      </span>
+                    </button>
+                  )}
                 </div>
               </div>
             ),

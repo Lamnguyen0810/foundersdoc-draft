@@ -1927,6 +1927,14 @@ body:has(.login-stage) {
 .gen-quick button{border:1px solid var(--rule);background:var(--card);color:var(--tx-2);border-radius:999px;padding:7px 10px;font-size:11px;line-height:1;transition:border-color .15s,color .15s,background .15s}
 .gen-quick button:hover{border-color:var(--gold);color:var(--tx);background:var(--gold-tint)}
 .gen-quick button.is-active{border-color:var(--gold);color:var(--tx);background:var(--gold-tint);box-shadow:inset 0 0 0 1px var(--gold)}
+.gen-depth{display:grid;gap:7px;padding:12px 14px;border:1px solid var(--rule);border-radius:12px;background:var(--card)}
+.gen-depth-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.gen-depth-head .gen-section-label{margin:0}
+.gen-depth-head b{font-size:11px;font-weight:600;color:var(--gold-deep)}
+.gen-depth input[type="range"]{width:100%;height:18px;margin:0;accent-color:var(--gold);cursor:pointer}
+.gen-depth input[type="range"]:disabled{cursor:wait;opacity:.6}
+.gen-depth-labels{display:flex;justify-content:space-between;color:var(--tx-3);font-size:10px}
+.gen-depth .hint{margin:1px 0 0;font-size:10.5px;color:var(--tx-3)}
 .gen-compose{padding:13px clamp(24px,6vw,96px) 15px;border-top:1px solid var(--rule);background:var(--bg)}
 .gen-compose .box{width:min(100%,900px);margin-inline:auto;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:end;border:1px solid var(--rule-2);border-radius:24px;background:var(--card);padding:7px 8px 7px 9px;transition:border-color .15s,box-shadow .15s}
 .gen-compose .box:focus-within{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-ring)}

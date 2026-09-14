@@ -726,9 +726,16 @@ function Chat({
      them before being handed a wall of contract. The document opens beside the
      chat when they ask for it — and closing it leaves the chat untouched. */
   const [docOpen, setDocOpen] = useState(false);
-  const [follow, setFollow] = useState<{ who: "me" | "fd"; text: string }[]>([]);
+  const [follow, setFollow] = useState<{
+    who: "me" | "fd";
+    text: string;
+    version?: number;
+    fileName?: string;
+    documentText?: string;
+  }[]>([]);
   const [revising, setRevising] = useState(false);
   const [ndaDepth, setNdaDepth] = useState<"Essential" | "Balanced" | "Comprehensive">("Balanced");
+  const [documentVersion, setDocumentVersion] = useState(1);
   const [skippedLabels, setSkippedLabels] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [acctOpen, setAcctOpen] = useState(false);
@@ -754,6 +761,21 @@ function Chat({
 
   const finished = i >= steps.length;
   const step = finished ? null : steps[i];
+
+  const fileNameFor = useCallback(
+    (version: number, depth: "Essential" | "Balanced" | "Comprehensive") => {
+      const clean = (value: string) =>
+        (value === SKIPPED ? "" : value.split("(")[0])
+          .replace(/[^a-zA-Z0-9 -]/g, "")
+          .trim()
+          .replace(/\s+/g, "-")
+          .slice(0, 28);
+      const parties = [clean(answers.party_a ?? ""), clean(answers.party_b ?? "")].filter(Boolean);
+      return ["NDA", ...parties, `V${version}`, depth].join("-") + ".docx";
+    },
+    [answers.party_a, answers.party_b],
+  );
+  const currentFileName = fileNameFor(documentVersion, ndaDepth);
 
   useEffect(() => {
     const el = threadRef.current;
@@ -1269,16 +1291,24 @@ function Chat({
         ? materiallyChanged(output, acc)
         : normalise(acc) !== normalise(output);
       if (!failed && acc.trim() && changed) {
+        const nextVersion = documentVersion + 1;
+        const nextDepth = options?.targetDepth ?? ndaDepth;
+        const nextFileName = fileNameFor(nextVersion, nextDepth);
         setOutput(acc);
         setSavedHtml(null); // the lawyer's edits are superseded by the revision
         if (options?.targetDepth) setNdaDepth(options.targetDepth);
+        setDocumentVersion(nextVersion);
+        setDocOpen(true);
         setFollow((f) => [
           ...f,
           {
             who: "fd",
             text: options?.targetDepth
-              ? `Done — I rewrote the document at the ${options.targetDepth.toLowerCase()} level.`
-              : "Done — the document beside this has been updated.",
+              ? `Version ${nextVersion} is ready. I rewrote the NDA at the ${options.targetDepth.toLowerCase()} level and updated the document beside the chat.`
+              : `Version ${nextVersion} is ready. I revised the NDA following your request and updated the document beside the chat.`,
+            version: nextVersion,
+            fileName: nextFileName,
+            documentText: acc,
           },
         ]);
         track("draft_revised", { doc_type: docType.slug });
@@ -1296,7 +1326,7 @@ function Chat({
     }
   }
 
-  async function exportDocx() {
+  async function exportDocx(documentText = output, fileName = currentFileName) {
     setExporting(true);
     setError(null);
     try {
@@ -1307,7 +1337,7 @@ function Chat({
       const res = await fetch("/api/export", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ text: output, title, includeNotes: false }),
+        body: JSON.stringify({ text: documentText, title, fileName, includeNotes: false }),
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -1650,8 +1680,10 @@ function Chat({
           docOpen={docOpen}
           busy={busy || revising}
           onOpenDocument={() => setDocOpen((v) => !v)}
-          onDownload={() => void exportDocx()}
+          onDownload={(documentText, fileName) => void exportDocx(documentText, fileName)}
           onAsk={(prompt) => void revise(prompt)}
+          fileName={currentFileName}
+          version={documentVersion}
           ndaDepth={ndaDepth}
           onChangeNdaDepth={(depth) =>
             void revise(`Rewrite this NDA at the ${depth.toLowerCase()} level.`, {
@@ -1672,7 +1704,7 @@ function Chat({
             <i />
             {busy
               ? "Drafting…"
-              : `${output.length.toLocaleString()} characters · First draft${
+              : `${output.length.toLocaleString()} characters · Version ${documentVersion} · ${ndaDepth}${
                   skippedLabels.length ? ` · ${skippedLabels.length} to confirm` : ""
                 }`}
           </span>
@@ -1727,7 +1759,7 @@ function Chat({
           </div>
         ) : (
           <DocumentEditor
-            key={`${draftId ?? "unsaved"}:${output.length}`}
+            key={`${draftId ?? "unsaved"}:v${documentVersion}`}
             text={output}
             savedHtml={savedHtml}
             onSave={saveDocument}
