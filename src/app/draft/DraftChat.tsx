@@ -92,7 +92,7 @@ const ASK: Record<string, { name: string; question: string }> = {
   },
   Parties: {
     name: "Who’s involved",
-    question: "Who’s involved? Your company and the other side.",
+    question: "Who are the parties? Just provide each person’s or organisation’s name.",
   },
   "The deal": {
     name: "The deal",
@@ -108,6 +108,14 @@ const ASK: Record<string, { name: string; question: string }> = {
     question: "Anything else you’d like included?",
   },
 };
+
+const DETAIL_LENGTHS = [
+  "about 500–800 words",
+  "about 750–1,050 words",
+  "about 1,000–1,400 words",
+  "about 1,250–1,750 words",
+  "about 1,500–2,200 words",
+] as const;
 
 const SOURCE_STEP = {
   id: "__source__",
@@ -147,7 +155,7 @@ function buildSteps(docType: DocType): Step[] {
     steps.push({
       id: "__detail__",
       name: "Comprehensiveness",
-      question: "How comprehensive should the first NDA be?",
+      question: "How comprehensive and how long should the first NDA be?",
       kind: "detail",
       fields: [{
         key: "_nda_detail_level",
@@ -898,7 +906,7 @@ function Chat({
     if (s.kind === "detail") {
       const level = Math.min(5, Math.max(1, Number(src._nda_detail_level) || 3));
       const label = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"][level - 1];
-      return `${level}/5 · ${label}`;
+      return `${level}/5 · ${label} · ${DETAIL_LENGTHS[level - 1]}`;
     }
     const parts: string[] = [];
     for (const f of s.fields) {
@@ -1476,6 +1484,7 @@ function Chat({
                 <span key={mark} className={level === mark ? "on" : ""}>{mark}</span>
               ))}
             </div>
+            <p className="gen-depth-length">{DETAIL_LENGTHS[level - 1]}</p>
           </div>
           <div className="chips">
             <button type="button" className="go" onClick={() => commit(false)}>
