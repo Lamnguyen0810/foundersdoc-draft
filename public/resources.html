@@ -1,0 +1,1379 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <script>
+      document.documentElement.classList.add("js");
+      try {
+        if (sessionStorage.getItem("fd-ann")) document.documentElement.classList.add("ann-hidden");
+      } catch (e) {}
+      try {
+        if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) document.documentElement.classList.add("dark");
+      } catch (e) {}
+    </script>
+    <title>Insights for founders — the Founders Doc blog</title>
+    <meta name="description" content="Clear answers to the legal questions that come with building a company: contracts, fundraising, company setup, hiring and AI in law, written and reviewed by practising lawyers." />
+    <link rel="canonical" href="/resources" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Founders Doc" />
+    <meta property="og:title" content="Insights for founders — the Founders Doc blog" />
+    <meta property="og:description" content="Clear answers to the legal questions that come with building a company." />
+    <meta property="og:url" content="https://foundersdoc.com/resources/all/" />
+    <meta property="og:image" content="https://foundersdoc.com/resources/og-nda-vs-confidentiality-agreement.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      "name": "Insights for founders",
+      "url": "https://foundersdoc.com/resources/all/",
+      "description": "Clear answers to the legal questions that come with building a company.",
+      "publisher": { "@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com", "logo": { "@type": "ImageObject", "url": "https://foundersdoc.com/wp-content/uploads/2022/03/logo_black.png" } },
+      "blogPost": [
+        {
+          "@type": "BlogPosting",
+          "headline": "NDA vs Confidentiality Agreement: What is the Difference?",
+          "url": "https://foundersdoc.com/resources/nda-vs-confidentiality-agreement/",
+          "datePublished": "2026-09-08",
+          "dateModified": "2026-09-08",
+          "author": { "@type": "Organization", "name": "Founders Doc" },
+          "image": "https://foundersdoc.com/resources/og-nda-vs-confidentiality-agreement.png",
+          "articleSection": "Contracts"
+        },
+        {
+          "@type": "BlogPosting",
+          "headline": "Before You Sign an NDA: 10 Things Founders Should Know",
+          "url": "https://foundersdoc.com/resources/before-you-sign-an-nda/",
+          "datePublished": "2026-09-10",
+          "dateModified": "2026-09-10",
+          "author": { "@type": "Organization", "name": "Founders Doc" },
+          "articleSection": "Contracts"
+        }
+      ]
+    }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;500;600&display=swap"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --white: #fff;
+        --grey-1: #f4f4f4;
+        --grey-2: #e9e9e9;
+        --grey-3: #d6d6d6;
+        --grey-4: #9a9a9a;
+        --grey-5: #666;
+        --black: #0f0f0f;
+        --ink: #161616;
+        --gold: #f3bf4b;
+        --gold-soft: #fbeec9;
+        --gold-deep: #c9962a;
+        --display: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --wrap: 1200px;
+        --wrap-wide: 1440px;
+        --nav-h: 64px;
+        --ann-h: 41px;
+        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --gutter: clamp(20px, 4vw, 40px);
+        --ok: #3d8b5f;
+        --miss: #c8574a;
+      }
+      /* dark mode: same brand tokens, inverted surfaces */
+      html.dark {
+        --white: #131313;
+        --grey-1: #1b1b1b;
+        --grey-2: #2a2a2a;
+        --grey-3: #3d3d3d;
+        --grey-5: #b8b8b8;
+        --black: #0b0b0b;
+        --ink: #f1f1f1;
+        --gold-soft: #382d12;
+        color-scheme: dark;
+      }
+      html.dark .nav.scrolled {
+        background: rgba(19, 19, 19, 0.86);
+      }
+      /* dark mode: anything drawn in --black sits on a dark surface, so use --ink instead */
+      html.dark .links a:hover,
+      html.dark .links a.on,
+      html.dark .has-sub > button:hover,
+      html.dark .has-sub[data-open="true"] > button,
+      html.dark .has-sub > button.on,
+      html.dark .nav-sub a:hover,
+      html.dark .nav-sub a:focus-visible,
+      html.dark .nav-sub a.on,
+      html.dark .nav-sub a[aria-current="page"],
+      html.dark .logo-word,
+      html.dark .subtab:hover,
+      html.dark .cat:hover,
+      html.dark .menu a:hover {
+        color: var(--ink);
+      }
+      html.dark :focus-visible {
+        outline-color: var(--ink);
+      }
+      html.dark .btn-white {
+        color: var(--ink);
+        border-color: var(--ink);
+      }
+      html.dark .btn-white:hover {
+        background: var(--grey-2);
+      }
+      html.dark .btn-black {
+        background: var(--ink);
+        color: var(--black);
+        border-color: var(--ink);
+      }
+      html.dark .burger span,
+      html.dark .burger span::before,
+      html.dark .burger span::after {
+        background: var(--ink);
+      }
+      html.dark .skip {
+        background: var(--ink);
+        color: var(--black);
+      }
+      html.dark .theme-btn {
+        border-color: var(--grey-3);
+      }
+      /* the footer and dark post cards are always dark, so their white text must stay white */
+      html.dark .foot,
+      html.dark .post.dark {
+        --white: #fff;
+      }
+      html.dark .foot .nl input {
+        color: #fff;
+      }
+      html.dark .pill {
+        background: #242424;
+        color: var(--ink);
+      }
+      html.dark .pill:hover {
+        background: #2e2e2e;
+      }
+      .theme-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1px solid var(--grey-2);
+        background: var(--white);
+        color: var(--gold-deep);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex: none;
+        transition: border-color 0.2s, transform 0.3s var(--ease), background 0.2s;
+      }
+      .theme-btn:hover {
+        border-color: var(--gold);
+        transform: rotate(20deg);
+      }
+      .theme-btn svg {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
+      .theme-btn .ic-moon {
+        display: none;
+      }
+      html.dark .theme-btn .ic-moon {
+        display: block;
+      }
+      html.dark .theme-btn .ic-sun {
+        display: none;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--white);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.6;
+        letter-spacing: -0.005em;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        border: none;
+        background: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--black);
+        outline-offset: 3px;
+      }
+      [id] {
+        scroll-margin-top: calc(var(--nav-h) + 16px);
+      }
+      .wrap {
+        width: 100%;
+        max-width: var(--wrap);
+        margin-inline: auto;
+        padding-inline: clamp(20px, 4vw, 40px);
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: var(--display);
+        font-weight: 500;
+        letter-spacing: -0.025em;
+        line-height: 1.08;
+      }
+      h2 {
+        font-size: clamp(28px, 3.2vw, 38px);
+      }
+      .sub {
+        color: var(--grey-5);
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        border: 1px solid var(--black);
+        white-space: nowrap;
+        transition:
+          background 0.15s,
+          color 0.15s,
+          transform 0.15s var(--ease),
+          box-shadow 0.15s var(--ease);
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px -10px rgba(15, 15, 15, 0.45);
+      }
+      .btn:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+      .btn-black {
+        background: var(--black);
+        color: var(--white);
+      }
+      .btn-black:hover {
+        background: #2a2a2a;
+      }
+      .btn-gold {
+        background: var(--gold);
+        color: var(--black);
+        border-color: var(--gold);
+      }
+      .btn-gold:hover {
+        background: #e9b23a;
+        border-color: #e9b23a;
+      }
+      .btn-white {
+        background: var(--white);
+        color: var(--black);
+      }
+      .btn-white:hover {
+        background: var(--grey-1);
+      }
+      .more {
+        font-size: 12.5px;
+        font-weight: 500;
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .more:hover {
+        text-decoration: underline;
+      }
+      .more .arr {
+        display: inline-block;
+        transition: transform 0.18s var(--ease);
+      }
+      .more:hover .arr {
+        transform: translateX(3px);
+      }
+      .skip {
+        position: absolute;
+        left: -999px;
+        top: 8px;
+        background: var(--black);
+        color: var(--white);
+        padding: 8px 12px;
+        border-radius: 6px;
+        z-index: 60;
+      }
+      .skip:focus {
+        left: 8px;
+      }
+
+      /* nav */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        background: var(--white);
+        border-bottom: 1px solid var(--grey-2);
+        transition:
+          background 0.3s,
+          box-shadow 0.3s;
+      }
+      .nav.scrolled {
+        background: rgba(255, 255, 255, 0.86);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 10px 30px -24px rgba(0, 0, 0, 0.35);
+      }
+      .nav .wrap {
+        display: flex;
+        align-items: center;
+        gap: 40px;
+        height: var(--nav-h);
+        max-width: var(--wrap-wide);
+        transition: height 0.3s var(--ease);
+      }
+      .nav.scrolled .wrap {
+        height: 56px;
+      }
+      .progress {
+        position: absolute;
+        left: 0;
+        bottom: -1px;
+        width: 100%;
+        height: 2px;
+        background: var(--gold);
+        transform: scaleX(0);
+        transform-origin: left;
+        pointer-events: none;
+      }
+      .links a.on {
+        color: var(--black);
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+      }
+      .logo img {
+        display: block;
+        height: 34px;
+        width: auto;
+      }
+      .logo .logo-dark {
+        display: none;
+      }
+      html.dark .logo .logo-light {
+        display: none;
+      }
+      html.dark .logo .logo-dark {
+        display: block;
+      }
+      .logo-word {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 17px;
+        letter-spacing: 0.01em;
+        color: var(--black);
+      }
+      .links {
+        display: flex;
+        gap: 28px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+        white-space: nowrap;
+      }
+      .links a:hover {
+        color: var(--black);
+      }
+      /* Dropdown tabs (FD AI, Resources) — mirrors the homepage */
+      .has-sub {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+      .has-sub > button {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: inherit;
+        padding: 0;
+      }
+      .has-sub > button:hover,
+      .has-sub[data-open="true"] > button {
+        color: var(--black);
+      }
+      .has-sub > button svg {
+        width: 10px;
+        height: 10px;
+        transition: transform 0.2s var(--ease);
+      }
+      .has-sub[data-open="true"] > button svg {
+        transform: rotate(180deg);
+      }
+      .nav-sub {
+        position: absolute;
+        top: calc(100% + 14px);
+        left: -12px;
+        min-width: 160px;
+        background: var(--white);
+        border: 1px solid var(--grey-2);
+        border-radius: 8px;
+        padding: 6px;
+        box-shadow: 0 10px 30px rgba(15, 15, 15, 0.08);
+        display: none;
+        flex-direction: column;
+        z-index: 2;
+      }
+      .nav-sub::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -14px;
+        height: 14px;
+      }
+      .has-sub[data-open="true"] .nav-sub,
+      .has-sub:hover .nav-sub,
+      .has-sub:focus-within .nav-sub {
+        display: flex;
+      }
+      .has-sub:hover > button svg {
+        transform: rotate(180deg);
+      }
+      .nav-sub a {
+        padding: 7px 10px;
+        border-radius: 5px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+      }
+      .nav-sub a:hover,
+      .nav-sub a:focus-visible {
+        background: var(--grey-1);
+        color: var(--black);
+      }
+      .nav-sub a.on,
+      .nav-sub a[aria-current="page"],
+      .has-sub > button.on {
+        color: var(--black);
+      }
+      .links.r {
+        margin-left: auto;
+      }
+      .nav-cta {
+        display: flex;
+        gap: 8px;
+        margin-left: 8px;
+      }
+      .burger {
+        display: none;
+        margin-left: auto;
+        width: 40px;
+        height: 40px;
+        border-radius: 6px;
+        place-items: center;
+      }
+      .burger span {
+        display: block;
+        width: 18px;
+        height: 2px;
+        background: var(--black);
+        position: relative;
+      }
+      .burger span::before,
+      .burger span::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        width: 18px;
+        height: 2px;
+        background: var(--black);
+      }
+      .burger span::before {
+        top: -6px;
+      }
+      .burger span::after {
+        top: 6px;
+      }
+      .menu {
+        display: none;
+        background: var(--white);
+        border-top: 1px solid var(--grey-2);
+        max-height: calc(100vh - var(--nav-h));
+        overflow: auto;
+      }
+      .menu .wrap {
+        display: grid;
+        gap: 14px;
+        padding-block: 18px;
+        font-size: 15px;
+      }
+      .menu a {
+        padding: 4px 0;
+      }
+      .menu-group {
+        display: grid;
+        gap: 6px;
+      }
+      .menu-group > span {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--grey-4);
+      }
+      .menu-group a {
+        padding-left: 12px;
+      }
+      .menu[data-open="true"] {
+        display: block;
+      }
+      @media (max-width: 1240px) {
+        .links {
+          display: none;
+        }
+        .burger {
+          display: grid;
+          margin-left: 0;
+        }
+        .nav-cta {
+          margin-left: auto;
+        }
+      }
+      @media (max-width: 560px) {
+        .nav-cta .btn-white {
+          display: none;
+        }
+        .ann .wrap {
+          font-size: 12px;
+          padding: 10px 44px;
+        }
+        .ann-x {
+          top: 6px;
+          transform: none;
+        }
+      }
+
+      /* scroll reveals for sections */
+      html.js [data-rv] {
+        opacity: 0;
+        transform: translateY(14px);
+        transition:
+          opacity 0.6s var(--ease),
+          transform 0.6s var(--ease);
+        transition-delay: calc(var(--i, 0) * 70ms);
+      }
+      html.js [data-rv].in {
+        opacity: 1;
+        transform: none;
+      }
+
+      /* footer */
+      .foot .wrap {
+        max-width: var(--wrap-wide);
+      }
+      .foot {
+        background: var(--black);
+        color: var(--grey-4);
+        padding: 56px 0 32px;
+        font-size: 13px;
+      }
+      .foot .grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr 1.2fr 1.4fr;
+        gap: 40px;
+      }
+      .foot .logo {
+        color: var(--white);
+      }
+      .foot .logo img {
+        height: 38px;
+      }
+      .foot .logo-word {
+        color: var(--white);
+      }
+      .foot .about {
+        margin-top: 16px;
+        line-height: 1.7;
+        max-width: 34ch;
+      }
+      .foot h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--white);
+        margin-bottom: 12px;
+      }
+      .foot ul {
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+      .foot a:hover {
+        color: var(--white);
+      }
+      .foot .nl label {
+        display: block;
+        margin-bottom: 10px;
+      }
+      .foot .nl .field {
+        display: flex;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .foot .nl input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--white);
+        padding: 9px 12px;
+        font: inherit;
+        outline: none;
+        min-width: 0;
+      }
+      .foot .nl input::placeholder {
+        color: var(--grey-4);
+      }
+      .foot .nl button {
+        background: var(--gold);
+        color: var(--black);
+        padding: 0 14px;
+        font-weight: 600;
+      }
+      .foot .nl .msg {
+        margin-top: 8px;
+        font-size: 12px;
+        min-height: 1.2em;
+      }
+      .foot .bot {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 44px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 12px;
+      }
+      .foot .bot div {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      @media (max-width: 900px) {
+        .foot .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media (max-width: 560px) {
+        .foot .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+
+      [hidden] { display: none !important; }
+
+      /* ————— blog index ————— */
+      .blog-head { padding: clamp(36px, 5vw, 60px) 0 0; }
+      .blog-head h1 { font-size: clamp(34px, 4.4vw, 52px); font-weight: 600; letter-spacing: -0.035em; line-height: 1.05; }
+      @media (max-width: 640px) { .blog-head h1 { font-size: 32px; gap: 12px; } }
+      .blog-head h1 { display: flex; align-items: center; gap: 16px; }
+      .blog-head h1 .bulb { width: 0.86em; height: 0.86em; flex: none; overflow: visible; }
+      .bulb path { fill: none; stroke: var(--gold); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+      .bulb .glow { stroke: none; fill: var(--gold); opacity: 0; filter: drop-shadow(0 0 3px rgba(243, 191, 75, 0.9)); }
+      .bulb .fil { opacity: 0; stroke: var(--gold-deep); }
+      .bulb .rays path { stroke-width: 1.8; opacity: 0; transform-box: fill-box; transform-origin: center; transform: scale(0.5); }
+      /* one slow 14s cycle, repeating: glass fills (0–2.5s) → filament (1.5–3s) → rays (2.5–3.5s) → holds lit → fades out (11–13s) → dark for a beat */
+      @keyframes bulb-glow { 0% { opacity: 0; } 18% { opacity: 1; } 78% { opacity: 1; } 92% { opacity: 0; } 100% { opacity: 0; } }
+      @keyframes bulb-fil { 0%, 10% { opacity: 0; } 22% { opacity: 1; } 78% { opacity: 1; } 90% { opacity: 0; } 100% { opacity: 0; } }
+      @keyframes bulb-ray { 0%, 18% { opacity: 0; transform: scale(0.5); } 26% { opacity: 1; transform: none; } 78% { opacity: 1; transform: none; } 86% { opacity: 0; transform: scale(0.5); } 100% { opacity: 0; transform: scale(0.5); } }
+      .bulb.lit .glow { animation: bulb-glow 14s ease-in-out infinite; }
+      .bulb.lit .fil { animation: bulb-fil 14s ease-in-out infinite; }
+      .bulb.lit .rays path { animation: bulb-ray 14s ease-in-out infinite; }
+      .bulb.lit .rays path:nth-child(2), .bulb.lit .rays path:nth-child(3) { animation-delay: 0.15s; }
+      .bulb.lit .rays path:nth-child(4), .bulb.lit .rays path:nth-child(5) { animation-delay: 0.3s; }
+      @media (prefers-reduced-motion: reduce) { .bulb.lit .glow, .bulb.lit .fil, .bulb.lit .rays path { animation: none; opacity: 1; transform: none; } }
+      html.dark .bulb .fil { stroke: var(--gold); }
+      .blog-head .sub { margin-top: 12px; font-size: clamp(17px, 1.6vw, 20px); color: var(--grey-5); }
+      .filter-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 30px; padding-bottom: 30px; border-bottom: 1.5px solid var(--ink); }
+      .cats { display: flex; gap: 8px; flex-wrap: wrap; }
+      .cat { height: 40px; display: inline-flex; align-items: center; font-size: 14px; padding: 0 18px; border: 1px solid var(--grey-3); border-radius: 999px; color: var(--ink); transition: color 0.2s, background 0.2s, border-color 0.2s, transform 0.15s var(--ease); }
+      .cat:hover { border-color: var(--grey-5); background: var(--grey-1); }
+      .cat:active { transform: scale(0.95); }
+      .cat.sel { color: var(--white); background: var(--black); border-color: var(--black); font-weight: 500; }
+      html.dark .cat.sel { color: var(--black); background: var(--ink); border-color: var(--ink); }
+      .searchbox { position: relative; flex: 0 1 300px; min-width: 200px; }
+      .searchbox input { width: 100%; height: 40px; font: inherit; font-size: 14px; color: var(--ink); padding: 0 16px 0 40px; border: 1px solid var(--grey-3); border-radius: 999px; background: var(--white); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+      .searchbox input::placeholder { color: var(--grey-4); }
+      .searchbox input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(243, 191, 75, 0.22); }
+      .searchbox svg { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); width: 15px; height: 15px; pointer-events: none; }
+      :focus-visible.cat, .cat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+      .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-deep); }
+      .eyebrow .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--gold-deep); }
+
+      /* front: lead story (8 cols) + rail (4 cols), Bloomberg-style */
+      .front { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 5fr) minmax(0, 3fr); gap: clamp(24px, 3.5vw, 48px); align-items: start; padding-block: clamp(28px, 3.5vw, 40px) 0; }
+      .front::after { content: ""; grid-column: 1 / -1; height: 3px; background: var(--ink); margin-top: clamp(8px, 1.5vw, 16px); }
+      .feature { display: flex; flex-direction: column; justify-content: flex-start; align-self: start; padding-top: 4px; }
+      .art { position: relative; display: block; overflow: hidden; background: var(--gold); border-radius: 10px; aspect-ratio: 4 / 3; transition: box-shadow 0.25s var(--ease); }
+      .art:hover { box-shadow: 0 24px 56px -32px rgba(15, 15, 15, 0.5); }
+      .art svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+      .art .doc { opacity: 0; transform: translateY(14px); transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); transform-box: fill-box; transform-origin: center; }
+      .art.in .doc { opacity: 1; transform: none; }
+      .art.in .doc-b { transition-delay: 0.15s; }
+      .art:hover .doc-a, .art:hover .doc-b { transform: translateY(-2px); }
+      .f-body { padding-right: 8px; }
+      .feature h2 { margin-top: 14px; font-size: clamp(28px, 3.1vw, 40px); font-weight: 600; letter-spacing: -0.03em; line-height: 1.08; }
+      .feature h2 a:hover { text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 3px; text-underline-offset: 5px; }
+      .feature .deck { margin-top: 14px; font-size: clamp(15.5px, 1.35vw, 17.5px); line-height: 1.55; color: var(--grey-5); }
+      .feature .time { margin-top: 18px; font-size: 13.5px; color: var(--grey-5); }
+      .feature .read { display: inline-flex; align-items: center; gap: 8px; margin-top: 22px; font-size: 15px; font-weight: 500; color: var(--ink); }
+      .feature .read .txt { text-decoration: underline; text-decoration-color: transparent; text-decoration-thickness: 2px; text-underline-offset: 5px; transition: text-decoration-color 0.2s; }
+      .feature .read:hover .txt { text-decoration-color: var(--gold); }
+      .feature .read .arr { color: var(--gold-deep); display: inline-block; transition: transform 0.2s var(--ease); }
+      .feature .read:hover .arr { transform: translate(2px, -2px); }
+
+      .rail { display: grid; gap: 24px; align-content: start; padding-left: clamp(0px, 2vw, 24px); border-left: 1px solid var(--grey-2); }
+      .rail-h { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 2px solid var(--ink); font-size: 15px; font-weight: 600; letter-spacing: -0.01em; }
+      .rail-more { display: inline-flex; align-items: center; gap: 5px; font-family: var(--sans); font-size: 12.5px; font-weight: 500; letter-spacing: 0; color: var(--gold-deep); }
+      .rail-more .arr { transition: transform 0.2s var(--ease); }
+      .rail-more:hover .arr { transform: translateX(3px); }
+      .latest { list-style: none; }
+      .latest li a { display: block; padding: 12px 12px 12px 14px; border-left: 3px solid var(--gold); background: var(--gold-soft); border-radius: 0 8px 8px 0; margin-top: 12px; }
+      .latest .l-tag { display: block; font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold-deep); }
+      .latest strong { display: block; margin-top: 6px; font-family: var(--display); font-weight: 500; font-size: 16px; letter-spacing: -0.015em; line-height: 1.3; }
+      .latest li a:hover strong { text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+      .latest .l-time { display: block; margin-top: 6px; font-size: 12.5px; color: var(--grey-5); }
+      .topics { list-style: none; }
+      .topics li { border-bottom: 1px solid var(--grey-2); }
+      .topics button { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 2px; font-size: 14.5px; color: var(--ink); text-align: left; transition: color 0.15s; }
+      .topics button:hover { color: var(--gold-deep); }
+      .topics .n { font-size: 12px; font-weight: 500; color: var(--grey-4); font-variant-numeric: tabular-nums; }
+      .topics button:hover .n { color: var(--gold-deep); }
+      .rail-brief { padding: 18px 20px; background: var(--black); color: #fff; border-radius: 10px; }
+      .rail-brief .bt { display: block; font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: -0.015em; }
+      .rail-brief p { margin: 6px 0 14px; font-size: 13.5px; line-height: 1.5; color: #b9b9b9; max-width: 32ch; }
+      html.dark .rail-brief { background: #232323; }
+      .insights { padding: clamp(36px, 4.5vw, 56px) 0 clamp(64px, 8vw, 104px); }
+      .insights h2 { font-size: clamp(24px, 2.6vw, 30px); font-weight: 600; letter-spacing: -0.03em; display: flex; align-items: baseline; }
+      .ins-h { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--grey-3); }
+      .ins-h .cnt { margin-left: 12px; font-family: var(--sans); font-size: 13px; font-weight: 400; letter-spacing: 0; color: var(--grey-4); }
+      .viewall { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 500; color: var(--gold-deep); white-space: nowrap; }
+      .viewall .arr { transition: transform 0.2s var(--ease); }
+      .viewall:hover .arr { transform: translateX(4px); }
+      .insights-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px, 3vw, 40px); margin-top: 32px; }
+      .m-card { display: flex; flex-direction: column; }
+      .thumb { display: block; width: 100%; aspect-ratio: 3 / 1; border-radius: 10px; margin-bottom: 18px; overflow: hidden; }
+      .thumb svg { display: block; width: 100%; height: 100%; }
+      .thumb.t-grey { background: var(--grey-1); }
+      .thumb.t-gold { background: var(--gold-soft); }
+      
+      .m-card h3 { margin-top: 8px; font-size: 18px; font-weight: 500; letter-spacing: -0.02em; line-height: 1.32; flex: 1; }
+      .m-card:hover h3 { text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+      .m-card .foot-row { display: block; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--grey-2); font-size: 13px; color: var(--grey-4); }
+      .m-card .arr { display: none; }
+      .empty { margin: 26px 0 0; padding: 36px 24px; border: 1px dashed var(--grey-3); border-radius: 12px; color: var(--grey-5); font-size: 14px; text-align: center; }
+
+      .brief-band { border-top: 3px solid var(--ink); background: var(--grey-1); }
+      .brief-band .wrap { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding-block: clamp(28px, 3.5vw, 40px); }
+      .brief-band .bt { font-family: var(--display); font-weight: 600; font-size: 18px; letter-spacing: -0.015em; }
+      .brief-band p { margin-top: 4px; font-size: 13.5px; color: var(--grey-5); max-width: 56ch; }
+      .brief-band form { display: flex; flex-wrap: wrap; gap: 8px; flex: 0 1 400px; min-width: 260px; }
+      .brief-band input { flex: 1 1 200px; min-width: 0; height: 40px; font: inherit; font-size: 14px; padding: 0 14px; border: 1px solid var(--grey-3); border-radius: 6px; background: var(--white); color: var(--ink); outline: none; }
+      .brief-band input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(243, 191, 75, 0.22); }
+      .brief-band .msg { flex-basis: 100%; font-size: 12.5px; color: var(--grey-5); min-height: 1.2em; }
+      .insights { padding-bottom: clamp(48px, 6vw, 72px); }
+
+      @keyframes word-rise { from { opacity: 0; transform: translateY(0.5em); } to { opacity: 1; transform: none; } }
+      .blog-head h1, .filter-row { animation: word-rise 0.6s var(--ease) both; }
+      .filter-row { animation-delay: 0.15s; }
+      @keyframes bar-rise { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+      @keyframes line-draw { from { stroke-dasharray: 34; stroke-dashoffset: 34; } to { stroke-dasharray: 34; stroke-dashoffset: 0; } }
+      @keyframes card-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      .pop { animation: card-pop 0.4s var(--ease) both; }
+
+      @media (max-width: 980px) {
+        .front { grid-template-columns: 1fr 1fr; }
+        .rail { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; padding-left: 0; border-left: 0; padding-top: 24px; border-top: 1px solid var(--grey-2); }
+        .art { aspect-ratio: 4 / 3; }
+        .thumb { aspect-ratio: 2 / 1; }
+        .art { max-width: 520px; }
+        .insights-grid { grid-template-columns: 1fr; }
+        .front { grid-template-columns: 1fr; }
+        .art { aspect-ratio: 16 / 10; }
+      }
+      @media (max-width: 640px) {
+        .filter-row { flex-direction: column; align-items: stretch; gap: 14px; padding-bottom: 24px; }
+        .cat { height: 38px; padding: 0 16px; }
+        .cats { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); scroll-snap-type: x proximity; }
+        .cats::-webkit-scrollbar { display: none; }
+        .cat { flex: none; scroll-snap-align: start; }
+        .searchbox { flex: none; width: 100%; }
+        .rail { grid-template-columns: 1fr; }
+        .feature h2 { font-size: 30px; }
+        .insights-grid { gap: 28px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        * {
+          animation: none !important;
+          transition-duration: 0.01ms !important;
+          transition-delay: 0s !important;
+        }
+      }
+    
+      .fd-mark {
+        display: inline-block;
+        font-family: var(--sans, Inter, Arial, sans-serif);
+        font-size: 11.5px;
+        font-weight: 500;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        line-height: 1;
+        padding: 7px 10px 6px 12px;
+        border-top: 1px solid currentColor;
+        border-bottom: 1px solid currentColor;
+        white-space: nowrap;
+      }
+      .foot .fd-mark, footer .fd-mark { color: #fff; }
+    </style>
+    <script>
+      document.documentElement.classList.add("js");
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <nav class="nav" aria-label="Main">
+      <div class="wrap">
+        <a class="logo" href="/" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+        <div class="links">
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">FD AI <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/draft">Draft</a>
+              <a href="/#about">Review</a>
+            </div>
+          </div>
+          <a href="/#lawyers">Ask a Lawyer</a>
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">Services <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/#services">FD Consult</a>
+              <a href="/#services">FD Legal</a>
+            </div>
+          </div>
+        </div>
+        <div class="links r">
+          <div class="has-sub" data-open="false">
+            <button type="button" class="on" aria-expanded="false" aria-haspopup="true">Resources <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/resources" aria-current="page">Blog</a>
+              <a href="/coming-soon?f=Courses">Courses</a>
+              <a href="/podcast">Podcast</a>
+            </div>
+          </div>
+          <a href="/about">About us</a>
+        </div>
+        <div class="nav-cta">
+          <a class="btn btn-white" href="/contact">Book a consultation</a>
+          <a class="btn btn-gold" href="/draft">Launch FD AI</a>
+        </div>
+        <button class="theme-btn" type="button" aria-label="Toggle light and dark mode" aria-pressed="false">
+          <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5 5l1.8 1.8M17.2 17.2 19 19M19 5l-1.8 1.8M6.8 17.2 5 19"/></svg>
+          <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>
+        </button>
+        <button class="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
+          <span></span>
+        </button>
+      </div>
+      <span class="progress" aria-hidden="true"></span>
+      <div class="menu" id="menu" data-open="false">
+        <div class="wrap">
+          <div class="menu-group">
+            <span>FD AI</span>
+            <a href="/draft">Draft</a>
+            <a href="/#about">Review</a>
+          </div>
+          <a href="/#lawyers">Ask a Lawyer</a>
+          <div class="menu-group">
+            <span>Services</span>
+            <a href="/#services">FD Consult</a>
+            <a href="/#services">FD Legal</a>
+          </div>
+          <div class="menu-group">
+            <span>Resources</span>
+            <a href="/resources" aria-current="page">Blog</a>
+            <a href="/coming-soon?f=Courses">Courses</a>
+            <a href="/podcast">Podcast</a>
+          </div>
+          <a href="/about">About us</a>
+          <a href="/contact">Contact us</a>
+        </div>
+      </div>
+    </nav>
+
+    <main id="main">
+      <section class="blog-head">
+        <div class="wrap">
+          <h1><svg class="bulb" viewBox="0 0 24 24" aria-hidden="true"><g class="rays"><path d="M12 0.6v1.9"/><path d="M5.2 3.8l1.3 1.3"/><path d="M18.8 3.8l-1.3 1.3"/><path d="M2.2 10.6h1.9"/><path d="M19.9 10.6h1.9"/></g><path class="glow" d="M12 3.5a6 6 0 0 1 3.6 10.8c-.6.5-1 1.2-1.1 2H9.5c-.1-.8-.5-1.5-1.1-2A6 6 0 0 1 12 3.5Z"/><path class="glass" d="M12 3.5a6 6 0 0 1 3.6 10.8c-.6.5-1 1.2-1.1 2H9.5c-.1-.8-.5-1.5-1.1-2A6 6 0 0 1 12 3.5Z"/><path class="fil" d="M10.4 16.3v-2.1l1.6-1.6 1.6 1.6v2.1"/><path class="base" d="M9.6 19h4.8M10.4 21.3h3.2"/></svg>Insights for founders</h1>
+          <div class="filter-row">
+            <div class="cats" role="group" aria-label="Filter articles by topic">
+              <button type="button" class="cat sel" data-filter="all" aria-pressed="true">All</button>
+              <button type="button" class="cat" data-filter="fundraising" aria-pressed="false">Fundraising</button>
+              <button type="button" class="cat" data-filter="contracts" aria-pressed="false">Contracts</button>
+              <button type="button" class="cat" data-filter="company" aria-pressed="false">Company setup</button>
+              <button type="button" class="cat" data-filter="hiring" aria-pressed="false">Hiring</button>
+              <button type="button" class="cat" data-filter="ai" aria-pressed="false">AI &amp; law</button>
+            </div>
+            <div class="searchbox">
+              <svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="5" stroke="#9a9a9a" stroke-width="1.6"/><line x1="10.8" y1="10.8" x2="14.4" y2="14.4" stroke="#9a9a9a" stroke-width="1.6" stroke-linecap="round"/></svg>
+              <input id="post-search" type="search" placeholder="Search articles" aria-label="Search articles by title" autocomplete="off" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="wrap front">
+        <article class="feature" data-cat="contracts">
+          <div class="f-body">
+            <span class="eyebrow">Featured<span class="dot" aria-hidden="true"></span>Contracts</span>
+            <h2><a href="/nda-vs-confidentiality-agreement">NDA vs Confidentiality Agreement: What is the Difference?</a></h2>
+            <p class="deck">The terms are often interchangeable. What matters is the scope of the obligations inside the agreement.</p>
+            <p class="time">By Founders Doc · 8 Sep 2026 · 6 min read</p>
+            <a class="read" href="/nda-vs-confidentiality-agreement"><span class="txt">Read article</span><span class="arr" aria-hidden="true">↗</span></a>
+          </div>
+        </article>
+        <a class="art" data-rv href="/nda-vs-confidentiality-agreement" aria-label="Read the article">
+          <svg viewBox="34 8 332 190" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" text-rendering="geometricPrecision" font-family="Geist, Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif">
+              <defs>
+                <filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#5a3f08" flood-opacity=".16"/></filter>
+                <linearGradient id="gA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a2a2a"/><stop offset="1" stop-color="#171717"/></linearGradient>
+                <linearGradient id="gB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#fafafa"/></linearGradient>
+              </defs>
+              <g transform="translate(200 100) scale(.92) translate(-200 -100)">
+              <g transform="rotate(-4 128 106)"><g class="doc doc-a" filter="url(#sh)">
+                <rect x="58" y="26" width="140" height="160" rx="5" fill="url(#gA)"/>
+                <rect x="58" y="26" width="140" height="160" rx="5" fill="none" stroke="#000" stroke-opacity=".25"/>
+                <text x="128" y="82" text-anchor="middle" font-size="36" font-weight="600" fill="#fff" letter-spacing="-0.8">NDA</text>
+                <rect x="86" y="94" width="84" height="3.5" rx="1.75" fill="#f3bf4b"/>
+                <rect x="90" y="114" width="76" height="3" rx="1.5" fill="#9a9a9a"/>
+                <rect x="90" y="127" width="76" height="3" rx="1.5" fill="#9a9a9a"/>
+                <rect x="90" y="140" width="52" height="3" rx="1.5" fill="#9a9a9a"/>
+              </g></g>
+              <g transform="rotate(-2 262 110)"><g class="doc doc-b" filter="url(#sh)">
+                <rect x="190" y="32" width="146" height="162" rx="5" fill="url(#gB)"/>
+                <rect x="190" y="32" width="146" height="162" rx="5" fill="none" stroke="#000" stroke-opacity=".1"/>
+                <text x="263" y="78" text-anchor="middle" font-size="19" font-weight="600" fill="#111" letter-spacing="-0.4">Confidentiality</text>
+                <text x="263" y="100" text-anchor="middle" font-size="19" font-weight="600" fill="#111" letter-spacing="-0.4">Agreement</text>
+                <rect x="221" y="112" width="84" height="3.5" rx="1.75" fill="#c9962a"/>
+                <rect x="225" y="132" width="76" height="3" rx="1.5" fill="#b5b5b5"/>
+                <rect x="225" y="145" width="76" height="3" rx="1.5" fill="#b5b5b5"/>
+                <rect x="225" y="158" width="52" height="3" rx="1.5" fill="#b5b5b5"/>
+              </g></g>
+              </g>
+            </svg>
+        </a>
+
+        <aside class="rail">
+          <section class="rail-sec">
+            <h3 class="rail-h">Latest<a class="rail-more" href="#more">All articles<span class="arr" aria-hidden="true">→</span></a></h3>
+            <ul class="latest">
+              <li><a href="/before-you-sign-an-nda"><span class="l-tag">Contracts</span><strong>Before You Sign an NDA: 10 Things Founders Should Know</strong><span class="l-time">10 Sep 2026 · 9 min read</span></a></li>
+              <li><a href="/nda-vs-confidentiality-agreement"><span class="l-tag">Contracts</span><strong>NDA vs Confidentiality Agreement: What is the Difference?</strong><span class="l-time">8 Sep 2026 · 6 min read</span></a></li>
+            </ul>
+          </section>
+          <section class="rail-sec">
+            <h3 class="rail-h">Topics</h3>
+            <ul class="topics">
+              <li><button type="button" data-topic="contracts"><span>Contracts</span><span class="n">2</span></button></li>
+              <li><button type="button" data-topic="fundraising"><span>Fundraising</span><span class="n">Soon</span></button></li>
+              <li><button type="button" data-topic="company"><span>Company setup</span><span class="n">Soon</span></button></li>
+              <li><button type="button" data-topic="hiring"><span>Hiring</span><span class="n">Soon</span></button></li>
+              <li><button type="button" data-topic="ai"><span>AI &amp; law</span><span class="n">Soon</span></button></li>
+            </ul>
+          </section>
+        </aside>
+      </section>
+
+      <section class="wrap">
+
+        <!-- The first card below is live. The remaining cards are placeholders linking back to this page — replace them with live posts as they are published. -->
+        <section class="insights" id="more">
+          <div class="ins-h"><h2>Latest insights<span class="cnt" id="n-posts"></span></h2><a class="viewall" href="#more">View all articles<span class="arr" aria-hidden="true">→</span></a></div>
+          <div class="insights-grid">
+            <a class="m-card" data-cat="contracts" href="/before-you-sign-an-nda">
+              <span class="thumb t-gold">
+                <svg viewBox="0 0 300 100" aria-hidden="true">
+                  <rect x="103" y="12" width="94" height="80" rx="5" fill="var(--white)" stroke="var(--grey-3)"/>
+                  <rect x="119" y="28" width="62" height="4" rx="2" fill="var(--gold)"/>
+                  <rect x="119" y="42" width="48" height="3" rx="1.5" fill="var(--grey-3)"/>
+                  <rect x="119" y="53" width="56" height="3" rx="1.5" fill="var(--grey-3)"/>
+                  <rect x="119" y="64" width="43" height="3" rx="1.5" fill="var(--grey-3)"/>
+                  <path d="M177 74l5 5 10-13" fill="none" stroke="var(--gold-deep)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="eyebrow">Contracts</span>
+              <h3>Before You Sign an NDA: 10 Things Founders Should Know</h3>
+              <span class="foot-row"><span>10 Sep 2026 · 9 min read</span><span class="arr" aria-hidden="true">→</span></span>
+            </a>
+            <a class="m-card" data-cat="company" href="/resources">
+              <span class="thumb t-grey"><svg viewBox="0 0 300 100" aria-hidden="true"><rect x="108" y="56" width="22" height="44" fill="var(--grey-3)"/><rect x="136" y="30" width="28" height="70" fill="var(--grey-4)"/><rect x="146" y="30" width="8" height="70" fill="var(--gold)"/><rect x="170" y="46" width="22" height="54" fill="var(--grey-3)"/></svg></span>
+              <span class="eyebrow">Company setup</span>
+              <h3>Incorporating in Singapore vs Delaware: a founder's decision tree</h3>
+              <span class="foot-row"><span>15 Jul 2026 · 7 min read</span><span class="arr" aria-hidden="true">→</span></span>
+            </a>
+            <a class="m-card" data-cat="fundraising" href="/resources">
+              <span class="thumb t-gold"><svg viewBox="0 0 300 100" aria-hidden="true"><path d="M100 78 L138 60 L166 66 L200 30" stroke="var(--gold-deep)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/><circle cx="200" cy="30" r="5" fill="var(--gold-soft)" stroke="var(--gold-deep)" stroke-width="2.5"/></svg></span>
+              <span class="eyebrow">Fundraising</span>
+              <h3>SAFE, convertible note, or priced round: choosing your first instrument</h3>
+              <span class="foot-row"><span>12 Aug 2026 · 8 min read</span><span class="arr" aria-hidden="true">→</span></span>
+            </a>
+          </div>
+          <p class="empty" id="empty" hidden>No articles match your search. Try a different word, or clear the filters.</p>
+        </section>
+      </section>
+
+      <section class="brief-band">
+        <div class="wrap">
+          <div>
+            <span class="bt">The Founders Doc brief</span>
+            <p>One email a month: new guides, template updates and the legal changes founders should know about.</p>
+          </div>
+          <form id="nl-form-top" novalidate>
+            <input id="em-top" name="email" type="email" placeholder="Email address" autocomplete="email" aria-label="Email address" required />
+            <button class="btn btn-gold" type="submit">Sign up</button>
+            <p class="msg" id="nl-msg-top" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+
+
+    </main>
+
+    <footer class="foot">
+      <div class="wrap">
+        <div class="grid">
+          <div>
+            <a class="logo" href="#top" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+            <p class="about">
+              Contracts for founders everywhere, reviewed and drafted by Jessica, our AI, and the practising
+              lawyers behind her.
+            </p>
+          </div>
+          <div>
+            <h4>Quick links</h4>
+            <ul>
+              <li><a href="#top">Home</a></li>
+              <li><a href="/about">About us</a></li>
+              <li><a href="/#services">Our services</a></li>
+              <li><a href="/resources">Blog</a></li>
+              <li><a href="/coming-soon?f=Courses">Courses</a></li>
+              <li><a href="/podcast">Podcast</a></li>
+              <li><a href="/contact">Contact us</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Useful links</h4>
+            <ul>
+              <li><a href="/draft">Launch FD AI</a></li>
+              <li><a href="https://foundersdoc.com/terms-conditions/">Terms &amp; conditions</a></li>
+              <li><a href="https://foundersdoc.com/privacy-policy/">Privacy policy</a></li>
+              <li><a href="https://foundersdoc.com/community-guidelines/">Community guidelines</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Contact us</h4>
+            <ul>
+              <li><a href="https://wa.me/6594617390?text=Hi!">+65 9461 7390 (WhatsApp only)</a></li>
+              <li><a href="mailto:administrator@foundersdoc.com">administrator@foundersdoc.com</a></li>
+            </ul>
+          </div>
+          <div class="nl">
+            <form id="nl-form" novalidate>
+              <label for="em">Subscribe to our newsletter</label>
+              <div class="field">
+                <input id="em" name="email" type="email" placeholder="Email address" autocomplete="email" required />
+                <button type="submit" aria-label="Subscribe">→</button>
+              </div>
+              <p class="msg" id="nl-msg" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+        <div class="bot">
+          <span>© 2026 Founders Doc. All rights reserved.</span>
+          <div>
+            <a href="https://www.linkedin.com/company/foundersdoc/">LinkedIn</a>
+            <a href="https://www.instagram.com/foundersdoc/">Instagram</a>
+            <a href="https://www.youtube.com/channel/UCYQebtLCvD2esHthgPAxrFg">YouTube</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        // Mobile menu
+        var burger = document.querySelector(".burger"),
+          menu = document.getElementById("menu");
+        if (burger && menu) {
+          burger.addEventListener("click", function () {
+            var open = menu.getAttribute("data-open") === "true";
+            menu.setAttribute("data-open", String(!open));
+            burger.setAttribute("aria-expanded", String(!open));
+            burger.setAttribute("aria-label", open ? "Open menu" : "Close menu");
+          });
+          menu.querySelectorAll("a").forEach(function (a) {
+            a.addEventListener("click", function () {
+              menu.setAttribute("data-open", "false");
+              burger.setAttribute("aria-expanded", "false");
+              burger.setAttribute("aria-label", "Open menu");
+            });
+          });
+        }
+
+        // Dropdown tabs (FD AI, Resources): click to toggle, Escape / outside click to close
+        var subs = Array.prototype.slice.call(document.querySelectorAll(".has-sub"));
+        function closeSubs(except) {
+          subs.forEach(function (d) {
+            if (d !== except) {
+              d.setAttribute("data-open", "false");
+              d.querySelector("button").setAttribute("aria-expanded", "false");
+            }
+          });
+        }
+        subs.forEach(function (d) {
+          var btn = d.querySelector("button");
+          btn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            var open = d.getAttribute("data-open") === "true";
+            closeSubs(d);
+            d.setAttribute("data-open", String(!open));
+            btn.setAttribute("aria-expanded", String(!open));
+          });
+          d.querySelectorAll(".nav-sub a").forEach(function (a) {
+            a.addEventListener("click", function () { closeSubs(); });
+          });
+        });
+        document.addEventListener("click", function () { closeSubs(); });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") closeSubs();
+        });
+
+        // Section reveals, staggered among siblings
+        var rv = Array.prototype.slice.call(document.querySelectorAll("[data-rv]"));
+        rv.forEach(function (el) {
+          var sibs = Array.prototype.filter.call(el.parentNode.children, function (c) {
+            return c.hasAttribute("data-rv");
+          });
+          if (sibs.length > 1) el.style.setProperty("--i", sibs.indexOf(el));
+        });
+        if ("IntersectionObserver" in window) {
+          var rio = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (en) {
+                if (en.isIntersecting) {
+                  en.target.classList.add("in");
+                  rio.unobserve(en.target);
+                }
+              });
+            },
+            { threshold: 0.15, rootMargin: "0px 0px -8% 0px" }
+          );
+          rv.forEach(function (el) {
+            rio.observe(el);
+          });
+        } else {
+          rv.forEach(function (el) {
+            el.classList.add("in");
+          });
+        }
+
+        // Scroll: nav state, progress line, active link
+        var nav = document.querySelector(".nav"),
+          prog = document.querySelector(".progress"),
+          navLinks = Array.prototype.slice.call(document.querySelectorAll('.links a[href^="#"]')),
+          sections = navLinks
+            .map(function (a) {
+              return document.getElementById(a.getAttribute("href").slice(1));
+            })
+            .filter(Boolean),
+          ticking = false;
+        var decors = Array.prototype.slice.call(document.querySelectorAll(".decor"));
+        function onScroll() {
+          var y = window.pageYOffset || document.documentElement.scrollTop,
+            max = document.documentElement.scrollHeight - window.innerHeight;
+          if (nav) nav.classList.toggle("scrolled", y > 8);
+          if (prog) prog.style.transform = "scaleX(" + (max > 0 ? Math.min(y / max, 1) : 0) + ")";
+          if (!reduce) {
+            decors.forEach(function (d, i) {
+              d.style.setProperty("--py", (y * (i === 0 ? -0.06 : -0.12)).toFixed(1) + "px");
+            });
+          }
+          var cur = null,
+            line = y + 120;
+          sections.forEach(function (sec) {
+            if (sec.offsetTop <= line) cur = sec.id;
+          });
+          navLinks.forEach(function (a) {
+            a.classList.toggle("on", a.getAttribute("href") === "#" + cur);
+          });
+          ticking = false;
+        }
+        window.addEventListener(
+          "scroll",
+          function () {
+            if (!ticking) {
+              ticking = true;
+              requestAnimationFrame(onScroll);
+            }
+          },
+          { passive: true }
+        );
+        onScroll();
+
+
+        // Topic filter + search: chips and the search box show or hide the featured article and the cards
+        var cats = Array.prototype.slice.call(document.querySelectorAll(".cat")),
+          articles = Array.prototype.slice.call(document.querySelectorAll("[data-cat]")),
+          search = document.getElementById("post-search"),
+          more = document.getElementById("more"),
+          emptyMsg = document.getElementById("empty"),
+          activeCat = "all";
+        function applyFilters() {
+          var q = search && search.value ? search.value.trim().toLowerCase() : "", shown = 0, shownCards = 0;
+          articles.forEach(function (a) {
+            var okCat = activeCat === "all" || a.getAttribute("data-cat") === activeCat,
+              h = a.querySelector("h2, h3"),
+              okText = !q || (h && h.textContent.toLowerCase().indexOf(q) !== -1),
+              show = okCat && okText, wasHidden = a.hidden;
+            a.hidden = !show;
+            if (show) {
+              shown++;
+              if (a.classList.contains("m-card")) shownCards++;
+              if (wasHidden && !reduce) { a.classList.remove("pop"); void a.offsetWidth; a.classList.add("pop"); }
+            }
+          });
+          if (more) more.querySelector("h2").hidden = shownCards === 0;
+          var nP = document.getElementById("n-posts");
+          if (nP) nP.textContent = shown + (shown === 1 ? " article" : " articles");
+          var firstSeen = false;
+          articles.forEach(function (a) {
+            if (!a.classList.contains("m-card")) return;
+            var isFirst = !a.hidden && !firstSeen;
+            if (isFirst) firstSeen = true;
+            a.classList.toggle("first", isFirst);
+          });
+          if (emptyMsg) emptyMsg.hidden = shown !== 0;
+        }
+        cats.forEach(function (c) {
+          c.addEventListener("click", function () {
+            activeCat = c.getAttribute("data-filter");
+            cats.forEach(function (x) { var on = x === c; x.classList.toggle("sel", on); x.setAttribute("aria-pressed", String(on)); });
+            applyFilters();
+          });
+        });
+        if (search) search.addEventListener("input", applyFilters);
+        applyFilters();
+        Array.prototype.forEach.call(document.querySelectorAll(".topics button"), function (t) {
+          t.addEventListener("click", function () {
+            var c = document.querySelector('.cat[data-filter="' + t.getAttribute("data-topic") + '"]');
+            if (c) { c.click(); c.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" }); }
+          });
+        });
+
+        // Hero card: tilt gently toward the pointer (desktop, fine pointers only)
+        var hero = document.getElementById("hero-card");
+        if (hero && !reduce && window.matchMedia && window.matchMedia("(pointer: fine)").matches) {
+          hero.addEventListener("pointermove", function (e) {
+            var r = hero.getBoundingClientRect(),
+              px = (e.clientX - r.left) / r.width - 0.5,
+              py = (e.clientY - r.top) / r.height - 0.5;
+            hero.style.setProperty("--ry", (px * 5).toFixed(2) + "deg");
+            hero.style.setProperty("--rx", (-py * 4).toFixed(2) + "deg");
+          });
+          hero.addEventListener("pointerleave", function () {
+            hero.style.setProperty("--rx", "0deg");
+            hero.style.setProperty("--ry", "0deg");
+          });
+        }
+
+        // Masthead bulb: lights up once the title has risen in, stays lit; glows brighter on hover
+        var bulb = document.querySelector(".bulb");
+        if (bulb) setTimeout(function () { bulb.classList.add("lit"); }, reduce ? 0 : 500);
+
+        // Masthead: live date
+        var md = document.getElementById("mast-date");
+        if (md) md.textContent = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+        // Light / dark mode toggle (session-only; add persistence on your own host if wanted)
+        var tbtn = document.querySelector(".theme-btn"),
+          rootEl = document.documentElement,
+          themeMeta = document.querySelector('meta[name="theme-color"]');
+        function syncTheme() {
+          var dark = rootEl.classList.contains("dark");
+          if (themeMeta) themeMeta.setAttribute("content", dark ? "#131313" : "#ffffff");
+          if (tbtn) tbtn.setAttribute("aria-pressed", String(dark));
+        }
+        if (tbtn) {
+          tbtn.addEventListener("click", function () {
+            rootEl.classList.toggle("dark");
+            syncTheme();
+          });
+          syncTheme();
+        }
+
+        // Newsletter: validate client-side. Point the form at your email provider (e.g. Mailchimp) via the `action` attribute when ready.
+        var form = document.getElementById("nl-form"),
+          msg = document.getElementById("nl-msg"),
+          em = document.getElementById("em");
+        if (form) {
+          form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            if (!em.value || !em.checkValidity()) {
+              msg.textContent = "Enter a valid email address to subscribe.";
+              em.focus();
+              return;
+            }
+            msg.textContent = "Thanks — please confirm the link we send to " + em.value + ".";
+            form.reset();
+          });
+        }
+      })();
+    </script>
+  <script defer src="/fd-track.js"></script>
+</body>
+</html>

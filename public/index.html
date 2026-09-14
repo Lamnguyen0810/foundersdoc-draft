@@ -1,0 +1,3389 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <script>
+      document.documentElement.classList.add("js");
+    </script>
+    <title>Founders Doc — Contract review and drafting, backed by lawyers</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;500;600&display=swap"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <noscript><style>.intro { display: none !important; }</style></noscript>
+    <meta
+      name="description"
+      content="Jessica, Founders Doc's AI, reviews and drafts contracts in minutes. When a contract needs a lawyer's name, our practising lawyers take over. Serving founders worldwide."
+    />
+    <style>
+      :root {
+        color-scheme: light; /* homepage is light-only by design */
+        --white: #fff;
+        --grey-1: #f4f4f4;
+        --grey-2: #e9e9e9;
+        --grey-3: #d6d6d6;
+        --grey-4: #9a9a9a;
+        --grey-5: #666;
+        --black: #0f0f0f;
+        --ink: #161616;
+        --gold: #f3bf4b;
+        --gold-soft: #fbeec9;
+        --gold-deep: #c9962a;
+        --display: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --wrap: 1200px;
+        --wrap-wide: 1440px;
+        --nav-h: 64px;
+        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --gutter: clamp(20px, 4vw, 40px);
+        --ok: #3d8b5f;
+        --miss: #c8574a;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--white);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.6;
+        letter-spacing: -0.005em;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        border: none;
+        background: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--black);
+        outline-offset: 3px;
+      }
+      [id] {
+        scroll-margin-top: calc(var(--nav-h) + 16px);
+      }
+      .wrap {
+        width: 100%;
+        max-width: var(--wrap);
+        margin-inline: auto;
+        padding-inline: clamp(20px, 4vw, 40px);
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: var(--display);
+        font-weight: 500;
+        letter-spacing: -0.025em;
+        line-height: 1.08;
+      }
+      h2 {
+        font-size: clamp(28px, 3.2vw, 38px);
+      }
+      .sub {
+        color: var(--grey-5);
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        border: 1px solid var(--black);
+        white-space: nowrap;
+        transition:
+          background 0.15s,
+          color 0.15s,
+          transform 0.15s var(--ease),
+          box-shadow 0.15s var(--ease);
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px -10px rgba(15, 15, 15, 0.45);
+      }
+      .btn:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+      .btn-black {
+        background: var(--black);
+        color: var(--white);
+      }
+      .btn-black:hover {
+        background: #2a2a2a;
+      }
+      .btn-gold {
+        background: var(--gold);
+        color: var(--black);
+        border-color: var(--gold);
+      }
+      .btn-gold:hover {
+        background: #e9b23a;
+        border-color: #e9b23a;
+      }
+      .btn-white {
+        background: var(--white);
+        color: var(--black);
+      }
+      .btn-white:hover {
+        background: var(--grey-1);
+      }
+      .more {
+        font-size: 12.5px;
+        font-weight: 500;
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .more:hover {
+        text-decoration: underline;
+      }
+      .more .arr {
+        display: inline-block;
+        transition: transform 0.18s var(--ease);
+      }
+      .more:hover .arr {
+        transform: translateX(3px);
+      }
+      .skip {
+        position: absolute;
+        left: -999px;
+        top: 8px;
+        background: var(--black);
+        color: var(--white);
+        padding: 8px 12px;
+        border-radius: 6px;
+        z-index: 60;
+      }
+      .skip:focus {
+        left: 8px;
+      }
+
+
+      /* nav */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        background: var(--white);
+        border-bottom: 1px solid var(--grey-2);
+        transition:
+          background 0.3s,
+          box-shadow 0.3s;
+      }
+      .nav.scrolled {
+        background: rgba(255, 255, 255, 0.86);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 10px 30px -24px rgba(0, 0, 0, 0.35);
+      }
+      .nav .wrap {
+        display: flex;
+        align-items: center;
+        gap: 40px;
+        height: var(--nav-h);
+        max-width: var(--wrap-wide);
+        transition: height 0.3s var(--ease);
+      }
+      .nav.scrolled .wrap {
+        height: 56px;
+      }
+      .progress {
+        position: absolute;
+        left: 0;
+        bottom: -1px;
+        width: 100%;
+        height: 2px;
+        background: var(--gold);
+        transform: scaleX(0);
+        transform-origin: left;
+        pointer-events: none;
+      }
+      .links a.on {
+        color: var(--black);
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+      }
+      .logo img {
+        display: block;
+        height: 34px;
+        width: auto;
+      }
+      .logo-word {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 17px;
+        letter-spacing: 0.01em;
+        color: var(--black);
+      }
+      .foot .logo-word {
+        color: var(--white);
+      }
+      .links {
+        display: flex;
+        gap: 28px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+        white-space: nowrap;
+      }
+      .links a:hover {
+        color: var(--black);
+      }
+      /* Dropdown tabs (FD AI, Services, Resources) */
+      .has-sub {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+      .has-sub > button {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: inherit;
+        padding: 0;
+      }
+      .has-sub > button:hover,
+      .has-sub[data-open="true"] > button {
+        color: var(--black);
+      }
+      .has-sub > button svg {
+        width: 10px;
+        height: 10px;
+        transition: transform 0.2s var(--ease);
+      }
+      .has-sub[data-open="true"] > button svg {
+        transform: rotate(180deg);
+      }
+      .nav-sub {
+        position: absolute;
+        top: calc(100% + 14px);
+        left: -12px;
+        min-width: 160px;
+        background: var(--white);
+        border: 1px solid var(--grey-2);
+        border-radius: 8px;
+        padding: 6px;
+        box-shadow: 0 10px 30px rgba(15, 15, 15, 0.08);
+        display: none;
+        flex-direction: column;
+        z-index: 2;
+      }
+      .nav-sub::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -14px;
+        height: 14px;
+      }
+      .has-sub[data-open="true"] .nav-sub,
+      .has-sub:hover .nav-sub,
+      .has-sub:focus-within .nav-sub {
+        display: flex;
+      }
+      .has-sub:hover > button svg {
+        transform: rotate(180deg);
+      }
+      .nav-sub a {
+        padding: 7px 10px;
+        border-radius: 5px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+      }
+      .nav-sub a:hover,
+      .nav-sub a:focus-visible {
+        background: var(--grey-1);
+        color: var(--black);
+      }
+      .nav-sub a.on,
+      .has-sub > button.on {
+        color: var(--black);
+      }
+      .links.r {
+        margin-left: auto;
+      }
+      .nav-cta {
+        display: flex;
+        gap: 8px;
+        margin-left: 8px;
+      }
+      .burger {
+        display: none;
+        margin-left: auto;
+        width: 40px;
+        height: 40px;
+        border-radius: 6px;
+        place-items: center;
+      }
+      .burger span {
+        display: block;
+        width: 18px;
+        height: 2px;
+        background: var(--black);
+        position: relative;
+      }
+      .burger span::before,
+      .burger span::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        width: 18px;
+        height: 2px;
+        background: var(--black);
+      }
+      .burger span::before {
+        top: -6px;
+      }
+      .burger span::after {
+        top: 6px;
+      }
+      .menu {
+        display: none;
+        background: var(--white);
+        border-top: 1px solid var(--grey-2);
+        max-height: calc(100vh - var(--nav-h));
+        overflow: auto;
+      }
+      .menu .wrap {
+        display: grid;
+        height: auto;
+        gap: 14px;
+        padding-block: 18px 24px;
+        font-size: 15px;
+      }
+      .menu a {
+        padding: 4px 0;
+      }
+      .menu-group {
+        display: grid;
+        gap: 6px;
+      }
+      .menu-group > span {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--grey-4);
+      }
+      .menu-group a {
+        padding-left: 12px;
+      }
+      .menu[data-open="true"] {
+        display: block;
+      }
+      @media (max-width: 1240px) {
+        .links {
+          display: none;
+        }
+        .burger {
+          display: grid;
+          margin-left: 0;
+        }
+        .nav-cta {
+          margin-left: auto;
+        }
+      }
+      @media (max-width: 560px) {
+        .nav-cta .btn-white {
+          display: none;
+        }
+      }
+
+      /* hero */
+      .hero {
+        position: relative;
+        background: var(--white);
+        padding: 48px 0 88px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        text-align: center;
+        isolation: isolate;
+        min-height: min(calc(100vh - var(--nav-h)), 860px);
+        min-height: min(calc(100svh - var(--nav-h)), 860px);
+      }
+      .cue {
+        position: absolute;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        display: grid;
+        justify-items: center;
+        gap: 8px;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--grey-5);
+        transition: color 0.2s;
+      }
+      .cue:hover {
+        color: var(--black);
+      }
+      .cue i {
+        position: relative;
+        width: 1px;
+        height: 36px;
+        background: var(--grey-3);
+        overflow: hidden;
+      }
+      .cue i::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: -100%;
+        width: 100%;
+        height: 100%;
+        background: var(--gold-deep);
+        animation: drop 1.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+      @keyframes drop {
+        0% {
+          top: -100%;
+        }
+        65%,
+        100% {
+          top: 100%;
+        }
+      }
+      @media (max-height: 700px), (max-width: 860px) {
+        .cue {
+          display: none;
+        }
+      }
+      .glow {
+        will-change: transform;
+        position: absolute;
+        z-index: -1;
+        left: 50%;
+        top: 100%;
+        width: max(1500px, 96vw);
+        height: max(1500px, 96vw);
+        transform: translate(-50%, -47%);
+        border-radius: 50%;
+        pointer-events: none;
+        background:
+          radial-gradient(closest-side at 50% 42%, rgba(15, 15, 15, 0.05), rgba(15, 15, 15, 0) 72%),
+          radial-gradient(closest-side at 36% 50%, rgba(243, 191, 75, 0.3), transparent 62%),
+          radial-gradient(closest-side at 64% 46%, rgba(250, 205, 120, 0.26), transparent 60%),
+          radial-gradient(closest-side at 50% 54%, rgba(243, 191, 75, 0.5), transparent 58%);
+        filter: blur(48px) saturate(1.1);
+      }
+      .hero h1 {
+        font-size: clamp(40px, 6vw, 76px);
+        line-height: 1.06;
+        margin: 0 auto;
+      }
+      .hero h1 .line {
+        display: block;
+        overflow: hidden;
+        padding: 0.02em 0 0.12em;
+        margin-bottom: -0.12em;
+      }
+      html.js .hero h1 .line > span {
+        display: block;
+        transform: translateY(125%);
+      }
+      .hero .sig {
+        display: block;
+        width: 56px;
+        height: 1px;
+        background: var(--gold);
+        margin: 26px auto 0;
+      }
+      html.js .hero .sig {
+        transform: scaleX(0);
+      }
+      .hero .sub {
+        margin: 24px auto 36px;
+        max-width: 50ch;
+        font-size: clamp(16px, 1.2vw, 18px);
+      }
+      .hero .ctas {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .hero .trust {
+        margin-top: 56px;
+        font-size: 13px;
+        color: var(--grey-5);
+      }
+
+      /* page-load sequence — the hero enters when the intro hands over */
+      html.js .hero .sub,
+      html.js .hero .ctas,
+      html.js .hero .trust {
+        opacity: 0;
+      }
+      html.js.loaded .hero h1 .line > span {
+        animation: lineup 1s var(--ease) 0.1s both;
+      }
+      html.js.loaded .hero h1 .line:nth-child(2) > span {
+        animation-delay: 0.24s;
+      }
+      html.js.loaded .hero .sig {
+        animation: draw 0.8s var(--ease) 0.7s both;
+      }
+      html.js.loaded .hero .sub,
+      html.js.loaded .hero .ctas,
+      html.js.loaded .hero .trust {
+        animation: rise 0.8s var(--ease) both;
+      }
+      html.js.loaded .hero .sub {
+        animation-delay: 0.85s;
+      }
+      html.js.loaded .hero .ctas {
+        animation-delay: 1s;
+      }
+      html.js.loaded .hero .trust {
+        animation-delay: 1.25s;
+      }
+      html.js.loaded .hero .glow {
+        animation:
+          bloom 1.8s ease-out 0.3s both,
+          drift 16s ease-in-out 2.1s infinite alternate;
+      }
+      .hero.offstage .glow {
+        animation-play-state: paused;
+      }
+      @keyframes lineup {
+        to {
+          transform: none;
+        }
+      }
+      @keyframes draw {
+        to {
+          transform: scaleX(1);
+        }
+      }
+      @keyframes bloom {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -47%) scale(0.9);
+        }
+      }
+      @keyframes drift {
+        from {
+          transform: translate(-50%, -47%) scale(1) rotate(0deg);
+        }
+        to {
+          transform: translate(-51.5%, -48.5%) scale(1.07) rotate(6deg);
+        }
+      }
+      @media (max-width: 860px) {
+        .hero {
+          padding: 56px 0 64px;
+        }
+      }
+
+      /* practice-area strip */
+      .strip {
+        padding: 22px 0;
+        border-bottom: 1px solid var(--grey-2);
+      }
+      .strip .wrap {
+        max-width: var(--wrap-wide);
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 28px;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--grey-5);
+      }
+      .mq {
+        overflow: hidden;
+        -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+        mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+      }
+      .mq .track {
+        display: flex;
+        gap: 44px;
+        width: max-content;
+        padding-right: 44px;
+        animation: marquee 32s linear infinite;
+      }
+      .mq.offstage .track {
+        animation-play-state: paused;
+      }
+      .mq:hover .track {
+        animation-play-state: paused;
+      }
+      .mq a {
+        white-space: nowrap;
+      }
+      @keyframes marquee {
+        to {
+          transform: translateX(-50%);
+        }
+      }
+      @media (max-width: 640px) {
+        .strip .wrap {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+      }
+      .strip .k {
+        font-size: 12px;
+        color: var(--gold-deep);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .strip a:hover {
+        color: var(--black);
+      }
+
+      /* below-fold sections render lazily as the reader approaches */
+      .ways-sec,
+      .svc,
+      .band,
+      .cta-band,
+      .foot {
+        content-visibility: auto;
+        contain-intrinsic-size: auto 560px;
+      }
+
+      /* two ways */
+      .ways-sec {
+        padding: clamp(56px, 7vw, 96px) 0;
+        border-top: 1px solid var(--grey-2);
+      }
+      .ways-sec .head {
+        text-align: center;
+        margin-bottom: 36px;
+      }
+      .ways-sec .head .sub {
+        margin: 10px auto 0;
+        max-width: 60ch;
+      }
+      .ways {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: clamp(24px, 4vw, 48px);
+        align-items: stretch;
+        text-align: left;
+      }
+      .way {
+        display: flex;
+        flex-direction: column;
+      }
+      .way-visual {
+        background: var(--grey-1);
+        border: 1px solid var(--grey-2);
+        border-radius: 14px;
+        padding: clamp(19px, 2.5vw, 27px) clamp(16px, 3vw, 32px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 280px;
+        flex: none;
+        transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+      }
+      .way:hover .way-visual {
+        transform: translateY(-2px);
+        border-color: var(--gold);
+        box-shadow: 0 24px 60px -36px rgba(15, 15, 15, 0.35);
+      }
+      .mock {
+        background: var(--white);
+        border: 1px solid var(--grey-2);
+        border-radius: 12px;
+        box-shadow: 0 24px 60px -36px rgba(15, 15, 15, 0.35);
+        width: min(340px, 100%);
+        height: 208px;
+        padding: 15px 18px;
+        font-size: 13px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .m-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--grey-3);
+      }
+      .m-head b {
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .m-badge {
+        background: var(--gold);
+        color: var(--black);
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 9px;
+        border-radius: 5px;
+      }
+      .m-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--grey-2);
+        color: var(--ink);
+      }
+      .m-row:last-child {
+        border-bottom: 0;
+        padding-bottom: 2px;
+      }
+      .m-tick {
+        color: var(--gold-deep);
+        font-weight: 700;
+      }
+      .m-writing {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        color: var(--grey-5);
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .mock.chat {
+        gap: 10px;
+        padding: 17px;
+        justify-content: center;
+      }
+      .m-q {
+        align-self: flex-start;
+        background: var(--black);
+        color: var(--white);
+        border-radius: 10px;
+        padding: 10px 13px;
+        font-size: 13px;
+        line-height: 1.45;
+        max-width: 88%;
+      }
+      .m-a {
+        background: var(--grey-1);
+        border-radius: 10px;
+        padding: 10px 13px;
+        font-size: 13px;
+        color: var(--grey-5);
+        line-height: 1.5;
+      }
+      .m-a small {
+        display: block;
+        margin-top: 7px;
+        font-size: 11.5px;
+        color: var(--grey-5);
+      }
+      .way h3 {
+        font-size: 21px;
+        margin: 18px 0 7px;
+      }
+      .way > p {
+        color: var(--grey-5);
+        font-size: 14.5px;
+        line-height: 1.6;
+        max-width: 48ch;
+      }
+      .way .more {
+        margin-top: 12px;
+      }
+      @media (max-width: 900px) {
+        .ways {
+          grid-template-columns: 1fr;
+        }
+        .way-visual {
+          height: auto;
+          min-height: 232px;
+        }
+        .mock {
+          height: auto;
+          min-height: 184px;
+        }
+      }
+
+      /* services */
+      .svc {
+        padding: clamp(56px, 7vw, 96px) 0;
+        background: var(--grey-1);
+      }
+      .svc .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+      .svc .sub {
+        margin-top: 8px;
+        max-width: 44ch;
+      }
+      .svc-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-top: 32px;
+      }
+      .svc-item {
+        background: var(--white);
+        border: 1px solid var(--grey-2);
+        border-radius: 8px;
+        padding: 22px 20px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .svc-item small {
+        font-size: 12px;
+        color: var(--grey-5);
+      }
+      .svc-item h3 {
+        font-family: var(--sans);
+        font-weight: 600;
+        font-size: 15px;
+        line-height: 1.4;
+        letter-spacing: -0.01em;
+      }
+      .svc-item .more {
+        margin-top: auto;
+        padding-top: 10px;
+      }
+      @media (max-width: 980px) {
+        .svc-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 560px) {
+        .svc-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* quote band */
+      .band {
+        background: #232323;
+        color: var(--white);
+        padding: clamp(40px, 5vw, 64px) 0;
+        text-align: center;
+      }
+      .band .who {
+        font-size: 13px;
+        color: var(--grey-4);
+      }
+      .band blockquote::before {
+        content: "";
+        display: block;
+        width: 24px;
+        height: 2px;
+        background: var(--gold);
+        margin: 0 auto 16px;
+      }
+      .band blockquote {
+        font-family: var(--display);
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        font-size: clamp(18px, 2vw, 24px);
+        line-height: 1.35;
+        max-width: 40ch;
+        margin: 14px auto 0;
+      }
+      .band .by {
+        margin-top: 14px;
+        font-size: 13px;
+        color: var(--grey-4);
+      }
+      .quotes {
+        display: grid;
+      }
+      .quote {
+        grid-area: 1 / 1;
+        margin: 0;
+        opacity: 0;
+        transform: translateY(8px);
+        transition:
+          opacity 0.6s var(--ease),
+          transform 0.6s var(--ease);
+        pointer-events: none;
+      }
+      .quote.on {
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+      }
+      .q-dots {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 30px;
+      }
+      .q-dots button {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+      }
+      .q-dots button::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--grey-5);
+        transition: background 0.2s, transform 0.2s;
+      }
+      .q-dots button:hover::before {
+        background: var(--grey-4);
+      }
+      .q-dots button.on::before {
+        background: var(--gold);
+        transform: scale(1.25);
+      }
+      .band :focus-visible {
+        outline-color: var(--gold);
+      }
+
+      /* race */
+      .race {
+        padding: clamp(64px, 8vw, 104px) 0;
+        border-bottom: 1px solid var(--grey-2);
+      }
+      .race .sub {
+        margin-top: 10px;
+        max-width: 44ch;
+      }
+      .lanes {
+        margin-top: 36px;
+        display: grid;
+        gap: 22px;
+      }
+      .lane {
+        display: grid;
+        grid-template-columns: 150px 1fr 150px;
+        gap: 20px;
+        align-items: center;
+        font-size: 14px;
+      }
+      .lane .who {
+        font-weight: 600;
+      }
+      .lane .bar {
+        height: 10px;
+        border-radius: 999px;
+        background: var(--grey-1);
+        border: 1px solid var(--grey-2);
+        overflow: hidden;
+      }
+      .lane .bar i {
+        display: block;
+        height: 100%;
+        width: 0;
+        border-radius: 999px;
+        background: var(--grey-4);
+      }
+      .lane.j .bar i {
+        background: var(--gold);
+      }
+      .lane .t {
+        font-variant-numeric: tabular-nums;
+        color: var(--grey-5);
+        text-align: right;
+        font-size: 13px;
+        white-space: nowrap;
+      }
+      .lane.j.done .t {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .race .fine {
+        margin-top: 18px;
+        font-size: 12.5px;
+        color: var(--grey-5);
+      }
+      @media (max-width: 560px) {
+        .lane {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+        .lane .t {
+          text-align: left;
+        }
+      }
+
+      /* cta band (renamed from .cta to avoid clashing with the nav) */
+      .cta-band {
+        background: var(--grey-1);
+        padding: clamp(64px, 8vw, 104px) 0;
+        text-align: center;
+      }
+      .cta-band h2 {
+        max-width: 24ch;
+        margin: 0 auto;
+      }
+      .cta-band .sub {
+        margin: 12px auto 0;
+        max-width: 40ch;
+      }
+      .cta-band .ctas {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 24px;
+        flex-wrap: wrap;
+      }
+
+      /* footer */
+      .foot .wrap {
+        max-width: var(--wrap-wide);
+      }
+      .foot {
+        background: var(--black);
+        color: var(--grey-4);
+        padding: 56px 0 32px;
+        font-size: 13px;
+      }
+      .foot .grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr 1.2fr 1.4fr;
+        gap: 40px;
+      }
+      .foot .logo img {
+        height: 38px;
+      }
+      .foot .about {
+        margin-top: 16px;
+        line-height: 1.7;
+        max-width: 34ch;
+      }
+      .foot h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--white);
+        margin-bottom: 12px;
+      }
+      .foot ul {
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+      .foot a:hover {
+        color: var(--white);
+      }
+      .foot .nl label {
+        display: block;
+        margin-bottom: 10px;
+      }
+      .foot .nl .field {
+        display: flex;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .foot .nl input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--white);
+        padding: 9px 12px;
+        font: inherit;
+        outline: none;
+        min-width: 0;
+      }
+      .foot .nl input::placeholder {
+        color: var(--grey-4);
+      }
+      .foot .nl button {
+        background: var(--gold);
+        color: var(--black);
+        padding: 0 14px;
+        font-weight: 600;
+      }
+      .foot .nl .msg {
+        margin-top: 8px;
+        font-size: 12px;
+        min-height: 1.2em;
+      }
+      .foot .bot {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 44px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 12px;
+      }
+      .foot .bot div {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      @media (max-width: 900px) {
+        .foot .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media (max-width: 560px) {
+        .foot .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* scroll reveals for sections */
+      html.js [data-rv] {
+        opacity: 0;
+        transform: translateY(14px);
+        transition:
+          opacity 0.6s var(--ease),
+          transform 0.6s var(--ease);
+        transition-delay: calc(var(--i, 0) * 70ms);
+      }
+      html.js [data-rv].in {
+        opacity: 1;
+        transform: none;
+      }
+
+      /* intro — first-look overlay, plays before the page */
+      .intro {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        cursor: pointer;
+        background: var(--white);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4.5rem var(--gutter) 3.5rem;
+        transition: opacity 0.7s ease, visibility 0.7s;
+      }
+      .intro.out {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .intro .brand {
+        position: absolute;
+        top: 1rem;
+        left: var(--gutter);
+        display: inline-flex;
+        align-items: center;
+        font-weight: 600;
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        line-height: 1;
+        padding: 8px 12px;
+        border-top: 1.5px solid var(--ink);
+        border-bottom: 1.5px solid var(--ink);
+        white-space: nowrap;
+      }
+      .intro-skip {
+        position: absolute;
+        top: 1rem;
+        right: var(--gutter);
+        border: 1px solid var(--grey-3);
+        color: var(--grey-5);
+        font-size: 13px;
+        padding: 7px 14px;
+        border-radius: 999px;
+      }
+      .intro-skip:hover {
+        border-color: var(--grey-5);
+        color: var(--black);
+      }
+      .intro-hint {
+        position: absolute;
+        left: 50%;
+        bottom: 2.6rem;
+        transform: translateX(-50%);
+        font-size: 12.5px;
+        color: var(--grey-5);
+        white-space: nowrap;
+      }
+      .intro-bar {
+        position: absolute;
+        left: var(--gutter);
+        right: var(--gutter);
+        bottom: 2rem;
+        height: 1px;
+        background: var(--grey-2);
+      }
+      .intro-bar i {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: var(--gold);
+        transition: width 0.5s linear;
+      }
+      .intro-stage {
+        width: min(880px, 100%);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(8px, 2vh, 24px);
+      }
+      .intro-copy {
+        position: relative;
+        width: 100%;
+        height: clamp(6.5rem, 16vh, 9rem);
+        flex: none;
+        text-align: center;
+      }
+      .intro-beat {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        opacity: 0;
+      }
+      .intro-beat.in {
+        animation: beatin 0.4s var(--ease) both;
+      }
+      .intro-beat.outg {
+        animation: beatout 0.25s ease-in both;
+      }
+      .intro-beat small {
+        display: block;
+        font-size: 14px;
+        color: var(--grey-5);
+        margin-bottom: 0.7rem;
+      }
+      .intro-beat strong {
+        display: block;
+        font-family: var(--display);
+        font-weight: 500;
+        font-size: clamp(30px, 4.6vw, 56px);
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+        color: var(--ink);
+        text-wrap: balance;
+      }
+      @keyframes beatin {
+        from {
+          opacity: 0;
+          transform: translateY(calc(-50% + 14px));
+        }
+        to {
+          opacity: 1;
+          transform: translateY(-50%);
+        }
+      }
+      @keyframes beatout {
+        from {
+          opacity: 1;
+          transform: translateY(-50%);
+        }
+        to {
+          opacity: 0;
+          transform: translateY(calc(-50% - 10px));
+        }
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(14px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .data {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: clamp(16px, 4vw, 48px);
+        width: 100%;
+        flex: 1;
+        min-height: 0;
+        max-height: 48vh;
+        align-content: center;
+        text-align: center;
+      }
+      .d-stat {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      .intro.go .d-stat {
+        animation: rise 0.55s var(--ease) both;
+        animation-delay: calc(0.35s + var(--i) * 0.3s);
+      }
+      .d-stat b {
+        display: block;
+        font-family: var(--display);
+        font-weight: 500;
+        font-size: clamp(38px, 7vw, 72px);
+        line-height: 1.05;
+        letter-spacing: -0.03em;
+        color: var(--ink);
+        font-variant-numeric: tabular-nums;
+      }
+      .d-stat i {
+        display: block;
+        width: 44px;
+        height: 2px;
+        background: var(--gold);
+        margin: 0.8rem auto 0.7rem;
+        transform: scaleX(0);
+        transform-origin: center;
+      }
+      .intro.go .d-stat i {
+        animation: rulein 0.5s var(--ease) both;
+        animation-delay: calc(0.55s + var(--i) * 0.3s);
+      }
+      @keyframes rulein {
+        to {
+          transform: scaleX(1);
+        }
+      }
+      .d-stat span {
+        display: block;
+        font-size: 13px;
+        color: var(--grey-5);
+        max-width: 22ch;
+        margin: 0 auto;
+      }
+      .growth {
+        width: min(640px, 100%);
+        margin: 0 auto;
+        flex: none;
+        overflow: visible;
+        opacity: 0;
+      }
+      .intro.go .growth {
+        animation: fadein 0.5s ease-out 0.7s both;
+      }
+      .g-base {
+        stroke: var(--grey-3);
+        stroke-width: 1;
+      }
+      .g-line {
+        fill: none;
+        stroke: var(--gold);
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-dasharray: 900;
+        stroke-dashoffset: 900;
+      }
+      .intro.go .g-line {
+        animation: gline 1.4s cubic-bezier(0.45, 0, 0.2, 1) 0.9s both;
+      }
+      .g-area {
+        fill: rgba(243, 191, 75, 0.16);
+        opacity: 0;
+      }
+      .intro.go .g-area {
+        animation: fadein 0.7s ease-out 1.7s both;
+      }
+      .g-dot circle {
+        fill: var(--gold);
+        opacity: 0;
+        transform-box: fill-box;
+        transform-origin: center;
+        transform: scale(0.3);
+      }
+      .intro.go .g-dot circle {
+        animation: dotin 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+        animation-delay: calc(0.92s + var(--i) * 0.23s);
+      }
+      .g-years text {
+        font-size: 12px;
+        fill: var(--grey-5);
+        letter-spacing: 0.02em;
+      }
+      @keyframes fadein {
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes gline {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+      @keyframes dotin {
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+      .intro.static .d-stat {
+        animation: none !important;
+        opacity: 1;
+        transform: none;
+      }
+      .intro.static .d-stat i {
+        animation: none !important;
+        transform: scaleX(1);
+      }
+      .intro.static .growth,
+      .intro.static .g-area {
+        animation: none !important;
+        opacity: 1;
+      }
+      .intro.static .g-line {
+        animation: none !important;
+        stroke-dashoffset: 0;
+      }
+      .intro.static .g-dot circle {
+        animation: none !important;
+        opacity: 1;
+        transform: scale(1);
+      }
+      .intro.static .intro-beat {
+        animation: none !important;
+        transition: opacity 0.35s;
+      }
+      .intro.static .intro-beat.in {
+        opacity: 1;
+      }
+      .intro.static .intro-beat.outg {
+        opacity: 0;
+      }
+      @media (max-width: 640px) {
+        .intro {
+          padding-top: 4rem;
+        }
+        .data {
+          grid-template-columns: 1fr;
+          gap: 18px;
+          max-height: none;
+        }
+        .d-stat b {
+          font-size: 34px;
+        }
+        .d-stat i {
+          margin: 0.45rem auto 0.4rem;
+        }
+        .growth {
+          width: 100%;
+        }
+        .g-years text {
+          font-size: 16px;
+        }
+      }
+
+      /* assemble — a contract builds as you scroll (pinned scrub) */
+      .assemble .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 24px;
+        flex-wrap: wrap;
+        padding-top: clamp(64px, 9vh, 104px);
+        margin-bottom: 2.25rem;
+      }
+      .assemble .head .sub {
+        margin-top: 10px;
+        max-width: 56ch;
+      }
+      .scrolly {
+        position: relative;
+        height: 190vh;
+      }
+      .scrolly-sticky {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        height: 100svh;
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+      }
+      .scrolly-grid {
+        display: grid;
+        grid-template-columns: 230px minmax(0, 1fr);
+        gap: clamp(24px, 4vw, 64px);
+        align-items: center;
+        width: 100%;
+      }
+      .milestones {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 1.15rem;
+        font-size: 13px;
+        color: var(--grey-5);
+      }
+      .milestones li {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        transition: color 0.35s;
+      }
+      .milestones i {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: 1.5px solid var(--grey-3);
+        background: transparent;
+        flex: none;
+        transition: background 0.35s, border-color 0.35s, box-shadow 0.35s;
+      }
+      .milestones li.on {
+        color: var(--black);
+      }
+      .milestones li.on i {
+        background: var(--gold);
+        border-color: var(--gold);
+        box-shadow: 0 0 0 4px rgba(243, 191, 75, 0.25);
+      }
+      .contract {
+        --doc-font: Arial, "Helvetica Neue", Helvetica, sans-serif;
+        position: relative;
+        background: var(--white);
+        border: 1px solid var(--grey-2);
+        border-radius: 10px;
+        box-shadow: 0 20px 48px -34px rgba(15, 15, 15, 0.22);
+        padding: clamp(20px, 2.4vw, 35px) clamp(20px, 3.2vw, 45px);
+        max-width: 620px;
+        margin-inline: auto;
+        transform-origin: 50% 50%;
+      }
+      .c-el {
+        position: relative;
+        padding: 2px 8px;
+        margin: 0 -8px;
+        border-radius: 6px;
+        transition: background 0.25s, box-shadow 0.25s;
+      }
+      html.js .c-el {
+        opacity: 0;
+        transform: translateY(14px);
+        will-change: opacity, transform;
+      }
+      .contract.done .c-el:hover,
+      .contract.done .c-el:focus-within {
+        background: rgba(243, 191, 75, 0.18);
+        box-shadow: inset 2px 0 0 var(--gold);
+      }
+      .c-title {
+        text-align: center;
+        margin-bottom: 1.2rem;
+      }
+      .c-title strong {
+        display: block;
+        font-family: var(--doc-font);
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        font-size: 13px;
+        color: var(--ink);
+      }
+      .c-title span {
+        display: block;
+        margin-top: 0.3rem;
+        font-size: 11px;
+        color: var(--grey-5);
+      }
+      .c-rule {
+        height: 1px;
+        background: var(--grey-2);
+        margin: 0 auto 1.1rem;
+        width: 90px;
+      }
+      .c-p {
+        font-family: var(--doc-font);
+        font-size: 13.5px;
+        line-height: 1.7;
+        color: var(--grey-5);
+        margin-bottom: 0.9rem;
+      }
+      .c-p b {
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .c-h {
+        font-family: var(--doc-font);
+        font-size: 12.5px;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        color: var(--ink);
+        margin: 0.4rem 0 0.35rem;
+      }
+      .c-mark {
+        background: linear-gradient(transparent 66%, rgba(200, 87, 74, 0.12) 0);
+        border-bottom: 1px solid var(--miss);
+        padding: 0 2px;
+      }
+      .c-cite {
+        font-size: 10.5px;
+        color: var(--grey-5);
+        margin: -0.25rem 0 0.65rem;
+        padding-left: 0.6rem;
+        border-left: 2px solid var(--grey-3);
+      }
+      .c-exec {
+        font-family: var(--doc-font);
+        font-size: 11.5px;
+        line-height: 1.5;
+        color: var(--grey-5);
+        margin-bottom: 0.5rem;
+        min-height: 2.3em;
+      }
+      .c-exec b {
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        font-size: 10px;
+        color: var(--ink);
+      }
+      .doc-col {
+        position: relative;
+        min-width: 0;
+        max-width: 620px;
+        margin: 0;
+        width: 100%;
+      }
+      @media (max-width: 1200px) {
+        .inspect {
+          display: none;
+        }
+        .doc-col {
+          margin: 0 auto;
+        }
+      }
+      .inspect {
+        position: absolute;
+        left: calc(100% + 22px);
+        top: 0;
+        width: 236px;
+        z-index: 3;
+        background: var(--grey-1);
+        border: 1px solid var(--grey-3);
+        border-radius: 10px;
+        box-shadow: 0 14px 34px rgba(15, 15, 15, 0.12);
+        padding: 13px 15px 14px;
+        font-size: 11.5px;
+        line-height: 1.55;
+        color: var(--grey-5);
+        opacity: 0;
+        pointer-events: none;
+        transition:
+          opacity 0.3s,
+          transform 0.35s var(--ease);
+        transform: translateX(12px) translateY(var(--iy, 0px));
+        will-change: transform;
+      }
+      .inspect.show {
+        opacity: 1;
+        transform: translateY(var(--iy, 0px));
+        pointer-events: auto;
+      }
+      .inspect::before {
+        content: "";
+        position: absolute;
+        left: -7.5px;
+        top: 24px;
+        width: 13px;
+        height: 13px;
+        background: var(--grey-1);
+        border-left: 1px solid var(--grey-3);
+        border-bottom: 1px solid var(--grey-3);
+        transform: rotate(45deg);
+      }
+      .inspect::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 2px;
+        border-radius: 10px 10px 0 0;
+        background: var(--gold);
+      }
+      .inspect b {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-weight: 600;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: var(--gold-deep);
+        margin-bottom: 6px;
+      }
+      .inspect b::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        background: var(--gold);
+        transform: rotate(45deg);
+        flex: none;
+      }
+      #inspect-text {
+        display: block;
+      }
+      .inspect .body-in {
+        animation: notefade 0.3s var(--ease);
+      }
+      @keyframes notefade {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .inspect.nudge {
+        animation: nnudge 0.35s var(--ease);
+      }
+      @keyframes nnudge {
+        30% {
+          transform: translateX(-5px) translateY(var(--iy, 0px));
+        }
+      }
+      .inspect .mini {
+        display: block;
+        margin-top: 7px;
+        padding: 5px 9px;
+        background: var(--white);
+        border: 1px solid var(--grey-2);
+        border-radius: 6px;
+        font-size: 11px;
+        line-height: 1.5;
+      }
+      .inspect .mini .del,
+      .inspect .mini .ins {
+        position: relative;
+        text-decoration: none;
+      }
+      .inspect .mini .del {
+        color: var(--grey-5);
+      }
+      .inspect .mini .del::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 55%;
+        height: 1.5px;
+        background: var(--miss);
+        transform: scaleX(0);
+        transform-origin: left;
+        animation: nline 0.45s 0.25s forwards;
+      }
+      .inspect .mini .ins {
+        color: var(--ink);
+      }
+      .inspect .mini .ins::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 2px;
+        background: var(--ok);
+        transform: scaleX(0);
+        transform-origin: left;
+        animation: nline 0.5s 0.65s forwards;
+      }
+      .inspect .del {
+        text-decoration: line-through;
+        text-decoration-color: var(--miss);
+        color: var(--grey-5);
+      }
+      .inspect .ins {
+        text-decoration: underline;
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+        text-decoration-color: var(--ok);
+        color: var(--ink);
+      }
+      .n-fig {
+        display: block;
+        margin: 2px 0 8px;
+      }
+      .n-check {
+        width: 20px;
+        height: 20px;
+        display: block;
+      }
+      .n-check path {
+        fill: none;
+        stroke: var(--ok);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-dasharray: 30;
+        stroke-dashoffset: 30;
+        animation: ndraw 0.5s 0.15s forwards;
+      }
+      .n-def {
+        display: inline-block;
+        font-weight: 600;
+        color: var(--ink);
+        position: relative;
+        padding-bottom: 2px;
+      }
+      .n-def::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 2px;
+        background: var(--gold);
+        transform: scaleX(0);
+        transform-origin: left;
+        animation: nline 0.5s 0.2s forwards;
+      }
+      .n-bar {
+        display: block;
+        height: 6px;
+        border-radius: 99px;
+        background: var(--grey-2);
+        position: relative;
+        width: 100%;
+      }
+      .n-bar i {
+        position: absolute;
+        inset: 0;
+        border-radius: 99px;
+        background: var(--gold);
+        transform: scaleX(0);
+        transform-origin: left;
+        animation: nbar 1s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
+      }
+      .n-bar u {
+        position: absolute;
+        left: 25%;
+        top: -3px;
+        bottom: -3px;
+        width: 2px;
+        background: var(--gold-deep);
+        opacity: 0;
+        animation: nshow 0.3s 0.5s forwards;
+      }
+      .n-ping {
+        display: block;
+        position: relative;
+        width: 20px;
+        height: 20px;
+      }
+      .n-ping::before {
+        content: "";
+        position: absolute;
+        inset: 6px;
+        border-radius: 50%;
+        background: var(--gold);
+      }
+      .n-ping i {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 1.5px solid var(--gold);
+        opacity: 0;
+        animation: nping 1.1s ease-out 0.1s 2;
+      }
+      .n-ping i.p2 {
+        animation-delay: 0.55s;
+      }
+      .n-pen {
+        width: 84px;
+        height: 22px;
+        display: block;
+      }
+      .n-pen path {
+        fill: none;
+        stroke: var(--ink);
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-dasharray: 170;
+        stroke-dashoffset: 170;
+        animation: npen 0.8s 0.15s forwards;
+      }
+      @keyframes ndraw {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+      @keyframes npen {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+      @keyframes nline {
+        to {
+          transform: scaleX(1);
+        }
+      }
+      @keyframes nbar {
+        to {
+          transform: scaleX(1);
+        }
+      }
+      @keyframes nshow {
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes nping {
+        0% {
+          transform: scale(0.4);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1.7);
+          opacity: 0;
+        }
+      }
+      .c-el.talk {
+        box-shadow: inset 2px 0 0 var(--gold);
+      }
+      .c-el.flash {
+        animation: clauseflash 0.9s ease-out;
+      }
+      @keyframes clauseflash {
+        0% {
+          background: rgba(243, 191, 75, 0.18);
+          box-shadow: inset 2px 0 0 var(--gold);
+        }
+        100% {
+          background: transparent;
+        }
+      }
+      .juris-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin: 0 auto 9px;
+        max-width: 620px;
+      }
+      .juris {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        flex-wrap: nowrap;
+      }
+      .j-tab {
+        font-size: 13px;
+        color: var(--grey-5);
+        padding: 5px 10px;
+        border-radius: 999px;
+        transition: color 0.2s, background 0.2s;
+      }
+      .j-tab:hover {
+        color: var(--black);
+      }
+      .j-tab.sel {
+        color: var(--gold-deep);
+        background: rgba(243, 191, 75, 0.2);
+        font-weight: 500;
+      }
+      .j-div {
+        color: var(--grey-3);
+        user-select: none;
+      }
+      .j-nav {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        border: 1px solid var(--grey-3);
+        color: var(--grey-5);
+        font-size: 12px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: border-color 0.2s, color 0.2s;
+        flex: none;
+      }
+      .j-nav:hover {
+        border-color: var(--grey-5);
+        color: var(--black);
+      }
+      @media (max-width: 640px) {
+        .j-tab {
+          font-size: 11.5px;
+          padding: 4px 7px;
+        }
+      }
+      @media (max-width: 1160px) {
+        .inspect {
+          display: none;
+        }
+      }
+      .c-sig {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.6rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--grey-2);
+        align-items: start;
+      }
+      .c-sig .sig-line {
+        border-bottom: 1px solid var(--grey-3);
+        height: 40px;
+        position: relative;
+        margin-bottom: 0.35rem;
+      }
+      .c-sig svg {
+        position: absolute;
+        left: 4px;
+        bottom: 2px;
+        height: 34px;
+        width: auto;
+        overflow: visible;
+      }
+      .c-sig path {
+        fill: none;
+        stroke: var(--ink);
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-dasharray: 320;
+        stroke-dashoffset: 320;
+      }
+      .c-el.on .c-sig path {
+        animation: sign 0.7s 0.1s cubic-bezier(0.5, 0, 0.3, 1) forwards;
+      }
+      .c-el.on .c-sig svg.d2 path {
+        animation-delay: 0.45s;
+      }
+      @keyframes sign {
+        to {
+          stroke-dashoffset: 0;
+        }
+      }
+      .c-sig small {
+        display: block;
+        font-size: 10.5px;
+        color: var(--grey-5);
+      }
+      .assemble-bar {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--grey-2);
+      }
+      .assemble-bar i {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 0;
+        background: var(--gold);
+      }
+      .assemble-foot {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 1.75rem 0 clamp(64px, 9vh, 96px);
+        font-size: 12.5px;
+        color: var(--grey-5);
+      }
+      @media (max-width: 900px) {
+        .scrolly {
+          height: 175vh;
+        }
+        .scrolly-grid {
+          grid-template-columns: 1fr;
+          gap: 18px;
+          align-content: center;
+        }
+        .milestones {
+          flex-direction: row;
+          flex-wrap: wrap;
+          gap: 8px 14px;
+          font-size: 11.5px;
+          justify-content: center;
+        }
+        .milestones i {
+          width: 6px;
+          height: 6px;
+        }
+        .contract {
+          min-height: 0;
+          padding: 19px 16px;
+        }
+        .c-sig {
+          grid-template-columns: 1fr;
+          gap: 18px;
+        }
+        .inspect {
+          display: none;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        .c-sig path {
+          stroke-dashoffset: 0;
+        }
+        .n-check path,
+        .n-pen path {
+          stroke-dashoffset: 0;
+        }
+        .n-def::after,
+        .n-bar i,
+        .inspect .mini .del::after,
+        .inspect .mini .ins::after {
+          transform: scaleX(1);
+        }
+        .n-bar u {
+          opacity: 1;
+        }
+        .n-ping i {
+          display: none;
+        }
+        html.js .hero h1 .line > span {
+          transform: none;
+        }
+        html.js .hero .sig {
+          transform: scaleX(1);
+        }
+        html.js .hero .sub,
+        html.js .hero .ctas,
+        html.js .hero .trust {
+          opacity: 1;
+        }
+        * {
+          transition-duration: 0.01ms !important;
+          transition-delay: 0s !important;
+          animation: none !important;
+        }
+      }
+    
+      /* The Founders Doc mark: the wordmark ruled above and below. Replaces the
+         hosted PNG so the logo never depends on a file loading, and inherits
+         currentColor so one rule serves the nav and the dark footer. */
+      .fd-mark {
+        display: inline-block;
+        font-family: var(--sans);
+        font-size: 11.5px;
+        font-weight: 500;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        line-height: 1;
+        padding: 7px 10px 6px 12px;
+        border-top: 1px solid currentColor;
+        border-bottom: 1px solid currentColor;
+        white-space: nowrap;
+      }
+      .foot .fd-mark { color: #fff; }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <div class="intro" id="intro">
+      <span class="brand" aria-hidden="true">Founders Doc</span>
+      <button class="intro-skip" type="button" id="intro-skip">Skip</button>
+      <div class="intro-stage">
+        <div class="intro-copy">
+          <div class="intro-beat" data-beat><small>Advising founders</small><strong>Since 2021</strong></div>
+          <div class="intro-beat" data-beat><small>Working with founders worldwide</small><strong>The numbers behind the practice</strong></div>
+        </div>
+        <div class="data" aria-hidden="true">
+          <div class="d-stat" style="--i: 0"><b data-target="5" data-suffix=" yrs">0</b><i></i><span>Advising founders since 2021</span></div>
+          <div class="d-stat" style="--i: 1"><b data-target="1110" data-suffix="+">0</b><i></i><span>Documents sent for signature</span></div>
+          <div class="d-stat" style="--i: 2"><b data-target="20" data-prefix="S$" data-suffix="M">0</b><i></i><span>Largest round supported</span></div>
+        </div>
+        <svg class="growth" viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <line class="g-base" x1="40" y1="132" x2="680" y2="132" />
+          <path class="g-area" d="M40,126 C90,122 130,118 168,112 C215,105 255,101 296,95 C340,88 385,80 424,72 C465,64 512,55 552,46 C592,37 640,29 680,24 L680,132 L40,132 Z" />
+          <path class="g-line" d="M40,126 C90,122 130,118 168,112 C215,105 255,101 296,95 C340,88 385,80 424,72 C465,64 512,55 552,46 C592,37 640,29 680,24" />
+          <g class="g-dot" style="--i: 0"><circle cx="40" cy="126" r="3.5" /></g>
+          <g class="g-dot" style="--i: 1"><circle cx="168" cy="112" r="3.5" /></g>
+          <g class="g-dot" style="--i: 2"><circle cx="296" cy="95" r="3.5" /></g>
+          <g class="g-dot" style="--i: 3"><circle cx="424" cy="72" r="3.5" /></g>
+          <g class="g-dot" style="--i: 4"><circle cx="552" cy="46" r="3.5" /></g>
+          <g class="g-dot" style="--i: 5"><circle cx="680" cy="24" r="3.5" /></g>
+          <g class="g-years">
+            <text x="40" y="149" text-anchor="middle">2021</text>
+            <text x="168" y="149" text-anchor="middle">2022</text>
+            <text x="296" y="149" text-anchor="middle">2023</text>
+            <text x="424" y="149" text-anchor="middle">2024</text>
+            <text x="552" y="149" text-anchor="middle">2025</text>
+            <text x="680" y="149" text-anchor="middle">2026</text>
+          </g>
+        </svg>
+      </div>
+      <span class="intro-hint">Click anywhere to continue</span>
+      <div class="intro-bar" aria-hidden="true"><i id="intro-bar"></i></div>
+    </div>
+
+
+    <nav class="nav" aria-label="Main">
+      <div class="wrap">
+        <a class="logo" href="#top" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+        <div class="links">
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">FD AI <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/draft">Draft</a>
+              <a href="#about">Review</a>
+            </div>
+          </div>
+          <a href="#lawyers">Ask a Lawyer</a>
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">Services <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/fd-consult">FD Consult</a>
+              <a href="#services">FD Legal</a>
+            </div>
+          </div>
+        </div>
+        <div class="links r">
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">Resources <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/resources">Blog</a>
+              <a href="/coming-soon?f=Courses">Courses</a>
+              <a href="/podcast">Podcast</a>
+            </div>
+          </div>
+          <a href="/about">About us</a>
+        </div>
+        <div class="nav-cta">
+          <a class="btn btn-white" href="/contact">Book a consultation</a>
+          <a class="btn btn-gold" href="/draft">Launch FD AI</a>
+        </div>
+        <button class="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
+          <span></span>
+        </button>
+      </div>
+      <span class="progress" aria-hidden="true"></span>
+      <div class="menu" id="menu" data-open="false">
+        <div class="wrap">
+          <div class="menu-group">
+            <span>FD AI</span>
+            <a href="/draft">Draft</a>
+            <a href="#about">Review</a>
+          </div>
+          <a href="#lawyers">Ask a Lawyer</a>
+          <div class="menu-group">
+            <span>Services</span>
+            <a href="/fd-consult">FD Consult</a>
+            <a href="#services">FD Legal</a>
+          </div>
+          <div class="menu-group">
+            <span>Resources</span>
+            <a href="/resources">Blog</a>
+            <a href="/coming-soon?f=Courses">Courses</a>
+            <a href="/podcast">Podcast</a>
+          </div>
+          <a href="/about">About us</a>
+          <a href="/contact">Contact us</a>
+        </div>
+      </div>
+    </nav>
+
+    <main id="main">
+      <!-- hero -->
+      <header class="hero" id="top">
+        <div class="glow" aria-hidden="true"></div>
+        <div class="wrap">
+          <h1><span class="line"><span>AI-drafted.</span></span><span class="line"><span>Lawyer-backed.</span></span></h1>
+          <span class="sig" aria-hidden="true"></span>
+          <p class="sub">Draft, review and sign your legal documents with AI built by lawyers. A real lawyer is one click away.</p>
+          <div class="ctas">
+            <a class="btn btn-gold" href="/draft">Start drafting</a>
+            <a class="btn btn-white" href="/contact">Talk to a lawyer</a>
+          </div>
+          <div class="trust">Advising founders around the world since 2021</div>
+        </div>
+        <a class="cue" href="#about"><span>See how it works</span><i aria-hidden="true"></i></a>
+      </header>
+
+      <div class="strip">
+        <div class="wrap">
+          <span class="k">Contracts we review and draft</span>
+          <div class="mq">
+            <div class="track">
+            <a href="/draft">NDAs</a>
+            <a href="/draft">Services agreements</a>
+            <a href="/coming-soon?f=Company%20documents">Shareholders' agreements</a>
+            <a href="/coming-soon?f=Human%20resource">Employment agreements</a>
+            <a href="/coming-soon?f=Operational">Terms &amp; conditions</a>
+            <a href="/coming-soon?f=Fundraising">Fundraising documents</a>
+            <a aria-hidden="true" tabindex="-1" href="/draft">NDAs</a>
+            <a aria-hidden="true" tabindex="-1" href="/draft">Services agreements</a>
+            <a aria-hidden="true" tabindex="-1" href="/coming-soon?f=Company%20documents">Shareholders' agreements</a>
+            <a aria-hidden="true" tabindex="-1" href="/coming-soon?f=Human%20resource">Employment agreements</a>
+            <a aria-hidden="true" tabindex="-1" href="/coming-soon?f=Operational">Terms &amp; conditions</a>
+            <a aria-hidden="true" tabindex="-1" href="/coming-soon?f=Fundraising">Fundraising documents</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- about: a contract assembles as you scroll -->
+      <section class="assemble" id="about" aria-label="A contract assembling as you scroll">
+        <div class="wrap">
+          <div class="head" data-rv>
+            <div>
+              <h2>Drafted the way you would draft it.</h2>
+              <p class="sub">
+                Choose a jurisdiction, then scroll — a founder vesting agreement takes shape: defined terms, market
+                positions and a lawyer's redline, on templates refined over hundreds of engagements.
+              </p>
+            </div>
+            <a class="more" href="#assemble-end">Skip to the signed document<span class="arr" aria-hidden="true">→</span></a>
+          </div>
+        </div>
+        <div class="scrolly" id="scrolly">
+          <div class="scrolly-sticky">
+            <div class="assemble-bar" aria-hidden="true"><i id="assemble-fill"></i></div>
+            <div class="wrap scrolly-grid">
+              <div>
+                <ol class="milestones" aria-hidden="true">
+                  <li data-ms="0"><i></i>Parties</li>
+                  <li data-ms="1"><i></i>Recitals</li>
+                  <li data-ms="2"><i></i>Vesting</li>
+                  <li data-ms="3"><i></i>Leaver terms</li>
+                  <li data-ms="4"><i></i>Governing law</li>
+                  <li data-ms="5"><i></i>Execution</li>
+                </ol>
+              </div>
+              <div class="doc-col">
+                <aside class="inspect" id="inspect" aria-live="polite"><b>Counsel’s notes</b><span id="inspect-text" class="body-in">Hover a clause to inspect it.</span></aside>
+                <div class="juris-wrap">
+                  <button type="button" class="j-nav" id="j-prev" aria-label="Previous jurisdiction">←</button>
+                  <div class="juris" id="juris" role="tablist" aria-label="Choose a jurisdiction">
+                    <button type="button" class="j-tab sel" data-j="sg" role="tab" aria-selected="true">Singapore</button><span class="j-div" aria-hidden="true">|</span>
+                    <button type="button" class="j-tab" data-j="uk" role="tab" aria-selected="false">UK</button><span class="j-div" aria-hidden="true">|</span>
+                    <button type="button" class="j-tab" data-j="us" role="tab" aria-selected="false">US</button><span class="j-div" aria-hidden="true">|</span>
+                    <button type="button" class="j-tab" data-j="other" role="tab" aria-selected="false">Other</button>
+                  </div>
+                  <button type="button" class="j-nav" id="j-next" aria-label="Next jurisdiction">→</button>
+                </div>
+                <div class="contract">
+                <div class="c-el" data-step="0" data-note-h="Parties" data-note="The company is identified by its UEN — a verifiable ACRA entity." tabindex="0">
+                  <div class="c-title"><strong>Founder vesting agreement</strong><span>Private &amp; confidential · <span id="j-place">Singapore</span></span></div>
+                  <div class="c-rule" aria-hidden="true"></div>
+                  <p class="c-p">Between <b id="j-entity">Meridian Labs Pte. Ltd.</b> <span id="j-reg">(UEN 202112345K)</span> (the "Company") and <b>Aisha Tan</b> (the "Founder").</p>
+                </div>
+                <div class="c-el" data-step="1" data-note-h="Recitals" data-note="&quot;Founder Shares&quot; is defined before first use and applied consistently below." tabindex="0">
+                  <p class="c-h">Recitals</p>
+                  <p class="c-p">The Founder holds 350,000 ordinary shares in the Company (the "Founder Shares"). The parties wish to record the terms on which they vest.</p>
+                </div>
+                <div class="c-el" data-step="2" data-note-h="Vesting" data-note="48 months, 12-month cliff — the position seed investors expect, per the VIMA model documents." tabindex="0">
+                  <p class="c-h">1. Vesting</p>
+                  <p class="c-p">The Founder Shares vest in equal monthly instalments over <span class="c-mark">48 months, subject to a 12-month cliff</span>.</p>
+                  <p class="c-cite" id="j-cite">Aligned with VIMA seed-stage market practice.</p>
+                </div>
+                <div class="c-el" data-step="3" data-note-h="Lawyer’s markup" data-note="The repurchase price is corrected: vested shares at the lower of cost and fair value, not par." tabindex="0">
+                  <p class="c-h">2. Leaver provisions</p>
+                  <p class="c-p">If the Founder is a Bad Leaver (as defined in <span id="j-govdocs">the Company's constitution</span>), the Company may repurchase unvested Founder Shares, and vested Founder Shares at the lower of cost and fair market value.</p>
+                  <p class="c-cite">Redline by a Founders Doc lawyer.</p>
+                </div>
+                <div class="c-el" data-step="4" data-note-h="Governing law" data-note="Singapore law and exclusive jurisdiction of the Singapore courts — matched to where the company is incorporated." tabindex="0">
+                  <p class="c-h">3. Governing law</p>
+                  <p class="c-p" id="j-law">This Agreement is governed by the laws of Singapore, and the parties submit to the exclusive jurisdiction of the Singapore courts.</p>
+                </div>
+                <div class="c-el" data-step="5" data-note-h="Execution" data-note="Singapore convention: the individual signs before a witness; the company by its director." tabindex="0">
+                  <div class="c-sig">
+                    <div>
+                      <p class="c-exec" id="j-exec1"><b>Signed</b> by <b>Aisha Tan</b> in the presence of a witness:</p>
+                      <div class="sig-line"><svg viewBox="0 0 150 40" aria-hidden="true"><path d="M6 30 C 18 6, 30 8, 34 22 C 37 32, 46 30, 52 18 C 58 8, 66 10, 70 22 C 74 32, 86 28, 96 20 C 108 11, 124 14, 142 24" /></svg></div>
+                      <small>Founder</small>
+                    </div>
+                    <div>
+                      <p class="c-exec" id="j-exec2"><b>Signed</b> for <b>Meridian Labs Pte. Ltd.</b> by its director:</p>
+                      <div class="sig-line"><svg class="d2" viewBox="0 0 150 40" aria-hidden="true"><path d="M6 26 C 22 10, 30 30, 42 20 C 52 12, 58 28, 72 22 C 84 17, 92 26, 104 18 C 116 11, 130 20, 144 16" /></svg></div>
+                      <small id="j-sig2">Director</small>
+                    </div>
+                  </div>
+                </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="wrap assemble-foot" id="assemble-end" data-rv>
+          <span>Illustrative extract, not legal advice. Your documents are handled in confidence and never used to train models.</span>
+          <a class="more" href="/draft">Draft yours in minutes<span class="arr" aria-hidden="true">→</span></a>
+        </div>
+      </section>
+
+      <!-- two ways -->
+      <section class="ways-sec" id="ai">
+        <div class="wrap">
+          <div class="head" data-rv>
+            <h2>Two ways to get it done.</h2>
+            <p class="sub">Standard documents shouldn't need a lawyer's hourly rate. Negotiated ones should. You get both, in one place.</p>
+          </div>
+          <div class="ways">
+            <div class="way" data-rv>
+              <div class="way-visual" aria-hidden="true">
+                <div class="mock">
+                  <div class="m-head"><b>Mutual NDA</b><span class="m-badge">Drafting</span></div>
+                  <div class="m-row">1. Definitions <span class="m-tick">✓</span></div>
+                  <div class="m-row">2. Confidentiality obligations <span class="m-tick">✓</span></div>
+                  <div class="m-row">3. Permitted disclosures <span class="m-tick">✓</span></div>
+                  <div class="m-row">4. Term, 3 years <span class="m-writing">Writing</span></div>
+                </div>
+              </div>
+              <h3>Draft and Review</h3>
+              <p>Describe what you need and Jessica drafts it on our lawyers' templates, clause by clause — then review, e-sign and go.</p>
+              <a class="more" href="/draft">Launch FD AI<span class="arr" aria-hidden="true">→</span></a>
+            </div>
+            <div class="way" id="lawyers" data-rv>
+              <div class="way-visual" aria-hidden="true">
+                <div class="mock chat">
+                  <div class="m-q">Can you take our seed round end to end?</div>
+                  <div class="m-a">Yes — term sheet to completion on a fixed or scoped fee, with a named lawyer throughout.<small>Fundraising · pre-seed to Series C</small></div>
+                </div>
+              </div>
+              <h3>Ask</h3>
+              <p>Question any clause or hand the whole matter over — answered and handled by lawyers who know what investors in your market expect.</p>
+              <a class="more" href="/contact">Talk to a lawyer<span class="arr" aria-hidden="true">→</span></a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- services -->
+      <section class="svc" id="services">
+        <div class="wrap">
+          <div class="head">
+            <div data-rv>
+              <h2>Contracts our lawyers draft and review.</h2>
+              <p class="sub">What we're asked for most.</p>
+            </div>
+            <a class="btn btn-white" href="/coming-soon?f=All%20services">All services</a>
+          </div>
+          <div class="svc-grid">
+            <div class="svc-item" data-rv>
+              <small>Draft</small>
+              <h3>Shareholders' agreement.</h3>
+              <a class="more" href="/coming-soon?f=Company%20documents">Find out more<span class="arr" aria-hidden="true">→</span></a>
+            </div>
+            <div class="svc-item" data-rv>
+              <small>Draft</small>
+              <h3>Share vesting letter.</h3>
+              <a class="more" href="/coming-soon?f=Company%20documents">Find out more<span class="arr" aria-hidden="true">→</span></a>
+            </div>
+            <div class="svc-item" data-rv>
+              <small>Draft</small>
+              <h3>Employment agreement.</h3>
+              <a class="more" href="/coming-soon?f=Human%20resource">Find out more<span class="arr" aria-hidden="true">→</span></a>
+            </div>
+            <div class="svc-item" data-rv>
+              <small>Draft</small>
+              <h3>Employee share option plan.</h3>
+              <a class="more" href="/coming-soon?f=Human%20resource">Find out more<span class="arr" aria-hidden="true">→</span></a>
+            </div>
+            <div class="svc-item" data-rv>
+              <small>Draft</small>
+              <h3>Terms and conditions.</h3>
+              <a class="more" href="/coming-soon?f=Operational">Find out more<span class="arr" aria-hidden="true">→</span></a>
+            </div>
+            <div class="svc-item" data-rv>
+              <small>Review</small>
+              <h3>Fundraising documents, pre-seed to Series C.</h3>
+              <a class="more" href="/coming-soon?f=Fundraising">Find out more<span class="arr" aria-hidden="true">→</span></a>
+            </div>
+            <div class="svc-item" data-rv>
+              <small>Review</small>
+              <h3>A contract call with a lawyer.</h3>
+              <a class="more" href="/contact">Contact us<span class="arr" aria-hidden="true">→</span></a>
+            </div>
+            <div class="svc-item" data-rv>
+              <small>Bespoke</small>
+              <h3>Bespoke contracts. Tell us what you need.</h3>
+              <a class="more" href="/contact">Contact us<span class="arr" aria-hidden="true">→</span></a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- quotes: rotating testimonials -->
+      <section class="band" aria-label="Client testimonials">
+        <div class="wrap" data-rv>
+          <div class="quotes">
+            <figure class="quote on">
+              <p class="who">Stability Solutions</p>
+              <blockquote>
+                By the time I pull up Jessica I've already scanned the document. She gets me from 0 to 1 in minutes.
+              </blockquote>
+              <figcaption class="by">Dharma Sadasivan, Chief Strategy Officer and General Counsel</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <!-- race -->
+      <section class="race" id="race">
+        <div class="wrap">
+          <div data-rv>
+          <h2>Four minutes, or five business days.</h2>
+          <p class="sub">Both bars move at true relative speed.</p>
+          </div>
+          <div class="lanes" aria-hidden="true">
+            <div class="lane j">
+              <span class="who">Jessica</span>
+              <div class="bar"><i></i></div>
+              <span class="t">0:00</span>
+            </div>
+            <div class="lane f">
+              <span class="who">Traditional firm</span>
+              <div class="bar"><i></i></div>
+              <span class="t">0h 00m of 40h</span>
+            </div>
+          </div>
+          <p class="fine">Working hours only, based on a typical quoted turnaround of five business days for a standard contract review. At this speed the firm's bar takes twelve minutes to fill.</p>
+        </div>
+      </section>
+
+      <!-- cta -->
+      <section class="cta-band">
+        <div class="wrap" data-rv>
+          <h2>Send us the contract. We'll take it from there.</h2>
+          <p class="sub">Jessica in minutes, or our lawyers in days.</p>
+          <div class="ctas">
+            <a class="btn btn-gold" href="/draft">Launch FD AI</a>
+            <a class="btn btn-white" href="/contact">Book a consultation</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap">
+        <div class="grid">
+          <div>
+            <a class="logo" href="#top" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+            <p class="about">
+              Contracts for founders everywhere, reviewed and drafted by Jessica, our AI, and the practising
+              lawyers behind her.
+            </p>
+          </div>
+          <div>
+            <h4>Quick links</h4>
+            <ul>
+              <li><a href="#top">Home</a></li>
+              <li><a href="/about">About us</a></li>
+              <li><a href="/coming-soon?f=All%20services">Our services</a></li>
+              <li><a href="/resources">Blog</a></li>
+              <li><a href="/coming-soon?f=Courses">Courses</a></li>
+              <li><a href="/podcast">Podcast</a></li>
+              <li><a href="/contact">Contact us</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Useful links</h4>
+            <ul>
+              <li><a href="/draft">Launch FD AI</a></li>
+              <li><a href="https://foundersdoc.com/terms-conditions/">Terms &amp; conditions</a></li>
+              <li><a href="https://foundersdoc.com/privacy-policy/">Privacy policy</a></li>
+              <li><a href="https://foundersdoc.com/community-guidelines/">Community guidelines</a></li>
+              <li><a href="/terms-of-service">FD Consult: Platform Terms of Service</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Contact us</h4>
+            <ul>
+              <li><a href="https://wa.me/6594617390?text=Hi!">+65 9461 7390 (WhatsApp only)</a></li>
+              <li><a href="mailto:administrator@foundersdoc.com">administrator@foundersdoc.com</a></li>
+            </ul>
+          </div>
+          <div class="nl">
+            <form id="nl-form" novalidate>
+              <label for="em">Subscribe to our newsletter</label>
+              <div class="field">
+                <input id="em" name="email" type="email" placeholder="Email address" autocomplete="email" required />
+                <button type="submit" aria-label="Subscribe">→</button>
+              </div>
+              <p class="msg" id="nl-msg" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+        <div class="bot">
+          <span>© 2026 Founders Doc. All rights reserved.</span>
+          <div>
+            <a href="https://www.linkedin.com/company/foundersdoc/">LinkedIn</a>
+            <a href="https://www.instagram.com/foundersdoc/">Instagram</a>
+            <a href="https://www.youtube.com/channel/UCYQebtLCvD2esHthgPAxrFg">YouTube</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      /* Intro sequence — the first-look page */
+      (function () {
+        var ONCE_PER_SESSION = false; // set to true before launch so it plays once per visit; ?intro forces a replay, ?nointro skips
+        var root = document.documentElement,
+          intro = document.getElementById("intro");
+        if (!intro) return;
+        var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        var seen = false;
+        if (ONCE_PER_SESSION) {
+          try {
+            seen = sessionStorage.getItem("fd-intro-v6") === "1";
+          } catch (e) {}
+        }
+        // Arriving from another Founders Doc page — clicking the logo, say — goes
+        // straight to the hero. The intro still plays on a reload or a fresh visit.
+        try {
+          var navEntry = performance.getEntriesByType && performance.getEntriesByType("navigation")[0],
+            navType = navEntry
+              ? navEntry.type
+              : performance.navigation && performance.navigation.type === 1
+                ? "reload"
+                : "navigate",
+            ref = document.referrer || "",
+            fromOwnSite =
+              ref.indexOf(location.origin + "/") === 0 &&
+              ref.slice(location.origin.length).split("?")[0].split("#")[0] !== "/";
+          if (navType !== "reload" && fromOwnSite) seen = true;
+        } catch (e) {}
+        if (/[?&]intro\b/.test(location.search)) seen = false;
+        if (/[?&]nointro\b/.test(location.search)) seen = true;
+        function finish() {
+          if (root.classList.contains("ready")) return;
+          intro.classList.add("out");
+          root.classList.add("ready");
+          root.classList.add("loaded"); // hand off to the hero entrance
+          try {
+            sessionStorage.setItem("fd-intro-v6", "1");
+          } catch (e) {}
+          setTimeout(function () {
+            intro.remove();
+          }, 800);
+        }
+        if (seen) {
+          intro.remove();
+          root.classList.add("ready");
+          return;
+        }
+        if (reduce) intro.classList.add("static");
+        var beats = Array.prototype.slice.call(intro.querySelectorAll("[data-beat]")),
+          bar = document.getElementById("intro-bar"),
+          hold = reduce ? [900, 1400] : [1000, 1700],
+          i = 0,
+          t;
+        function show() {
+          var b = beats[i];
+          b.classList.add("in");
+          bar.style.width = ((i + 1) / beats.length) * 100 + "%";
+          t = setTimeout(function () {
+            b.classList.remove("in");
+            b.classList.add("outg");
+            i++;
+            if (i < beats.length) {
+              t = setTimeout(show, reduce ? 150 : 220);
+            } else {
+              t = setTimeout(finish, 300);
+            }
+          }, hold[i]);
+        }
+        document.getElementById("intro-skip").addEventListener("click", function () {
+          clearTimeout(t);
+          finish();
+        });
+        intro.addEventListener("click", function () {
+          clearTimeout(t);
+          finish();
+        });
+        window.addEventListener("keydown", function (e) {
+          if (!root.classList.contains("ready") && (e.key === "Escape" || e.key === "Enter" || e.key === " ")) {
+            clearTimeout(t);
+            finish();
+          }
+        });
+        intro.classList.add("go");
+        // Data points count up in sync with their entrance
+        function easeC(x) {
+          return 1 - Math.pow(1 - x, 4);
+        }
+        Array.prototype.forEach.call(intro.querySelectorAll(".d-stat b"), function (el, idx) {
+          var target = +el.getAttribute("data-target"),
+            pre = el.getAttribute("data-prefix") || "",
+            suf = el.getAttribute("data-suffix") || "";
+          function paint(v) {
+            el.textContent = pre + v.toLocaleString("en-GB") + suf;
+          }
+          if (reduce) {
+            paint(target);
+            return;
+          }
+          setTimeout(function () {
+            var t0 = performance.now(),
+              dur = 1150;
+            (function step(now) {
+              var p = Math.min(1, (now - t0) / dur);
+              paint(Math.round(easeC(p) * target));
+              if (p < 1) requestAnimationFrame(step);
+            })(t0);
+          }, 420 + idx * 300);
+        });
+        setTimeout(show, 300);
+        setTimeout(finish, 6000); // safety net: never leave the page hidden
+      })();
+    </script>
+    <script>
+      (function () {
+        // Mobile menu
+        var burger = document.querySelector(".burger"),
+          menu = document.getElementById("menu");
+        if (burger && menu) {
+          burger.addEventListener("click", function () {
+            var open = menu.getAttribute("data-open") === "true";
+            menu.setAttribute("data-open", String(!open));
+            burger.setAttribute("aria-expanded", String(!open));
+            burger.setAttribute("aria-label", open ? "Open menu" : "Close menu");
+          });
+          menu.querySelectorAll("a").forEach(function (a) {
+            a.addEventListener("click", function () {
+              menu.setAttribute("data-open", "false");
+              burger.setAttribute("aria-expanded", "false");
+              burger.setAttribute("aria-label", "Open menu");
+            });
+          });
+        }
+
+        // Dropdown tabs (FD AI, Services, Resources): click to toggle, Escape / outside click to close
+        var subs = Array.prototype.slice.call(document.querySelectorAll(".has-sub"));
+        function closeSubs(except) {
+          subs.forEach(function (d) {
+            if (d !== except) {
+              d.setAttribute("data-open", "false");
+              d.querySelector("button").setAttribute("aria-expanded", "false");
+            }
+          });
+        }
+        subs.forEach(function (d) {
+          var btn = d.querySelector("button");
+          btn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            var open = d.getAttribute("data-open") === "true";
+            closeSubs(d);
+            d.setAttribute("data-open", String(!open));
+            btn.setAttribute("aria-expanded", String(!open));
+          });
+          d.querySelectorAll(".nav-sub a").forEach(function (a) {
+            a.addEventListener("click", function () { closeSubs(); });
+          });
+        });
+        document.addEventListener("click", function () { closeSubs(); });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") closeSubs();
+        });
+
+
+        var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        // Page-load sequence: one beat, then quiet. When the intro overlay is
+        // playing, the intro script adds "loaded" as it fades out instead, so the
+        // hero animates in the moment the overlay reveals it.
+        if (!document.getElementById("intro")) {
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              document.documentElement.classList.add("loaded");
+            });
+          });
+        }
+
+        // Assemble: the contract builds as you scroll (pinned scrub, no scroll-jacking)
+        var scrollyWrap = document.getElementById("scrolly");
+        if (scrollyWrap) {
+          var cEls = Array.prototype.slice.call(scrollyWrap.querySelectorAll(".c-el")),
+            cMs = Array.prototype.slice.call(scrollyWrap.querySelectorAll(".milestones li")),
+            cFill = document.getElementById("assemble-fill"),
+            cDoc = scrollyWrap.querySelector(".contract"),
+            dcol = cDoc.closest(".doc-col"),
+            inspect = document.getElementById("inspect"),
+            inspectText = document.getElementById("inspect-text"),
+            jurisEl = document.getElementById("juris"),
+            cN = cEls.length,
+            cDone = false;
+          // Fit the whole instrument inside the pinned viewport — prevents clipping on short screens
+          function cFit() {
+            cDoc.style.transform = "";
+            var room = window.innerHeight - 36 - (jurisEl ? jurisEl.offsetHeight : 0),
+              h = cDoc.offsetHeight;
+            if (h > room) cDoc.style.transform = "scale(" + Math.max(0.9, room / h).toFixed(4) + ")";
+          }
+          // Aim the counsel's-notes callout at a clause: card rides beside it, arrow points in
+          function cAim(el) {
+            if (!inspect || !dcol || !el) return;
+            var top = cDoc.offsetTop + el.offsetTop - 12,
+              max = Math.max(0, dcol.offsetHeight - (inspect.offsetHeight || 140));
+            inspect.style.setProperty("--iy", Math.max(0, Math.min(top, max)) + "px");
+          }
+          function cSetDone(v) {
+            if (cDone === v) return;
+            cDone = v;
+            cDoc.classList.toggle("done", v);
+          }
+          // Counsel's notes — one animated figure per clause
+          var FIG = {
+            0: '<span class="n-fig"><svg class="n-check" viewBox="0 0 22 22" aria-hidden="true"><path d="M3.5 12l5 5 10-11"/></svg></span>',
+            1: '<span class="n-fig"><span class="n-def">\u201cFounder Shares\u201d</span></span>',
+            2: '<span class="n-fig"><span class="n-bar"><i></i><u></u></span></span>',
+            4: '<span class="n-fig"><span class="n-ping"><i></i><i class="p2"></i></span></span>',
+            5: '<span class="n-fig"><svg class="n-pen" viewBox="0 0 90 24" aria-hidden="true"><path d="M4 16 C 14 4,20 20,30 12 C 38 6,44 18,56 12 C 66 7,76 14,86 10"/></svg></span>'
+          };
+          var RL =
+            "The standard clause priced vested shares at par. Our lawyer marks it up:" +
+            '<span class="mini"><span class="del">vested Founder Shares at par value</span></span>' +
+            '<span class="mini"><span class="ins">vested Founder Shares at the lower of cost and fair market value</span></span>';
+          function cShowNote(i) {
+            if (!inspect || !cEls[i]) return;
+            inspect.classList.add("show");
+            inspect.querySelector("b").textContent = cEls[i].getAttribute("data-note-h") || "Counsel\u2019s notes";
+            inspectText.innerHTML = i === 3 ? RL : (FIG[i] || "") + (cEls[i].getAttribute("data-note") || "");
+            inspectText.classList.remove("body-in");
+            void inspectText.offsetWidth;
+            inspectText.classList.add("body-in");
+            inspect.classList.remove("nudge");
+            void inspect.offsetWidth;
+            inspect.classList.add("nudge");
+            cEls.forEach(function (el, k) {
+              el.classList.toggle("talk", k === i);
+            });
+            cAim(cEls[i]);
+          }
+          cEls.forEach(function (el, i) {
+            function showOnHover() {
+              if (el.classList.contains("on")) cShowNote(i);
+            }
+            el.addEventListener("mouseenter", showOnHover);
+            el.addEventListener("focusin", showOnHover);
+          });
+          // Jurisdiction bar — swaps the instrument's variable terms
+          var JD = {
+            sg: {
+              place: "Singapore",
+              entity: "Meridian Labs Pte. Ltd.",
+              reg: "(UEN 202112345K)",
+              cite: "Aligned with VIMA seed-stage market practice.",
+              vnote: "48 months, 12-month cliff \u2014 the position seed investors expect, per the VIMA model documents.",
+              pnote: "The company is identified by its UEN \u2014 a verifiable ACRA entity.",
+              govdocs: "the Company's constitution",
+              law: "This Agreement is governed by the laws of Singapore, and the parties submit to the exclusive jurisdiction of the Singapore courts.",
+              exec1: "<b>Signed</b> by <b>Aisha Tan</b> in the presence of a witness:",
+              exec2: "<b>Signed</b> for <b>Meridian Labs Pte. Ltd.</b> by its director:",
+              sig2: "Director",
+              note: "Singapore convention: the individual signs before a witness; the company by its director.",
+              sum: "Pte. Ltd. with UEN \u00b7 Singapore governing law \u00b7 VIMA market position."
+            },
+            uk: {
+              place: "United Kingdom",
+              entity: "Meridian Labs Ltd",
+              reg: "(Company No. 12345678)",
+              cite: "Aligned with BVCA seed-stage market practice.",
+              vnote: "48 months, 12-month cliff \u2014 standard under the BVCA model documents.",
+              pnote: "The company is identified by its company number \u2014 a verifiable Companies House entity.",
+              govdocs: "the Company's articles of association",
+              law: "This Agreement is governed by the laws of England and Wales, and the parties submit to the exclusive jurisdiction of the courts of England and Wales.",
+              exec1: "<b>Signed</b> by <b>Aisha Tan</b> in the presence of a witness:",
+              exec2: "<b>Signed</b> for <b>Meridian Labs Ltd</b> by a director:",
+              sig2: "Director",
+              note: "England and Wales: the individual signs before a witness; the company acts by a director.",
+              sum: "Ltd with Companies House number \u00b7 English governing law \u00b7 BVCA market position."
+            },
+            us: {
+              place: "United States",
+              entity: "Meridian Labs, Inc.",
+              reg: "(Delaware)",
+              cite: "Aligned with NVCA and YC standard terms.",
+              vnote: "48 months, 12-month cliff \u2014 the standard NVCA and YC position.",
+              pnote: "The company is a Delaware corporation \u2014 the standard home for venture-backed companies.",
+              govdocs: "the Company's governing documents",
+              law: "This Agreement is governed by the laws of the State of Delaware, and the parties submit to the exclusive jurisdiction of the Delaware courts.",
+              exec1: "<b>Signed</b> by <b>Aisha Tan</b>:",
+              exec2: "<b>Signed</b> for <b>Meridian Labs, Inc.</b> by an authorised officer:",
+              sig2: "Officer",
+              note: "US practice: simple signature blocks; no witness required.",
+              sum: "Delaware Inc. \u00b7 Delaware governing law \u00b7 NVCA-style terms."
+            },
+            other: {
+              place: "Your jurisdiction",
+              entity: "Meridian Labs",
+              reg: "(your entity)",
+              cite: "Adapted to local market practice.",
+              vnote: "48 months, 12-month cliff \u2014 adapted to your market\u2019s standard.",
+              pnote: "Entity details adapt to your market \u2014 a verifiable local registration.",
+              govdocs: "the Company's constitutional documents",
+              law: "Governing law and forum are set to your chosen jurisdiction, with execution formalities to match.",
+              exec1: "<b>Signed</b> by <b>Aisha Tan</b> per local formalities:",
+              exec2: "<b>Signed</b> for <b>Meridian Labs</b> per local formalities:",
+              sig2: "Authorised signatory",
+              note: "Entity style, governing law and execution adapt to your market.",
+              sum: "Tell us your market \u2014 we cover 50+ jurisdictions on request."
+            }
+          };
+          function jPut(id, v) {
+            var n = document.getElementById(id);
+            if (n) n.innerHTML = v;
+          }
+          var JORDER = ["sg", "uk", "us", "other"],
+            JCUR = "sg";
+          function switchJ(k) {
+            var d = JD[k];
+            if (!d) return;
+            JCUR = k;
+            Array.prototype.forEach.call(document.querySelectorAll(".j-tab"), function (c) {
+              var on = c.getAttribute("data-j") === k;
+              c.classList.toggle("sel", on);
+              c.setAttribute("aria-selected", String(on));
+            });
+            jPut("j-place", d.place);
+            jPut("j-entity", d.entity);
+            jPut("j-reg", d.reg);
+            jPut("j-cite", d.cite);
+            jPut("j-govdocs", d.govdocs);
+            jPut("j-law", d.law);
+            jPut("j-exec1", d.exec1);
+            jPut("j-exec2", d.exec2);
+            jPut("j-sig2", d.sig2);
+            cEls[0].setAttribute("data-note", d.pnote);
+            cEls[2].setAttribute("data-note", d.vnote);
+            cEls[4].setAttribute("data-note", d.note);
+            cEls[5].setAttribute("data-note", d.note);
+            if (!reduce) {
+              [0, 2, 4, 5].forEach(function (i) {
+                var el = cEls[i];
+                el.classList.remove("flash");
+                void el.offsetWidth;
+                el.classList.add("flash");
+              });
+            }
+            if (inspect) {
+              inspect.classList.add("show");
+              inspect.querySelector("b").textContent = d.place;
+              inspectText.innerHTML = FIG[4] + d.sum;
+              inspectText.classList.remove("body-in");
+              void inspectText.offsetWidth;
+              inspectText.classList.add("body-in");
+              cEls.forEach(function (el, k) {
+                el.classList.toggle("talk", k === 4);
+              });
+              cAim(cEls[4]);
+            }
+            cFit();
+          }
+          if (jurisEl) {
+            jurisEl.addEventListener("click", function (e) {
+              var c = e.target.closest(".j-tab");
+              if (c) switchJ(c.getAttribute("data-j"));
+            });
+            // Arrow keys move and select within the tablist, as a tablist should
+            jurisEl.addEventListener("keydown", function (e) {
+              var tabs = Array.prototype.slice.call(jurisEl.querySelectorAll(".j-tab")),
+                idx = tabs.indexOf(document.activeElement),
+                ni = null;
+              if (idx === -1) return;
+              if (e.key === "ArrowRight") ni = (idx + 1) % tabs.length;
+              else if (e.key === "ArrowLeft") ni = (idx - 1 + tabs.length) % tabs.length;
+              else if (e.key === "Home") ni = 0;
+              else if (e.key === "End") ni = tabs.length - 1;
+              if (ni !== null) {
+                e.preventDefault();
+                tabs[ni].focus();
+                switchJ(tabs[ni].getAttribute("data-j"));
+              }
+            });
+          }
+          function jCycle(d) {
+            switchJ(JORDER[(JORDER.indexOf(JCUR) + d + JORDER.length) % JORDER.length]);
+          }
+          var jPrev = document.getElementById("j-prev"),
+            jNext = document.getElementById("j-next");
+          if (jPrev) jPrev.addEventListener("click", function () { jCycle(-1); });
+          if (jNext) jNext.addEventListener("click", function () { jCycle(1); });
+          if (reduce) {
+            cEls.forEach(function (el) {
+              el.classList.add("on");
+              el.style.opacity = 1;
+              el.style.transform = "none";
+            });
+            cMs.forEach(function (li) {
+              li.classList.add("on");
+            });
+            if (cFill) cFill.style.height = "100%";
+            cSetDone(true);
+            cShowNote(3);
+            cFit();
+            window.addEventListener("resize", cFit, { passive: true });
+          } else {
+            var RAMP = 1 / (cN + 1), // each element fades in over its own slice of scroll
+              cTarget = 0,
+              cCurrent = 0,
+              cRaf = null,
+              lastNote = -1;
+            function cEase(t) {
+              return t * t * (3 - 2 * t); // smoothstep
+            }
+            function cMeasure() {
+              var r = scrollyWrap.getBoundingClientRect();
+              cTarget = Math.min(1, Math.max(0, -r.top / (r.height - window.innerHeight)));
+              if (cRaf === null) cRaf = requestAnimationFrame(cTick);
+            }
+            function cTick() {
+              cCurrent += (cTarget - cCurrent) * 0.22; // light smoothing
+              if (Math.abs(cTarget - cCurrent) < 0.0008) cCurrent = cTarget;
+              cRender(cCurrent);
+              cRaf = cCurrent === cTarget ? null : requestAnimationFrame(cTick);
+            }
+            function cRender(p) {
+              if (cFill) cFill.style.height = (p * 100).toFixed(2) + "%";
+              var usable = Math.min(1, p / 0.96);
+              for (var i = 0; i < cN; i++) {
+                var start = (i / cN) * (1 - RAMP), // every clause, including the first, arrives on scroll
+                  t = cEase(Math.min(1, Math.max(0, (usable - start) / RAMP))),
+                  el = cEls[i];
+                el.style.opacity = t;
+                el.style.transform = t >= 1 ? "" : "translateY(" + ((1 - t) * 14).toFixed(2) + "px)";
+                var on = t > 0.55;
+                el.classList.toggle("on", on); // fires the signature draw
+                if (cMs[i]) cMs[i].classList.toggle("on", on);
+              }
+              // The notes narrate the assembly: as each clause lands, its note appears beside it
+              var hi = -1;
+              cEls.forEach(function (el, k) {
+                if (el.classList.contains("on")) hi = k;
+              });
+              if (hi !== lastNote && hi >= 0) {
+                lastNote = hi;
+                cShowNote(hi);
+              }
+              cSetDone(usable >= 1);
+            }
+            window.addEventListener("scroll", cMeasure, { passive: true });
+            window.addEventListener(
+              "resize",
+              function () {
+                cFit();
+                cMeasure();
+              },
+              { passive: true }
+            );
+            cFit();
+            if (document.fonts && document.fonts.ready) document.fonts.ready.then(cFit);
+            cMeasure();
+            cRender(0);
+            cEls[0].style.opacity = 1;
+            cEls[0].style.transform = "";
+          }
+        }
+
+        // The race: Jessica 4 minutes vs a firm's 40 working hours, at true relative speed.
+        // The loop pauses whenever the section is off screen, so it never runs in the background.
+        var race = document.querySelector(".race"),
+          raceStarted = false;
+        function runRace() {
+          if (!race || raceStarted) return;
+          raceStarted = true;
+          var jLane = race.querySelector(".lane.j"),
+            jBar = jLane.querySelector(".bar i"),
+            jT = jLane.querySelector(".t"),
+            fBar = race.querySelector(".lane.f .bar i"),
+            fT = race.querySelector(".lane.f .t"),
+            J_MS = 1200,
+            F_MS = J_MS * (2400 / 4),
+            elapsed = 0,
+            last = null,
+            rafId = null,
+            raceDone = false;
+          function pad(n) {
+            return (n < 10 ? "0" : "") + n;
+          }
+          if (reduce) {
+            jBar.style.width = "100%";
+            jT.textContent = "4 minutes";
+            jLane.classList.add("done");
+            fBar.style.width = "100%";
+            fT.textContent = "5 business days";
+            return;
+          }
+          function step(ts) {
+            if (last === null) last = ts;
+            elapsed += ts - last;
+            last = ts;
+            var jp = Math.min(elapsed / J_MS, 1),
+              fp = Math.min(elapsed / F_MS, 1),
+              sec = Math.round(jp * 240),
+              hrs = fp * 40;
+            jBar.style.width = jp * 100 + "%";
+            jT.textContent = jp < 1 ? Math.floor(sec / 60) + ":" + pad(sec % 60) : "4 minutes · done";
+            if (jp >= 1) jLane.classList.add("done");
+            fBar.style.width = fp * 100 + "%";
+            fT.textContent =
+              fp < 1 ? Math.floor(hrs) + "h " + pad(Math.floor((hrs % 1) * 60)) + "m of 40h" : "5 business days · done";
+            if (fp < 1) {
+              rafId = requestAnimationFrame(step);
+            } else {
+              raceDone = true;
+              rafId = null;
+            }
+          }
+          function racePlay() {
+            if (raceDone || rafId !== null) return;
+            last = null;
+            rafId = requestAnimationFrame(step);
+          }
+          function racePause() {
+            if (rafId !== null) {
+              cancelAnimationFrame(rafId);
+              rafId = null;
+            }
+          }
+          if ("IntersectionObserver" in window) {
+            new IntersectionObserver(
+              function (entries) {
+                entries.forEach(function (en) {
+                  if (en.isIntersecting) racePlay();
+                  else racePause();
+                });
+              },
+              { threshold: 0.1 }
+            ).observe(race);
+          }
+          racePlay();
+        }
+
+        // Section reveals, staggered among siblings
+        var rv = Array.prototype.slice.call(document.querySelectorAll("[data-rv]"));
+        rv.forEach(function (el) {
+          var sibs = Array.prototype.filter.call(el.parentNode.children, function (c) {
+            return c.hasAttribute("data-rv");
+          });
+          if (sibs.length > 1) el.style.setProperty("--i", sibs.indexOf(el));
+        });
+        if ("IntersectionObserver" in window) {
+          var rio = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (en) {
+                if (en.isIntersecting) {
+                  en.target.classList.add("in");
+                  rio.unobserve(en.target);
+                }
+              });
+            },
+            { threshold: 0.15, rootMargin: "0px 0px -8% 0px" }
+          );
+          rv.forEach(function (el) {
+            rio.observe(el);
+          });
+        } else {
+          rv.forEach(function (el) {
+            el.classList.add("in");
+          });
+        }
+
+        // Scroll: nav state, progress line, active link
+        var nav = document.querySelector(".nav"),
+          prog = document.querySelector(".progress"),
+          navLinks = Array.prototype.slice.call(document.querySelectorAll('.links a[href^="#"]')),
+          sections = navLinks
+            .map(function (a) {
+              return document.getElementById(a.getAttribute("href").slice(1));
+            })
+            .filter(Boolean),
+          ticking = false;
+        function onScroll() {
+          var y = window.pageYOffset || document.documentElement.scrollTop,
+            max = document.documentElement.scrollHeight - window.innerHeight;
+          if (nav) nav.classList.toggle("scrolled", y > 8);
+          if (prog) prog.style.transform = "scaleX(" + (max > 0 ? Math.min(y / max, 1) : 0) + ")";
+          var cur = null,
+            line = y + 120;
+          sections.forEach(function (sec) {
+            if (sec.getBoundingClientRect().top + y <= line) cur = sec.id;
+          });
+          navLinks.forEach(function (a) {
+            a.classList.toggle("on", a.getAttribute("href") === "#" + cur);
+          });
+          Array.prototype.forEach.call(document.querySelectorAll(".has-sub"), function (d) {
+            d.querySelector("button").classList.toggle("on", !!d.querySelector(".nav-sub a.on"));
+          });
+          ticking = false;
+        }
+        window.addEventListener(
+          "scroll",
+          function () {
+            if (!ticking) {
+              ticking = true;
+              requestAnimationFrame(onScroll);
+            }
+          },
+          { passive: true }
+        );
+        onScroll();
+
+        // Reveal the race as it scrolls into view
+        var targets = Array.prototype.slice.call(document.querySelectorAll(".race"));
+        function reveal(el) {
+          el.classList.add("in");
+          if (el.classList.contains("race")) runRace();
+        }
+        if ("IntersectionObserver" in window) {
+          var io = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (en) {
+                if (en.isIntersecting) {
+                  reveal(en.target);
+                  io.unobserve(en.target);
+                }
+              });
+            },
+            { threshold: 0.35 }
+          );
+          targets.forEach(function (t) {
+            io.observe(t);
+          });
+        } else {
+          targets.forEach(reveal);
+        }
+
+        // Pause the marquee and the hero glow whenever they're off screen
+        if ("IntersectionObserver" in window) {
+          var stripEl = document.querySelector(".strip"),
+            mqEl = document.querySelector(".mq"),
+            heroEl = document.querySelector(".hero");
+          if (stripEl && mqEl) {
+            new IntersectionObserver(
+              function (entries) {
+                entries.forEach(function (en) {
+                  mqEl.classList.toggle("offstage", !en.isIntersecting);
+                });
+              },
+              { threshold: 0 }
+            ).observe(stripEl);
+          }
+          if (heroEl) {
+            new IntersectionObserver(
+              function (entries) {
+                entries.forEach(function (en) {
+                  heroEl.classList.toggle("offstage", !en.isIntersecting);
+                });
+              },
+              { threshold: 0 }
+            ).observe(heroEl);
+          }
+        }
+
+        // Testimonials: rotate every few seconds; pause on hover, focus, or when off screen
+        var band = document.querySelector(".band");
+        if (band) {
+          var quotes = Array.prototype.slice.call(band.querySelectorAll(".quote")),
+            qDots = Array.prototype.slice.call(band.querySelectorAll(".q-dots button")),
+            qi = 0,
+            qTimer = null,
+            qPaused = false,
+            qVisible = false;
+          function qShow(i) {
+            qi = (i + quotes.length) % quotes.length;
+            quotes.forEach(function (q, k) {
+              q.classList.toggle("on", k === qi);
+              q.setAttribute("aria-hidden", String(k !== qi));
+            });
+            qDots.forEach(function (d, k) {
+              d.classList.toggle("on", k === qi);
+            });
+          }
+          function qStart() {
+            if (quotes.length < 2 || reduce || qPaused || !qVisible || qTimer !== null) return;
+            qTimer = setInterval(function () {
+              qShow(qi + 1);
+            }, 6000);
+          }
+          function qStop() {
+            if (qTimer !== null) {
+              clearInterval(qTimer);
+              qTimer = null;
+            }
+          }
+          qDots.forEach(function (d, k) {
+            d.addEventListener("click", function () {
+              qShow(k);
+              qStop();
+              qStart(); // restart the clock from the chosen quote
+            });
+          });
+          band.addEventListener("mouseenter", function () {
+            qPaused = true;
+            qStop();
+          });
+          band.addEventListener("mouseleave", function () {
+            qPaused = false;
+            qStart();
+          });
+          band.addEventListener("focusin", function () {
+            qPaused = true;
+            qStop();
+          });
+          band.addEventListener("focusout", function () {
+            qPaused = false;
+            qStart();
+          });
+          if ("IntersectionObserver" in window) {
+            new IntersectionObserver(
+              function (entries) {
+                entries.forEach(function (en) {
+                  qVisible = en.isIntersecting;
+                  if (qVisible) qStart();
+                  else qStop();
+                });
+              },
+              { threshold: 0.3 }
+            ).observe(band);
+          } else {
+            qVisible = true;
+            qStart();
+          }
+          qShow(0);
+        }
+
+        // Newsletter: validate client-side. Point the form at your email provider (e.g. Mailchimp) via the `action` attribute when ready.
+        var form = document.getElementById("nl-form"),
+          msg = document.getElementById("nl-msg"),
+          em = document.getElementById("em");
+        if (form) {
+          form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            if (!em.value || !em.checkValidity()) {
+              msg.textContent = "Enter a valid email address to subscribe.";
+              em.focus();
+              return;
+            }
+            msg.textContent = "Thanks — please confirm the link we send to " + em.value + ".";
+            form.reset();
+          });
+        }
+      })();
+    </script>
+  <script defer src="/fd-track.js"></script>
+</body>
+</html>

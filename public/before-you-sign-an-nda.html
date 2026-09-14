@@ -1,0 +1,2589 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <script>
+      document.documentElement.classList.add("js");
+      try {
+        if (sessionStorage.getItem("fd-ann")) document.documentElement.classList.add("ann-hidden");
+      } catch (e) {}
+      /* Article opens in light mode (pure white) regardless of device setting; the toggle still switches to dark. */
+    </script>
+    <title>Before You Sign an NDA: 10 Things Founders Should Know — Founders Doc</title>
+    <meta name="description" content="What to check before signing a non-disclosure agreement: the definition of Confidential Information, the Purpose, permitted recipients, survival periods, return and destruction, and remedies." />
+    <meta name="keywords" content="NDA checklist, before signing an NDA, non-disclosure agreement Singapore, mutual NDA, confidential information definition, VIMA model NDA" />
+    <meta name="robots" content="index,follow" />
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content="Before You Sign an NDA: 10 Things Founders Should Know" />
+    <meta property="og:description" content="A practical guide to non-disclosure agreements, confidentiality clauses and the terms that matter before you share sensitive information." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Before You Sign an NDA: 10 Things Founders Should Know" />
+    <meta name="twitter:description" content="A practical guide to non-disclosure agreements, confidentiality clauses and the terms that matter before you share sensitive information." />
+    <!-- Suggested slug: /resources/before-you-sign-an-nda/ -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --white: #fff;
+        --grey-1: #f4f4f4;
+        --grey-2: #e9e9e9;
+        --grey-3: #d6d6d6;
+        --grey-4: #9a9a9a;
+        --grey-5: #666;
+        --black: #0f0f0f;
+        --ink: #161616;
+        --gold: #f3bf4b;
+        --gold-soft: #fbeec9;
+        --gold-deep: #c9962a;
+        --display: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --wrap: 1200px;
+        --wrap-wide: 1440px;
+        --nav-h: 64px;
+        --ann-h: 41px;
+        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --gutter: clamp(20px, 4vw, 40px);
+        --ok: #3d8b5f;
+        --miss: #c8574a;
+        --text-2: #4a4a4a;
+        --tint-gold: #fdf3d6;
+        --tint-green: #e6f4ec;
+        --tint-blue: #e9f0fb;
+        --tint-rose: #fdeae6;
+        --green-deep: #2f7a52;
+        --blue-deep: #2f5fa8;
+        --rose-deep: #b5483a;
+      }
+      /* dark mode: same brand tokens, inverted surfaces */
+      html.dark {
+        --white: #131313;
+        --grey-1: #1b1b1b;
+        --grey-2: #2a2a2a;
+        --grey-3: #3d3d3d;
+        --grey-5: #b8b8b8;
+        --black: #0b0b0b;
+        --ink: #f1f1f1;
+        --gold-soft: #382d12;
+        --text-2: #c4c4c4;
+        --tint-gold: #33290f;
+        --tint-green: #142a1e;
+        --tint-blue: #14203a;
+        --tint-rose: #351a16;
+        --green-deep: #7fcfa0;
+        --blue-deep: #8fb3f0;
+        --rose-deep: #f0978a;
+        color-scheme: dark;
+      }
+      html.dark .nav.scrolled {
+        background: var(--white);
+      }
+      /* dark mode: anything drawn in --black sits on a dark surface, so use --ink instead */
+      html.dark .links a:hover,
+      html.dark .links a.on,
+      html.dark .has-sub > button:hover,
+      html.dark .has-sub[data-open="true"] > button,
+      html.dark .has-sub > button.on,
+      html.dark .nav-sub a:hover,
+      html.dark .nav-sub a:focus-visible,
+      html.dark .nav-sub a.on,
+      html.dark .nav-sub a[aria-current="page"],
+      html.dark .logo-word,
+      html.dark .subtab:hover,
+      html.dark .cat:hover,
+      html.dark .menu a:hover {
+        color: var(--ink);
+      }
+      html.dark :focus-visible {
+        outline-color: var(--ink);
+      }
+      html.dark .btn-white {
+        color: var(--ink);
+        border-color: var(--ink);
+      }
+      html.dark .btn-white:hover {
+        background: var(--grey-2);
+      }
+      html.dark .btn-black {
+        background: var(--ink);
+        color: var(--black);
+        border-color: var(--ink);
+      }
+      html.dark .burger span,
+      html.dark .burger span::before,
+      html.dark .burger span::after {
+        background: var(--ink);
+      }
+      html.dark .skip {
+        background: var(--ink);
+        color: var(--black);
+      }
+      html.dark .theme-btn {
+        border-color: var(--grey-3);
+      }
+      /* the footer and dark post cards are always dark, so their white text must stay white */
+      html.dark .foot,
+      html.dark .post.dark {
+        --white: #fff;
+      }
+      html.dark .foot .nl input {
+        color: #fff;
+      }
+      html.dark .pill {
+        background: #242424;
+        color: var(--ink);
+      }
+      html.dark .pill:hover {
+        background: #2e2e2e;
+      }
+      .theme-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1px solid var(--grey-2);
+        background: var(--white);
+        color: var(--gold-deep);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex: none;
+        transition: border-color 0.2s, transform 0.3s var(--ease), background 0.2s;
+      }
+      .theme-btn:hover {
+        border-color: var(--gold);
+        transform: rotate(20deg);
+      }
+      .theme-btn svg {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
+      .theme-btn .ic-moon {
+        display: none;
+      }
+      html.dark .theme-btn .ic-moon {
+        display: block;
+      }
+      html.dark .theme-btn .ic-sun {
+        display: none;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--white);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.6;
+        letter-spacing: 0;
+        word-spacing: 0;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
+        font-kerning: normal;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        border: none;
+        background: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--black);
+        outline-offset: 3px;
+      }
+      [id] {
+        scroll-margin-top: calc(var(--nav-h) + 16px);
+      }
+      .wrap {
+        width: 100%;
+        max-width: var(--wrap);
+        margin-inline: auto;
+        padding-inline: clamp(20px, 4vw, 40px);
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: var(--display);
+        font-weight: 500;
+        letter-spacing: 0;
+        line-height: 1.3;
+      }
+      h2 {
+        font-size: clamp(28px, 3.2vw, 38px);
+      }
+      .sub {
+        color: var(--grey-5);
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        border: 1px solid var(--black);
+        white-space: nowrap;
+        transition:
+          background 0.15s,
+          color 0.15s,
+          transform 0.15s var(--ease),
+          box-shadow 0.15s var(--ease);
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px -10px rgba(15, 15, 15, 0.45);
+      }
+      .btn:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+      .btn-black {
+        background: var(--black);
+        color: var(--white);
+      }
+      .btn-black:hover {
+        background: #2a2a2a;
+      }
+      .btn-gold {
+        background: var(--gold);
+        color: var(--black);
+        border-color: var(--gold);
+      }
+      .btn-gold:hover {
+        background: #e9b23a;
+        border-color: #e9b23a;
+      }
+      .btn-white {
+        background: var(--white);
+        color: var(--black);
+      }
+      .btn-white:hover {
+        background: var(--grey-1);
+      }
+      .more {
+        font-size: 12.5px;
+        font-weight: 500;
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .more:hover {
+        text-decoration: underline;
+      }
+      .more .arr {
+        display: inline-block;
+        transition: transform 0.18s var(--ease);
+      }
+      .more:hover .arr {
+        transform: translateX(3px);
+      }
+      .skip {
+        position: absolute;
+        left: -999px;
+        top: 8px;
+        background: var(--black);
+        color: var(--white);
+        padding: 8px 12px;
+        border-radius: 6px;
+        z-index: 60;
+      }
+      .skip:focus {
+        left: 8px;
+      }
+
+      /* nav */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        background: var(--white);
+        border-bottom: 1px solid var(--grey-2);
+        transition:
+          background 0.3s,
+          box-shadow 0.3s;
+      }
+      .nav.scrolled {
+        background: var(--white);
+        box-shadow: 0 10px 30px -24px rgba(0, 0, 0, 0.35);
+      }
+      .nav .wrap {
+        display: flex;
+        align-items: center;
+        gap: 40px;
+        height: var(--nav-h);
+        max-width: var(--wrap-wide);
+        transition: height 0.3s var(--ease);
+      }
+      .nav.scrolled .wrap {
+        height: 56px;
+      }
+      .progress {
+        position: absolute;
+        left: 0;
+        bottom: -1px;
+        width: 100%;
+        height: 2px;
+        background: var(--gold);
+        transform: scaleX(0);
+        transform-origin: left;
+        pointer-events: none;
+      }
+      .links a.on {
+        color: var(--black);
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+      }
+      .logo img {
+        display: block;
+        height: 34px;
+        width: auto;
+      }
+      .logo .logo-dark {
+        display: none;
+      }
+      html.dark .logo .logo-light {
+        display: none;
+      }
+      html.dark .logo .logo-dark {
+        display: block;
+      }
+      .logo-word {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 17px;
+        letter-spacing: 0.01em;
+        color: var(--black);
+      }
+      .links {
+        display: flex;
+        gap: 28px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+        white-space: nowrap;
+      }
+      .links a:hover {
+        color: var(--black);
+      }
+      /* Dropdown tabs (FD AI, Resources) — mirrors the homepage */
+      .has-sub {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+      .has-sub > button {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: inherit;
+        padding: 0;
+      }
+      .has-sub > button:hover,
+      .has-sub[data-open="true"] > button {
+        color: var(--black);
+      }
+      .has-sub > button svg {
+        width: 10px;
+        height: 10px;
+        transition: transform 0.2s var(--ease);
+      }
+      .has-sub[data-open="true"] > button svg {
+        transform: rotate(180deg);
+      }
+      .nav-sub {
+        position: absolute;
+        top: calc(100% + 14px);
+        left: -12px;
+        min-width: 160px;
+        background: var(--white);
+        border: 1px solid var(--grey-2);
+        border-radius: 8px;
+        padding: 6px;
+        box-shadow: 0 10px 30px rgba(15, 15, 15, 0.08);
+        display: none;
+        flex-direction: column;
+        z-index: 2;
+      }
+      .nav-sub::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -14px;
+        height: 14px;
+      }
+      .has-sub[data-open="true"] .nav-sub,
+      .has-sub:hover .nav-sub,
+      .has-sub:focus-within .nav-sub {
+        display: flex;
+      }
+      .has-sub:hover > button svg {
+        transform: rotate(180deg);
+      }
+      .nav-sub a {
+        padding: 7px 10px;
+        border-radius: 5px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+      }
+      .nav-sub a:hover,
+      .nav-sub a:focus-visible {
+        background: var(--grey-1);
+        color: var(--black);
+      }
+      .nav-sub a.on,
+      .nav-sub a[aria-current="page"],
+      .has-sub > button.on {
+        color: var(--black);
+      }
+      .links.r {
+        margin-left: auto;
+      }
+      .nav-cta {
+        display: flex;
+        gap: 8px;
+        margin-left: 8px;
+      }
+      .burger {
+        display: none;
+        margin-left: auto;
+        width: 40px;
+        height: 40px;
+        border-radius: 6px;
+        place-items: center;
+      }
+      .burger span {
+        display: block;
+        width: 18px;
+        height: 2px;
+        background: var(--black);
+        position: relative;
+      }
+      .burger span::before,
+      .burger span::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        width: 18px;
+        height: 2px;
+        background: var(--black);
+      }
+      .burger span::before {
+        top: -6px;
+      }
+      .burger span::after {
+        top: 6px;
+      }
+      .menu {
+        display: none;
+        background: var(--white);
+        border-top: 1px solid var(--grey-2);
+        max-height: calc(100vh - var(--nav-h));
+        overflow: auto;
+      }
+      .menu .wrap {
+        display: grid;
+        gap: 14px;
+        padding-block: 18px;
+        font-size: 15px;
+      }
+      .menu a {
+        padding: 4px 0;
+      }
+      .menu-group {
+        display: grid;
+        gap: 6px;
+      }
+      .menu-group > span {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--grey-4);
+      }
+      .menu-group a {
+        padding-left: 12px;
+      }
+      .menu[data-open="true"] {
+        display: block;
+      }
+      @media (max-width: 1240px) {
+        .links {
+          display: none;
+        }
+        .burger {
+          display: grid;
+          margin-left: 0;
+        }
+        .nav-cta {
+          margin-left: auto;
+        }
+      }
+      @media (max-width: 560px) {
+        .nav .wrap {
+          gap: 12px;
+        }
+        .nav-cta .btn-white {
+          display: none;
+        }
+        .logo img {
+          max-height: 26px;
+        }
+        .ann .wrap {
+          font-size: 12px;
+          padding: 10px 44px;
+        }
+        .ann-x {
+          top: 6px;
+          transform: none;
+        }
+      }
+
+      /* scroll reveals for sections */
+      html.js [data-rv] {
+        opacity: 0;
+        transform: translateY(14px);
+        transition:
+          opacity 0.6s var(--ease),
+          transform 0.6s var(--ease);
+        transition-delay: calc(var(--i, 0) * 70ms);
+      }
+      html.js [data-rv].in {
+        opacity: 1;
+        transform: none;
+      }
+
+      /* footer */
+      .foot .wrap {
+        max-width: var(--wrap-wide);
+      }
+      .foot {
+        background: var(--black);
+        color: var(--grey-4);
+        padding: 56px 0 32px;
+        font-size: 13px;
+      }
+      .foot .grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr 1.2fr 1.4fr;
+        gap: 40px;
+      }
+      .foot .logo {
+        color: var(--white);
+      }
+      .foot .logo img {
+        height: 38px;
+      }
+      .foot .logo-word {
+        color: var(--white);
+      }
+      .foot .about {
+        margin-top: 16px;
+        line-height: 1.7;
+        max-width: 34ch;
+      }
+      .foot h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--white);
+        margin-bottom: 12px;
+      }
+      .foot ul {
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+      .foot a:hover {
+        color: var(--white);
+      }
+      .foot .nl label {
+        display: block;
+        margin-bottom: 10px;
+      }
+      .foot .nl .field {
+        display: flex;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .foot .nl input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--white);
+        padding: 9px 12px;
+        font: inherit;
+        outline: none;
+        min-width: 0;
+      }
+      .foot .nl input::placeholder {
+        color: var(--grey-4);
+      }
+      .foot .nl button {
+        background: var(--gold);
+        color: var(--black);
+        padding: 0 14px;
+        font-weight: 600;
+      }
+      .foot .nl .msg {
+        margin-top: 8px;
+        font-size: 12px;
+        min-height: 1.2em;
+      }
+      .foot .bot {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 44px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 12px;
+      }
+      .foot .bot div {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      @media (max-width: 900px) {
+        .foot .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media (max-width: 560px) {
+        .foot .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+
+      [hidden] {
+        display: none !important;
+      }
+      .subtabs {
+        display: flex;
+        gap: 8px;
+        margin-top: 20px;
+      }
+      .subtab {
+        font-size: 13.5px;
+        padding: 8px 16px;
+        border: 1px solid var(--grey-3);
+        border-radius: 999px;
+        color: var(--grey-5);
+        transition: color 0.2s, background 0.2s, border-color 0.2s;
+      }
+      .subtab:hover {
+        color: var(--black);
+        border-color: var(--grey-5);
+      }
+      .subtab[aria-current="page"] {
+        color: var(--gold-deep);
+        background: rgba(243, 191, 75, 0.2);
+        border-color: var(--gold);
+        font-weight: 500;
+      }
+
+      .blog-head {
+        padding: clamp(48px, 7vw, 88px) 0 8px;
+      }
+      .blog-head h1 {
+        font-size: clamp(34px, 4.6vw, 56px);
+        line-height: 1.08;
+      }
+      .blog-head .sub {
+        margin-top: 12px;
+        max-width: 52ch;
+      }
+      .cats {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 24px;
+      }
+      .cat {
+        font-size: 13px;
+        padding: 7px 14px;
+        border: 1px solid var(--grey-3);
+        border-radius: 999px;
+        color: var(--grey-5);
+        transition: color 0.2s, background 0.2s, border-color 0.2s;
+      }
+      .cat:hover {
+        color: var(--black);
+        border-color: var(--grey-5);
+      }
+      .cat.sel {
+        color: var(--gold-deep);
+        background: rgba(243, 191, 75, 0.2);
+        border-color: var(--gold);
+        font-weight: 500;
+      }
+      .feature {
+        display: block;
+        margin-top: 32px;
+        background: var(--grey-1);
+        border: 1px solid var(--grey-2);
+        border-radius: 14px;
+        padding: clamp(24px, 3.5vw, 44px);
+        transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+      }
+      .feature:hover {
+        transform: translateY(-2px);
+        border-color: var(--gold);
+        box-shadow: 0 24px 60px -36px rgba(15, 15, 15, 0.35);
+      }
+      .post-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12.5px;
+        color: var(--grey-5);
+      }
+      .post-meta .tag {
+        color: var(--gold-deep);
+        font-weight: 500;
+      }
+      .post-meta .dot {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: var(--grey-4);
+      }
+      .feature h2 {
+        font-size: clamp(24px, 2.8vw, 34px);
+        margin: 12px 0 10px;
+        max-width: 26ch;
+      }
+      .feature p {
+        color: var(--grey-5);
+        max-width: 62ch;
+        line-height: 1.65;
+      }
+      .feature .more {
+        margin-top: 16px;
+      }
+      .posts {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 20px;
+        margin: 28px 0 clamp(56px, 8vw, 96px);
+      }
+      .posts .post {
+        grid-column: span 2;
+      }
+      .posts .post.wide {
+        grid-column: span 4;
+        flex-direction: row;
+        align-items: center;
+        gap: clamp(20px, 3vw, 40px);
+      }
+      .post.wide .glyph {
+        flex: none;
+        order: 2;
+        width: clamp(90px, 12vw, 132px);
+        height: auto;
+        margin: 0;
+      }
+      .post.wide h2 {
+        font-size: 22px;
+        max-width: 24ch;
+      }
+      .post .glyph {
+        width: 54px;
+        height: auto;
+        margin-bottom: 14px;
+        display: block;
+      }
+      .post.dark {
+        background: #232323;
+        border-color: #232323;
+        color: var(--white);
+      }
+      .post.dark h2 {
+        color: var(--white);
+      }
+      .post.dark p,
+      .post.dark .post-meta {
+        color: #b9b9b9;
+      }
+      .post.dark .post-meta .tag {
+        color: var(--gold);
+      }
+      .post.dark:hover {
+        border-color: var(--gold);
+      }
+      .post .big-num {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: clamp(42px, 4.5vw, 54px);
+        line-height: 1;
+        letter-spacing: -0.03em;
+        color: var(--gold);
+        display: block;
+        margin-bottom: 12px;
+      }
+      .feature {
+        position: relative;
+        overflow: hidden;
+      }
+      .feature .glyph {
+        position: absolute;
+        right: clamp(20px, 4vw, 56px);
+        top: 50%;
+        transform: translateY(-50%);
+        width: clamp(120px, 14vw, 170px);
+        height: auto;
+        opacity: 0.9;
+      }
+      .feature h2,
+      .feature p {
+        position: relative;
+        max-width: 56ch;
+        padding-right: clamp(140px, 16vw, 200px);
+      }
+      @media (max-width: 980px) {
+        .posts .post,
+        .posts .post.wide {
+          grid-column: span 3;
+        }
+        .posts .post.wide {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .post.wide .glyph {
+          order: 0;
+          width: 54px;
+          margin-bottom: 14px;
+        }
+        .feature .glyph {
+          display: none;
+        }
+        .feature h2,
+        .feature p {
+          padding-right: 0;
+        }
+      }
+      @media (max-width: 640px) {
+        .posts .post,
+        .posts .post.wide {
+          grid-column: span 6;
+        }
+      }
+      .post {
+        display: flex;
+        flex-direction: column;
+        background: var(--grey-1);
+        border: 1px solid var(--grey-2);
+        border-radius: 14px;
+        padding: 24px;
+        transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+      }
+      .post:hover {
+        transform: translateY(-2px);
+        border-color: var(--gold);
+        box-shadow: 0 24px 60px -36px rgba(15, 15, 15, 0.35);
+      }
+      .post h2 {
+        font-size: 18.5px;
+        line-height: 1.3;
+        margin: 10px 0 8px;
+      }
+      .post p {
+        color: var(--grey-5);
+        font-size: 14px;
+        line-height: 1.6;
+        flex: 1;
+      }
+      .post .post-meta.foot-meta {
+        margin-top: 16px;
+      }
+      /* filter row: chips + search together */
+      .filter-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 24px;
+      }
+      .filter-row .cats {
+        margin-top: 0;
+      }
+      .searchbox {
+        position: relative;
+        flex: 0 1 240px;
+        min-width: 180px;
+      }
+      .searchbox input {
+        width: 100%;
+        font: inherit;
+        font-size: 13px;
+        color: var(--ink);
+        padding: 8px 14px 8px 34px;
+        border: 1px solid var(--grey-3);
+        border-radius: 999px;
+        background: var(--white);
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+      }
+      .searchbox input::placeholder {
+        color: var(--grey-4);
+      }
+      .searchbox input:focus {
+        border-color: var(--gold);
+        box-shadow: 0 0 0 3px rgba(243, 191, 75, 0.22);
+      }
+      .searchbox svg {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 14px;
+        height: 14px;
+        pointer-events: none;
+      }
+
+      /* featured flag */
+      .flag {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--gold-deep);
+      }
+      .flag::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        background: var(--gold);
+        transform: rotate(45deg);
+      }
+
+      /* fresh + most read rail */
+      .rail {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: clamp(28px, 5vw, 72px);
+        margin-top: clamp(36px, 5vw, 56px);
+        padding-top: clamp(28px, 4vw, 40px);
+        border-top: 1px solid var(--grey-2);
+      }
+      .rail h2 {
+        font-size: 20px;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+      }
+      .rail h2 .hint {
+        font-family: var(--sans);
+        font-size: 12.5px;
+        font-weight: 400;
+        letter-spacing: 0;
+        color: var(--grey-4);
+      }
+      .rail ol,
+      .rail ul {
+        list-style: none;
+        margin-top: 18px;
+      }
+      .rail li + li {
+        border-top: 1px solid var(--grey-2);
+      }
+      .rail li a {
+        display: flex;
+        gap: 16px;
+        align-items: baseline;
+        padding: 13px 2px;
+        border-radius: 6px;
+        transition: background 0.15s;
+      }
+      .rail li a:hover {
+        background: var(--grey-1);
+      }
+      .rail .t {
+        flex: 1;
+        min-width: 0;
+      }
+      .rail .t strong {
+        display: block;
+        font-family: var(--display);
+        font-weight: 500;
+        font-size: 15.5px;
+        letter-spacing: -0.015em;
+        line-height: 1.35;
+      }
+      .rail li a:hover .t strong {
+        text-decoration: underline;
+        text-decoration-color: var(--gold);
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+      .rail .t .post-meta {
+        margin-top: 4px;
+      }
+      .rank-list .n {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 17px;
+        color: var(--gold-deep);
+        min-width: 20px;
+        text-align: right;
+        flex: none;
+      }
+      .new-list .d {
+        flex: none;
+        font-size: 12px;
+        color: var(--grey-4);
+        min-width: 58px;
+      }
+      .new-list .is-new {
+        font-size: 10.5px;
+        font-weight: 600;
+        color: var(--gold-deep);
+        background: var(--gold-soft);
+        border-radius: 999px;
+        padding: 2px 8px;
+        flex: none;
+        align-self: center;
+      }
+      @media (max-width: 760px) {
+        .rail {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* all-articles heading above the grid */
+      .grid-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: clamp(40px, 6vw, 64px);
+        padding-top: clamp(28px, 4vw, 40px);
+        border-top: 1px solid var(--grey-2);
+      }
+      .grid-head h2 {
+        font-size: 20px;
+        letter-spacing: -0.02em;
+      }
+      .grid-head .n-posts {
+        font-size: 12.5px;
+        color: var(--grey-4);
+      }
+      .posts {
+        margin-top: 20px;
+      }
+      .empty {
+        margin: 24px 0 clamp(56px, 8vw, 96px);
+        padding: 36px 24px;
+        border: 1px dashed var(--grey-3);
+        border-radius: 14px;
+        color: var(--grey-5);
+        font-size: 14px;
+        text-align: center;
+      }
+
+      /* ————— motion ————— */
+      /* Hero entrance: words rise in sequence, the gold full stop lands last */
+      @keyframes word-rise {
+        from {
+          opacity: 0;
+          transform: translateY(0.55em);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      @keyframes mark-pop {
+        0% {
+          opacity: 0;
+          transform: translateY(-0.5em) scale(0.6);
+        }
+        60% {
+          opacity: 1;
+          transform: translateY(0.06em) scale(1.15);
+        }
+        100% {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .hero-title .w {
+        display: inline-block;
+        animation: word-rise 0.65s var(--ease) both;
+      }
+      .hero-title .w:nth-child(2) {
+        animation-delay: 0.09s;
+      }
+      .hero-title .w:nth-child(3) {
+        animation-delay: 0.18s;
+      }
+      .hero-title .mark {
+        color: var(--gold-deep);
+        animation: mark-pop 0.55s var(--ease) 0.42s both;
+      }
+      .blog-head .sub,
+      .blog-head .subtabs {
+        animation: word-rise 0.6s var(--ease) 0.3s both;
+      }
+      .blog-head .subtabs {
+        animation-delay: 0.42s;
+      }
+
+      /* Featured card: the chart draws itself when the card reveals, then floats gently */
+      @keyframes bar-rise {
+        from {
+          transform: scaleY(0);
+        }
+        to {
+          transform: scaleY(1);
+        }
+      }
+      @keyframes line-draw {
+        from {
+          stroke-dasharray: 34;
+          stroke-dashoffset: 34;
+        }
+        to {
+          stroke-dasharray: 34;
+          stroke-dashoffset: 0;
+        }
+      }
+      @keyframes glyph-float {
+        from {
+          transform: translateY(-50%);
+        }
+        to {
+          transform: translateY(calc(-50% - 7px));
+        }
+      }
+      .feature .glyph rect {
+        transform-box: fill-box;
+        transform-origin: bottom;
+      }
+      .feature.in .glyph rect {
+        animation: bar-rise 0.7s var(--ease) both;
+      }
+      .feature.in .glyph rect:nth-of-type(1) {
+        animation-delay: 0.25s;
+      }
+      .feature.in .glyph rect:nth-of-type(2) {
+        animation-delay: 0.4s;
+      }
+      .feature.in .glyph rect:nth-of-type(3) {
+        animation-delay: 0.55s;
+      }
+      .feature.in .glyph path {
+        animation: line-draw 0.9s var(--ease) 0.75s both;
+      }
+      .feature.in .glyph {
+        animation: glyph-float 5.5s ease-in-out 2s infinite alternate;
+      }
+      .feature:hover .arr {
+        transform: translateX(3px);
+      }
+
+      /* Rail: entries slide in one after another */
+      html.js .rail li {
+        opacity: 0;
+        transform: translateX(-12px);
+        transition:
+          opacity 0.5s var(--ease),
+          transform 0.5s var(--ease);
+      }
+      html.js .rail.in li {
+        opacity: 1;
+        transform: none;
+      }
+      html.js .rail.in li:nth-child(2) {
+        transition-delay: 0.1s;
+      }
+      html.js .rail.in li:nth-child(3) {
+        transition-delay: 0.2s;
+      }
+
+      /* "New" pill: a soft gold pulse */
+      @keyframes pill-pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(243, 191, 75, 0.5);
+        }
+        70%,
+        100% {
+          box-shadow: 0 0 0 7px rgba(243, 191, 75, 0);
+        }
+      }
+      .new-list .is-new {
+        animation: pill-pulse 2.6s var(--ease) infinite;
+      }
+
+      /* Chips: tactile press and a small pop on selection */
+      @keyframes chip-pop {
+        0% {
+          transform: scale(0.92);
+        }
+        60% {
+          transform: scale(1.05);
+        }
+        100% {
+          transform: none;
+        }
+      }
+      .cat,
+      .subtab {
+        transition: color 0.2s, background 0.2s, border-color 0.2s, transform 0.15s var(--ease);
+      }
+      .cat:active {
+        transform: scale(0.94);
+      }
+      .cat.sel {
+        animation: chip-pop 0.3s var(--ease);
+      }
+
+      /* Cards: glyphs and numerals nudge on hover */
+      .post .glyph,
+      .post .big-num {
+        transition: transform 0.3s var(--ease);
+      }
+      .post:hover .glyph {
+        transform: translateY(-3px) rotate(-1.5deg);
+      }
+      .post:hover .big-num {
+        transform: scale(1.07);
+        transform-origin: left bottom;
+      }
+
+      /* Filtering: cards pop back in, empty state fades up */
+      @keyframes card-pop {
+        from {
+          opacity: 0;
+          transform: translateY(10px) scale(0.98);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+        }
+      }
+      .pop {
+        animation: card-pop 0.45s var(--ease) both;
+      }
+      .empty {
+        animation: card-pop 0.4s var(--ease);
+      }
+
+      /* Gold CTA: sheen sweep on hover */
+      .btn {
+        position: relative;
+        overflow: hidden;
+      }
+      .btn-gold::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: -60%;
+        width: 40%;
+        height: 100%;
+        background: linear-gradient(105deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+        transform: skewX(-18deg);
+        transition: left 0.5s var(--ease);
+        pointer-events: none;
+      }
+      .btn-gold:hover::after {
+        left: 130%;
+      }
+
+      /* ————— modular edition: data tape, page head, hero cluster, topic sections ————— */
+      .tape {
+        border-bottom: 1px solid var(--grey-2);
+      }
+      .tape-row {
+        display: flex;
+        align-items: baseline;
+        gap: clamp(16px, 2.5vw, 28px);
+        padding-block: 9px;
+        overflow-x: auto;
+      }
+      .tape .pill {
+        background: none;
+        border: none;
+        padding: 0;
+        border-radius: 0;
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        font: inherit;
+        font-size: 12.5px;
+        color: var(--grey-5);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: color 0.2s;
+      }
+      .tape .pill:hover {
+        color: var(--ink);
+        transform: none;
+      }
+      .tape .num {
+        color: var(--gold-deep);
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .tape .tri {
+        color: var(--gold-deep);
+        font-size: 9px;
+      }
+      .tape-note {
+        margin-left: auto;
+        font-size: 11.5px;
+        color: var(--grey-4);
+        white-space: nowrap;
+      }
+
+      .pagehead .ph-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding-block: clamp(16px, 2.2vw, 24px);
+        border-bottom: 1px solid var(--grey-2);
+      }
+      .ph-title {
+        font-size: clamp(22px, 2.4vw, 28px);
+      }
+      .ph-row .subtabs {
+        margin-top: 0;
+      }
+      .ph-row .filter-row {
+        margin-top: 0;
+        flex: 0 1 auto;
+      }
+
+      /* hero cluster: lead post | figure | latest-posts rail */
+      .cluster {
+        padding-top: clamp(22px, 3vw, 34px);
+      }
+      .cluster-grid {
+        display: grid;
+        grid-template-columns: 1.05fr 1.5fr 0.95fr;
+        gap: 0;
+        align-items: start;
+      }
+      .c-lead {
+        padding-right: clamp(18px, 2.4vw, 32px);
+      }
+      .c-lead h2 {
+        font-size: clamp(24px, 2.6vw, 34px);
+        line-height: 1.14;
+        margin-top: 10px;
+      }
+      .c-lead a:hover h2 {
+        text-decoration: underline;
+        text-decoration-color: var(--gold);
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+      .stand {
+        margin-top: 10px;
+        font-size: 14px;
+        line-height: 1.6;
+        color: var(--grey-5);
+      }
+      .c-time {
+        display: block;
+        margin-top: 12px;
+        font-size: 12px;
+        color: var(--grey-4);
+      }
+      .c-fig {
+        border-inline: 1px solid var(--grey-2);
+        padding-inline: clamp(18px, 2.4vw, 32px);
+      }
+      .c-fig a {
+        display: block;
+        background: var(--grey-1);
+        border: 1px solid var(--grey-2);
+        border-radius: 8px;
+        padding: clamp(20px, 3vw, 36px);
+        transition: border-color 0.25s var(--ease);
+      }
+      .c-fig a:hover {
+        border-color: var(--gold);
+      }
+      .c-fig svg {
+        display: block;
+        width: 100%;
+        max-width: 420px;
+        height: auto;
+        margin: 0 auto;
+      }
+      .c-fig figcaption {
+        margin-top: 10px;
+        font-size: 12px;
+        line-height: 1.55;
+        color: var(--grey-5);
+      }
+      .c-fig.in .glyph rect {
+        transform-box: fill-box;
+        transform-origin: bottom;
+        animation: bar-rise 0.7s var(--ease) both;
+      }
+      .c-fig.in .glyph rect:nth-of-type(1) {
+        animation-delay: 0.25s;
+      }
+      .c-fig.in .glyph rect:nth-of-type(2) {
+        animation-delay: 0.4s;
+      }
+      .c-fig.in .glyph rect:nth-of-type(3) {
+        animation-delay: 0.55s;
+      }
+      .c-fig.in .glyph path {
+        animation: line-draw 0.9s var(--ease) 0.75s both;
+      }
+      .c-rail {
+        padding-left: clamp(18px, 2.4vw, 32px);
+      }
+      .rail-h a {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.02em;
+        padding-bottom: 9px;
+        border-bottom: 2px solid var(--ink);
+      }
+      .rail-h .arr {
+        color: var(--gold-deep);
+        transition: transform 0.2s var(--ease);
+      }
+      .rail-h a:hover .arr {
+        transform: translateX(4px);
+      }
+      .c-rail ul {
+        list-style: none;
+        margin-top: 4px;
+      }
+      .c-rail li + li {
+        border-top: 1px solid var(--grey-2);
+      }
+      .c-rail li a {
+        display: block;
+        padding: 10px 0;
+      }
+      .hl-d {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--gold-deep);
+      }
+      .c-rail strong {
+        display: block;
+        margin-top: 3px;
+        font-family: var(--display);
+        font-weight: 500;
+        font-size: 14px;
+        letter-spacing: -0.01em;
+        line-height: 1.35;
+      }
+      .c-rail li a:hover strong {
+        text-decoration: underline;
+        text-decoration-color: var(--gold);
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+
+      /* trio of secondary stories */
+      .trio {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: clamp(18px, 2.4vw, 32px);
+        margin-top: clamp(26px, 3.5vw, 42px);
+      }
+      .t-item {
+        border-top: 1px solid var(--grey-2);
+        padding-top: 14px;
+      }
+      .r-tag {
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--gold-deep);
+      }
+      .t-item h2 {
+        font-size: 16.5px;
+        line-height: 1.3;
+        margin-top: 6px;
+      }
+      .t-item:hover h2 {
+        text-decoration: underline;
+        text-decoration-color: var(--gold);
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+
+      /* topic section bands */
+      .sect {
+        margin-top: clamp(30px, 4vw, 50px);
+      }
+      .sect .wrap {
+        border-top: 1px solid var(--grey-2);
+        padding-top: clamp(18px, 2.5vw, 26px);
+      }
+      .sect-h a {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+      }
+      .sect-h .arr {
+        color: var(--gold-deep);
+        transition: transform 0.2s var(--ease);
+      }
+      .sect-h a:hover .arr {
+        transform: translateX(4px);
+      }
+      .sect-h::after {
+        content: "";
+        display: block;
+        margin-top: 8px;
+        height: 3px;
+        width: 56px;
+        background: var(--gold);
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.7s var(--ease) 0.2s;
+      }
+      .sect.in .sect-h::after, .next .sect-h::after {
+        transform: none;
+      }
+      .sect-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: clamp(18px, 2.4vw, 32px);
+        margin-top: 18px;
+      }
+      .s-card {
+        display: block;
+        border-left: 2px solid transparent;
+        padding-left: 14px;
+        transition: border-color 0.3s var(--ease);
+      }
+      .s-card:hover {
+        border-left-color: var(--gold);
+      }
+      .s-card h2 {
+        font-size: 18px;
+        line-height: 1.28;
+      }
+      .s-card:hover h2 {
+        text-decoration: underline;
+        text-decoration-color: var(--gold);
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+      .s-card p {
+        margin-top: 6px;
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--grey-5);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .pull {
+        background: var(--grey-1);
+        border: 1px solid var(--grey-2);
+        border-radius: 10px;
+        padding: 18px;
+        align-self: start;
+      }
+      .pull .num {
+        display: block;
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: clamp(30px, 3vw, 40px);
+        line-height: 1;
+        letter-spacing: -0.03em;
+        color: var(--gold-deep);
+        font-variant-numeric: tabular-nums;
+      }
+      .pull p {
+        margin-top: 8px;
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--grey-5);
+      }
+      .nl-box {
+        background: var(--grey-1);
+        border: 1px solid var(--grey-2);
+        border-radius: 10px;
+        padding: 16px;
+        align-self: start;
+      }
+      .nl-box .nl-t {
+        display: block;
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+      }
+      .nl-box p {
+        font-size: 12.5px;
+        color: var(--grey-5);
+        line-height: 1.55;
+        margin-top: 6px;
+      }
+      .nl-btn {
+        display: inline-flex;
+        margin-top: 12px;
+        font-size: 13px;
+        padding: 9px 14px;
+      }
+      .end-note {
+        margin: clamp(40px, 6vw, 72px) 0 clamp(56px, 8vw, 96px);
+      }
+      @media (max-width: 980px) {
+        .cluster-grid,
+        .trio,
+        .sect-grid {
+          grid-template-columns: 1fr;
+        }
+        .c-lead {
+          padding-right: 0;
+        }
+        .c-fig {
+          border-inline: none;
+          padding: 20px 0 0;
+          margin-top: 20px;
+          border-top: 1px solid var(--grey-2);
+        }
+        .c-rail {
+          padding: 20px 0 0;
+          margin-top: 20px;
+          border-top: 1px solid var(--grey-2);
+        }
+      }
+
+      /* ————— single post —————
+         One centred column, 660px wide. No sidebar, no boxes, no background panels.
+         Structure comes from spacing and hairlines only.
+         Type: body 17/29 · small 15/24 · caption 13/20 · h3 17/26 · h2 24/32 · h1 40/48. Headings 600, body 400. */
+      .rd { max-width: 720px; margin-inline: auto; }
+
+      .post-hero .rd { padding: 64px 0 0; }
+      .kicker { display: inline-block; font-size: 14px; font-weight: 500; line-height: 20px; color: var(--gold-deep); }
+      .kicker:hover { color: var(--ink); }
+      .post-hero h1 { margin: 16px 0 0; font-size: clamp(32px, 4vw, 40px); font-weight: 600; line-height: 1.3; letter-spacing: 0; }
+      .post-hero .deck { margin: 20px 0 0; font-size: 20px; line-height: 32px; color: var(--text-2); }
+      .post-hero .meta { display: flex; flex-wrap: wrap; gap: 0 10px; margin: 24px 0 0; font-size: 14px; line-height: 20px; color: var(--grey-5); }
+      .post-hero .meta .who { color: var(--ink); font-weight: 500; }
+      .post-hero .meta .sep { color: var(--grey-3); }
+      .lead { margin: 40px 0 0; }
+      .lead .img { display: block; width: 100%; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; background: var(--gold); }
+      .lead .img svg { display: block; width: 100%; height: 100%; }
+      .lead figcaption { margin-top: 10px; font-size: 13px; line-height: 20px; color: var(--grey-4); }
+
+      .post-body .rd { padding-top: 48px; }
+      .post-body .main { min-width: 0; }
+
+      /* the two callouts share one device: a 3px gold rule on the left, no background */
+      .summary, .tip { position: relative; margin: 0 0 32px; padding: 24px; border-radius: 16px; }
+      .blob-tag { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 14px; font-weight: 600; line-height: 22px; }
+      .blob-tag::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+      .summary { background: var(--tint-gold); font-size: 18px; line-height: 30px; color: var(--ink); }
+      .summary .blob-tag { color: var(--gold-deep); }
+      .summary p, .tip p { margin: 0; }
+      .tip { background: var(--tint-green); font-size: 16px; line-height: 26px; color: var(--text-2); }
+      .tip .blob-tag { color: var(--green-deep); }
+      .tip strong { color: var(--ink); font-weight: 600; }
+
+      .prose { font-size: 18px; line-height: 30px; text-align: left; hyphens: none; word-spacing: 0.02em; }
+      .prose p { margin: 0 0 24px; }
+      .prose strong { font-weight: 600; color: var(--ink); }
+      .prose em { font-style: italic; }
+      .prose h2 { margin: 48px 0 16px; font-size: 26px; font-weight: 600; line-height: 1.3; letter-spacing: 0; scroll-margin-top: calc(var(--nav-h) + 32px); }
+      .prose h2:first-of-type { margin-top: 40px; }
+      .prose > :last-child { margin-bottom: 0; }
+
+      .prose ul { margin: 0 0 24px; padding-left: 0; list-style: none; }
+      .prose ul li { position: relative; padding: 0 0 0 26px; margin: 0 0 10px; }
+      .prose ul li::before { content: ""; position: absolute; left: 4px; top: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+      .prose ul li:last-child { margin-bottom: 0; }
+
+      .table-wrap, .check, .faq-list, .sources, .disclaimer { margin: 0 0 32px; }
+
+      /* table: rules only */
+      .table-wrap { overflow-x: auto; border-radius: 16px; border: 1px solid var(--grey-2); }
+      .table-wrap table { width: 100%; border-collapse: collapse; min-width: 560px; font-size: 16px; line-height: 26px; }
+      .table-wrap th { padding: 14px 20px; text-align: left; font-size: 14px; font-weight: 600; line-height: 20px; color: var(--gold-deep); background: var(--tint-gold); }
+      .table-wrap td { padding: 16px 20px; border-top: 1px solid var(--grey-2); vertical-align: top; color: var(--text-2); }
+      .table-wrap td:first-child { color: var(--ink); font-weight: 600; }
+      
+
+      /* checklist: a list with dividers, progress as a single line above */
+      .check { background: var(--tint-blue); border-radius: 16px; padding: 24px 24px 10px; }
+      .check-h { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; font-size: 14px; line-height: 20px; color: var(--blue-deep); font-weight: 600; }
+      .check-h .cnt { font-variant-numeric: tabular-nums; white-space: nowrap; }
+      .check-h .bar { flex: 1; height: 4px; border-radius: 999px; background: rgba(47,95,168,0.18); overflow: hidden; }
+      .check-h .bar i { display: block; height: 100%; width: 0; background: var(--blue-deep); transition: width 0.4s var(--ease); }
+      .check-h button { font-size: 13px; font-weight: 500; color: var(--blue-deep); text-decoration: underline; text-underline-offset: 3px; }
+      .check-h button:hover { color: var(--ink); }
+      .check label { display: grid; grid-template-columns: 18px 1fr; column-gap: 14px; padding: 13px 0; border-top: 1px solid rgba(47,95,168,0.14); cursor: pointer; font-size: 16px; line-height: 26px; }
+      .check input { appearance: none; width: 18px; height: 18px; margin-top: 3px; border: 1.5px solid rgba(47,95,168,0.45); border-radius: 6px; background: var(--white); display: grid; place-items: center; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+      .check input::after { content: ""; width: 9px; height: 5px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); opacity: 0; }
+      .check input:checked { background: var(--blue-deep); border-color: var(--blue-deep); }
+      .check input:checked::after { opacity: 1; }
+      .check .cq { font-weight: 600; color: var(--ink); }
+      .check .cw { grid-column: 2; font-size: 16px; line-height: 26px; color: var(--text-2); }
+      .check label:has(input:checked) .cq { color: var(--grey-5); text-decoration: line-through; text-decoration-color: var(--blue-deep); }
+      .check label:has(input:checked) .cw { opacity: 0.6; }
+
+      .faq-list { display: grid; gap: 12px; }
+      .faq { padding: 24px; border-radius: 16px; background: var(--grey-1); }
+      .faq h3 { margin: 0 0 8px; font-size: 18px; font-weight: 600; line-height: 1.3; color: var(--ink); }
+      .faq p { margin: 0; font-size: 16px; line-height: 26px; color: var(--text-2); }
+
+      .sources { list-style: none; padding: 0; border-top: 1px solid var(--ink); }
+      .sources li { position: relative; padding: 14px 0 14px 24px; border-bottom: 1px solid var(--grey-2); font-size: 15px; line-height: 24px; color: var(--grey-5); overflow-wrap: anywhere; }
+      .sources li::before { content: "↗"; position: absolute; left: 0; top: 14px; color: var(--gold-deep); font-weight: 600; }
+      .sources a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+      .disclaimer { padding: 20px 24px; border-radius: 16px; background: var(--tint-gold); color: var(--text-2); font-size: 14px; line-height: 22px; }
+      .disclaimer p { margin: 0; }
+      .disclaimer b { color: var(--gold-deep); font-weight: 600; }
+
+      /* closing call to action: a ruled section, buttons do the work */
+      .post-cta { margin: 48px 0 0; padding: 32px; border-radius: 16px; background: var(--gold); color: #111; display: flex; flex-direction: column; gap: 20px; }
+      .post-cta h2 { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.3; color: #111; }
+      .post-cta p { margin: 8px 0 0; font-size: 16px; line-height: 26px; color: #4a3a12; }
+      .post-cta .btn-gold { background: #111; color: #fff; border-color: #111; }
+      .post-cta .btn-gold:hover { background: #2a2a2a; border-color: #2a2a2a; }
+      .post-cta .btn-white { background: transparent; color: #111; border-color: rgba(17,17,17,0.5); }
+      .post-cta .btn-white:hover { background: rgba(255,255,255,0.35); }
+      .post-cta .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+
+      /* read next */
+      .next { margin-top: 80px; }
+      .next .wrap { max-width: 1040px; }
+      .next .wrap::before { content: ""; display: block; height: 1px; background: var(--grey-2); margin-bottom: 24px; }
+      .next-h { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+      .next-h h2 { font-size: 22px; font-weight: 600; line-height: 1.3; }
+      .next-h a { font-size: 14px; line-height: 22px; color: var(--gold-deep); font-weight: 500; }
+      .next-h a:hover { text-decoration: underline; text-underline-offset: 3px; }
+      .next-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; margin: 24px 0 96px; }
+      .n-card { display: block; }
+      .n-card .tile { aspect-ratio: 16 / 10; border-radius: 16px; background: var(--grey-1); display: grid; place-items: center; overflow: hidden; }
+      .n-card .tile.gold { background: var(--gold-soft); }
+      .n-card .tile svg { width: 46%; height: auto; display: block; }
+      html.dark .n-card .tile svg [fill="#fff"] { fill: #3a3a3a; }
+      html.dark .n-card .tile svg [fill="#e9e9e9"], html.dark .n-card .tile svg [fill="#d6d6d6"] { fill: #4a4a4a; }
+      .n-card .r-tag { display: block; margin-top: 14px; font-size: 13px; line-height: 20px; }
+      .n-card h2 { margin-top: 6px; font-size: 18px; font-weight: 600; line-height: 1.3; }
+      .n-card:hover h2 { text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+      .n-card .c-time { margin-top: 6px; font-size: 13px; line-height: 20px; }
+
+      @media (max-width: 980px) {
+        .next-grid { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 720px) {
+        .post-hero .rd { padding-top: 40px; }
+        .lead { margin-top: 28px; }
+        .post-body .rd { padding-top: 36px; }
+        .prose { font-size: 16px; line-height: 27px; }
+        .prose h2 { margin-top: 40px; font-size: 24px; }
+        .post-hero .deck { font-size: 18px; line-height: 28px; }
+        .summary { font-size: 17px; line-height: 28px; }
+        .summary, .tip, .faq, .disclaimer, .post-cta { padding: 20px; }
+        .check { padding: 20px 20px 8px; }
+      }
+
+      /* headings in the article and read-next use normal tracking and wrap naturally to the column */
+      article h1, article h2, article h3, .next h2 { letter-spacing: 0; text-wrap: wrap; max-width: none; }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        * {
+          animation: none !important;
+          transition-duration: 0.01ms !important;
+          transition-delay: 0s !important;
+        }
+      }
+
+      /* hero illustration: the pen signs the page, then lifts away */
+      @keyframes fd-pen {
+        0%, 2%   { transform: translate(0, 0); opacity: 0; }
+        6%       { transform: translate(0, 0); opacity: 1; }
+        8%       { transform: translate(0.0px, 0.0px); }
+        9.1%     { transform: translate(3.6px, -9.5px); }
+        10.2%    { transform: translate(8.2px, -18.2px); }
+        11.3%    { transform: translate(14.8px, -25.7px); }
+        12.4%    { transform: translate(24.2px, -28.0px); }
+        13.5%    { transform: translate(28.4px, -20.2px); }
+        14.5%    { transform: translate(24.0px, -11.3px); }
+        15.6%    { transform: translate(18.5px, -3.7px); }
+        16.7%    { transform: translate(28.0px, -1.6px); }
+        17.8%    { transform: translate(37.2px, -5.3px); }
+        18.9%    { transform: translate(45.3px, -11.3px); }
+        20.0%    { transform: translate(54.9px, -10.2px); }
+        21.1%    { transform: translate(63.9px, -6.0px); }
+        22.2%    { transform: translate(73.4px, -8.4px); }
+        23.3%    { transform: translate(80.5px, -15.4px); }
+        24.4%    { transform: translate(90.0px, -16.6px); }
+        25.5%    { transform: translate(99.8px, -14.4px); }
+        26.5%    { transform: translate(109.6px, -12.4px); }
+        27.6%    { transform: translate(119.6px, -11.4px); }
+        28.7%    { transform: translate(129.6px, -12.1px); }
+        29.8%    { transform: translate(139.3px, -14.4px); }
+        30.9%    { transform: translate(149.2px, -15.3px); }
+        32%      { transform: translate(158.0px, -11.0px); animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1); }
+        39%      { transform: translate(156px, -54px); opacity: 1; }
+        88%      { transform: translate(156px, -54px); opacity: 1; }
+        96%      { transform: translate(156px, -54px); opacity: 0; }
+        96.01%   { transform: translate(0, 0); opacity: 0; }
+        100%     { transform: translate(0, 0); opacity: 0; }
+      }
+      @keyframes fd-sig {
+        0%, 8%   { stroke-dashoffset: 240; opacity: 1; }
+        32%, 88% { stroke-dashoffset: 0; opacity: 1; }
+        96%      { stroke-dashoffset: 0; opacity: 0; }
+        96.01%   { stroke-dashoffset: 240; opacity: 0; }
+        100%     { stroke-dashoffset: 240; opacity: 0; }
+      }
+      .pen-track { animation: fd-pen 6.5s linear infinite; will-change: transform, opacity; }
+      .sig-line { stroke-dasharray: 240; stroke-dashoffset: 0; animation: fd-sig 6.5s linear infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        .pen-track { transform: translate(156px, -54px); opacity: 1; }
+        .sig-line { stroke-dashoffset: 0; opacity: 1; }
+      }
+    
+      .fd-mark {
+        display: inline-block;
+        font-family: var(--sans, Inter, Arial, sans-serif);
+        font-size: 11.5px;
+        font-weight: 500;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        line-height: 1;
+        padding: 7px 10px 6px 12px;
+        border-top: 1px solid currentColor;
+        border-bottom: 1px solid currentColor;
+        white-space: nowrap;
+      }
+      .foot .fd-mark, footer .fd-mark { color: #fff; }
+    </style>
+    <script>
+      document.documentElement.classList.add("js");
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <nav class="nav" aria-label="Main">
+      <div class="wrap">
+        <a class="logo" href="/" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+        <div class="links">
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">FD AI <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/draft">Draft</a>
+              <a href="/#about">Review</a>
+            </div>
+          </div>
+          <a href="/#lawyers">Ask a Lawyer</a>
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">Services <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/#services">FD Consult</a>
+              <a href="/#services">FD Legal</a>
+            </div>
+          </div>
+        </div>
+        <div class="links r">
+          <div class="has-sub" data-open="false">
+            <button type="button" class="on" aria-expanded="false" aria-haspopup="true">Resources <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/resources" aria-current="page">Blog</a>
+              <a href="/coming-soon?f=Courses">Courses</a>
+              <a href="/podcast">Podcast</a>
+            </div>
+          </div>
+          <a href="/about">About us</a>
+        </div>
+        <div class="nav-cta">
+          <a class="btn btn-white" href="/contact">Book a consultation</a>
+          <a class="btn btn-gold" href="/draft">Launch FD AI</a>
+        </div>
+        <button class="theme-btn" type="button" aria-label="Toggle light and dark mode" aria-pressed="false">
+          <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.6M12 18.9v2.6M2.5 12h2.6M18.9 12h2.6M5 5l1.8 1.8M17.2 17.2 19 19M19 5l-1.8 1.8M6.8 17.2 5 19"/></svg>
+          <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z"/></svg>
+        </button>
+        <button class="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
+          <span></span>
+        </button>
+      </div>
+      <span class="progress" aria-hidden="true"></span>
+      <div class="menu" id="menu" data-open="false">
+        <div class="wrap">
+          <div class="menu-group">
+            <span>FD AI</span>
+            <a href="/draft">Draft</a>
+            <a href="/#about">Review</a>
+          </div>
+          <a href="/#lawyers">Ask a Lawyer</a>
+          <div class="menu-group">
+            <span>Services</span>
+            <a href="/#services">FD Consult</a>
+            <a href="/#services">FD Legal</a>
+          </div>
+          <div class="menu-group">
+            <span>Resources</span>
+            <a href="/resources" aria-current="page">Blog</a>
+            <a href="/coming-soon?f=Courses">Courses</a>
+            <a href="/podcast">Podcast</a>
+          </div>
+          <a href="/about">About us</a>
+          <a href="/contact">Contact us</a>
+        </div>
+      </div>
+    </nav>
+
+    
+    <main id="main">
+      <article>
+        <header class="post-hero">
+          <div class="wrap"><div class="rd">
+            <div>
+              <a class="kicker" href="/resources">Insights for founders &middot; Contracts</a>
+              <h1>Before You Sign an NDA: 10 Things Founders Should Know</h1>
+              <p class="deck">A practical guide to non-disclosure agreements, confidentiality clauses and the terms that matter before you share sensitive information.</p>
+              <p class="meta"><span class="who">Founders Doc</span><span class="sep">&middot;</span><span>Reviewed by a practising lawyer</span><span class="sep">&middot;</span><span>10 Sep 2026</span><span class="sep">&middot;</span><span>9 min read</span></p>
+            </div>
+            <figure class="lead">
+              <span class="img" aria-hidden="true" style="background:#f4c563">
+                <svg viewBox="0 0 640 512" xmlns="http://www.w3.org/2000/svg" role="img">
+                  <defs>
+                    <filter id="ds" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="22" stdDeviation="22" flood-color="#6d4f0d" flood-opacity="0.30"/></filter>
+                    <filter id="ds-soft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#6d4f0d" flood-opacity="0.20"/></filter>
+                    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f6f3ea"/>
+                    </linearGradient>
+                  </defs>
+
+                  <!-- ground -->
+                  <rect width="640" height="512" fill="#f4c563"/>
+
+                  <!-- the count -->
+                  <text x="34" y="102" font-family="Geist, Inter, sans-serif" font-weight="600" font-size="15" letter-spacing="3.6" fill="#8a6410">FOUNDERS&#8217; CHECKLIST</text>
+                  <text x="28" y="312" font-family="Geist, Inter, sans-serif" font-weight="700" font-size="244" letter-spacing="-14" fill="#1c1c1c">10</text>
+                  <rect x="36" y="344" width="210" height="6" rx="3" fill="#1c1c1c"/>
+                  <text x="36" y="386" font-family="Geist, Inter, sans-serif" font-weight="600" font-size="21" letter-spacing="2.6" fill="#1c1c1c">THINGS TO CHECK</text>
+                  <text x="36" y="416" font-family="Geist, Inter, sans-serif" font-weight="600" font-size="21" letter-spacing="2.6" fill="#8a6410">BEFORE YOU SIGN</text>
+
+                  <!-- the agreement: a second sheet beneath, an unsigned page on top -->
+                  <g transform="translate(384 50) rotate(12)" filter="url(#ds-soft)">
+                    <rect width="238" height="404" rx="10" fill="#efeadd"/>
+                  </g>
+                  <g transform="translate(348 46) rotate(6)" filter="url(#ds)">
+                    <rect width="250" height="420" rx="10" fill="url(#paper)"/>
+                    <rect x="26" y="40" width="116" height="9" rx="4.5" fill="#1c1c1c"/>
+                    <rect x="26" y="60" width="64" height="5" rx="2.5" fill="#f3bf4b"/>
+
+                    <rect x="26" y="100" width="10" height="10" rx="3" fill="#f3bf4b"/>
+                    <rect x="46" y="101" width="168" height="7" rx="3.5" fill="#dcd9d0"/>
+                    <rect x="46" y="121" width="140" height="7" rx="3.5" fill="#dcd9d0"/>
+                    <rect x="46" y="141" width="180" height="7" rx="3.5" fill="#dcd9d0"/>
+
+                    <rect x="26" y="182" width="10" height="10" rx="3" fill="#f3bf4b"/>
+                    <rect x="46" y="183" width="176" height="7" rx="3.5" fill="#dcd9d0"/>
+                    <rect x="46" y="203" width="132" height="7" rx="3.5" fill="#dcd9d0"/>
+                    <rect x="46" y="223" width="164" height="7" rx="3.5" fill="#dcd9d0"/>
+
+                    <rect x="26" y="264" width="10" height="10" rx="3" fill="#f3bf4b"/>
+                    <rect x="46" y="265" width="158" height="7" rx="3.5" fill="#dcd9d0"/>
+                    <rect x="46" y="285" width="184" height="7" rx="3.5" fill="#dcd9d0"/>
+                    <rect x="46" y="305" width="112" height="7" rx="3.5" fill="#dcd9d0"/>
+
+                    <path d="M26 350h198" stroke="#c8c4b8" stroke-width="3" stroke-dasharray="10 9" stroke-linecap="round"/>
+                    <text x="26" y="374" font-family="Geist, Inter, sans-serif" font-weight="600" font-size="12.5" letter-spacing="1.8" fill="#a8a498">SIGNATURE</text>
+
+                    <!-- the signature, drawn as the pen travels -->
+                    <path class="sig-line" transform="translate(0 -4)" d="M34 348C40 330 48 318 58 320C68 322 60 336 52 344C60 349 68 346 76 339C86 330 92 344 102 342C112 340 112 329 122 331C138 334 152 340 172 334C182 331 188 333 192 337" fill="none" stroke="#1c1c1c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+
+                    <!-- the pen -->
+                    <g class="pen-track">
+                      <g transform="translate(110 219) rotate(38)" filter="url(#ds)">
+                        <rect x="0" y="0" width="34" height="118" rx="9" fill="#1c1c1c"/>
+                        <rect x="5" y="8" width="7" height="100" rx="3.5" fill="#ffffff" opacity="0.13"/>
+                        <rect x="6" y="16" width="22" height="6" rx="3" fill="#f3bf4b"/>
+                        <rect x="0" y="98" width="34" height="14" fill="#f3bf4b"/>
+                        <path d="M0 112h34l-17 34z" fill="#f7d68e"/>
+                        <path d="M11 132h12l-6 14z" fill="#1c1c1c"/>
+                      </g>
+                    </g>
+                  </g>
+
+                </svg>
+              </span>
+              <figcaption>Ten things to work through before you put pen to paper. Illustration: Founders Doc</figcaption>
+            </figure>
+          </div></div>
+        </header>
+
+        <div class="wrap post-body"><div class="rd">
+
+          <div class="main">
+          <aside class="summary"><span class="blob-tag">In brief</span><p>An NDA is not simply a promise to keep quiet. It can control what information is protected, how it may be used, who may see it and what happens when the relationship ends.</p></aside>
+          <div class="prose">
+            <p>You are about to pitch an investor, engage a consultant, explore a partnership or discuss a potential acquisition. Someone says: "Let us sign an NDA first." It sounds routine &mdash; but an NDA can create meaningful obligations well beyond a simple promise not to disclose information.</p>
+            <p>The best NDA is not necessarily the longest or most restrictive. It is the one that fits the information, the parties and the transaction. Here are 10 issues founders should check before signing.</p>
+
+            <h2 id="do-you-actually-need-an-nda">1. Do you actually need an NDA?</h2>
+            <p>Not every commercial conversation requires one. The first question is what information you are about to disclose; how sensitive it is and whether you can stage the disclosure instead of handing over everything at once.</p>
+            <p>This is particularly relevant in fundraising. The Singapore Academy of Law VIMA model NDA notes that, for early-stage financing rounds including Series A rounds, it is common for VCs and other investors not to enter into NDAs. A company may instead take that into account when deciding what information to provide. The position may be different where the potential investor is a strategic investor or competitor.</p>
+            <aside class="tip"><span class="blob-tag">FD tip</span><p>Treat an NDA as a risk-management tool, not an automatic prerequisite to every meeting. Sometimes the better protection is simply not disclosing the &lsquo;crown jewels&rsquo; too early.</p></aside>
+
+            <h2 id="should-it-be-one-way-or-mutual">2. Should it be one-way or mutual?</h2>
+            <p>A one-way NDA generally makes sense where only one party is disclosing sensitive information. A mutual NDA makes sense where both sides expect to exchange confidential information.</p>
+            <p>Mutual does not automatically mean fairer. If the information flow is genuinely one-way, a mutual agreement may impose unnecessary obligations on the party that has little or nothing confidential to disclose.</p>
+            <aside class="tip"><span class="blob-tag">FD tip</span><p>Follow the information flow, not the label on the document.</p></aside>
+
+            <h2 id="what-counts-as-confidential-information">3. What exactly counts as "Confidential Information"?</h2>
+            <p>This definition is the engine room of the NDA. Some agreements protect only specifically identified material. Others sweep in almost anything non-public connected with the business. Depending on the drafting, the definition may capture:</p>
+            <ul>
+              <li>oral, written and electronic disclosures;</li>
+              <li>information disclosed before the NDA was signed;</li>
+              <li>trade secrets, technology, source code, financials, customer information and business plans;</li>
+              <li>notes, analyses and summaries created by the recipient from the disclosed material; and</li>
+              <li>the existence of the negotiations or transaction itself.</li>
+            </ul>
+            <p>The exclusions matter just as much. Common exclusions cover information that is already public, was lawfully known to the recipient before disclosure, is legitimately received from an independent third party, or is independently developed without using the protected information.</p>
+
+            <h2 id="do-not-overlook-the-purpose">4. Do not overlook the "Purpose"</h2>
+            <p>Many NDAs do two things at once: they prohibit unauthorised disclosure and prohibit use of the information for anything other than an agreed purpose. A narrow purpose therefore creates a narrow lane in which the recipient may lawfully use the information.</p>
+            <p>For example, "evaluating a potential business relationship" is broader than "evaluating the proposed acquisition of Company B by Company A". Singapore Court of Appeal authority also shows why the drafting matters: in <em>Adinop Co Ltd v Rovithai Ltd</em> [2019] SGCA 67, the contractual Purpose was central to the finding that customer information had been misused outside what the confidentiality agreement permitted.</p>
+            <aside class="tip"><span class="blob-tag">FD tip</span><p>Read the definition of Purpose together with the use restriction. They operate as a package.</p></aside>
+
+            <h2 id="who-can-receive-the-information">5. Who can receive the information?</h2>
+            <p>A business acts through people. The NDA therefore needs to accommodate the employees, directors, advisers, consultants, affiliates, banks or investors who genuinely need access.</p>
+            <p>Check whether disclosure is limited to a "need to know" basis, whether each recipient must be separately bound by confidentiality obligations, and whether you are responsible for breaches by your representatives. A clause that is too narrow can even make ordinary internal circulation technically non-compliant.</p>
+
+            <h2 id="how-long-do-the-obligations-last">6. How long do the obligations last?</h2>
+            <p>Do not assume that the stated term of the NDA is the same as the period for which confidentiality must be maintained. There may be two clocks: the life of the agreement and the survival period for confidentiality obligations.</p>
+            <p>Some of the reviewed Singapore forms have a fixed agreement term, while the confidentiality obligations continue beyond termination until the information falls within an agreed exclusion. The practical question is not only "When does the NDA end?" but "When are we actually free to use or disclose the information?"</p>
+
+            <h2 id="what-happens-when-discussions-end">7. What happens when discussions end?</h2>
+            <p>Return-and-destruction provisions sound simple until someone asks you to delete every copy of a document from email archives, backups, cloud storage and compliance systems.</p>
+            <p>More sophisticated agreements recognise this. They may permit retained copies where required by law, regulation, audit or document-retention policies, and may carve out material held in automatic electronic backups. If you are the recipient, the clause should reflect what your systems can realistically do.</p>
+
+            <h2 id="what-if-disclosure-is-required-by-law">8. What if disclosure is required by law?</h2>
+            <p>An NDA should not require a party to choose between complying with the agreement and complying with a court, regulator or applicable law. Mandatory-disclosure clauses usually permit disclosure to the minimum extent required, often with prior notice to the disclosing party where legally permitted.</p>
+            <p>That notice can be important: it may allow the disclosing party to seek a protective order, challenge the request or limit the scope of the disclosure.</p>
+
+            <h2 id="clauses-that-are-not-about-confidentiality">9. Check for clauses that are not really about confidentiality</h2>
+            <p>A document headed "Non-Disclosure Agreement" can contain much more than non-disclosure obligations. Transaction NDAs sometimes include non-solicitation obligations, restrictions on contacting employees or customers, standstill-style protections, announcement controls, indemnities or other deal protections.</p>
+            <p>The VIMA model NDA, for example, contains an optional restrictive covenant addressing solicitation of certain employees, officers and directors. Such provisions may be appropriate in context, but they should be assessed as standalone commercial restrictions rather than accepted merely because they sit inside an NDA.</p>
+            <aside class="tip"><span class="blob-tag">FD tip</span><p>Never assume that every clause in an NDA is about confidentiality.</p></aside>
+
+            <h2 id="what-happens-if-someone-breaches-it">10. What happens if someone breaches it?</h2>
+            <p>The consequences can range from nominal damages to substantial monetary awards, depending on what happened to the information and what loss, benefit or misuse can be proved. Injunctions are also important because once information has been publicly disclosed, damages may not restore its secrecy.</p>
+            <p>Singapore courts recognise a range of remedies in confidentiality cases, including injunctions and, depending on the cause of action and facts, damages, equitable compensation or an account of profits. A technical breach does not automatically produce a windfall &mdash; causation and proof still matter.</p>
+
+            <h2 id="the-fd-nda-checklist">The FD NDA checklist</h2>
+            <p>Ten questions to work through before you sign.</p>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th scope="col">#</th><th scope="col">Question</th><th scope="col">Why it matters</th></tr></thead>
+                <tbody>
+                  <tr><td>1</td><td>Do we actually need an NDA?</td><td>Consider the sensitivity of the information and the stage of discussions.</td></tr>
+                  <tr><td>2</td><td>Should it be one-way or mutual?</td><td>Match the obligations to the actual information flow.</td></tr>
+                  <tr><td>3</td><td>What is Confidential Information?</td><td>Check the scope, form of disclosure and whether derived materials are included.</td></tr>
+                  <tr><td>4</td><td>What is excluded?</td><td>Public, prior-known, third-party and independently developed information should be considered.</td></tr>
+                  <tr><td>5</td><td>What is the Purpose?</td><td>This controls what the recipient may do with the information.</td></tr>
+                  <tr><td>6</td><td>Who can receive it?</td><td>Ensure employees, advisers and other necessary recipients are covered.</td></tr>
+                  <tr><td>7</td><td>How long does it last?</td><td>Check both the agreement term and survival of confidentiality obligations.</td></tr>
+                  <tr><td>8</td><td>Can we comply with return and destruction?</td><td>Pay attention to backups, archives and regulatory retention.</td></tr>
+                  <tr><td>9</td><td>Are there extra restrictions?</td><td>Look for non-solicitation, contact restrictions, indemnities and other obligations.</td></tr>
+                  <tr><td>10</td><td>What are the remedies?</td><td>Understand the practical consequences of misuse or disclosure.</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <h2 id="the-takeaway">The takeaway</h2>
+            <p>A good NDA is calibrated, not maximalist. The objective is to protect genuinely sensitive information while allowing the parties to evaluate or pursue the proposed relationship without creating impractical obligations.</p>
+            <p>For founders, the key is to understand what you are protecting &mdash; or promising to protect &mdash; before signing on the dotted line.</p>
+
+            <h2 id="frequently-asked-questions">Frequently asked questions</h2>
+            <div class="faq-list">
+            <div class="faq"><h3>Do startups always need an NDA?</h3><p>No. Whether an NDA is appropriate depends on the sensitivity of the information, the recipient and the stage of discussions. In early-stage fundraising, some institutional investors may decline to sign NDAs.</p></div>
+            <div class="faq"><h3>How long should an NDA last?</h3><p>There is no single correct period. The appropriate duration depends on the nature of the information. Always distinguish the term of the agreement from the survival period for confidentiality obligations.</p></div>
+            <div class="faq"><h3>Can an NDA cover information disclosed before it is signed?</h3><p>Yes, if the agreement is drafted to cover prior disclosures. Check the definition of Confidential Information and the relevant commencement language.</p></div>
+            <div class="faq"><h3>Is a mutual NDA always better?</h3><p>No. A mutual NDA is appropriate where both sides disclose confidential information. If disclosure is genuinely one-way, mutual obligations may be unnecessary.</p></div>
+            </div>
+
+            <h2 id="selected-authorities-and-source-materials">Selected authorities and source materials</h2>
+            <ul class="sources">
+              <li>Singapore Academy of Law, VIMA Model Non-Disclosure Agreement: <a href="https://www.sal.org.sg/" rel="noopener noreferrer" target="_blank">sal.org.sg</a></li>
+              <li>Adinop Co Ltd v Rovithai Ltd and another [2019] SGCA 67: <a href="https://www.elitigation.sg/gdviewer/s/2019_SGCA_67" rel="noopener noreferrer" target="_blank">elitigation.sg/gdviewer/s/2019_SGCA_67</a></li>
+              <li>PH Hydraulics &amp; Engineering Pte Ltd v Airtrust (Hong Kong) Ltd [2010] SGHC 267: <a href="https://www.elitigation.sg/gd/s/2010_SGHC_267" rel="noopener noreferrer" target="_blank">elitigation.sg/gd/s/2010_SGHC_267</a></li>
+              <li>I-Admin (Singapore) Pte Ltd v Hong Ying Ting [2020] SGCA 32: <a href="https://www.elitigation.sg/gd/s/2020_SGCA_32" rel="noopener noreferrer" target="_blank">elitigation.sg/gd/s/2020_SGCA_32</a></li>
+            </ul>
+            <aside class="disclaimer"><p><b>Legal disclaimer.</b> This article is provided for general information only and does not constitute legal advice. The appropriate terms and remedies will depend on the facts, governing law and transaction involved.</p></aside>
+          </div>
+
+          <div class="post-cta">
+            <div>
+              <h2>Not sure what your NDA actually covers?</h2>
+              <p>Upload it to FD AI for a first-pass review, or book a consultation and talk it through with a lawyer.</p>
+            </div>
+            <div class="acts">
+              <a class="btn btn-gold" href="/draft">Review with FD AI</a>
+              <a class="btn btn-white" href="/contact">Book a consultation</a>
+            </div>
+          </div>
+          </div>
+        </div></div>
+      </article>
+
+      <!-- SAMPLE CONTENT: "Read next" links mirror the placeholder posts on the blog index — swap for live posts -->
+      <section class="next">
+        <div class="wrap">
+          <div class="next-h"><h2>Read next</h2><a href="/resources">View all articles →</a></div>
+          <div class="next-grid">
+            <a class="n-card" href="/nda-vs-confidentiality-agreement">
+              <span class="tile" aria-hidden="true"><svg viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="10" width="50" height="70" rx="4" fill="#fff"/><rect x="16" y="24" width="24" height="5" rx="2.5" fill="#f3bf4b"/><rect x="16" y="40" width="32" height="4" rx="2" fill="#d6d6d6"/><rect x="16" y="52" width="26" height="4" rx="2" fill="#d6d6d6"/><rect x="62" y="10" width="50" height="70" rx="4" fill="#e9e9e9"/><rect x="70" y="24" width="24" height="5" rx="2.5" fill="#f3bf4b"/><rect x="70" y="40" width="32" height="4" rx="2" fill="#d6d6d6"/><rect x="70" y="52" width="26" height="4" rx="2" fill="#d6d6d6"/></svg></span>
+              <span class="r-tag">Contracts</span>
+              <h2>NDA vs Confidentiality Agreement: What is the Difference?</h2>
+              <span class="c-time">8 Sep 2026 &middot; 6 min read</span>
+            </a>
+            <a class="n-card" href="/coming-soon?f=Founder%20vesting%20clauses">
+              <span class="tile" aria-hidden="true"><svg viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="66" width="20" height="18" fill="#d6d6d6"/><rect x="34" y="50" width="20" height="34" fill="#d6d6d6"/><rect x="58" y="34" width="20" height="50" fill="#f3bf4b"/><rect x="82" y="18" width="20" height="66" fill="#d6d6d6"/><rect x="6" y="84" width="108" height="2" fill="#c9c9c9"/></svg></span>
+              <span class="r-tag">Contracts</span>
+              <h2>Founder vesting: the clauses investors actually read</h2>
+              <span class="c-time">29 Jul 2026 · 6 min read</span>
+            </a>
+            <a class="n-card" href="/coming-soon?f=Data%20room%20checklist">
+              <span class="tile gold" aria-hidden="true"><svg viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="14" width="44" height="34" rx="4" fill="#fff"/><rect x="66" y="14" width="44" height="34" rx="4" fill="#fff"/><rect x="10" y="54" width="44" height="34" rx="4" fill="#fff"/><rect x="66" y="54" width="44" height="34" rx="4" fill="#f3bf4b"/><rect x="18" y="24" width="18" height="4" rx="2" fill="#f3bf4b"/><rect x="74" y="24" width="18" height="4" rx="2" fill="#f3bf4b"/><rect x="18" y="64" width="18" height="4" rx="2" fill="#f3bf4b"/><rect x="74" y="64" width="18" height="4" rx="2" fill="#fff"/></svg></span>
+              <span class="r-tag">Fundraising</span>
+              <h2>Due diligence data rooms: the five folders lawyers open first</h2>
+              <span class="c-time">3 Jun 2026 · 5 min read</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+
+    <footer class="foot">
+      <div class="wrap">
+        <div class="grid">
+          <div>
+            <a class="logo" href="#top" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+            <p class="about">
+              Contracts for founders everywhere, reviewed and drafted by Jessica, our AI, and the practising
+              lawyers behind her.
+            </p>
+          </div>
+          <div>
+            <h4>Quick links</h4>
+            <ul>
+              <li><a href="#top">Home</a></li>
+              <li><a href="/about">About us</a></li>
+              <li><a href="/#services">Our services</a></li>
+              <li><a href="/resources">Blog</a></li>
+              <li><a href="/coming-soon?f=Courses">Courses</a></li>
+              <li><a href="/podcast">Podcast</a></li>
+              <li><a href="/contact">Contact us</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Useful links</h4>
+            <ul>
+              <li><a href="/draft">Launch FD AI</a></li>
+              <li><a href="https://foundersdoc.com/terms-conditions/">Terms &amp; conditions</a></li>
+              <li><a href="https://foundersdoc.com/privacy-policy/">Privacy policy</a></li>
+              <li><a href="https://foundersdoc.com/community-guidelines/">Community guidelines</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Contact us</h4>
+            <ul>
+              <li><a href="https://wa.me/6594617390?text=Hi!">+65 9461 7390 (WhatsApp only)</a></li>
+              <li><a href="mailto:administrator@foundersdoc.com">administrator@foundersdoc.com</a></li>
+            </ul>
+          </div>
+          <div class="nl">
+            <form id="nl-form" novalidate>
+              <label for="em">Subscribe to our newsletter</label>
+              <div class="field">
+                <input id="em" name="email" type="email" placeholder="Email address" autocomplete="email" required />
+                <button type="submit" aria-label="Subscribe">→</button>
+              </div>
+              <p class="msg" id="nl-msg" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+        <div class="bot">
+          <span>© 2026 Founders Doc. All rights reserved.</span>
+          <div>
+            <a href="https://www.linkedin.com/company/foundersdoc/">LinkedIn</a>
+            <a href="https://www.instagram.com/foundersdoc/">Instagram</a>
+            <a href="https://www.youtube.com/channel/UCYQebtLCvD2esHthgPAxrFg">YouTube</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        // Mobile menu
+        var burger = document.querySelector(".burger"),
+          menu = document.getElementById("menu");
+        if (burger && menu) {
+          burger.addEventListener("click", function () {
+            var open = menu.getAttribute("data-open") === "true";
+            menu.setAttribute("data-open", String(!open));
+            burger.setAttribute("aria-expanded", String(!open));
+            burger.setAttribute("aria-label", open ? "Open menu" : "Close menu");
+          });
+          menu.querySelectorAll("a").forEach(function (a) {
+            a.addEventListener("click", function () {
+              menu.setAttribute("data-open", "false");
+              burger.setAttribute("aria-expanded", "false");
+              burger.setAttribute("aria-label", "Open menu");
+            });
+          });
+        }
+
+        // Dropdown tabs (FD AI, Resources): click to toggle, Escape / outside click to close
+        var subs = Array.prototype.slice.call(document.querySelectorAll(".has-sub"));
+        function closeSubs(except) {
+          subs.forEach(function (d) {
+            if (d !== except) {
+              d.setAttribute("data-open", "false");
+              d.querySelector("button").setAttribute("aria-expanded", "false");
+            }
+          });
+        }
+        subs.forEach(function (d) {
+          var btn = d.querySelector("button");
+          btn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            var open = d.getAttribute("data-open") === "true";
+            closeSubs(d);
+            d.setAttribute("data-open", String(!open));
+            btn.setAttribute("aria-expanded", String(!open));
+          });
+          d.querySelectorAll(".nav-sub a").forEach(function (a) {
+            a.addEventListener("click", function () { closeSubs(); });
+          });
+        });
+        document.addEventListener("click", function () { closeSubs(); });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") closeSubs();
+        });
+
+        // Section reveals, staggered among siblings
+        var rv = Array.prototype.slice.call(document.querySelectorAll("[data-rv]"));
+        rv.forEach(function (el) {
+          var sibs = Array.prototype.filter.call(el.parentNode.children, function (c) {
+            return c.hasAttribute("data-rv");
+          });
+          if (sibs.length > 1) el.style.setProperty("--i", sibs.indexOf(el));
+        });
+        if ("IntersectionObserver" in window) {
+          var rio = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (en) {
+                if (en.isIntersecting) {
+                  en.target.classList.add("in");
+                  rio.unobserve(en.target);
+                }
+              });
+            },
+            { threshold: 0.15, rootMargin: "0px 0px -8% 0px" }
+          );
+          rv.forEach(function (el) {
+            rio.observe(el);
+          });
+        } else {
+          rv.forEach(function (el) {
+            el.classList.add("in");
+          });
+        }
+
+        // Scroll: nav state, progress line, active link
+        var nav = document.querySelector(".nav"),
+          prog = document.querySelector(".progress"),
+          navLinks = Array.prototype.slice.call(document.querySelectorAll('.links a[href^="#"]')),
+          sections = navLinks
+            .map(function (a) {
+              return document.getElementById(a.getAttribute("href").slice(1));
+            })
+            .filter(Boolean),
+          ticking = false;
+        var decors = Array.prototype.slice.call(document.querySelectorAll(".decor"));
+        function onScroll() {
+          var y = window.pageYOffset || document.documentElement.scrollTop,
+            max = document.documentElement.scrollHeight - window.innerHeight;
+          if (nav) nav.classList.toggle("scrolled", y > 8);
+          if (prog) prog.style.transform = "scaleX(" + (max > 0 ? Math.min(y / max, 1) : 0) + ")";
+          if (!reduce) {
+            decors.forEach(function (d, i) {
+              d.style.setProperty("--py", (y * (i === 0 ? -0.06 : -0.12)).toFixed(1) + "px");
+            });
+          }
+          var cur = null,
+            line = y + 120;
+          sections.forEach(function (sec) {
+            if (sec.offsetTop <= line) cur = sec.id;
+          });
+          navLinks.forEach(function (a) {
+            a.classList.toggle("on", a.getAttribute("href") === "#" + cur);
+          });
+          ticking = false;
+        }
+        window.addEventListener(
+          "scroll",
+          function () {
+            if (!ticking) {
+              ticking = true;
+              requestAnimationFrame(onScroll);
+            }
+          },
+          { passive: true }
+        );
+        onScroll();
+
+
+        // Topic filter + search: chips and the search box combine to show or hide
+        // articles (featured one included). The rail steps aside while either is active.
+        var cats = Array.prototype.slice.call(document.querySelectorAll(".cat")),
+          articles = Array.prototype.slice.call(document.querySelectorAll("[data-cat]")),
+          search = document.getElementById("post-search"),
+          rail = document.getElementById("rail"),
+          nPosts = document.getElementById("n-posts"),
+          emptyMsg = document.getElementById("empty"),
+          activeCat = "all";
+        function applyFilters() {
+          var q = search && search.value ? search.value.trim().toLowerCase() : "",
+            shown = 0;
+          articles.forEach(function (a) {
+            var okCat = activeCat === "all" || a.getAttribute("data-cat") === activeCat,
+              h = a.querySelector("h2"),
+              okText = !q || (h && h.textContent.toLowerCase().indexOf(q) !== -1),
+              show = okCat && okText,
+              wasHidden = a.hidden;
+            a.hidden = !show;
+            if (show) {
+              if (wasHidden && !reduce) {
+                a.classList.remove("pop");
+                a.style.animationDelay = shown * 45 + "ms";
+                void a.offsetWidth;
+                a.classList.add("pop");
+                a.addEventListener(
+                  "animationend",
+                  function () {
+                    a.classList.remove("pop");
+                    a.style.animationDelay = "";
+                  },
+                  { once: true }
+                );
+              }
+              shown++;
+            }
+          });
+          if (rail) rail.hidden = activeCat !== "all" || q !== "";
+          if (nPosts) nPosts.textContent = shown + (shown === 1 ? " article" : " articles");
+          if (emptyMsg) emptyMsg.hidden = shown !== 0;
+          Array.prototype.forEach.call(document.querySelectorAll(".sect"), function (s) {
+            s.hidden = !s.querySelector("[data-cat]:not([hidden])");
+          });
+          var trio = document.querySelector(".trio");
+          if (trio) trio.hidden = !trio.querySelector("[data-cat]:not([hidden])");
+        }
+        cats.forEach(function (c) {
+          c.addEventListener("click", function () {
+            activeCat = c.getAttribute("data-filter");
+            cats.forEach(function (x) {
+              var on = x === c;
+              x.classList.toggle("sel", on);
+              x.setAttribute("aria-pressed", String(on));
+            });
+            applyFilters();
+          });
+        });
+        if (search) search.addEventListener("input", applyFilters);
+        applyFilters();
+
+        // Stats: count up when the band scrolls into view
+        var nums = Array.prototype.slice.call(document.querySelectorAll(".stat .num"));
+        function setNum(el, v, suf) {
+          el.textContent = v.toLocaleString("en-GB") + suf;
+        }
+        function runCount(el) {
+          var target = parseInt(el.getAttribute("data-count"), 10) || 0,
+            suf = el.getAttribute("data-suffix") || "";
+          if (reduce) {
+            setNum(el, target, suf);
+            return;
+          }
+          var t0 = null,
+            dur = 1500;
+          function step(ts) {
+            if (!t0) t0 = ts;
+            var p = Math.min((ts - t0) / dur, 1),
+              e = 1 - Math.pow(1 - p, 3);
+            setNum(el, Math.round(target * e), suf);
+            if (p < 1) requestAnimationFrame(step);
+          }
+          requestAnimationFrame(step);
+        }
+        if (nums.length) {
+          if ("IntersectionObserver" in window) {
+            var cio = new IntersectionObserver(
+              function (entries) {
+                entries.forEach(function (en) {
+                  if (en.isIntersecting) {
+                    cio.unobserve(en.target);
+                    runCount(en.target);
+                  }
+                });
+              },
+              { threshold: 0.5 }
+            );
+            nums.forEach(function (n) {
+              cio.observe(n);
+            });
+          } else {
+            nums.forEach(function (n) {
+              setNum(n, parseInt(n.getAttribute("data-count"), 10) || 0, n.getAttribute("data-suffix") || "");
+            });
+          }
+        }
+
+        // Hero card: tilt gently toward the pointer (desktop, fine pointers only)
+        var hero = document.getElementById("hero-card");
+        if (hero && !reduce && window.matchMedia && window.matchMedia("(pointer: fine)").matches) {
+          hero.addEventListener("pointermove", function (e) {
+            var r = hero.getBoundingClientRect(),
+              px = (e.clientX - r.left) / r.width - 0.5,
+              py = (e.clientY - r.top) / r.height - 0.5;
+            hero.style.setProperty("--ry", (px * 5).toFixed(2) + "deg");
+            hero.style.setProperty("--rx", (-py * 4).toFixed(2) + "deg");
+          });
+          hero.addEventListener("pointerleave", function () {
+            hero.style.setProperty("--rx", "0deg");
+            hero.style.setProperty("--ry", "0deg");
+          });
+        }
+
+        // Masthead: live date
+        var md = document.getElementById("mast-date");
+        if (md) md.textContent = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+        // Light / dark mode toggle (session-only; add persistence on your own host if wanted)
+        var tbtn = document.querySelector(".theme-btn"),
+          rootEl = document.documentElement,
+          themeMeta = document.querySelector('meta[name="theme-color"]');
+        function syncTheme() {
+          var dark = rootEl.classList.contains("dark");
+          if (themeMeta) themeMeta.setAttribute("content", dark ? "#131313" : "#ffffff");
+          if (tbtn) tbtn.setAttribute("aria-pressed", String(dark));
+        }
+        if (tbtn) {
+          tbtn.addEventListener("click", function () {
+            rootEl.classList.toggle("dark");
+            syncTheme();
+          });
+          syncTheme();
+        }
+
+        // Topic pills drive the category filter and jump to the index
+        var pills = Array.prototype.slice.call(document.querySelectorAll(".pill"));
+        pills.forEach(function (p) {
+          p.addEventListener("click", function () {
+            var k = p.getAttribute("data-goto"),
+              btn = document.querySelector(".cats .cat[data-filter='" + k + "']");
+            if (btn) btn.click();
+            var gh = document.getElementById("latest");
+            if (gh) gh.scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
+          });
+        });
+
+        // Article: highlight the contents entry for the section in view
+        var tocLinks = Array.prototype.slice.call(document.querySelectorAll(".toc ol a[href^='#'], .toc ul a[href^='#']")),
+          tocSecs = tocLinks.map(function (a) { return document.getElementById(a.getAttribute("href").slice(1)); }).filter(Boolean);
+        if (tocLinks.length) {
+          function spy() {
+            var line = (window.pageYOffset || document.documentElement.scrollTop) + 200, cur = null;
+            tocSecs.forEach(function (s) { if (s.offsetTop <= line) cur = s.id; });
+            tocLinks.forEach(function (a) { a.classList.toggle("on", a.getAttribute("href") === "#" + cur); });
+          }
+          window.addEventListener("scroll", function () { requestAnimationFrame(spy); }, { passive: true });
+          spy();
+        }
+
+        // Newsletter: validate client-side. Point the form at your email provider (e.g. Mailchimp) via the `action` attribute when ready.
+        var form = document.getElementById("nl-form"),
+          msg = document.getElementById("nl-msg"),
+          em = document.getElementById("em");
+        if (form) {
+          form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            if (!em.value || !em.checkValidity()) {
+              msg.textContent = "Enter a valid email address to subscribe.";
+              em.focus();
+              return;
+            }
+            msg.textContent = "Thanks — please confirm the link we send to " + em.value + ".";
+            form.reset();
+          });
+        }
+      })();
+    </script>
+  <script defer src="/fd-track.js"></script>
+</body>
+</html>

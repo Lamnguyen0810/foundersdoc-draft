@@ -1,0 +1,2813 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f0f0f" media="(prefers-color-scheme: dark)" />
+    <script>
+      document.documentElement.classList.add("js");
+      (function () {
+        var d = document.documentElement, t = null;
+        try { t = localStorage.getItem("fd-theme"); } catch (e) {}
+        if (t !== "light" && t !== "dark") t = "light"; // light is the default everywhere
+        d.setAttribute("data-theme", t);
+      })();
+    </script>
+    <title>Contact us — Founders Doc</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;500;600&display=swap"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <meta
+      name="description"
+      content="Get in touch with Founders Doc. A contract to review or draft, a fundraising round, a question about your company, or something else entirely. A practising lawyer reads every message and replies personally."
+    />
+    <link rel="canonical" href="https://foundersdoc.com/contact" />
+    <style>
+      :root {
+        --white: #fff;
+        --grey-1: #f4f4f4;
+        --grey-2: #e9e9e9;
+        --grey-3: #d6d6d6;
+        --grey-4: #9a9a9a;
+        --grey-5: #666;
+        --black: #0f0f0f;
+        --ink: #161616;
+        --gold: #f3bf4b;
+        --gold-soft: #fbeec9;
+        --gold-deep: #c9962a;
+        --display: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --wrap: 1200px;
+        --wrap-wide: 1440px;
+        --nav-h: 64px;
+        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --gutter: clamp(20px, 4vw, 40px);
+        --ok: #3d8b5f;
+        --miss: #c8574a;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--white);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.6;
+        letter-spacing: -0.005em;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        border: none;
+        background: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--black);
+        outline-offset: 3px;
+      }
+      [id] {
+        scroll-margin-top: calc(var(--nav-h) + 16px);
+      }
+      .wrap {
+        width: 100%;
+        max-width: var(--wrap);
+        margin-inline: auto;
+        padding-inline: clamp(20px, 4vw, 40px);
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: var(--display);
+        font-weight: 500;
+        letter-spacing: -0.025em;
+        line-height: 1.08;
+      }
+      h2 {
+        font-size: clamp(28px, 3.2vw, 38px);
+      }
+      .sub {
+        color: var(--grey-5);
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        border: 1px solid var(--black);
+        white-space: nowrap;
+        transition:
+          background 0.15s,
+          color 0.15s,
+          transform 0.15s var(--ease),
+          box-shadow 0.15s var(--ease);
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px -10px rgba(15, 15, 15, 0.45);
+      }
+      .btn:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+      .btn-black {
+        background: var(--black);
+        color: var(--white);
+      }
+      .btn-black:hover {
+        background: #2a2a2a;
+      }
+      .btn-gold {
+        background: var(--gold);
+        color: var(--black);
+        border-color: var(--gold);
+      }
+      .btn-gold:hover {
+        background: #e9b23a;
+        border-color: #e9b23a;
+      }
+      .btn-white {
+        background: var(--white);
+        color: var(--black);
+      }
+      .btn-white:hover {
+        background: var(--grey-1);
+      }
+      .more {
+        font-size: 12.5px;
+        font-weight: 500;
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .more:hover {
+        text-decoration: underline;
+      }
+      .more .arr {
+        display: inline-block;
+        transition: transform 0.18s var(--ease);
+      }
+      .more:hover .arr {
+        transform: translateX(3px);
+      }
+      .skip {
+        position: absolute;
+        left: -999px;
+        top: 8px;
+        background: var(--black);
+        color: var(--white);
+        padding: 8px 12px;
+        border-radius: 6px;
+        z-index: 60;
+      }
+      .skip:focus {
+        left: 8px;
+      }
+
+
+      /* nav */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        background: var(--white);
+        border-bottom: 1px solid var(--grey-2);
+        transition:
+          background 0.3s,
+          box-shadow 0.3s;
+      }
+      .nav.scrolled {
+        background: rgba(255, 255, 255, 0.86);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 10px 30px -24px rgba(0, 0, 0, 0.35);
+      }
+      .nav .wrap {
+        display: flex;
+        align-items: center;
+        gap: 40px;
+        height: var(--nav-h);
+        max-width: var(--wrap-wide);
+        transition: height 0.3s var(--ease);
+      }
+      .nav.scrolled .wrap {
+        height: 56px;
+      }
+      .progress {
+        position: absolute;
+        left: 0;
+        bottom: -1px;
+        width: 100%;
+        height: 2px;
+        background: var(--gold);
+        transform: scaleX(0);
+        transform-origin: left;
+        pointer-events: none;
+      }
+      .links a.on {
+        color: var(--black);
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+      }
+      .logo img {
+        display: block;
+        height: 34px;
+        width: auto;
+      }
+      .logo-word {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 17px;
+        letter-spacing: 0.01em;
+        color: var(--black);
+      }
+      .foot .logo-word {
+        color: var(--white);
+      }
+      .links {
+        display: flex;
+        gap: 28px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+        white-space: nowrap;
+      }
+      .links a:hover {
+        color: var(--black);
+      }
+      /* Dropdown tabs (FD AI, Resources) */
+      .has-sub {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+      .has-sub > button {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: inherit;
+        padding: 0;
+      }
+      .has-sub > button:hover,
+      .has-sub[data-open="true"] > button {
+        color: var(--black);
+      }
+      .has-sub > button svg {
+        width: 10px;
+        height: 10px;
+        transition: transform 0.2s var(--ease);
+      }
+      .has-sub[data-open="true"] > button svg {
+        transform: rotate(180deg);
+      }
+      .nav-sub {
+        position: absolute;
+        top: calc(100% + 14px);
+        left: -12px;
+        min-width: 160px;
+        background: var(--white);
+        border: 1px solid var(--grey-2);
+        border-radius: 8px;
+        padding: 6px;
+        box-shadow: 0 10px 30px rgba(15, 15, 15, 0.08);
+        display: none;
+        flex-direction: column;
+        z-index: 2;
+      }
+      .nav-sub::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -14px;
+        height: 14px;
+      }
+      .has-sub[data-open="true"] .nav-sub,
+      .has-sub:hover .nav-sub,
+      .has-sub:focus-within .nav-sub {
+        display: flex;
+      }
+      .has-sub:hover > button svg {
+        transform: rotate(180deg);
+      }
+      .nav-sub a {
+        padding: 7px 10px;
+        border-radius: 5px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+      }
+      .nav-sub a:hover,
+      .nav-sub a:focus-visible {
+        background: var(--grey-1);
+        color: var(--black);
+      }
+      .nav-sub a.on,
+      .has-sub > button.on {
+        color: var(--black);
+      }
+      .links.r {
+        margin-left: auto;
+      }
+      .nav-cta {
+        display: flex;
+        gap: 8px;
+        margin-left: 8px;
+      }
+      .burger {
+        display: none;
+        margin-left: auto;
+        width: 40px;
+        height: 40px;
+        border-radius: 6px;
+        place-items: center;
+      }
+      .burger span {
+        display: block;
+        width: 18px;
+        height: 2px;
+        background: var(--black);
+        position: relative;
+      }
+      .burger span::before,
+      .burger span::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        width: 18px;
+        height: 2px;
+        background: var(--black);
+      }
+      .burger span::before {
+        top: -6px;
+      }
+      .burger span::after {
+        top: 6px;
+      }
+      .menu {
+        display: none;
+        background: var(--white);
+        border-top: 1px solid var(--grey-2);
+        max-height: calc(100vh - var(--nav-h));
+        overflow: auto;
+      }
+      .menu .wrap {
+        display: grid;
+        height: auto;
+        gap: 14px;
+        padding-block: 18px 24px;
+        font-size: 15px;
+      }
+      .menu a {
+        padding: 4px 0;
+      }
+      .menu-group {
+        display: grid;
+        gap: 6px;
+      }
+      .menu-group > span {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--grey-4);
+      }
+      .menu-group a {
+        padding-left: 12px;
+      }
+      .menu[data-open="true"] {
+        display: block;
+      }
+      @media (max-width: 1240px) {
+        .links {
+          display: none;
+        }
+        .burger {
+          display: grid;
+          margin-left: 0;
+        }
+        .nav-cta {
+          margin-left: auto;
+        }
+      }
+      @media (max-width: 560px) {
+        .nav-cta .btn-white {
+          display: none;
+        }
+      }
+
+      /* cta band (renamed from .cta to avoid clashing with the nav) */
+      .cta-band {
+        background: var(--grey-1);
+        padding: clamp(64px, 8vw, 104px) 0;
+        text-align: center;
+      }
+      .cta-band h2 {
+        max-width: 24ch;
+        margin: 0 auto;
+      }
+      .cta-band .sub {
+        margin: 12px auto 0;
+        max-width: 40ch;
+      }
+      .cta-band .ctas {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 24px;
+        flex-wrap: wrap;
+      }
+
+      /* footer */
+      .foot .wrap {
+        max-width: var(--wrap-wide);
+      }
+      .foot {
+        background: var(--black);
+        color: var(--grey-4);
+        padding: 56px 0 32px;
+        font-size: 13px;
+      }
+      .foot .grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr 1.2fr 1.4fr;
+        gap: 40px;
+      }
+      .foot .logo img {
+        height: 38px;
+      }
+      .foot .about {
+        margin-top: 16px;
+        line-height: 1.7;
+        max-width: 34ch;
+      }
+      .foot h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--white);
+        margin-bottom: 12px;
+      }
+      .foot ul {
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+      .foot a:hover {
+        color: var(--white);
+      }
+      .foot .nl label {
+        display: block;
+        margin-bottom: 10px;
+      }
+      .foot .nl .field {
+        display: flex;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .foot .nl input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--white);
+        padding: 9px 12px;
+        font: inherit;
+        outline: none;
+        min-width: 0;
+      }
+      .foot .nl input::placeholder {
+        color: var(--grey-4);
+      }
+      .foot .nl button {
+        background: var(--gold);
+        color: var(--black);
+        padding: 0 14px;
+        font-weight: 600;
+      }
+      .foot .nl .msg {
+        margin-top: 8px;
+        font-size: 12px;
+        min-height: 1.2em;
+      }
+      .foot .bot {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 44px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 12px;
+      }
+      .foot .bot div {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      @media (max-width: 900px) {
+        .foot .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media (max-width: 560px) {
+        .foot .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* scroll reveals for sections */
+      html.js [data-rv] {
+        opacity: 0;
+        transform: translateY(14px);
+        transition:
+          opacity 0.6s var(--ease),
+          transform 0.6s var(--ease);
+        transition-delay: calc(var(--i, 0) * 70ms);
+      }
+      html.js [data-rv].in {
+        opacity: 1;
+        transform: none;
+      }
+
+
+      /* ---------- contact page ---------- */
+
+      /* header */
+      .c-hero {
+        position: relative;
+        background: var(--white);
+        padding: clamp(56px, 8vw, 104px) 0 clamp(40px, 5vw, 64px);
+        isolation: isolate;
+        overflow: hidden;
+      }
+      .c-hero .glow {
+        position: absolute;
+        inset: auto -20% -60% -20%;
+        height: 70%;
+        background: radial-gradient(60% 70% at 50% 100%, var(--gold-soft) 0%, rgba(251, 238, 201, 0) 70%);
+        z-index: -1;
+        pointer-events: none;
+      }
+      .c-hero h1 {
+        font-size: clamp(38px, 5.4vw, 68px);
+        max-width: 16ch;
+      }
+      .c-hero .sig {
+        display: block;
+        width: 56px;
+        height: 1px;
+        background: var(--gold);
+        margin: 24px 0 0;
+      }
+      .c-hero .sub {
+        margin-top: 22px;
+        max-width: 52ch;
+        font-size: clamp(16px, 1.2vw, 18px);
+      }
+
+      /* body: channels on the left, form on the right */
+      .c-body {
+        padding: 0 0 clamp(64px, 8vw, 112px);
+      }
+      .c-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+        gap: clamp(32px, 5vw, 80px);
+        align-items: start;
+      }
+
+      /* channels */
+      .chan {
+        display: grid;
+        gap: 12px;
+      }
+      .chan-item {
+        display: grid;
+        grid-template-columns: 40px 1fr;
+        gap: 14px;
+        padding: 18px 18px 18px 16px;
+        border: 1px solid var(--grey-2);
+        border-radius: 8px;
+        background: var(--white);
+        transition:
+          border-color 0.15s,
+          transform 0.15s var(--ease),
+          box-shadow 0.15s var(--ease);
+      }
+      a.chan-item:hover {
+        border-color: var(--grey-3);
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px -18px rgba(15, 15, 15, 0.45);
+      }
+      .chan-item .ic {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background: var(--grey-1);
+        display: grid;
+        place-items: center;
+      }
+      .chan-item .ic svg {
+        width: 18px;
+        height: 18px;
+      }
+      .chan-item h3 {
+        font-family: var(--sans);
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.01em;
+        line-height: 1.4;
+      }
+      .chan-item p {
+        color: var(--grey-5);
+        font-size: 13.5px;
+        margin-top: 3px;
+      }
+      .chan-item .more {
+        margin-top: 8px;
+      }
+      .chan-item.hi {
+        border-color: var(--gold);
+        background: linear-gradient(180deg, #fffaf0 0%, var(--white) 100%);
+      }
+      .chan-item.hi .ic {
+        background: var(--gold-soft);
+      }
+
+      .hours {
+        margin-top: 28px;
+        padding-top: 22px;
+        border-top: 1px solid var(--grey-2);
+        display: grid;
+        gap: 10px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+      }
+      .hours dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 6px 18px;
+      }
+      .hours dt {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .hours dd {
+        margin: 0;
+      }
+
+      /* form */
+      .cform {
+        background: var(--grey-1);
+        border: 1px solid var(--grey-2);
+        border-radius: 10px;
+        padding: clamp(22px, 3vw, 36px);
+      }
+      .cform h2 {
+        font-size: clamp(22px, 2.2vw, 28px);
+      }
+      .cform > .sub {
+        margin-top: 6px;
+        font-size: 14.5px;
+      }
+      .cform .rows {
+        display: grid;
+        gap: 16px;
+        margin-top: 24px;
+      }
+      .cform .two {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .f {
+        display: grid;
+        gap: 6px;
+      }
+      .f label {
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .f label .opt {
+        color: var(--grey-4);
+        font-weight: 400;
+      }
+      .f input,
+      .f select,
+      .f textarea {
+        width: 100%;
+        font: inherit;
+        font-size: 14.5px;
+        color: var(--ink);
+        background: var(--white);
+        border: 1px solid var(--grey-3);
+        border-radius: 6px;
+        padding: 10px 12px;
+        outline: none;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+      .f input::placeholder,
+      .f textarea::placeholder {
+        color: var(--grey-4);
+      }
+      .f input:focus,
+      .f select:focus,
+      .f textarea:focus {
+        border-color: var(--black);
+        box-shadow: 0 0 0 3px rgba(243, 191, 75, 0.35);
+      }
+      .f select {
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10' fill='none' stroke='%23666' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M2 3.5l3 3 3-3'/></svg>");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 10px;
+        padding-right: 32px;
+      }
+      .f textarea {
+        min-height: 128px;
+        resize: vertical;
+      }
+      .f.err input,
+      .f.err select,
+      .f.err textarea {
+        border-color: var(--miss);
+      }
+      .f .hint {
+        font-size: 12px;
+        color: var(--grey-5);
+        min-height: 1.2em;
+      }
+      .f.err .hint {
+        color: var(--miss);
+      }
+
+      /* file drop */
+      .drop {
+        position: relative;
+        border: 1px dashed var(--grey-3);
+        border-radius: 6px;
+        background: var(--white);
+        padding: 16px 14px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+        transition:
+          border-color 0.15s,
+          background 0.15s;
+      }
+      .drop:hover,
+      .drop:focus-within,
+      .drop.over {
+        border-color: var(--black);
+        background: #fffdf7;
+      }
+      .drop input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+      }
+      .drop .ic {
+        flex: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        background: var(--grey-1);
+        display: grid;
+        place-items: center;
+      }
+      .drop .ic svg {
+        width: 16px;
+        height: 16px;
+      }
+      .drop b {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .drop .file {
+        margin-left: auto;
+        color: var(--ink);
+        font-weight: 500;
+        max-width: 40%;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .consent {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        font-size: 13px;
+        color: var(--grey-5);
+        line-height: 1.5;
+      }
+      .consent input {
+        margin-top: 3px;
+        accent-color: var(--black);
+        width: 15px;
+        height: 15px;
+        flex: none;
+      }
+      .consent a {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      .cform .actions {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
+      .cform .btn {
+        padding: 12px 20px;
+        font-size: 14px;
+      }
+      .cform .btn[disabled] {
+        opacity: 0.6;
+        cursor: progress;
+        transform: none;
+        box-shadow: none;
+      }
+      .cform .note {
+        font-size: 12.5px;
+        color: var(--grey-5);
+      }
+      .cform .fmsg {
+        font-size: 13px;
+        margin-top: 10px;
+        min-height: 1.3em;
+      }
+      .cform .fmsg.bad {
+        color: var(--miss);
+      }
+
+      /* sent state */
+      .sent {
+        display: none;
+        text-align: left;
+        padding: 8px 0;
+      }
+      .cform.done form {
+        display: none;
+      }
+      .cform.done .sent {
+        display: block;
+      }
+      .sent .tick {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: var(--gold);
+        display: grid;
+        place-items: center;
+        margin-bottom: 18px;
+      }
+      .sent .tick svg {
+        width: 20px;
+        height: 20px;
+      }
+      .sent h2 {
+        font-size: clamp(22px, 2.2vw, 28px);
+      }
+      .sent p {
+        margin-top: 10px;
+        color: var(--grey-5);
+        max-width: 46ch;
+      }
+      .sent .ctas {
+        display: flex;
+        gap: 10px;
+        margin-top: 22px;
+        flex-wrap: wrap;
+      }
+
+      /* what happens next */
+      .next {
+        background: var(--white);
+        padding: clamp(56px, 7vw, 96px) 0;
+        border-top: 1px solid var(--grey-2);
+      }
+      .next .head {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+      .next .head .sub {
+        margin-top: 8px;
+        max-width: 44ch;
+      }
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin-top: 32px;
+        counter-reset: step;
+      }
+      .step {
+        position: relative;
+        background: var(--grey-1);
+        border: 1px solid var(--grey-2);
+        border-radius: 8px;
+        padding: 22px 20px 20px;
+        display: grid;
+        gap: 8px;
+      }
+      .step::before {
+        counter-increment: step;
+        content: counter(step);
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 13px;
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--gold);
+        color: var(--black);
+        display: grid;
+        place-items: center;
+        margin-bottom: 6px;
+      }
+      .step h3 {
+        font-family: var(--sans);
+        font-weight: 600;
+        font-size: 15px;
+        line-height: 1.4;
+        letter-spacing: -0.01em;
+      }
+      .step p {
+        color: var(--grey-5);
+        font-size: 13.5px;
+      }
+      .step .t {
+        margin-top: 6px;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--gold-deep);
+      }
+
+      /* FAQ */
+      .faq {
+        background: var(--grey-1);
+        padding: clamp(56px, 7vw, 96px) 0;
+      }
+      .faq .head .sub {
+        margin-top: 8px;
+        max-width: 44ch;
+      }
+      .faq-list {
+        margin-top: 28px;
+        border-top: 1px solid var(--grey-3);
+        max-width: 760px;
+      }
+      .faq details {
+        border-bottom: 1px solid var(--grey-3);
+      }
+      .faq summary {
+        list-style: none;
+        cursor: pointer;
+        padding: 18px 0;
+        font-weight: 500;
+        font-size: 15px;
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: center;
+      }
+      .faq summary::-webkit-details-marker {
+        display: none;
+      }
+      .faq summary svg {
+        flex: none;
+        width: 12px;
+        height: 12px;
+        transition: transform 0.2s var(--ease);
+      }
+      .faq details[open] summary svg {
+        transform: rotate(45deg);
+      }
+      .faq details p {
+        padding: 0 0 18px;
+        color: var(--grey-5);
+        max-width: 62ch;
+      }
+
+      @media (max-width: 900px) {
+        .c-grid {
+          grid-template-columns: 1fr;
+        }
+        .steps {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 560px) {
+        .cform .two {
+          grid-template-columns: 1fr;
+        }
+        .drop .file {
+          max-width: 100%;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        html.js [data-rv] {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+        .btn,
+        .chan-item,
+        .more .arr {
+          transition: none;
+        }
+      }
+
+      /* ---------- v2 design additions ---------- */
+
+      /* hero becomes two columns: words left, a living document on the right */
+      .c-hero .wrap {
+        display: grid;
+        grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+        gap: clamp(32px, 5vw, 72px);
+        align-items: center;
+      }
+      .c-hero .dots {
+        position: absolute;
+        inset: 0 0 0 55%;
+        background-image: radial-gradient(var(--grey-3) 1px, transparent 1.2px);
+        background-size: 22px 22px;
+        -webkit-mask-image: radial-gradient(60% 70% at 65% 50%, #000 0%, transparent 100%);
+        mask-image: radial-gradient(60% 70% at 65% 50%, #000 0%, transparent 100%);
+        opacity: 0.55;
+        z-index: -1;
+        pointer-events: none;
+      }
+      .c-hero h1 .line {
+        display: block;
+        overflow: hidden;
+        padding: 0.02em 0 0.12em;
+        margin-bottom: -0.12em;
+      }
+      html.js .c-hero h1 .line > span {
+        display: block;
+        transform: translateY(125%);
+        transition: transform 0.9s var(--ease);
+      }
+      html.js .c-hero .sig {
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.7s var(--ease) 0.45s;
+      }
+      html.js .c-hero .sub,
+      html.js .c-hero .status,
+      html.js .c-hero .doc {
+        opacity: 0;
+        transform: translateY(10px);
+        transition:
+          opacity 0.6s var(--ease),
+          transform 0.6s var(--ease);
+      }
+      html.js.loaded .c-hero h1 .line > span {
+        transform: none;
+      }
+      html.js.loaded .c-hero h1 .line:nth-child(2) > span {
+        transition-delay: 0.08s;
+      }
+      html.js.loaded .c-hero .sig {
+        transform: none;
+      }
+      html.js.loaded .c-hero .sub,
+      html.js.loaded .c-hero .status,
+      html.js.loaded .c-hero .doc {
+        opacity: 1;
+        transform: none;
+      }
+      html.js.loaded .c-hero .sub {
+        transition-delay: 0.55s;
+      }
+      html.js.loaded .c-hero .status {
+        transition-delay: 0.75s;
+      }
+      html.js.loaded .c-hero .doc {
+        transition-delay: 0.35s;
+      }
+
+      /* live status pill */
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 26px;
+        padding: 7px 12px 7px 10px;
+        border: 1px solid var(--grey-2);
+        border-radius: 999px;
+        font-size: 12.5px;
+        color: var(--grey-5);
+        background: var(--white);
+      }
+      .status i {
+        position: relative;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--grey-4);
+      }
+      .status.on i {
+        background: var(--ok);
+      }
+      .status.on i::after {
+        content: "";
+        position: absolute;
+        inset: -4px;
+        border-radius: 50%;
+        border: 1.5px solid var(--ok);
+        opacity: 0;
+        animation: ping 2.4s var(--ease) infinite;
+      }
+      @keyframes ping {
+        0% { transform: scale(0.5); opacity: 0.8; }
+        70%, 100% { transform: scale(1.3); opacity: 0; }
+      }
+      .status b {
+        color: var(--ink);
+        font-weight: 500;
+      }
+
+      /* the living document */
+      .doc {
+        position: relative;
+        max-width: 380px;
+        margin-left: auto;
+        background: var(--white);
+        border: 1px solid var(--grey-2);
+        border-radius: 10px;
+        box-shadow:
+          0 1px 2px rgba(15, 15, 15, 0.04),
+          0 24px 48px -28px rgba(15, 15, 15, 0.35);
+        padding: 18px 20px 20px;
+        font-size: 12.5px;
+      }
+      .doc-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--grey-2);
+        color: var(--grey-5);
+      }
+      .doc-head svg {
+        width: 16px;
+        height: 16px;
+        flex: none;
+      }
+      .doc-head b {
+        color: var(--ink);
+        font-weight: 500;
+      }
+      .doc-head .pill {
+        margin-left: auto;
+        font-size: 11px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        background: var(--grey-1);
+        color: var(--grey-5);
+        white-space: nowrap;
+        transition: background 0.4s, color 0.4s;
+      }
+      .doc.reviewed .doc-head .pill {
+        background: var(--gold-soft);
+        color: var(--gold-deep);
+      }
+      .doc-body {
+        display: grid;
+        gap: 9px;
+        padding-top: 14px;
+      }
+      .doc-body .h {
+        height: 8px;
+        width: 42%;
+        border-radius: 3px;
+        background: var(--grey-3);
+        margin-bottom: 2px;
+      }
+      .doc-body .l {
+        position: relative;
+        height: 6px;
+        border-radius: 3px;
+        background: var(--grey-2);
+        width: var(--w, 100%);
+      }
+      html.js .doc-body > * {
+        opacity: 0;
+        transform: translateX(-6px);
+        transition:
+          opacity 0.45s var(--ease),
+          transform 0.45s var(--ease);
+        transition-delay: calc(0.7s + var(--n) * 60ms);
+      }
+      html.js.loaded .doc-body > * {
+        opacity: 1;
+        transform: none;
+      }
+      .doc-body .l.mark {
+        isolation: isolate;
+        background: var(--grey-3);
+      }
+      .doc-body .l.mark::after {
+        content: "";
+        position: absolute;
+        inset: -3px -4px;
+        border-radius: 4px;
+        background: var(--gold-soft);
+        z-index: -1;
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.6s var(--ease) 1.5s;
+      }
+      html.js.loaded .doc-body .l.mark::after {
+        transform: scaleX(1);
+      }
+      .doc-note {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        margin-top: 14px;
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: var(--ink);
+        color: var(--grey-2);
+        line-height: 1.45;
+      }
+      html.js .doc-note {
+        opacity: 0;
+        transform: translateY(8px) scale(0.98);
+        transition:
+          opacity 0.5s var(--ease) 2.05s,
+          transform 0.5s var(--ease) 2.05s;
+      }
+      html.js.loaded .doc-note {
+        opacity: 1;
+        transform: none;
+      }
+      .doc-note .av {
+        flex: none;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--gold);
+        color: var(--black);
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 10px;
+        display: grid;
+        place-items: center;
+      }
+      .doc-note small {
+        display: block;
+        margin-top: 3px;
+        color: var(--grey-4);
+        font-size: 11px;
+      }
+      .doc-corner {
+        position: absolute;
+        right: -10px;
+        top: -10px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--gold);
+        display: grid;
+        place-items: center;
+        transform: scale(0);
+        transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 2.4s;
+      }
+      .doc-corner svg {
+        width: 11px;
+        height: 11px;
+      }
+      html.js.loaded .doc-corner {
+        transform: scale(1);
+      }
+
+      /* channels: icon answers hover */
+      .chan-item .ic {
+        transition: background 0.2s, transform 0.2s var(--ease);
+      }
+      a.chan-item:hover .ic {
+        transform: translateY(-2px) rotate(-4deg);
+        background: var(--gold-soft);
+      }
+      .chan-item .dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--ok);
+        margin-left: 6px;
+        vertical-align: middle;
+      }
+
+      /* form: completion bar + focused label */
+      .cform {
+        position: relative;
+        overflow: hidden;
+      }
+      .cform .bar {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 3px;
+        width: 100%;
+        background: var(--grey-2);
+      }
+      .cform .bar i {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: var(--gold);
+        transition: width 0.45s var(--ease), background 0.3s;
+      }
+      .cform .bar i.full {
+        background: var(--ok);
+      }
+      .f:focus-within label {
+        color: var(--black);
+      }
+      .f label {
+        transition: color 0.15s;
+      }
+      .cform .note b {
+        color: var(--ok);
+        font-weight: 500;
+      }
+      .drop .ic {
+        transition: transform 0.25s var(--ease), background 0.2s;
+      }
+      .drop.over .ic,
+      .drop:hover .ic {
+        transform: translateY(-2px);
+        background: var(--gold-soft);
+      }
+      .drop.over .ic {
+        animation: nudge 0.8s var(--ease) infinite;
+      }
+      @keyframes nudge {
+        0%, 100% { transform: translateY(-2px); }
+        50% { transform: translateY(-6px); }
+      }
+      .drop.has .ic {
+        background: var(--gold-soft);
+      }
+
+      /* sent: tick draws itself */
+      .sent .tick svg path {
+        stroke-dasharray: 24;
+        stroke-dashoffset: 24;
+      }
+      .cform.done .sent .tick {
+        animation: pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+      }
+      .cform.done .sent .tick svg path {
+        animation: draw 0.5s var(--ease) 0.25s forwards;
+      }
+      .cform.done .sent h2,
+      .cform.done .sent p,
+      .cform.done .sent .ctas {
+        animation: rise 0.5s var(--ease) both;
+      }
+      .cform.done .sent p { animation-delay: 0.1s; }
+      .cform.done .sent .ctas { animation-delay: 0.2s; }
+      @keyframes pop {
+        from { transform: scale(0.6); opacity: 0; }
+        to { transform: none; opacity: 1; }
+      }
+      @keyframes draw {
+        to { stroke-dashoffset: 0; }
+      }
+      @keyframes rise {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: none; }
+      }
+
+      /* steps: a thread runs through them */
+      .steps {
+        position: relative;
+      }
+      .step:not(:last-child)::after {
+        content: "";
+        position: absolute;
+        left: 46px;
+        top: 35px;
+        width: calc(100% - 46px + 14px + 20px);
+        height: 1px;
+        background: var(--gold);
+        transform: scaleX(0);
+        transform-origin: left;
+        transition: transform 0.7s var(--ease);
+        z-index: 1;
+      }
+      .steps.in .step::after {
+        transform: scaleX(1);
+      }
+      .steps.in .step:nth-child(1)::after { transition-delay: 0.3s; }
+      .steps.in .step:nth-child(2)::after { transition-delay: 1s; }
+      .step::before {
+        position: relative;
+        z-index: 2;
+        box-shadow: 0 0 0 6px var(--grey-1);
+      }
+      .step {
+        transition: border-color 0.2s;
+      }
+      .step:hover {
+        border-color: var(--grey-3);
+      }
+
+      /* FAQ: answers unfold */
+      .faq details p {
+        animation: unfold 0.35s var(--ease);
+      }
+      @keyframes unfold {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: none; }
+      }
+      .faq summary {
+        transition: color 0.15s, padding-left 0.2s var(--ease);
+      }
+      .faq summary:hover {
+        padding-left: 6px;
+      }
+
+      /* cta band gets the hero's warmth */
+      .cta-band {
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+      }
+      .cta-band::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -40%;
+        width: 60%;
+        height: 100%;
+        transform: translateX(-50%);
+        background: radial-gradient(50% 50% at 50% 100%, var(--gold-soft) 0%, rgba(251, 238, 201, 0) 70%);
+        z-index: -1;
+      }
+
+      @media (max-width: 900px) {
+        .c-hero .wrap {
+          grid-template-columns: 1fr;
+        }
+        .c-hero .dots {
+          display: none;
+        }
+        .doc {
+          margin-left: 0;
+          max-width: 440px;
+        }
+        .step::after {
+          display: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html.js .c-hero h1 .line > span,
+        html.js .c-hero .sig,
+        html.js .c-hero .sub,
+        html.js .c-hero .status,
+        html.js .c-hero .doc,
+        html.js .doc-body > *,
+        html.js .doc-note,
+        .doc-corner {
+          transition: none;
+          opacity: 1;
+          transform: none;
+        }
+        .doc-body .l.mark::after {
+          transform: scaleX(1);
+          transition: none;
+        }
+        .status.on i::after,
+        .drop.over .ic,
+        .cform.done .sent *,
+        .faq details p {
+          animation: none;
+        }
+        .step::after {
+          transform: scaleX(1);
+          transition: none;
+        }
+      }
+
+      /* ---------- v3 refinements ---------- */
+      .c-hero {
+        padding-top: clamp(48px, 7vw, 88px);
+      }
+      .c-hero h1 {
+        font-size: clamp(40px, 5.8vw, 72px);
+      }
+      .c-body {
+        background: var(--grey-1);
+        border-top: 1px solid var(--grey-2);
+        padding: clamp(40px, 5vw, 64px) 0 clamp(64px, 8vw, 104px);
+      }
+      .c-grid {
+        grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+      }
+      .chan-item {
+        grid-template-columns: 40px 1fr auto;
+        align-items: center;
+        padding: 16px 18px 16px 16px;
+      }
+      .chan-item > .arr {
+        color: var(--grey-4);
+        transition: transform 0.18s var(--ease), color 0.18s;
+      }
+      a.chan-item:hover > .arr {
+        transform: translateX(3px);
+        color: var(--black);
+      }
+      .chan-item p {
+        font-size: 13px;
+        margin-top: 2px;
+      }
+      .chan-item.hi {
+        background: var(--white);
+      }
+      .hours {
+        margin-top: 24px;
+        padding-top: 0;
+        border-top: none;
+        gap: 0;
+        display: grid;
+      }
+      .hours > div {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 10px 0;
+        border-top: 1px solid var(--grey-2);
+        font-size: 13px;
+      }
+      .hours dt {
+        color: var(--grey-5);
+        font-weight: 400;
+      }
+      .hours dd {
+        color: var(--ink);
+        text-align: right;
+      }
+      .cform {
+        background: var(--white);
+        border-color: var(--grey-2);
+        box-shadow:
+          0 1px 2px rgba(15, 15, 15, 0.03),
+          0 24px 48px -32px rgba(15, 15, 15, 0.3);
+      }
+      .cform .rows {
+        gap: 18px;
+      }
+      .f label {
+        font-size: 12.5px;
+        color: var(--grey-5);
+      }
+      .f input,
+      .f select,
+      .f textarea {
+        padding: 11px 13px;
+        border-color: var(--grey-2);
+        background: var(--grey-1);
+        transition:
+          border-color 0.15s,
+          background 0.15s,
+          box-shadow 0.15s;
+      }
+      .f input:focus,
+      .f select:focus,
+      .f textarea:focus {
+        background: var(--white);
+      }
+      .f textarea {
+        min-height: 112px;
+      }
+      .drop {
+        background: var(--grey-1);
+        border-color: var(--grey-3);
+      }
+      .drop .ic {
+        background: var(--white);
+      }
+      .f .hint:empty {
+        display: none;
+      }
+      .cform .fmsg:empty {
+        display: none;
+      }
+      .next {
+        border-top: none;
+      }
+      .step {
+        background: var(--white);
+        padding: 20px 20px 18px;
+      }
+      .step::before {
+        box-shadow: 0 0 0 6px var(--white);
+      }
+      .step p {
+        font-size: 13.5px;
+      }
+      .faq {
+        background: var(--white);
+        padding-top: 0;
+      }
+      .faq .wrap {
+        border-top: 1px solid var(--grey-2);
+        padding-top: clamp(48px, 6vw, 80px);
+      }
+      .faq-list {
+        margin-top: 24px;
+        border-top-color: var(--grey-2);
+      }
+      .faq details {
+        border-bottom-color: var(--grey-2);
+      }
+      .faq summary {
+        padding: 16px 0;
+      }
+      .faq details p {
+        padding-bottom: 16px;
+        font-size: 14px;
+      }
+      @media (max-width: 900px) {
+        .hours dd {
+          text-align: right;
+        }
+      }
+
+      /* ---------- theme: light / dark ---------- */
+      :root {
+        --shadow: 15, 15, 15;
+        color-scheme: light;
+      }
+      html[data-theme="dark"] {
+        --white: #0f0f0f;
+        --grey-1: #171717;
+        --grey-2: #262626;
+        --grey-3: #383838;
+        --grey-4: #7d7d7d;
+        --grey-5: #a8a8a8;
+        --black: #f4f4f4;
+        --ink: #ebebeb;
+        --gold-soft: #3b2f11;
+        --gold-deep: #e6b955;
+        --ok: #5fb583;
+        --miss: #e2776b;
+        --shadow: 0, 0, 0;
+        color-scheme: dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]) {
+          --white: #0f0f0f;
+          --grey-1: #171717;
+          --grey-2: #262626;
+          --grey-3: #383838;
+          --grey-4: #7d7d7d;
+          --grey-5: #a8a8a8;
+          --black: #f4f4f4;
+          --ink: #ebebeb;
+          --gold-soft: #3b2f11;
+          --gold-deep: #e6b955;
+          --ok: #5fb583;
+          --miss: #e2776b;
+          --shadow: 0, 0, 0;
+          color-scheme: dark;
+        }
+      }
+      body {
+        transition: background 0.3s, color 0.3s;
+      }
+      /* hard-coded colours that don't flip with the tokens */
+      .nav.scrolled {
+        background: color-mix(in srgb, var(--white) 86%, transparent);
+      }
+      .btn-black:hover {
+        background: color-mix(in srgb, var(--black) 88%, var(--white));
+      }
+      .drop:hover,
+      .drop:focus-within,
+      .drop.over {
+        background: var(--white);
+      }
+      .doc,
+      .cform,
+      .chan-item {
+        box-shadow: none;
+      }
+      .doc {
+        box-shadow: 0 24px 48px -28px rgba(var(--shadow), 0.4);
+      }
+      .cform {
+        box-shadow: 0 24px 48px -32px rgba(var(--shadow), 0.35);
+      }
+      a.chan-item:hover {
+        box-shadow: 0 12px 24px -18px rgba(var(--shadow), 0.5);
+      }
+      .doc-note {
+        background: var(--ink);
+        color: var(--white);
+      }
+      .doc-note small {
+        color: var(--grey-3);
+      }
+      html[data-theme="dark"] .doc-note small {
+        color: var(--grey-5);
+      }
+      html[data-theme="dark"] .doc-note {
+        color: var(--grey-1);
+      }
+      /* footer stays dark in both themes */
+      .foot {
+        background: #0f0f0f;
+        color: #9a9a9a;
+        border-top: 1px solid #1f1f1f;
+      }
+      .foot h4,
+      .foot a:hover,
+      .foot .nl input,
+      .foot .logo-word {
+        color: #fff;
+      }
+      .foot .nl input::placeholder {
+        color: #9a9a9a;
+      }
+      .foot .nl button {
+        color: #0f0f0f;
+      }
+
+      /* theme toggle */
+      .theme {
+        width: 36px;
+        height: 36px;
+        border-radius: 6px;
+        display: grid;
+        place-items: center;
+        color: var(--grey-5);
+        margin-left: 4px;
+        transition: color 0.15s, background 0.15s;
+      }
+      .theme:hover {
+        color: var(--black);
+        background: var(--grey-1);
+      }
+      .theme svg {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.35s var(--ease);
+      }
+      .theme .moon { display: none; }
+      html[data-theme="dark"] .theme .sun { display: none; }
+      html[data-theme="dark"] .theme .moon { display: block; }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]) .theme .sun { display: none; }
+        html:not([data-theme="light"]) .theme .moon { display: block; }
+      }
+      .theme:active svg {
+        transform: rotate(-30deg) scale(0.9);
+      }
+      @media (max-width: 1240px) {
+        .theme { margin-left: 0; }
+      }
+
+      /* a little colour in the details */
+      .sig {
+        background: linear-gradient(90deg, var(--gold), var(--gold-deep)) !important;
+      }
+      .status.on {
+        border-color: color-mix(in srgb, var(--ok) 35%, var(--grey-2));
+      }
+      .cform .bar i.full {
+        background: linear-gradient(90deg, var(--gold), var(--ok));
+      }
+      .step .t {
+        color: var(--gold-deep);
+      }
+      /* anything sitting on gold keeps dark ink in both themes */
+      .btn-gold,
+      .btn-gold:hover,
+      .step::before,
+      .doc-corner,
+      .doc-note .av,
+      .sent .tick,
+      .foot .nl button {
+        color: #0f0f0f;
+      }
+      html[data-theme="dark"] .chan-item.hi {
+        background: color-mix(in srgb, var(--gold-soft) 45%, var(--white));
+      }
+
+      /* ---------- gold, placed on purpose ---------- */
+      ::selection {
+        background: var(--gold-soft);
+        color: var(--ink);
+      }
+      /* hero: a halo behind the document, warmth rising from the floor */
+      .c-hero .glow {
+        inset: auto -10% -70% -10%;
+        height: 90%;
+        opacity: 0.9;
+      }
+      .doc-wrap {
+        position: relative;
+      }
+      .doc-wrap::before {
+        content: "";
+        position: absolute;
+        inset: -18% -22% -26% -22%;
+        background: radial-gradient(55% 55% at 55% 50%, var(--gold-soft) 0%, transparent 68%);
+        filter: saturate(1.2);
+        opacity: 0;
+        z-index: -1;
+        pointer-events: none;
+        transition: opacity 1.2s var(--ease) 0.6s;
+      }
+      html.js.loaded .doc-wrap::before,
+      html:not(.js) .doc-wrap::before {
+        opacity: 1;
+      }
+      html[data-theme="dark"] .doc-wrap::before {
+        opacity: 0.6;
+      }
+      /* contact section: the form's top edge is gold */
+      .cform .bar {
+        background: var(--gold-soft);
+      }
+      .cform .bar i {
+        background: var(--gold);
+      }
+      .cform:has(:focus-visible) .bar,
+      .cform:focus-within .bar {
+        background: var(--gold-soft);
+      }
+      .f:focus-within label {
+        color: var(--gold-deep);
+      }
+      .consent input:checked {
+        accent-color: var(--gold-deep);
+      }
+      .chan-item.hi .ic {
+        background: var(--gold);
+        color: var(--black);
+      }
+      html[data-theme="dark"] .chan-item.hi .ic {
+        color: #0f0f0f;
+      }
+      .hours dd.free {
+        color: var(--gold-deep);
+        font-weight: 500;
+      }
+      /* section heads carry the hero's signature rule */
+      .head-sig {
+        display: block;
+        width: 40px;
+        height: 2px;
+        border-radius: 1px;
+        background: linear-gradient(90deg, var(--gold), var(--gold-deep));
+        margin-bottom: 18px;
+      }
+      /* steps: the thread ends in a gold pill */
+      .step .t {
+        display: inline-block;
+        justify-self: start;
+        margin-top: 8px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: var(--gold-soft);
+        color: var(--gold-deep);
+        font-size: 12px;
+      }
+      .step:hover {
+        border-color: var(--gold);
+      }
+      /* faq: the plus turns gold when open */
+      .faq details[open] summary {
+        color: var(--gold-deep);
+      }
+      .faq details[open] summary svg {
+        color: var(--gold);
+      }
+      .faq summary:hover svg {
+        color: var(--gold-deep);
+      }
+      /* cta band: the hero's glow, mirrored */
+      .cta-band::before {
+        display: block;
+        width: 80%;
+        height: 120%;
+        bottom: -50%;
+        opacity: 0.9;
+      }
+      .cta-band {
+        border-top: 1px solid var(--grey-2);
+      }
+      /* footer: a hairline of gold where the page ends */
+      .foot {
+        border-top: 2px solid var(--gold);
+      }
+      /* nav: the active page is underlined in gold */
+      .menu a[aria-current="page"],
+      .nav-cta .btn-white[aria-current="page"] {
+        border-color: var(--gold);
+      }
+      .theme:hover {
+        color: var(--gold-deep);
+        background: var(--gold-soft);
+      }
+      @media (max-width: 900px) {
+        .doc-wrap::before {
+          inset: -10% -10% -14% -10%;
+        }
+      }
+
+      /* ---------- more gold in the air ---------- */
+      :root { --gold-air: rgba(243, 191, 75, 0.22); --gold-air-2: rgba(243, 191, 75, 0.10); }
+      html[data-theme="dark"] { --gold-air: rgba(243, 191, 75, 0.16); --gold-air-2: rgba(243, 191, 75, 0.07); }
+      @media (prefers-color-scheme: dark) {
+        html:not([data-theme="light"]) { --gold-air: rgba(243, 191, 75, 0.16); --gold-air-2: rgba(243, 191, 75, 0.07); }
+      }
+      .c-hero .glow {
+        inset: auto -10% -60% -10%;
+        height: 110%;
+        background: radial-gradient(55% 60% at 50% 100%, var(--gold-air) 0%, var(--gold-air-2) 40%, transparent 72%);
+        opacity: 1;
+      }
+      .c-hero::after {
+        content: "";
+        position: absolute;
+        left: -10%;
+        top: -30%;
+        width: 50%;
+        height: 90%;
+        background: radial-gradient(50% 50% at 50% 50%, var(--gold-air-2) 0%, transparent 70%);
+        z-index: -1;
+        pointer-events: none;
+      }
+      .doc-wrap::before {
+        inset: -30% -30% -36% -30%;
+        background: radial-gradient(50% 50% at 55% 50%, var(--gold-air) 0%, var(--gold-air-2) 45%, transparent 72%);
+      }
+      html[data-theme="dark"] .doc-wrap::before { opacity: 1; }
+      .c-body::before,
+      .c-body::after {
+        content: "";
+        position: absolute;
+        z-index: -1;
+        pointer-events: none;
+      }
+      .c-body::before {
+        right: -12%;
+        top: -14%;
+        width: 48%;
+        height: 70%;
+        background: radial-gradient(50% 50% at 50% 50%, var(--gold-air) 0%, transparent 70%);
+      }
+      .c-body::after {
+        left: -14%;
+        bottom: -20%;
+        width: 40%;
+        height: 60%;
+        background: radial-gradient(50% 50% at 50% 50%, var(--gold-air-2) 0%, transparent 70%);
+      }
+      .c-body { position: relative; isolation: isolate; overflow: hidden; }
+      .cform {
+        border-top: 2px solid var(--gold);
+      }
+      .next {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+      }
+      .next::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: -55%;
+        width: 70%;
+        height: 80%;
+        transform: translateX(-50%);
+        background: radial-gradient(50% 50% at 50% 50%, var(--gold-air-2) 0%, transparent 70%);
+        z-index: -1;
+        pointer-events: none;
+      }
+      .step::before {
+        box-shadow: 0 0 0 6px var(--white), 0 0 24px var(--gold-air);
+      }
+      .cta-band::before {
+        width: 90%;
+        height: 160%;
+        bottom: -70%;
+        background: radial-gradient(50% 50% at 50% 100%, var(--gold-air) 0%, var(--gold-air-2) 45%, transparent 72%);
+        opacity: 1;
+      }
+      .cta-band .btn-gold {
+        box-shadow: 0 8px 28px -8px rgba(243, 191, 75, 0.7);
+      }
+      .btn-gold:hover {
+        box-shadow: 0 10px 24px -8px rgba(243, 191, 75, 0.8);
+      }
+      .sent .tick {
+        box-shadow: 0 0 0 8px var(--gold-soft), 0 0 32px var(--gold-air);
+      }
+      .foot {
+        background:
+          radial-gradient(60% 40% at 50% 0%, rgba(243, 191, 75, 0.12) 0%, transparent 70%),
+          #0f0f0f;
+      }
+    
+      /* The Founders Doc mark: the wordmark ruled above and below. Replaces the
+         hosted PNG so the logo never depends on a file loading, and inherits
+         currentColor so one rule serves the nav and the dark footer. */
+      .fd-mark {
+        display: inline-block;
+        font-family: var(--sans);
+        font-size: 11.5px;
+        font-weight: 500;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        line-height: 1;
+        padding: 7px 10px 6px 12px;
+        border-top: 1px solid currentColor;
+        border-bottom: 1px solid currentColor;
+        white-space: nowrap;
+      }
+      .foot .fd-mark { color: #fff; }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <nav class="nav" aria-label="Main">
+      <div class="wrap">
+        <a class="logo" href="/" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+        <div class="links">
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">FD AI <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/draft">Draft</a>
+              <a href="/#about">Review</a>
+            </div>
+          </div>
+          <a href="/#lawyers">Ask a Lawyer</a>
+          <a href="/#services">Services</a>
+        </div>
+        <div class="links r">
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">Resources <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/resources">Blog</a>
+              <a href="/coming-soon?f=Courses">Courses</a>
+              <a href="/podcast">Podcast</a>
+            </div>
+          </div>
+          <a href="/about">About us</a>
+        </div>
+        <div class="nav-cta">
+          <a class="btn btn-white" href="#form" aria-current="page">Book a consultation</a>
+          <a class="btn btn-gold" href="/draft">Launch FD AI</a>
+        </div>
+        <button class="theme" type="button" id="theme" aria-label="Switch to dark mode" title="Switch theme">
+          <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+          <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" /></svg>
+        </button>
+        <button class="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
+          <span></span>
+        </button>
+      </div>
+      <span class="progress" aria-hidden="true"></span>
+      <div class="menu" id="menu" data-open="false">
+        <div class="wrap">
+          <div class="menu-group">
+            <span>FD AI</span>
+            <a href="/draft">Draft</a>
+            <a href="/#about">Review</a>
+          </div>
+          <a href="/#lawyers">Ask a Lawyer</a>
+          <a href="/#services">Services</a>
+          <div class="menu-group">
+            <span>Resources</span>
+            <a href="/resources">Blog</a>
+            <a href="/coming-soon?f=Courses">Courses</a>
+            <a href="/podcast">Podcast</a>
+          </div>
+          <a href="/about">About us</a>
+          <a href="#form" aria-current="page">Contact us</a>
+        </div>
+      </div>
+    </nav>
+
+    <main id="main">
+      <!-- header -->
+      <header class="c-hero" id="top">
+        <div class="glow" aria-hidden="true"></div>
+        <div class="dots" aria-hidden="true"></div>
+        <div class="wrap">
+          <div>
+            <h1><span class="line"><span>Tell us what</span></span><span class="line"><span>you need.</span></span></h1>
+            <span class="sig" aria-hidden="true"></span>
+            <p class="sub">A contract, a round, a question. A practising lawyer reads every message and replies personally.</p>
+            <span class="status" id="status"><i aria-hidden="true"></i><span>Checking who's online…</span></span>
+          </div>
+          <div class="doc-wrap">
+          <div class="doc" id="doc" aria-hidden="true">
+            <span class="doc-corner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg></span>
+            <div class="doc-head">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" /><path d="M14 3v5h5" /></svg>
+              <b>SAFE_note_v3.docx</b>
+              <span class="pill">Received</span>
+            </div>
+            <div class="doc-body">
+              <span class="h" style="--n: 0"></span>
+              <span class="l" style="--n: 1; --w: 100%"></span>
+              <span class="l" style="--n: 2; --w: 92%"></span>
+              <span class="l mark" style="--n: 3; --w: 78%"></span>
+              <span class="l" style="--n: 4; --w: 96%"></span>
+              <span class="l" style="--n: 5; --w: 61%"></span>
+            </div>
+            <div class="doc-note">
+              <span class="av">JT</span>
+              <span>Valuation cap is missing from clause 4. I've added one at your Series A price.<small>Jasmine Tan, lawyer</small></span>
+            </div>
+          </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- channels + form -->
+      <section class="c-body">
+        <div class="wrap">
+          <div class="c-grid">
+            <div data-rv>
+              <div class="chan">
+                <a class="chan-item hi" href="https://wa.me/6594617390?text=Hi!" target="_blank" rel="noopener">
+                  <span class="ic" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-13.3 7.9L3 21l1.2-4.5A9 9 0 1 1 21 12Z" /><path d="M9 10.5c.3 1.6 2 3.3 3.6 3.6l1.5-1.2 2 .9c-.3 1.4-1.3 2-2.5 1.8-3-.5-5.9-3.4-6.4-6.4-.2-1.2.4-2.2 1.8-2.5l.9 2-.9 1.8Z" /></svg>
+                  </span>
+                  <span>
+                    <h3>WhatsApp<span class="dot" id="wa-dot" hidden aria-hidden="true"></span></h3>
+                    <p>+65 9461 7390. Quickest on a weekday. Messages only.</p>
+                  </span>
+                  <span class="arr" aria-hidden="true">→</span>
+                </a>
+                <a class="chan-item" href="mailto:administrator@foundersdoc.com?subject=Enquiry">
+                  <span class="ic" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></svg>
+                  </span>
+                  <span>
+                    <h3>Email</h3>
+                    <p>administrator@foundersdoc.com. For anything longer, or with attachments.</p>
+                  </span>
+                  <span class="arr" aria-hidden="true">→</span>
+                </a>
+                <a class="chan-item" href="/draft" target="_blank" rel="noopener">
+                  <span class="ic" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.2 2.2M16.2 16.2l2.2 2.2M5.6 18.4l2.2-2.2M16.2 7.8l2.2-2.2" /><circle cx="12" cy="12" r="3.5" /></svg>
+                  </span>
+                  <span>
+                    <h3>Ask FD AI</h3>
+                    <p>Our AI drafts and reviews in minutes, any hour. A lawyer steps in when you ask.</p>
+                  </span>
+                  <span class="arr" aria-hidden="true">→</span>
+                </a>
+              </div>
+
+              <dl class="hours">
+                <div><dt>Hours</dt><dd>Mon to Fri, 9am to 6pm SGT</dd></div>
+                <div><dt>Based</dt><dd>Singapore</dd></div>
+                <div><dt>First message</dt><dd class="free">Always free</dd></div>
+              </dl>
+            </div>
+
+            <div class="cform" id="form" data-rv>
+              <span class="bar" aria-hidden="true"><i id="bar"></i></span>
+              <form id="c-form" novalidate action="" method="post" enctype="multipart/form-data">
+                <h2>Or write here.</h2>
+                <p class="sub">Three fields are enough. The rest helps us reply well.</p>
+
+                <div class="rows">
+                  <div class="two">
+                    <div class="f">
+                      <label for="name">Name</label>
+                      <input id="name" name="name" type="text" autocomplete="name" required placeholder="Ada Lovelace" />
+                      <span class="hint" aria-live="polite"></span>
+                    </div>
+                    <div class="f">
+                      <label for="email">Email</label>
+                      <input id="email" name="email" type="email" autocomplete="email" inputmode="email" required placeholder="ada@company.com" />
+                      <span class="hint" aria-live="polite"></span>
+                    </div>
+                  </div>
+
+                  <div class="two">
+                    <div class="f">
+                      <label for="company">Company <span class="opt">(optional)</span></label>
+                      <input id="company" name="company" type="text" autocomplete="organization" placeholder="Company Pte Ltd" />
+                      <span class="hint"></span>
+                    </div>
+                    <div class="f">
+                      <label for="need">I need</label>
+                      <select id="need" name="need" required>
+                        <option value="" selected disabled>Choose one</option>
+                        <option value="review">Review a contract I've been sent</option>
+                        <option value="draft">Draft a contract for me</option>
+                        <option value="fundraising">Help with a fundraising round</option>
+                        <option value="question">A legal question about my company</option>
+                        <option value="call">A call with a lawyer</option>
+                        <option value="fdai">Help using FD AI</option>
+                        <option value="partner">Courses, podcast or partnerships</option>
+                        <option value="other">Something else</option>
+                      </select>
+                      <span class="hint" aria-live="polite"></span>
+                    </div>
+                  </div>
+
+                  <div class="f">
+                    <label for="message">Message</label>
+                    <textarea id="message" name="message" required placeholder="What's going on, and any dates that matter."></textarea>
+                    <span class="hint" aria-live="polite"></span>
+                  </div>
+
+                  <div class="f">
+                    <label for="file">Attachment <span class="opt">(optional)</span></label>
+                    <div class="drop" id="drop">
+                      <input id="file" name="file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" aria-describedby="file-hint" />
+                      <span class="ic" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" /><path d="M14 3v5h5M12 11v6M9.5 13.5 12 11l2.5 2.5" /></svg>
+                      </span>
+                      <span><b>Drop a file</b> or click. PDF or Word, up to 15 MB.</span>
+                      <span class="file" id="file-name"></span>
+                    </div>
+                    <span class="hint" id="file-hint" aria-live="polite"></span>
+                  </div>
+
+                  <div class="f">
+                    <label class="consent" for="consent">
+                      <input id="consent" name="consent" type="checkbox" required />
+                      <span>I agree to the <a href="https://foundersdoc.com/privacy-policy/">privacy policy</a>. Everything you send is confidential.</span>
+                    </label>
+                    <span class="hint" aria-live="polite"></span>
+                  </div>
+
+                  <div class="actions">
+                    <button class="btn btn-black" type="submit" id="send">Send message</button>
+                    <span class="note" id="note">No obligation. Any cost is quoted first.</span>
+                  </div>
+                  <p class="fmsg" id="fmsg" aria-live="polite" role="status"></p>
+                </div>
+              </form>
+
+              <div class="sent" role="status" aria-live="polite">
+                <span class="tick" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+                </span>
+                <h2>Message sent.</h2>
+                <p id="sent-copy">Thanks. A lawyer will read it and reply.</p>
+                <div class="ctas">
+                  <a class="btn btn-gold" href="/draft">Launch FD AI</a>
+                  <button class="btn btn-white" type="button" id="again">Send another message</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- what happens next -->
+      <section class="next" aria-labelledby="next-h">
+        <div class="wrap">
+          <div class="head" data-rv>
+            <div>
+              <span class="head-sig" aria-hidden="true"></span>
+              <h2 id="next-h">What happens next.</h2>
+              <p class="sub">No sales call. No retainer.</p>
+            </div>
+          </div>
+          <div class="steps" data-rv>
+            <div class="step" data-rv>
+              <h3>A lawyer reads it.</h3>
+              <p>Not a form, not an assistant.</p>
+              <span class="t">First thing on a weekday</span>
+            </div>
+            <div class="step" data-rv>
+              <h3>You get an answer.</h3>
+              <p>And one fixed price, if there's work to do.</p>
+              <span class="t">In the same reply</span>
+            </div>
+            <div class="step" data-rv>
+              <h3>Work starts when you say.</h3>
+              <p>Reviews come back marked up. Drafts come back ready to send.</p>
+              <span class="t">Two to five business days</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FAQ -->
+      <section class="faq" aria-labelledby="faq-h">
+        <div class="wrap">
+          <div class="head" data-rv>
+            <span class="head-sig" aria-hidden="true"></span>
+            <h2 id="faq-h">Before you write.</h2>
+          </div>
+          <div class="faq-list" data-rv>
+            <details>
+              <summary>Does it cost anything to ask?<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 1v10M1 6h10" /></svg></summary>
+              <p>No. You pay only when you approve a quote and we start work.</p>
+            </details>
+            <details>
+              <summary>Is what I send confidential?<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 1v10M1 6h10" /></svg></summary>
+              <p>Yes, from the moment it arrives, whether or not you instruct us.</p>
+            </details>
+            <details>
+              <summary>FD AI or a lawyer?<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M6 1v10M1 6h10" /></svg></summary>
+              <p>FD AI for a first read or a standard draft, today. A lawyer when it needs a lawyer's name, the other side has counsel, or the numbers are large.</p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- cta -->
+      <section class="cta-band">
+        <div class="wrap" data-rv>
+          <h2>Need something right now?</h2>
+          <p class="sub">FD AI works around the clock. A lawyer is one click away.</p>
+          <div class="ctas">
+            <a class="btn btn-gold" href="/draft">Launch FD AI</a>
+            <a class="btn btn-white" href="#form">Back to the form</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap">
+        <div class="grid">
+          <div>
+            <a class="logo" href="/" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+            <p class="about">
+              Contracts for founders everywhere, reviewed and drafted by FD AI and the practising
+              lawyers behind her.
+            </p>
+          </div>
+          <div>
+            <h4>Quick links</h4>
+            <ul>
+              <li><a href="/">Home</a></li>
+              <li><a href="/about">About us</a></li>
+              <li><a href="/coming-soon?f=All%20services">Our services</a></li>
+              <li><a href="/resources">Blog</a></li>
+              <li><a href="/coming-soon?f=Courses">Courses</a></li>
+              <li><a href="/podcast">Podcast</a></li>
+              <li><a href="#form">Contact us</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Useful links</h4>
+            <ul>
+              <li><a href="/draft">Launch FD AI</a></li>
+              <li><a href="https://foundersdoc.com/terms-conditions/">Terms &amp; conditions</a></li>
+              <li><a href="https://foundersdoc.com/privacy-policy/">Privacy policy</a></li>
+              <li><a href="https://foundersdoc.com/community-guidelines/">Community guidelines</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Contact us</h4>
+            <ul>
+              <li><a href="https://wa.me/6594617390?text=Hi!">+65 9461 7390 (WhatsApp only)</a></li>
+              <li><a href="mailto:administrator@foundersdoc.com">administrator@foundersdoc.com</a></li>
+            </ul>
+          </div>
+          <div class="nl">
+            <form id="nl-form" novalidate>
+              <label for="em">Subscribe to our newsletter</label>
+              <div class="field">
+                <input id="em" name="email" type="email" placeholder="Email address" autocomplete="email" required />
+                <button type="submit" aria-label="Subscribe">→</button>
+              </div>
+              <p class="msg" id="nl-msg" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+        <div class="bot">
+          <span>© 2026 Founders Doc. All rights reserved.</span>
+          <div>
+            <a href="https://www.linkedin.com/company/foundersdoc/">LinkedIn</a>
+            <a href="https://www.instagram.com/foundersdoc/">Instagram</a>
+            <a href="https://www.youtube.com/channel/UCYQebtLCvD2esHthgPAxrFg">YouTube</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        // Mobile menu
+        var burger = document.querySelector(".burger"),
+          menu = document.getElementById("menu");
+        if (burger && menu) {
+          burger.addEventListener("click", function () {
+            var open = menu.getAttribute("data-open") === "true";
+            menu.setAttribute("data-open", String(!open));
+            burger.setAttribute("aria-expanded", String(!open));
+            burger.setAttribute("aria-label", open ? "Open menu" : "Close menu");
+          });
+          menu.querySelectorAll("a").forEach(function (a) {
+            a.addEventListener("click", function () {
+              menu.setAttribute("data-open", "false");
+              burger.setAttribute("aria-expanded", "false");
+              burger.setAttribute("aria-label", "Open menu");
+            });
+          });
+        }
+
+        // Dropdown tabs (FD AI, Resources): click to toggle, Escape / outside click to close
+        var subs = Array.prototype.slice.call(document.querySelectorAll(".has-sub"));
+        function closeSubs(except) {
+          subs.forEach(function (d) {
+            if (d !== except) {
+              d.setAttribute("data-open", "false");
+              d.querySelector("button").setAttribute("aria-expanded", "false");
+            }
+          });
+        }
+        subs.forEach(function (d) {
+          var btn = d.querySelector("button");
+          btn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            var open = d.getAttribute("data-open") === "true";
+            closeSubs(d);
+            d.setAttribute("data-open", String(!open));
+            btn.setAttribute("aria-expanded", String(!open));
+          });
+          d.querySelectorAll(".nav-sub a").forEach(function (a) {
+            a.addEventListener("click", function () { closeSubs(); });
+          });
+        });
+        document.addEventListener("click", function () { closeSubs(); });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") closeSubs();
+        });
+
+
+        // Hero entrance: one beat once fonts are ready
+        var root = document.documentElement;
+        function go() { root.classList.add("loaded"); }
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(go);
+          setTimeout(go, 1200);
+        } else {
+          setTimeout(go, 150);
+        }
+        setTimeout(function () {
+          var d = document.getElementById("doc");
+          if (d) {
+            d.classList.add("reviewed");
+            d.querySelector(".pill").textContent = "Reviewed";
+          }
+        }, 2300);
+
+
+        // Theme: follow the system until the visitor picks, then remember the pick
+        var themeBtn = document.getElementById("theme"),
+          navLogo = document.getElementById("nav-logo"),
+          mq = window.matchMedia("(prefers-color-scheme: dark)");
+        function isDark() {
+          var t = root.getAttribute("data-theme");
+          return t ? t === "dark" : mq.matches;
+        }
+        function paintTheme() {
+          var dark = isDark();
+          if (navLogo && navLogo.tagName === "IMG") {
+            navLogo.src = "https://foundersdoc.com/wp-content/uploads/2022/03/" + (dark ? "logo_white.png" : "logo_black.png");
+          }
+          if (themeBtn) themeBtn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
+        }
+        if (themeBtn) {
+          themeBtn.addEventListener("click", function () {
+            var next = isDark() ? "light" : "dark";
+            root.setAttribute("data-theme", next);
+            try { localStorage.setItem("fd-theme", next); } catch (e) {}
+            paintTheme();
+          });
+        }
+        if (mq.addEventListener) mq.addEventListener("change", paintTheme);
+        paintTheme();
+
+        // Who's online: Monday to Friday, 9am to 6pm, Singapore time
+        var st = document.getElementById("status"),
+          waDot = document.getElementById("wa-dot");
+        if (st) {
+          var sg = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Singapore" })),
+            day = sg.getDay(),
+            hr = sg.getHours() + sg.getMinutes() / 60,
+            open = day >= 1 && day <= 5 && hr >= 9 && hr < 18,
+            txt = st.querySelector("span");
+          st.classList.toggle("on", open);
+          if (open) {
+            txt.innerHTML = "<b>Lawyers online now.</b> WhatsApp is the quickest way to reach one.";
+            if (waDot) waDot.hidden = false;
+          } else {
+            var back = day === 5 && hr >= 18 ? "Monday" : day === 6 ? "Monday" : day === 0 ? "tomorrow" : hr >= 18 ? "tomorrow" : "today";
+            txt.innerHTML = "<b>Out of hours.</b> Back " + back + " at 9am Singapore time. Send anyway and we'll reply first thing.";
+          }
+        }
+
+        // Section reveals, staggered among siblings
+        var rv = Array.prototype.slice.call(document.querySelectorAll("[data-rv]"));
+        rv.forEach(function (el) {
+          var sibs = Array.prototype.filter.call(el.parentNode.children, function (c) {
+            return c.hasAttribute("data-rv");
+          });
+          if (sibs.length > 1) el.style.setProperty("--i", sibs.indexOf(el));
+        });
+        if ("IntersectionObserver" in window) {
+          var rio = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (en) {
+                if (en.isIntersecting) {
+                  en.target.classList.add("in");
+                  rio.unobserve(en.target);
+                }
+              });
+            },
+            { threshold: 0.15, rootMargin: "0px 0px -8% 0px" }
+          );
+          rv.forEach(function (el) {
+            rio.observe(el);
+          });
+        } else {
+          rv.forEach(function (el) {
+            el.classList.add("in");
+          });
+        }
+
+        // Scroll: nav state and progress line
+        var nav = document.querySelector(".nav"),
+          prog = document.querySelector(".progress"),
+          ticking = false;
+        function onScroll() {
+          var y = window.pageYOffset || document.documentElement.scrollTop,
+            max = document.documentElement.scrollHeight - window.innerHeight;
+          if (nav) nav.classList.toggle("scrolled", y > 8);
+          if (prog) prog.style.transform = "scaleX(" + (max > 0 ? Math.min(y / max, 1) : 0) + ")";
+          ticking = false;
+        }
+        window.addEventListener(
+          "scroll",
+          function () {
+            if (!ticking) {
+              ticking = true;
+              requestAnimationFrame(onScroll);
+            }
+          },
+          { passive: true }
+        );
+        onScroll();
+
+        // Contact form: validate client-side, show a sent state.
+        // Point `action` at your form handler (e.g. Formspree, Netlify Forms, a WordPress endpoint) and
+        // set SEND_REMOTELY to true so the browser posts the FormData instead of just showing the confirmation.
+        var SEND_REMOTELY = false;
+        var MAX_MB = 15;
+        var box = document.querySelector(".cform"),
+          form = document.getElementById("c-form"),
+          fmsg = document.getElementById("fmsg"),
+          sendBtn = document.getElementById("send"),
+          fileIn = document.getElementById("file"),
+          fileName = document.getElementById("file-name"),
+          drop = document.getElementById("drop"),
+          again = document.getElementById("again");
+
+        function fieldOf(input) {
+          return input.closest(".f");
+        }
+        function setErr(input, text) {
+          var f = fieldOf(input),
+            h = f.querySelector(".hint");
+          f.classList.toggle("err", !!text);
+          if (h) h.textContent = text || "";
+          input.setAttribute("aria-invalid", text ? "true" : "false");
+        }
+        function check(input) {
+          var v = input.value.trim();
+          if (input.type === "checkbox") {
+            setErr(input, input.checked ? "" : "Tick this so we can handle what you send.");
+            return input.checked;
+          }
+          if (input.type === "file") {
+            var fl = input.files && input.files[0];
+            if (!fl) {
+              setErr(input, "");
+              return true;
+            }
+            var ok = /\.(pdf|docx?)$/i.test(fl.name),
+              small = fl.size <= MAX_MB * 1024 * 1024;
+            setErr(input, !ok ? "Use a PDF or Word file." : !small ? "That file is over " + MAX_MB + " MB. Email it to us instead." : "");
+            return ok && small;
+          }
+          if (input.required && !v) {
+            setErr(input, input.tagName === "SELECT" ? "Choose the option closest to what you need." : "This one we do need.");
+            return false;
+          }
+          if (input.type === "email" && !input.checkValidity()) {
+            setErr(input, "That doesn't look like an email address.");
+            return false;
+          }
+          setErr(input, "");
+          return true;
+        }
+
+        if (form) {
+          var inputs = Array.prototype.slice.call(form.querySelectorAll("input, select, textarea"));
+          inputs.forEach(function (i) {
+            i.addEventListener("blur", function () {
+              if (i.value || i.type === "checkbox") check(i);
+            });
+            i.addEventListener("input", function () {
+              if (fieldOf(i).classList.contains("err")) check(i);
+            });
+            i.addEventListener("change", function () {
+              check(i);
+            });
+          });
+
+
+          // Completion bar: fills as the required fields are done
+          var bar = document.getElementById("bar"),
+            note = document.getElementById("note"),
+            noteDefault = note ? note.innerHTML : "",
+            req = inputs.filter(function (i) { return i.required; });
+          function progress() {
+            var done = req.filter(function (i) {
+              if (i.type === "checkbox") return i.checked;
+              if (i.type === "email") return i.value.trim() && i.checkValidity();
+              return !!i.value.trim();
+            }).length;
+            var pct = done / req.length;
+            if (bar) {
+              bar.style.width = pct * 100 + "%";
+              bar.classList.toggle("full", pct === 1);
+            }
+            if (note) note.innerHTML = pct === 1 ? "<b>Ready to send.</b>" : noteDefault;
+          }
+          inputs.forEach(function (i) {
+            i.addEventListener("input", progress);
+            i.addEventListener("change", progress);
+          });
+          progress();
+
+          form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            var bad = inputs.filter(function (i) {
+              return !check(i);
+            });
+            if (bad.length) {
+              fmsg.className = "fmsg bad";
+              fmsg.textContent = bad.length === 1 ? "One field needs a look." : bad.length + " fields need a look.";
+              bad[0].focus();
+              return;
+            }
+            fmsg.className = "fmsg";
+            fmsg.textContent = "";
+            sendBtn.disabled = true;
+            sendBtn.textContent = "Sending…";
+
+            var needLabel = { review: "your contract review", draft: "your draft", fundraising: "your fundraising round", question: "your question", call: "a time for your call", fdai: "FD AI", partner: "your enquiry", other: "your enquiry" },
+              need = needLabel[form.need.value] || "your enquiry",
+              first = form.name.value.trim().split(/\s+/)[0],
+              copy = document.getElementById("sent-copy");
+            function finish() {
+              copy.textContent =
+                "Thanks, " + first + ". A lawyer will reply to " + form.email.value.trim() + " about " + need + ".";
+              box.classList.add("done");
+              box.scrollIntoView({ block: "start", behavior: "smooth" });
+              sendBtn.disabled = false;
+              sendBtn.textContent = "Send message";
+            }
+            function fail() {
+              sendBtn.disabled = false;
+              sendBtn.textContent = "Send message";
+              fmsg.className = "fmsg bad";
+              fmsg.textContent = "That didn't send. Try again, or WhatsApp us on +65 9461 7390.";
+            }
+            if (SEND_REMOTELY && form.getAttribute("action")) {
+              fetch(form.getAttribute("action"), { method: "POST", body: new FormData(form), headers: { Accept: "application/json" } })
+                .then(function (r) {
+                  if (r.ok) finish();
+                  else fail();
+                })
+                .catch(fail);
+            } else {
+              setTimeout(finish, 500);
+            }
+          });
+
+          if (again) {
+            again.addEventListener("click", function () {
+              form.reset();
+              fileName.textContent = "";
+              drop.classList.remove("has");
+              progress();
+              inputs.forEach(function (i) {
+                setErr(i, "");
+              });
+              box.classList.remove("done");
+              form.name.focus();
+            });
+          }
+        }
+
+        // File drop: show the chosen name, highlight on drag
+        if (fileIn && drop) {
+          fileIn.addEventListener("change", function () {
+            var fl = fileIn.files && fileIn.files[0];
+            fileName.textContent = fl ? fl.name : "";
+            drop.classList.toggle("has", !!fl);
+          });
+          ["dragenter", "dragover"].forEach(function (ev) {
+            drop.addEventListener(ev, function () {
+              drop.classList.add("over");
+            });
+          });
+          ["dragleave", "drop"].forEach(function (ev) {
+            drop.addEventListener(ev, function () {
+              drop.classList.remove("over");
+            });
+          });
+        }
+
+        // Newsletter: validate client-side. Point the form at your email provider (e.g. Mailchimp) via the `action` attribute when ready.
+        var nl = document.getElementById("nl-form"),
+          msg = document.getElementById("nl-msg"),
+          em = document.getElementById("em");
+        if (nl) {
+          nl.addEventListener("submit", function (e) {
+            e.preventDefault();
+            if (!em.value || !em.checkValidity()) {
+              msg.textContent = "Enter a valid email address to subscribe.";
+              em.focus();
+              return;
+            }
+            msg.textContent = "Thanks — please confirm the link we send to " + em.value + ".";
+            nl.reset();
+          });
+        }
+      })();
+    </script>
+  <script defer src="/fd-track.js"></script>
+</body>
+</html>

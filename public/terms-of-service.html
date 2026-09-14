@@ -1,0 +1,937 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#ffffff" />
+    <script>
+      document.documentElement.classList.add("js");
+    </script>
+    <title>FD Consult: Platform Terms of Service — Founders Doc</title>
+    <meta
+      name="description"
+      content="The terms governing your access to FD Consult, the Founders Doc technology platform for finding, booking and speaking with independent licensed lawyers."
+    />
+    <link rel="canonical" href="/terms-of-service" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600&family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light; /* homepage is light-only by design */
+        --white: #fff;
+        --grey-1: #f4f4f4;
+        --grey-2: #e9e9e9;
+        --grey-3: #d6d6d6;
+        --grey-4: #9a9a9a;
+        --grey-5: #666;
+        --black: #0f0f0f;
+        --ink: #161616;
+        --gold: #f3bf4b;
+        --gold-soft: #fbeec9;
+        --gold-deep: #c9962a;
+        --display: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --wrap: 1200px;
+        --wrap-wide: 1440px;
+        --nav-h: 64px;
+        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --gutter: clamp(20px, 4vw, 40px);
+        --ok: #3d8b5f;
+        --miss: #c8574a;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--white);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.6;
+        letter-spacing: -0.005em;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        border: none;
+        background: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--black);
+        outline-offset: 3px;
+      }
+      [id] {
+        scroll-margin-top: calc(var(--nav-h) + 16px);
+      }
+      .wrap {
+        width: 100%;
+        max-width: var(--wrap);
+        margin-inline: auto;
+        padding-inline: clamp(20px, 4vw, 40px);
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        border: 1px solid var(--black);
+        white-space: nowrap;
+        transition:
+          background 0.15s,
+          color 0.15s,
+          transform 0.15s var(--ease),
+          box-shadow 0.15s var(--ease);
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 16px -10px rgba(15, 15, 15, 0.45);
+      }
+      .btn:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+      .btn-black {
+        background: var(--black);
+        color: var(--white);
+      }
+      .btn-black:hover {
+        background: #2a2a2a;
+      }
+      .btn-gold {
+        background: var(--gold);
+        color: var(--black);
+        border-color: var(--gold);
+      }
+      .btn-gold:hover {
+        background: #e9b23a;
+        border-color: #e9b23a;
+      }
+      .btn-white {
+        background: var(--white);
+        color: var(--black);
+      }
+      .btn-white:hover {
+        background: var(--grey-1);
+      }
+      .more {
+        font-size: 12.5px;
+        font-weight: 500;
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .more:hover {
+        text-decoration: underline;
+      }
+      .more .arr {
+        display: inline-block;
+        transition: transform 0.18s var(--ease);
+      }
+      .more:hover .arr {
+        transform: translateX(3px);
+      }
+      .skip {
+        position: absolute;
+        left: -999px;
+        top: 8px;
+        background: var(--black);
+        color: var(--white);
+        padding: 8px 12px;
+        border-radius: 6px;
+        z-index: 60;
+      }
+      .skip:focus {
+        left: 8px;
+      }
+      /* nav */
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        background: var(--white);
+        border-bottom: 1px solid var(--grey-2);
+        transition:
+          background 0.3s,
+          box-shadow 0.3s;
+      }
+      .nav.scrolled {
+        background: rgba(255, 255, 255, 0.86);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 10px 30px -24px rgba(0, 0, 0, 0.35);
+      }
+      .nav .wrap {
+        display: flex;
+        align-items: center;
+        gap: 40px;
+        height: var(--nav-h);
+        max-width: var(--wrap-wide);
+        transition: height 0.3s var(--ease);
+      }
+      .nav.scrolled .wrap {
+        height: 56px;
+      }
+      .progress {
+        position: absolute;
+        left: 0;
+        bottom: -1px;
+        width: 100%;
+        height: 2px;
+        background: var(--gold);
+        transform: scaleX(0);
+        transform-origin: left;
+        pointer-events: none;
+      }
+      .links a.on {
+        color: var(--black);
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-weight: 600;
+        font-size: 15px;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+      }
+      .logo img {
+        display: block;
+        height: 34px;
+        width: auto;
+      }
+      .logo-word {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 17px;
+        letter-spacing: 0.01em;
+        color: var(--black);
+      }
+      .foot .logo-word {
+        color: var(--white);
+      }
+      .links {
+        display: flex;
+        gap: 28px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+        white-space: nowrap;
+      }
+      .links a:hover {
+        color: var(--black);
+      }
+      /* Dropdown tabs (FD AI, Services, Resources) */
+      .has-sub {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+      .has-sub > button {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        color: inherit;
+        padding: 0;
+      }
+      .has-sub > button:hover,
+      .has-sub[data-open="true"] > button {
+        color: var(--black);
+      }
+      .has-sub > button svg {
+        width: 10px;
+        height: 10px;
+        transition: transform 0.2s var(--ease);
+      }
+      .has-sub[data-open="true"] > button svg {
+        transform: rotate(180deg);
+      }
+      .nav-sub {
+        position: absolute;
+        top: calc(100% + 14px);
+        left: -12px;
+        min-width: 160px;
+        background: var(--white);
+        border: 1px solid var(--grey-2);
+        border-radius: 8px;
+        padding: 6px;
+        box-shadow: 0 10px 30px rgba(15, 15, 15, 0.08);
+        display: none;
+        flex-direction: column;
+        z-index: 2;
+      }
+      .nav-sub::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -14px;
+        height: 14px;
+      }
+      .has-sub[data-open="true"] .nav-sub,
+      .has-sub:hover .nav-sub,
+      .has-sub:focus-within .nav-sub {
+        display: flex;
+      }
+      .has-sub:hover > button svg {
+        transform: rotate(180deg);
+      }
+      .nav-sub a {
+        padding: 7px 10px;
+        border-radius: 5px;
+        font-size: 13.5px;
+        color: var(--grey-5);
+      }
+      .nav-sub a:hover,
+      .nav-sub a:focus-visible {
+        background: var(--grey-1);
+        color: var(--black);
+      }
+      .nav-sub a.on,
+      .has-sub > button.on {
+        color: var(--black);
+      }
+      .links.r {
+        margin-left: auto;
+      }
+      .nav-cta {
+        display: flex;
+        gap: 8px;
+        margin-left: 8px;
+      }
+      .burger {
+        display: none;
+        margin-left: auto;
+        width: 40px;
+        height: 40px;
+        border-radius: 6px;
+        place-items: center;
+      }
+      .burger span {
+        display: block;
+        width: 18px;
+        height: 2px;
+        background: var(--black);
+        position: relative;
+      }
+      .burger span::before,
+      .burger span::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        width: 18px;
+        height: 2px;
+        background: var(--black);
+      }
+      .burger span::before {
+        top: -6px;
+      }
+      .burger span::after {
+        top: 6px;
+      }
+      .menu {
+        display: none;
+        background: var(--white);
+        border-top: 1px solid var(--grey-2);
+        max-height: calc(100vh - var(--nav-h));
+        overflow: auto;
+      }
+      .menu .wrap {
+        display: grid;
+        height: auto;
+        gap: 14px;
+        padding-block: 18px 24px;
+        font-size: 15px;
+      }
+      .menu a {
+        padding: 4px 0;
+      }
+      .menu-group {
+        display: grid;
+        gap: 6px;
+      }
+      .menu-group > span {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--grey-4);
+      }
+      .menu-group a {
+        padding-left: 12px;
+      }
+      .menu[data-open="true"] {
+        display: block;
+      }
+      @media (max-width: 1240px) {
+        .links {
+          display: none;
+        }
+        .burger {
+          display: grid;
+          margin-left: 0;
+        }
+        .nav-cta {
+          margin-left: auto;
+        }
+      }
+      @media (max-width: 560px) {
+        .nav-cta .btn-white {
+          display: none;
+        }
+      }
+      /* footer */
+      .foot .wrap {
+        max-width: var(--wrap-wide);
+      }
+      .foot {
+        background: var(--black);
+        color: var(--grey-4);
+        padding: 56px 0 32px;
+        font-size: 13px;
+      }
+      .foot .grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr 1.2fr 1.4fr;
+        gap: 40px;
+      }
+      .foot .logo img {
+        height: 38px;
+      }
+      .foot .about {
+        margin-top: 16px;
+        line-height: 1.7;
+        max-width: 34ch;
+      }
+      .foot h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--white);
+        margin-bottom: 12px;
+      }
+      .foot ul {
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+      .foot a:hover {
+        color: var(--white);
+      }
+      .foot .nl label {
+        display: block;
+        margin-bottom: 10px;
+      }
+      .foot .nl .field {
+        display: flex;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .foot .nl input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--white);
+        padding: 9px 12px;
+        font: inherit;
+        outline: none;
+        min-width: 0;
+      }
+      .foot .nl input::placeholder {
+        color: var(--grey-4);
+      }
+      .foot .nl button {
+        background: var(--gold);
+        color: var(--black);
+        padding: 0 14px;
+        font-weight: 600;
+      }
+      .foot .nl .msg {
+        margin-top: 8px;
+        font-size: 12px;
+        min-height: 1.2em;
+      }
+      .foot .bot {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 44px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 12px;
+      }
+      .foot .bot div {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      @media (max-width: 900px) {
+        .foot .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      @media (max-width: 560px) {
+        .foot .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ---------- FD Consult terms document (scoped) ---------- */
+      .tosdoc {
+        --yellow: #ffbd59;
+        --black: #101010;
+        --ink: #2c2c2c;
+        --muted: #707070;
+        --line: #e7e7e7;
+        --soft: #f7f7f5;
+        --cream: #fff8eb;
+        --max: 1180px;
+        --dfont: Arial, Helvetica, sans-serif;
+        color: var(--ink);
+        font: 16px/1.75 var(--dfont);
+        letter-spacing: normal;
+        text-rendering: optimizeLegibility;
+        background: #fff;
+      }
+      .reading-progress { position: fixed; inset: 0 auto auto 0; z-index: 50; width: 0; height: 3px; background: #ffbd59; }
+      .tosdoc .doc-hero { background: var(--black); color: #fff; }
+      .tosdoc .hero-layout { display: grid; grid-template-columns: 245px minmax(0, 760px); gap: 76px; max-width: var(--max); margin: 0 auto; padding: 48px 28px; }
+      .tosdoc .hero-content { grid-column: 1 / -1; min-width: 0; }
+      .tosdoc .brand { display: inline-flex; align-items: center; margin: 0 0 52px; color: #fff; font-size: 16px; letter-spacing: 0.19em; text-transform: uppercase; }
+      .tosdoc .brand::before, .tosdoc .brand::after { content: ""; width: 24px; height: 2px; background: #fff; }
+      .tosdoc .brand::before { margin-right: 12px; }
+      .tosdoc .brand::after { margin-left: 12px; }
+      .tosdoc .eyebrow { margin: 0; color: var(--yellow); font-size: 12px; font-weight: 700; letter-spacing: 0.17em; text-transform: uppercase; }
+      .tosdoc h1 { margin: 8px 0 14px; color: #fff; font-family: var(--dfont); font-size: 44px; font-weight: 500; line-height: 1.08; letter-spacing: -0.025em; }
+      .tosdoc .updated { margin: 0; color: #aaa; font-size: 13px; }
+      .tosdoc .lead { margin: 28px 0 20px; font-size: 19px; line-height: 1.55; color: #e5e5e5; }
+      .tosdoc .key-point { width: 100%; margin: 26px 0 0; padding: 18px 20px; background: #1d1d1d; border-left: 4px solid var(--yellow); color: #d8d8d8; }
+      .tosdoc .key-point strong { display: block; margin-bottom: 3px; color: #fff; }
+      .tosdoc .page-shell { display: grid; grid-template-columns: 245px minmax(0, 760px); gap: 76px; max-width: var(--max); margin: 0 auto; padding: 58px 28px 88px; align-items: start; }
+      .tosdoc .doc-toc { position: sticky; top: calc(var(--nav-h) + 24px); }
+      .tosdoc .doc-toc strong { display: block; margin-bottom: 15px; color: var(--muted); font-size: 12px; letter-spacing: 0.13em; text-transform: uppercase; }
+      .tosdoc .doc-toc ol { margin: 0; padding: 0; list-style: none; border-left: 1px solid var(--line); }
+      .tosdoc .doc-toc li { padding: 0; }
+      .tosdoc .doc-toc a { display: block; margin-left: -1px; padding: 7px 0 7px 18px; border-left: 2px solid transparent; color: #6b6b6b; font-size: 13.5px; line-height: 1.4; text-decoration: none; transition: 0.16s ease; }
+      .tosdoc .doc-toc a:hover, .tosdoc .doc-toc a.active { border-left-color: var(--yellow); color: var(--black); }
+      .tosdoc .doc-toc a.active { font-weight: 650; }
+      .tosdoc .doc-main { min-width: 0; counter-reset: section; }
+      .tosdoc section { counter-increment: section; padding: 0 0 54px; margin: 0 0 50px; border-bottom: 1px solid var(--line); scroll-margin-top: calc(var(--nav-h) + 24px); }
+      .tosdoc section:last-child { border-bottom: 0; margin-bottom: 0; }
+      .tosdoc section::before { content: counter(section, decimal-leading-zero); display: block; margin-bottom: 7px; color: #ad731d; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; }
+      .tosdoc h2 { margin: 0 0 23px; color: var(--black); font-family: var(--dfont); font-size: 30px; font-weight: 500; line-height: 1.25; letter-spacing: -0.01em; }
+      .tosdoc h3 { margin: 29px 0 7px; color: var(--black); font-family: var(--dfont); font-size: 16px; font-weight: 700; line-height: 1.5; }
+      .tosdoc p { margin: 0.45em 0 1em; }
+      .tosdoc ul { margin: 0.55em 0 1.15em; padding-left: 1.25em; }
+      .tosdoc li { padding: 0.2em 0; }
+      .tosdoc li::marker { color: #a86e18; font-weight: 700; }
+      .tosdoc a { color: var(--black); text-decoration: underline; text-decoration-color: var(--yellow); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+      .tosdoc .definitions { margin: 24px 0; padding: 20px 24px; background: var(--soft); border-radius: 4px; }
+      .tosdoc .definitions p { margin: 0.35em 0; }
+      .tosdoc .definitions strong { color: var(--black); }
+      .tosdoc .acceptance { padding: 28px max(28px, calc((100vw - 760px) / 2)); background: var(--cream); border-top: 1px solid #f0dfbd; border-bottom: 1px solid #f0dfbd; color: #3b3428; }
+      .tosdoc .acceptance strong { color: var(--black); }
+      .tosdoc .doc-foot { max-width: var(--max); margin: 0 auto; padding: 30px 28px; color: var(--muted); font-size: 13px; text-align: center; }
+      .toolbar { position: fixed; right: 26px; bottom: 24px; z-index: 45; transition: opacity 0.25s var(--ease), transform 0.25s var(--ease); }
+      .toolbar.hide { opacity: 0; transform: translateY(12px); pointer-events: none; }
+      .print { appearance: none; border: 0; border-radius: 999px; padding: 12px 18px; background: #111; color: #fff; font: 700 13px/1 Inter, Arial, sans-serif; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); cursor: pointer; transition: background 0.15s, transform 0.15s var(--ease); }
+      .print:hover { background: #333; transform: translateY(-1px); }
+      @media (max-width: 900px) {
+        .tosdoc .hero-layout { grid-template-columns: 1fr; gap: 0; }
+        .tosdoc .hero-content { grid-column: 1; }
+        .tosdoc .page-shell { grid-template-columns: 1fr; gap: 34px; padding-top: 36px; }
+        .tosdoc .doc-toc { position: relative; top: auto; overflow-x: auto; padding-bottom: 7px; }
+        .tosdoc .doc-toc strong { margin-bottom: 10px; }
+        .tosdoc .doc-toc ol { display: flex; gap: 7px; width: max-content; border: 0; }
+        .tosdoc .doc-toc a { margin: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; white-space: nowrap; background: #fff; font-size: 13px; }
+        .tosdoc .doc-toc a:hover, .tosdoc .doc-toc a.active { border-color: var(--yellow); background: var(--cream); }
+      }
+      @media (max-width: 600px) {
+        .tosdoc .hero-layout { padding: 32px 22px 38px; }
+        .tosdoc .brand { margin-bottom: 40px; }
+        .tosdoc h1 { font-size: 36px; }
+        .tosdoc .lead { font-size: 17px; }
+        .tosdoc .key-point { font-size: 15px; }
+        .tosdoc .page-shell { padding: 30px 22px 60px; }
+        .tosdoc section { padding-bottom: 40px; margin-bottom: 38px; }
+        .tosdoc h2 { font-size: 26px; }
+        .tosdoc .acceptance { padding: 24px 22px; }
+        .tosdoc .doc-foot { text-align: left; padding: 26px 22px; }
+        .toolbar { right: 14px; bottom: 14px; }
+      }
+      @media print {
+        .reading-progress, .toolbar, .nav, .foot, .skip, .tosdoc .doc-toc { display: none !important; }
+        .tosdoc .doc-hero { padding: 16mm 18mm; background: #fff; color: #000; }
+        .tosdoc .hero-layout { display: block; max-width: none; padding: 0; }
+        .tosdoc .brand, .tosdoc .eyebrow, .tosdoc h1, .tosdoc .key-point strong { color: #000; }
+        .tosdoc .brand::before, .tosdoc .brand::after { background: #000; }
+        .tosdoc .lead, .tosdoc .key-point, .tosdoc .updated { color: #333; }
+        .tosdoc .key-point { background: #fff; border-left: 3px solid #000; }
+        .tosdoc .page-shell { display: block; max-width: none; padding: 8mm 18mm; }
+        .tosdoc .acceptance { padding: 8mm 18mm; background: #fff; }
+        .tosdoc .doc-foot { padding: 8mm 18mm; text-align: left; }
+        .tosdoc h2, .tosdoc h3 { break-after: avoid; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        .btn, .print { transition: none; }
+      }
+    
+      /* The Founders Doc mark: the wordmark ruled above and below. Replaces the
+         hosted PNG so the logo never depends on a file loading, and inherits
+         currentColor so one rule serves the nav and the dark footer. */
+      .fd-mark {
+        display: inline-block;
+        font-family: var(--sans);
+        font-size: 11.5px;
+        font-weight: 500;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        line-height: 1;
+        padding: 7px 10px 6px 12px;
+        border-top: 1px solid currentColor;
+        border-bottom: 1px solid currentColor;
+        white-space: nowrap;
+      }
+      .foot .fd-mark { color: #fff; }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <div class="reading-progress" aria-hidden="true"></div>
+    <div class="toolbar"><button class="print" type="button" onclick="window.print()">Print / Save PDF</button></div>
+
+    <nav class="nav" aria-label="Main">
+      <div class="wrap">
+        <a class="logo" href="/" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+        <div class="links">
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">FD AI <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/draft">Draft</a>
+              <a href="/#about">Review</a>
+            </div>
+          </div>
+          <a href="/#lawyers">Ask a Lawyer</a>
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">Services <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/fd-consult">FD Consult</a>
+              <a href="/#services">FD Legal</a>
+            </div>
+          </div>
+        </div>
+        <div class="links r">
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">Resources <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/resources">Blog</a>
+              <a href="/coming-soon?f=Courses">Courses</a>
+              <a href="/podcast">Podcast</a>
+            </div>
+          </div>
+          <a href="/about">About us</a>
+        </div>
+        <div class="nav-cta">
+          <a class="btn btn-white" href="/contact">Book a consultation</a>
+          <a class="btn btn-gold" href="/draft">Launch FD AI</a>
+        </div>
+        <button class="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
+          <span></span>
+        </button>
+      </div>
+      <div class="menu" id="menu" data-open="false">
+        <div class="wrap">
+          <div class="menu-group">
+            <span>FD AI</span>
+            <a href="/draft">Draft</a>
+            <a href="/#about">Review</a>
+          </div>
+          <a href="/#lawyers">Ask a Lawyer</a>
+          <div class="menu-group">
+            <span>Services</span>
+            <a href="/fd-consult">FD Consult</a>
+            <a href="/#services">FD Legal</a>
+          </div>
+          <div class="menu-group">
+            <span>Resources</span>
+            <a href="/resources">Blog</a>
+            <a href="/coming-soon?f=Courses">Courses</a>
+            <a href="/podcast">Podcast</a>
+          </div>
+          <a href="/about">About us</a>
+          <a href="/contact">Contact us</a>
+        </div>
+      </div>
+    </nav>
+    <main id="main">
+      <div class="tosdoc">
+        <header class="doc-hero"><div class="hero-layout"><div class="hero-content">
+    <div class="brand">Founders Doc</div><p class="eyebrow">FD Consult</p><h1>Platform Terms of Service</h1><p class="updated">Last updated: 9 September 2026</p>
+    <p class="lead">These Terms govern your access to FD Consult, a technology platform operated by Founders Doc Pte. Ltd. that enables users to find, book and communicate with independent licensed lawyers.</p>
+    <div class="key-point"><strong>Important distinction</strong>Founders Doc is a technology company, not a law firm. It does not provide legal advice or control a lawyer's professional judgement. Any legal-services relationship is directly between you and the Lawyer or Law Practice that accepts your request.</div>
+        </div></div></header>
+        <div class="page-shell">
+          <nav class="doc-toc" aria-label="Contents"><strong>On this page</strong><ol>
+            <li><a href="#terms">These Terms</a></li><li><a href="#platform">FD's platform role</a></li><li><a href="#lawyer">Lawyer relationship, licensing and jurisdiction</a></li><li><a href="#scope">Consultation scope</a></li><li><a href="#booking">Bookings, fees and cancellations</a></li><li><a href="#obligations">User conduct and obligations</a></li><li><a href="#confidentiality">Confidentiality, data and professional independence</a></li><li><a href="#disclaimers">Disclaimers, liability and indemnity</a></li><li><a href="#termination">Duration, suspension and termination</a></li><li><a href="#law">Governing law, disputes and general terms</a></li>
+          </ol></nav>
+          <div class="doc-main">
+    <section id="terms"><h2>These Terms</h2>
+      <p>These Platform Terms of Service (the <strong>Terms</strong>) form a contract between you and Founders Doc Pte. Ltd. (<strong>FD</strong>, <strong>we</strong>, <strong>us</strong> or <strong>our</strong>). By creating an account, booking a consultation or otherwise using FD Consult, you agree to these Terms, our Privacy Policy and any platform terms displayed at checkout.</p>
+      <p>If you use FD Consult for an organisation, you confirm that you are authorised to bind that organisation. You must be at least 18 years old and legally capable of entering into a contract.</p>
+      <div class="definitions"><p><strong>Lawyer</strong> means a lawyer who represents to FD that they are currently authorised to provide the relevant legal services in the jurisdiction shown on their profile.</p><p><strong>Law Practice</strong> means the law firm, legal practice or other authorised entity through which a Lawyer provides legal services, where applicable.</p><p><strong>Professional Rules</strong> means the laws, licensing requirements, ethical rules and professional standards applicable to a Lawyer or Law Practice.</p></div>
+    </section>
+    <section id="platform"><h2>FD's platform role</h2>
+      <p>FD Consult provides technology and administrative features that may enable you to:</p><ul><li>view information about participating Lawyers;</li><li>request and schedule a consultation;</li><li>provide preliminary information and documents;</li><li>communicate with a Lawyer; and</li><li>make payments through available payment services.</li></ul>
+      <p>FD does not practise law, provide legal advice, hold itself out as a law practice or replace a Lawyer. Information supplied by FD about the platform, common legal topics or participating Lawyers is general platform information only.</p>
+      <p>FD may facilitate the booking of a consultation with a Lawyer. FD does not guarantee that a Lawyer will accept the booking, that the Lawyer is suitable for your matter or that any particular outcome will be achieved.</p>
+    </section>
+    <section id="lawyer"><h2>Lawyer relationship, licensing and jurisdiction</h2>
+      <p>A lawyer-client relationship arises only if and when the Lawyer or Law Practice accepts your matter in accordance with the applicable Professional Rules. It does not arise merely because you browse FD Consult, submit information, make a booking request or communicate with FD.</p>
+      <p>Where required, the Lawyer or Law Practice may provide separate engagement, client-care, pricing, conflicts, complaints, privacy or regulatory terms (<strong>Lawyer Terms</strong>). The Lawyer Terms govern the legal services. These Terms govern your use of FD Consult. If they conflict in relation to legal services, the Lawyer Terms prevail; if they conflict in relation to the platform, these Terms prevail.</p>
+      <p>The Lawyer or Law Practice, and not FD, is solely responsible for:</p><ul><li>accepting or declining instructions and conducting identity, sanctions, anti-money laundering and conflict checks;</li><li>assessing competence, jurisdiction and whether additional or local counsel is required;</li><li>all legal advice, professional services and regulatory disclosures;</li><li>maintaining any required licence, practising certificate and professional indemnity insurance; and</li><li>handling complaints concerning legal advice or professional conduct.</li></ul>
+      <p>Legal licensing rules differ between countries and, in some countries, between states or territories. A Lawyer may advise only on matters they are legally permitted and professionally competent to handle. The jurisdictions shown on a profile are informational and may not cover every aspect of your matter.</p>
+      <p>FD may take reasonable steps to verify professional credentials during onboarding or periodically thereafter. However, professional status can change, and FD does not warrant continuous authorisation. Each Lawyer must keep their information current and notify FD immediately of any restriction, suspension or loss of authorisation.</p>
+      <p>You must tell the Lawyer all jurisdictions connected with your matter. A Lawyer may decline or limit the consultation or recommend other counsel. Nothing in these Terms permits FD or a Lawyer to provide services contrary to applicable law or the Professional Rules.</p>
+    </section>
+    <section id="scope"><h2>Consultation scope</h2>
+      <p>Unless the Lawyer Terms or checkout page state otherwise, an FD Consult booking covers one virtual consultation for the selected duration. At the Lawyer's discretion, the consultation may include verbal advice and document mark-ups made during the consultation. Any mark-up service is strictly limited to the changes that the Lawyer is willing and reasonably able to complete within the booked time. Neither FD nor the Lawyer promises that an entire document, or any particular number of clauses, will be reviewed or amended.</p>
+      <p>The consultation does not include:</p><ul><li>written advice, drafting, mark-ups or other work not completed within the booked time;</li><li>follow-up calls or messages outside the booked period;</li><li>correspondence with third parties, filings, representation or ongoing retainers; or</li><li>work performed before or after the consultation unless separately agreed with the Lawyer or Law Practice.</li></ul>
+      <p>Where documents or focused questions are relevant, you are responsible for providing them sufficiently in advance to enable the Lawyer to consider them. Providing them at least 12 hours before the consultation is recommended but is not required for an urgent booking. If materials are provided late, are incomplete or are extensive, the Lawyer may proceed without reviewing all of them, limit the consultation, recommend another booking, or decline to advise. Late delivery does not extend the booked time or create an entitlement to a refund.</p>
+      <p>FD Consult is not an emergency service and must not be relied on to protect a limitation period, filing deadline or urgent right. You remain responsible for obtaining timely legal assistance.</p>
+    </section>
+    <section id="booking"><h2>Bookings, fees and cancellations</h2>
+      <p>The fees for a consultation are those shown when you book, together with any applicable platform, transaction or payment-processing fees disclosed through the booking platform. Fees will be apportioned in accordance with applicable law and the Professional Rules.</p>
+      <p>You may request cancellation or rescheduling through the booking platform, subject to the options, notice periods and availability shown there. FD may accept or decline a cancellation or rescheduling request. In particular, FD is not obliged to accommodate a late request, offer replacement availability or provide a refund where you cancel at short notice or fail to attend, except where required by law.</p>
+      <p>You are responsible for joining on time. The booked time starts at the scheduled start time and ends at the scheduled end time, even if you join late, unless the delay was caused by FD or the Lawyer. A late arrival does not extend the consultation or reduce the amount payable.</p>
+    </section>
+    <section id="obligations"><h2>User conduct and obligations</h2>
+      <p>You must:</p><ul><li>provide complete, accurate and timely information;</li><li>have authority and a lawful basis to provide any document or personal data relating to another person;</li><li>not upload unlawful, infringing, malicious or misleading material;</li><li>protect your account credentials and promptly report unauthorised use;</li><li>not record a consultation without every participant's prior consent or publish personal, confidential or privileged information relating to FD, a Lawyer, a Law Practice or their personnel; and</li><li>treat FD, its directors, officers, employees and contractors, and all Lawyers, Law Practices and their personnel, respectfully.</li></ul>
+      <p>FD has zero tolerance for abuse or harassment before, during or after a consultation, whether through FD Consult, direct communications, social media or any other channel. Prohibited conduct includes intimidation, discrimination, threats, stalking, doxxing, knowingly false allegations, defamatory communications, repeated unwanted contact, attempts to pressure a Lawyer to act improperly, or conduct that reasonably risks harm or materially disrupts FD Consult or a consultation. FD may determine, acting reasonably, whether conduct breaches this clause and may immediately apply the suspension and termination rights below.</p>
+      <p>This clause does not restrict a genuine complaint, regulatory report, protected disclosure or lawful review made honestly and through appropriate channels.</p>
+      <p>You must independently check final advice, documents, deadlines and transaction decisions with the Lawyer. FD may take the protective action described below where information is missing, payment fails or these obligations are breached.</p>
+    </section>
+    <section id="confidentiality"><h2>Confidentiality, data and professional independence</h2>
+      <p>FD will use reasonable safeguards to protect confidential information received through the platform and will use it only to operate, secure and improve FD Consult, comply with law, process payments and support the booking, as described in our Privacy Policy.</p>
+      <p>A Lawyer's duties of confidentiality and legal professional privilege, where applicable, are governed by the Lawyer Terms, applicable law and the Professional Rules. FD does not promise that information sent before a lawyer-client relationship is accepted will be legally privileged. You should not submit highly sensitive information until the Lawyer confirms that it is appropriate to do so.</p>
+      <p>Confidential information does not include information that is public through no breach, was lawfully known without restriction, is independently developed or is lawfully received from another source. FD may disclose information to personnel and service providers with a need to know and appropriate confidentiality duties, or where required by law, court order or a competent authority. Where legally permitted and reasonably practicable, FD will give notice before a compelled disclosure.</p>
+      <p>Personal data is handled under our Privacy Policy and applicable data-protection law. Where a Lawyer acts as an independent controller of personal data, their privacy notice may also apply.</p>
+      <h3>Professional independence and conflicts</h3>
+      <p>Each Lawyer exercises independent professional judgement. FD does not direct, supervise or interfere with legal advice, decisions on whether to act, duties to the court, confidentiality, conflicts or any other professional obligation.</p>
+      <p>A commercial, listing or technology arrangement between FD and a Lawyer or Law Practice does not make FD a law practice, partner, employer or agent of that Lawyer for legal services. All arrangements remain subject to applicable law and the Professional Rules.</p>
+      <p>FD is non-exclusive and may provide platform services to Lawyers and users whose interests compete with yours. This does not permit a Lawyer to act where a professional conflict prevents them from doing so.</p>
+    </section>
+    <section id="disclaimers"><h2>Disclaimers, liability and indemnity</h2>
+      <p>To the fullest extent permitted by law, FD Consult is provided on an "as available" basis. FD does not warrant uninterrupted or error-free access, the accuracy or completeness of a Lawyer's profile, compatibility with your systems, or any legal or commercial outcome.</p>
+      <p>FD is not responsible for the professional acts or omissions of any Lawyer or Law Practice, including advice, missed deadlines, conflicts, regulatory compliance, document handling or the refusal or cessation of services. Nothing in these Terms excludes responsibilities that applicable law does not permit FD to exclude.</p>
+      <p>In this section, the <strong>Protected Parties</strong> means FD, its subsidiaries, affiliates, shareholders, directors, officers, employees, contractors, agents and technology providers, and each participating Lawyer, Law Practice and their directors, partners, officers and personnel.</p>
+      <h3>Excluded loss</h3><p>To the fullest extent permitted by law, no Protected Party is liable for any indirect, incidental, special, exemplary, punitive or consequential loss, or for loss of profit, revenue, opportunity, goodwill, anticipated savings, business or data, arising from FD Consult, a Lawyer's services or these Terms.</p>
+      <h3>Liability cap</h3><p>To the fullest extent permitted by law, the aggregate liability of FD and the other FD-related Protected Parties arising from a booking or related series of events will not exceed the greater of: (a) the platform and administration fees paid to FD for that booking; and (b) S$100. A Lawyer's or Law Practice's liability for legal services is governed by the Lawyer Terms and applicable law. Nothing in these Terms increases or extends that liability. These limits do not apply to fraud or any liability that cannot lawfully be limited or excluded.</p>
+      <h3>No personal liability</h3><p>Your platform contract is solely with FD, and any legal-services contract is solely with the relevant Lawyer or Law Practice. To the fullest extent permitted by law, you agree not to bring a claim personally against any director, partner, officer, employee, shareholder or contractor of FD or a Law Practice arising solely from their role in connection with FD Consult. Each Protected Party may enforce this section in its own right.</p>
+      <h3>Your indemnity</h3><p>You will indemnify the Protected Parties against third-party claims, losses and reasonable legal and administrative costs arising from your unlawful use of FD Consult, your breach of these Terms, material you submit, infringement of another person's rights, or prohibited abusive or harassing conduct. This indemnity does not apply to the extent a claim was caused by a Protected Party's fraud, wilful misconduct or liability that cannot lawfully be excluded.</p>
+    </section>
+    <section id="termination"><h2>Duration, suspension and termination</h2>
+      <p>The engagement for a particular FD Consult booking begins when the booking and payment are accepted and ends automatically when the consultation ends, or earlier if the booking is cancelled or terminated. Any further legal services require a separate arrangement with the Lawyer or Law Practice and are not part of that FD Consult booking.</p>
+      <p>FD may, with or without prior notice, pause or end a consultation, cancel a booking, withhold or limit platform functionality, suspend or permanently close an account, refuse future bookings and take other reasonable protective action where FD considers this necessary to:</p><ul><li>protect FD, a Lawyer, a Law Practice, any of their personnel or another user from abuse, harassment, threats, safety risks or reputational harm;</li><li>prevent fraud, unlawful activity, misuse, unauthorised recording, disclosure of confidential information or disruption of the platform;</li><li>address non-payment, chargebacks, inaccurate information or a breach of these Terms;</li><li>comply with applicable law, a court, regulator, professional body or law-enforcement request; or</li><li>protect the security, integrity or availability of FD Consult.</li></ul>
+      <p>Where the action results from your breach or prohibited conduct, FD may terminate the consultation immediately and retain amounts paid to the extent permitted by law. FD may preserve relevant evidence, notify the affected Lawyer or Law Practice, report credible threats or unlawful conduct to appropriate authorities, and seek injunctive or other legal relief. These rights are cumulative and do not limit a Lawyer's or Law Practice's separate right to cease acting under the Lawyer Terms or Professional Rules.</p>
+      <p>You may stop using FD Consult at any time. Ending platform access does not automatically terminate any separate engagement with a Lawyer or Law Practice. Clauses concerning payment, confidentiality, disclaimers, liability, indemnity, disputes and general interpretation survive expiry or termination.</p>
+    </section>
+    <section id="law"><h2>Governing law, disputes and general terms</h2>
+      <p>These Terms and any non-contractual obligations relating to the FD platform are governed by Singapore law. The courts of Singapore have exclusive jurisdiction, except that either party may seek urgent interim relief in any competent court.</p>
+      <p>The governing law, courts and complaint process for legal services may instead be specified in the Lawyer Terms and required by the jurisdiction in which the Lawyer practises. Mandatory rights under applicable consumer or professional law are not affected.</p>
+      <p>Before starting proceedings, you and FD will use reasonable efforts for 30 days to resolve a dispute in good faith. This does not prevent urgent relief, debt recovery or action needed to preserve a limitation period.</p>
+      <p><strong>Changes.</strong> FD may update these Terms for future use of FD Consult. Material changes will be notified through the platform or by email and will not retrospectively alter an accepted Lawyer engagement unless required by law.</p>
+      <p><strong>Assignment.</strong> You may not transfer your rights under these Terms without FD's written consent. FD may transfer these Terms as part of a reorganisation, financing, sale of business or transfer to an affiliate, provided this does not reduce mandatory rights.</p>
+      <p><strong>Entire agreement and priority.</strong> These Terms, the Privacy Policy and checkout terms are the entire agreement concerning the platform. Specific checkout terms prevail over these Terms for that booking. The Lawyer Terms remain separate and govern legal services.</p>
+      <p><strong>Severability and waiver.</strong> If a provision is unenforceable, it will be modified to the minimum extent necessary or severed, without affecting the remaining provisions. A delay in enforcing a right is not a waiver.</p>
+      <p><strong>Third-party rights.</strong> Each Protected Party may enforce any provision expressly stated to protect it. Otherwise, no person who is not a party has a right to enforce these Terms. FD and you may amend or end these Terms without any Protected Party's consent.</p>
+      <p><strong>Notices.</strong> Notices to FD must be sent to <a href="mailto:administrator@foundersdoc.com">administrator@foundersdoc.com</a>. FD may notify you through the platform or the email address associated with your booking or account. Email notice is received when sent unless the sender receives a delivery-failure notification.</p>
+    </section>
+          </div>
+        </div>
+        <div class="acceptance"><strong>No signature is required.</strong> By selecting the acceptance box and completing a booking, you confirm that you have read and agreed to these Terms.</div>
+        <p class="doc-foot">Founders Doc Pte. Ltd. &nbsp;|&nbsp; <a href="https://www.foundersdoc.com">www.foundersdoc.com</a> &nbsp;|&nbsp; <a href="mailto:administrator@foundersdoc.com">administrator@foundersdoc.com</a></p>
+      </div>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap">
+        <div class="grid">
+          <div>
+            <a class="logo" href="/" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+            <p class="about">
+              Contracts for founders everywhere, reviewed and drafted by FD AI and the practising
+              lawyers behind her.
+            </p>
+          </div>
+          <div>
+            <h4>Quick links</h4>
+            <ul>
+              <li><a href="/">Home</a></li>
+              <li><a href="/about">About us</a></li>
+              <li><a href="/coming-soon?f=All%20services">Our services</a></li>
+              <li><a href="/resources">Blog</a></li>
+              <li><a href="/coming-soon?f=Courses">Courses</a></li>
+              <li><a href="/podcast">Podcast</a></li>
+              <li><a href="/contact">Contact us</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Useful links</h4>
+            <ul>
+              <li><a href="/draft">Launch FD AI</a></li>
+              <li><a href="https://foundersdoc.com/terms-conditions/">Terms &amp; conditions</a></li>
+              <li><a href="https://foundersdoc.com/privacy-policy/">Privacy policy</a></li>
+              <li><a href="https://foundersdoc.com/community-guidelines/">Community guidelines</a></li>
+              <li><a href="/terms-of-service" aria-current="page">FD Consult: Platform Terms of Service</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Contact us</h4>
+            <ul>
+              <li><a href="https://wa.me/6594617390?text=Hi!">+65 9461 7390 (WhatsApp only)</a></li>
+              <li><a href="mailto:administrator@foundersdoc.com">administrator@foundersdoc.com</a></li>
+            </ul>
+          </div>
+          <div class="nl">
+            <form id="nl-form" novalidate>
+              <label for="em">Subscribe to our newsletter</label>
+              <div class="field">
+                <input id="em" name="email" type="email" placeholder="Email address" autocomplete="email" required />
+                <button type="submit" aria-label="Subscribe">→</button>
+              </div>
+              <p class="msg" id="nl-msg" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+        <div class="bot">
+          <span>© 2026 Founders Doc. All rights reserved.</span>
+          <div>
+            <a href="https://www.linkedin.com/company/foundersdoc/">LinkedIn</a>
+            <a href="https://www.instagram.com/foundersdoc/">Instagram</a>
+            <a href="https://www.youtube.com/channel/UCYQebtLCvD2esHthgPAxrFg">YouTube</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+    <script>
+      (function () {
+        // sticky nav shadow
+        var nav = document.querySelector(".nav");
+        var onScroll = function () {
+          nav.classList.toggle("scrolled", window.scrollY > 8);
+        };
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+
+        // dropdowns: hover is CSS, click/keyboard handled here
+        var subs = Array.prototype.slice.call(document.querySelectorAll(".has-sub"));
+        subs.forEach(function (sub) {
+          var btn = sub.querySelector("button");
+          btn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            var open = sub.getAttribute("data-open") === "true";
+            subs.forEach(function (s) {
+              s.setAttribute("data-open", "false");
+              s.querySelector("button").setAttribute("aria-expanded", "false");
+            });
+            sub.setAttribute("data-open", open ? "false" : "true");
+            btn.setAttribute("aria-expanded", open ? "false" : "true");
+          });
+        });
+        document.addEventListener("click", function () {
+          subs.forEach(function (s) {
+            s.setAttribute("data-open", "false");
+            s.querySelector("button").setAttribute("aria-expanded", "false");
+          });
+        });
+        document.addEventListener("keydown", function (e) {
+          if (e.key !== "Escape") return;
+          subs.forEach(function (s) {
+            s.setAttribute("data-open", "false");
+            s.querySelector("button").setAttribute("aria-expanded", "false");
+          });
+        });
+
+        // mobile menu
+        var burger = document.querySelector(".burger"),
+          menu = document.getElementById("menu");
+        burger.addEventListener("click", function () {
+          var open = menu.getAttribute("data-open") === "true";
+          menu.setAttribute("data-open", open ? "false" : "true");
+          burger.setAttribute("aria-expanded", open ? "false" : "true");
+          burger.setAttribute("aria-label", open ? "Open menu" : "Close menu");
+        });
+
+        // the print button steps aside once the footer is in view
+        var toolbar = document.querySelector(".toolbar"),
+          foot = document.querySelector(".foot");
+        if (toolbar && foot && "IntersectionObserver" in window) {
+          new IntersectionObserver(function (entries) {
+            toolbar.classList.toggle("hide", entries[0].isIntersecting);
+          }, { threshold: 0 }).observe(foot);
+        }
+
+        // newsletter: no endpoint yet, so say so rather than fake a success
+        var form = document.getElementById("nl-form"),
+          msg = document.getElementById("nl-msg"),
+          em = document.getElementById("em");
+        if (form) {
+          form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            if (!em.value || !em.checkValidity()) {
+              msg.textContent = "Enter a valid email address.";
+              em.focus();
+              return;
+            }
+            msg.textContent = "Thanks — we'll be in touch.";
+            form.reset();
+          });
+        }
+      })();
+    </script>
+
+    <script>
+      (function () {
+        var progress = document.querySelector(".reading-progress");
+        var links = Array.prototype.slice.call(document.querySelectorAll(".doc-toc a"));
+        var sections = Array.prototype.slice.call(document.querySelectorAll(".doc-main section"));
+        var setActive = function (id) {
+          links.forEach(function (link) { link.classList.toggle("active", link.hash === "#" + id); });
+        };
+        if ("IntersectionObserver" in window) {
+          var observer = new IntersectionObserver(function (entries) {
+            var visible = entries.filter(function (e) { return e.isIntersecting; })
+              .sort(function (a, b) { return b.intersectionRatio - a.intersectionRatio; })[0];
+            if (visible) setActive(visible.target.id);
+          }, { rootMargin: "-15% 0px -65% 0px", threshold: [0, 0.15, 0.4] });
+          sections.forEach(function (section) { observer.observe(section); });
+        }
+        var updateProgress = function () {
+          var available = document.documentElement.scrollHeight - window.innerHeight;
+          progress.style.width = (available > 0 ? Math.min(100, (window.scrollY / available) * 100) : 0) + "%";
+        };
+        window.addEventListener("scroll", updateProgress, { passive: true });
+        updateProgress();
+      })();
+    </script>
+  <script defer src="/fd-track.js"></script>
+</body>
+</html>

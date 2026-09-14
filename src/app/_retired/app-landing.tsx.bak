@@ -1,0 +1,163 @@
+import Link from "next/link";
+import { loadDocTypes } from "@/lib/doctypes.server";
+
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const { docTypes } = await loadDocTypes();
+
+  return (
+    <main>
+      {/* ------------------------------------------------------------- hero */}
+      <section
+        style={{
+          position: "relative",
+          isolation: "isolate",
+          overflow: "hidden",
+          textAlign: "center",
+          padding: "clamp(64px, 9vw, 112px) 0 clamp(56px, 7vw, 88px)",
+        }}
+      >
+        <div className="glow" aria-hidden="true" />
+        <div className="wrap">
+          <p className="kicker">FD AI · Drafting</p>
+          <h1
+            style={{
+              fontSize: "clamp(38px, 5.6vw, 64px)",
+              lineHeight: 1.06,
+              margin: "18px auto 0",
+              maxWidth: "16ch",
+            }}
+          >
+            AI-drafted.
+            <br />
+            Lawyer-backed.
+          </h1>
+          <span
+            aria-hidden="true"
+            style={{
+              display: "block",
+              width: 56,
+              height: 1,
+              background: "var(--gold)",
+              margin: "26px auto 0",
+            }}
+          />
+          <p
+            className="sub"
+            style={{ margin: "24px auto 32px", maxWidth: "52ch", fontSize: "clamp(15px, 1.2vw, 17px)" }}
+          >
+            Answer a short form and get a first draft in under a minute. Every draft is editable,
+            downloads onto firm letterhead, and goes to a qualified lawyer before it leaves.
+          </p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link className="btn btn-gold" href="/draft">
+              Start drafting
+            </Link>
+            <Link className="btn btn-white" href="/history">
+              Past drafts
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* -------------------------------------------------------- doc types */}
+      <section className="wrap" style={{ paddingBottom: 24 }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-end",
+            gap: 20,
+            flexWrap: "wrap",
+            borderTop: "1px solid var(--grey-2)",
+            paddingTop: 40,
+          }}
+        >
+          <div>
+            <h2 style={{ fontSize: "clamp(24px, 3vw, 32px)" }}>What FD AI drafts</h2>
+            <p className="sub" style={{ marginTop: 8, maxWidth: "48ch" }}>
+              Each type carries the firm&apos;s own template, its field list and its drafting rules.
+              More are added by the lawyers, not by a developer.
+            </p>
+          </div>
+          <Link className="more" href="/draft">
+            Start a draft <span className="arr">→</span>
+          </Link>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+            gap: 14,
+            marginTop: 28,
+          }}
+        >
+          {docTypes.map((d) => (
+            <Link key={d.slug} href="/draft" className="card" style={{ padding: "20px 20px 18px" }}>
+              <span className="kicker">Document</span>
+              <h3
+                style={{
+                  fontFamily: "var(--sans)",
+                  fontWeight: 600,
+                  fontSize: 16,
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1.4,
+                  margin: "8px 0 6px",
+                }}
+              >
+                {d.label}
+              </h3>
+              <p style={{ fontSize: 13, color: "var(--grey-5)", lineHeight: 1.6 }}>
+                {d.description}
+              </p>
+              <span className="more" style={{ marginTop: 12, display: "inline-flex" }}>
+                Draft one <span className="arr">→</span>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------------ how */}
+      <section className="wrap" style={{ paddingTop: 56 }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+            gap: 28,
+            borderTop: "1px solid var(--grey-2)",
+            paddingTop: 40,
+          }}
+        >
+          {[
+            {
+              n: "01",
+              h: "Answer the form",
+              p: "Five to ten questions a lawyer answers before drafting anyway. Attach a source document if there is one.",
+            },
+            {
+              n: "02",
+              h: "Read the draft",
+              p: "It streams in and is editable in place. Gaps are flagged as [[TO CONFIRM]] rather than invented.",
+            },
+            {
+              n: "03",
+              h: "Send it to a lawyer",
+              p: "Download onto firm letterhead. The drafter's notes stay behind unless you ask for them.",
+            },
+          ].map((s) => (
+            <div key={s.n}>
+              <span className="kicker">{s.n}</span>
+              <h3 style={{ fontSize: 19, margin: "10px 0 6px" }}>{s.h}</h3>
+              <p style={{ fontSize: 14, color: "var(--grey-5)", lineHeight: 1.65, maxWidth: "36ch" }}>
+                {s.p}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+    </main>
+  );
+}

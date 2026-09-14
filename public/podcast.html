@@ -1,0 +1,2335 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0b0b" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <script>
+      document.documentElement.classList.add("js");
+      (function () {
+        var t = null;
+        try { t = localStorage.getItem("fd-theme"); } catch (e) {}
+        if (t !== "light" && t !== "dark") t = "light"; // light is the default everywhere
+        document.documentElement.setAttribute("data-theme", t);
+      })();
+    </script>
+    <title>Podcast &amp; videos — Founders Doc</title>
+    <meta
+      name="description"
+      content="Watch Founders Doc's lawyers explain contracts, fundraising and startup law — episodes, reactions and infographics in one place."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --white: #fff;
+        --grey-1: #f4f4f4;
+        --grey-2: #e9e9e9;
+        --grey-3: #d6d6d6;
+        --grey-4: #9a9a9a;
+        --grey-5: #666;
+        --black: #0f0f0f;
+        --ink: #161616;
+        --bg: #0b0b0b;
+        --bg-rgb: 11, 11, 11;
+        --bg-2: #141414;
+        --card: #1c1c1c;
+        --card-2: #262626;
+        --line: rgba(255, 255, 255, 0.1);
+        --text: #f2f2f2;
+        --text-2: #d8d8d8;
+        --muted: #a5a5a5;
+        --pop: #1a1a1a;
+        --shadow: rgba(0, 0, 0, 0.6);
+        --chip-sel-bg: #fff;
+        --chip-sel-fg: #0f0f0f;
+        color-scheme: dark;
+      }
+      html[data-theme="light"] {
+        --bg: #ffffff;
+        --bg-rgb: 255, 255, 255;
+        --bg-2: #f4f4f4;
+        --card: #ececec;
+        --card-2: #e2e2e2;
+        --line: rgba(15, 15, 15, 0.1);
+        --text: #161616;
+        --text-2: #333;
+        --muted: #666;
+        --pop: #ffffff;
+        --shadow: rgba(15, 15, 15, 0.22);
+        --chip-sel-bg: #0f0f0f;
+        --chip-sel-fg: #fff;
+        color-scheme: light;
+      }
+      :root {
+        --gold: #f3bf4b;
+        --gold-deep: #c9962a;
+        --display: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+        --wrap-wide: 1440px;
+        --nav-h: 64px;
+        --gutter: clamp(20px, 4vw, 56px);
+        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html {
+        scroll-behavior: smooth;
+        background: var(--bg);
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        transition:
+          background 0.3s,
+          color 0.3s;
+        font-family: var(--sans);
+        font-size: 15px;
+        line-height: 1.6;
+        letter-spacing: -0.005em;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        border: none;
+        background: none;
+      }
+      :focus-visible {
+        outline: 2px solid var(--gold);
+        outline-offset: 3px;
+      }
+      [id] {
+        scroll-margin-top: calc(var(--nav-h) + 16px);
+      }
+      img {
+        display: block;
+        max-width: 100%;
+      }
+      .wrap {
+        width: 100%;
+        max-width: var(--wrap-wide);
+        margin-inline: auto;
+        padding-inline: var(--gutter);
+      }
+      h1,
+      h2,
+      h3 {
+        font-family: var(--display);
+        font-weight: 500;
+        letter-spacing: -0.025em;
+        line-height: 1.08;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        border: 1px solid transparent;
+        white-space: nowrap;
+        transition:
+          background 0.15s,
+          color 0.15s,
+          transform 0.15s var(--ease);
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+      .btn:active {
+        transform: translateY(0);
+      }
+      .btn-gold {
+        background: var(--gold);
+        color: var(--black);
+        border-color: var(--gold);
+      }
+      .btn-gold:hover {
+        background: #e9b23a;
+        border-color: #e9b23a;
+      }
+      .btn-ghost {
+        background: rgba(255, 255, 255, 0.12);
+        color: var(--white);
+        border-color: rgba(255, 255, 255, 0.18);
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+      }
+      .btn-ghost:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      .btn-white {
+        background: var(--white);
+        color: var(--black);
+        border-color: var(--white);
+      }
+      .btn-white:hover {
+        background: var(--grey-1);
+      }
+      .btn svg {
+        width: 14px;
+        height: 14px;
+        flex: none;
+      }
+      .skip {
+        position: absolute;
+        left: -999px;
+        top: 8px;
+        background: var(--gold);
+        color: var(--black);
+        padding: 8px 12px;
+        border-radius: 6px;
+        z-index: 60;
+      }
+      .skip:focus {
+        left: 8px;
+      }
+
+      /* nav — floats over the billboard, solidifies on scroll */
+      .nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 40;
+        background: linear-gradient(180deg, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0));
+        transition: background 0.35s;
+      }
+      .nav.scrolled {
+        background: rgba(var(--bg-rgb), 0.92);
+        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 1px 0 var(--line);
+      }
+      .nav .logo-l,
+      .nav.scrolled .logo-d {
+        display: none;
+      }
+      html[data-theme="light"] .nav.scrolled .logo-l {
+        display: block;
+      }
+      html[data-theme="light"] .nav.scrolled .logo-d {
+        display: none;
+      }
+      html[data-theme="dark"] .nav.scrolled .logo-d {
+        display: block;
+      }
+      .nav .wrap {
+        display: flex;
+        align-items: center;
+        gap: 36px;
+        height: var(--nav-h);
+      }
+      .logo {
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+      }
+      .logo img {
+        display: block;
+        height: 32px;
+        width: auto;
+      }
+      .logo-word {
+        font-family: var(--display);
+        font-weight: 600;
+        font-size: 17px;
+        letter-spacing: 0.01em;
+        color: var(--white);
+      }
+      .nav.scrolled .logo-word {
+        color: var(--text);
+      }
+      .links {
+        display: flex;
+        gap: 26px;
+        font-size: 13.5px;
+        color: #d8d8d8;
+        white-space: nowrap;
+      }
+      .nav.scrolled .links {
+        color: var(--text-2);
+      }
+      .links a:hover,
+      .links a[aria-current="page"] {
+        color: var(--white);
+      }
+      .nav.scrolled .links a:hover,
+      .nav.scrolled .links a[aria-current="page"] {
+        color: var(--text);
+      }
+      .links a[aria-current="page"] {
+        font-weight: 500;
+      }
+      .links.r {
+        margin-left: auto;
+      }
+      .has-sub {
+        position: relative;
+        display: flex;
+        align-items: center;
+      }
+      .has-sub > button {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0;
+        color: inherit;
+      }
+      .has-sub > button:hover,
+      .has-sub > button.on,
+      .has-sub[data-open="true"] > button {
+        color: var(--white);
+      }
+      .nav.scrolled .has-sub > button:hover,
+      .nav.scrolled .has-sub > button.on,
+      .nav.scrolled .has-sub[data-open="true"] > button {
+        color: var(--text);
+      }
+      .has-sub > button svg {
+        width: 10px;
+        height: 10px;
+        transition: transform 0.2s var(--ease);
+      }
+      .has-sub[data-open="true"] > button svg,
+      .has-sub:hover > button svg {
+        transform: rotate(180deg);
+      }
+      .nav-sub {
+        position: absolute;
+        top: calc(100% + 14px);
+        left: -12px;
+        min-width: 160px;
+        background: var(--pop);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 6px;
+        box-shadow: 0 16px 40px var(--shadow);
+        display: none;
+        flex-direction: column;
+        z-index: 2;
+      }
+      .nav-sub::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -14px;
+        height: 14px;
+      }
+      .has-sub[data-open="true"] .nav-sub,
+      .has-sub:hover .nav-sub,
+      .has-sub:focus-within .nav-sub {
+        display: flex;
+      }
+      .nav-sub a {
+        padding: 7px 10px;
+        border-radius: 5px;
+        font-size: 13.5px;
+        color: var(--text-2);
+      }
+      .nav-sub a:hover,
+      .nav-sub a:focus-visible,
+      .nav-sub a[aria-current="page"] {
+        background: var(--card);
+        color: var(--text);
+      }
+      /* theme toggle */
+      .theme {
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        display: grid;
+        place-items: center;
+        color: var(--white);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        transition:
+          background 0.15s,
+          border-color 0.15s,
+          color 0.15s;
+      }
+      .nav.scrolled .theme {
+        color: var(--text);
+        border-color: var(--line);
+      }
+      .theme:hover {
+        background: rgba(128, 128, 128, 0.18);
+      }
+      .theme svg {
+        width: 16px;
+        height: 16px;
+      }
+      .theme .sun,
+      html[data-theme="light"] .theme .moon {
+        display: none;
+      }
+      html[data-theme="light"] .theme .sun {
+        display: block;
+      }
+      .nav-cta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: 8px;
+      }
+      .btn-ghost {
+        background: rgba(255, 255, 255, 0.12);
+        color: var(--white);
+        border-color: rgba(255, 255, 255, 0.18);
+      }
+      .nav.scrolled .btn-ghost {
+        background: transparent;
+        color: var(--text);
+        border-color: var(--line);
+      }
+      .nav.scrolled .btn-ghost:hover {
+        background: var(--card);
+      }
+      .burger {
+        display: none;
+        margin-left: auto;
+        width: 40px;
+        height: 40px;
+        border-radius: 6px;
+        place-items: center;
+      }
+      .burger span,
+      .burger span::before,
+      .burger span::after {
+        display: block;
+        width: 18px;
+        height: 2px;
+        background: var(--white);
+        position: relative;
+      }
+      .nav.scrolled .burger span,
+      .nav.scrolled .burger span::before,
+      .nav.scrolled .burger span::after {
+        background: var(--text);
+      }
+      .burger span::before,
+      .burger span::after {
+        content: "";
+        position: absolute;
+        left: 0;
+      }
+      .burger span::before {
+        top: -6px;
+      }
+      .burger span::after {
+        top: 6px;
+      }
+      .menu {
+        display: none;
+        color: var(--text);
+        background: rgba(var(--bg-rgb), 0.98);
+        border-top: 1px solid var(--line);
+        max-height: calc(100vh - var(--nav-h));
+        overflow: auto;
+      }
+      .menu .wrap {
+        display: grid;
+        height: auto;
+        gap: 14px;
+        padding-block: 18px 24px;
+        font-size: 15px;
+      }
+      .menu a {
+        padding: 4px 0;
+      }
+      .menu-group {
+        display: grid;
+        gap: 6px;
+      }
+      .menu-group > span {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--grey-4);
+      }
+      .menu-group a {
+        padding-left: 12px;
+      }
+      .menu[data-open="true"] {
+        display: block;
+      }
+      @media (max-width: 1240px) {
+        .links {
+          display: none;
+        }
+        .burger {
+          display: grid;
+          margin-left: 0;
+        }
+        .nav-cta {
+          margin-left: auto;
+        }
+      }
+      @media (max-width: 560px) {
+        .nav-cta .btn-ghost {
+          display: none;
+        }
+      }
+
+      /* billboard */
+      .bill {
+        background: #0b0b0b;
+        position: relative;
+        min-height: min(88vh, 760px);
+        display: flex;
+        align-items: flex-end;
+        overflow: hidden;
+        isolation: isolate;
+      }
+      .bill .art {
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+      }
+      .bill .art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 30%;
+        transform: scale(1.03);
+        filter: saturate(1.05);
+      }
+      .bill .art::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(90deg, rgba(11, 11, 11, 0.92) 0%, rgba(11, 11, 11, 0.55) 45%, rgba(11, 11, 11, 0.15) 100%),
+          linear-gradient(180deg, rgba(11, 11, 11, 0.35) 0%, rgba(11, 11, 11, 0) 45%, rgba(11, 11, 11, 0.85) 100%);
+      }
+      .bill .wrap {
+        padding-top: calc(var(--nav-h) + 56px);
+        padding-bottom: clamp(56px, 9vh, 96px);
+      }
+      .bill-copy {
+        max-width: 620px;
+        opacity: 0;
+        transform: translateY(14px);
+        transition:
+          opacity 0.7s var(--ease) 0.1s,
+          transform 0.7s var(--ease) 0.1s;
+      }
+      html.loaded .bill-copy {
+        opacity: 1;
+        transform: none;
+      }
+      .bill .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--gold);
+        margin-bottom: 14px;
+      }
+      .bill .eyebrow i {
+        width: 8px;
+        height: 8px;
+        background: var(--gold);
+        transform: rotate(45deg);
+      }
+      .bill h1 {
+        font-size: clamp(34px, 5.2vw, 64px);
+        color: var(--white);
+        text-shadow: 0 2px 24px rgba(0, 0, 0, 0.5);
+        max-width: 14ch;
+      }
+      .bill .meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 16px;
+        font-size: 13px;
+        color: #d0d0d0;
+      }
+      .bill .meta .dot {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: var(--grey-4);
+      }
+      .bill .meta .pill {
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 4px;
+        padding: 1px 7px;
+        font-size: 11.5px;
+      }
+      .bill p.sub {
+        margin-top: 14px;
+        font-size: 15.5px;
+        line-height: 1.6;
+        color: #e0e0e0;
+        max-width: 52ch;
+        text-shadow: 0 1px 12px rgba(0, 0, 0, 0.6);
+      }
+      .bill .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 24px;
+      }
+      .bill .actions .btn {
+        padding: 12px 20px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .bill .actions .btn svg {
+        width: 16px;
+        height: 16px;
+      }
+
+      /* rows */
+      .shelf {
+        padding: 12px 0 8px;
+      }
+      .shelf-h {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
+      }
+      .shelf-h h2 {
+        font-size: 19px;
+        color: var(--text);
+      }
+      .shelf-h .see {
+        font-size: 12.5px;
+        color: var(--muted);
+        opacity: 0;
+        transform: translateX(-4px);
+        transition:
+          opacity 0.2s,
+          transform 0.2s var(--ease);
+      }
+      .shelf:hover .shelf-h .see,
+      .shelf:focus-within .shelf-h .see {
+        opacity: 1;
+        transform: none;
+      }
+      .shelf-h .see:hover {
+        color: var(--gold);
+      }
+      .track-wrap {
+        position: relative;
+        margin-inline: calc(-1 * var(--gutter));
+      }
+      .track {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scroll-padding-inline: var(--gutter);
+        padding: 30px var(--gutter);
+        margin: -30px 0;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        scroll-behavior: smooth;
+      }
+      .track::-webkit-scrollbar {
+        display: none;
+      }
+      .track::after {
+        content: "";
+        flex: none;
+        width: 1px;
+      }
+      .card {
+        position: relative;
+        flex: none;
+        width: clamp(220px, 21vw, 320px);
+        scroll-snap-align: start;
+        border-radius: 6px;
+        background: var(--card);
+        overflow: hidden;
+        transition:
+          transform 0.35s var(--ease),
+          box-shadow 0.35s var(--ease);
+        transition-delay: 0s;
+        will-change: transform;
+      }
+      .card .frame {
+        display: block;
+        position: relative;
+        aspect-ratio: 16 / 9;
+        background: var(--card-2);
+      }
+      .card .frame img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .card .frame::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.55) 100%);
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .card .play {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.92);
+        transform: translate(-50%, -50%) scale(0.85);
+        opacity: 0;
+        transition:
+          opacity 0.25s,
+          transform 0.3s var(--ease);
+        z-index: 1;
+      }
+      .card .play::before {
+        content: "";
+        position: absolute;
+        left: 55%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        border-style: solid;
+        border-width: 8px 0 8px 14px;
+        border-color: transparent transparent transparent var(--black);
+      }
+      .card .info {
+        padding: 0 12px;
+        display: grid;
+        gap: 4px;
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+        transition:
+          opacity 0.25s 0.08s,
+          padding 0.35s var(--ease),
+          max-height 0.35s var(--ease);
+      }
+      .card h3 {
+        font-family: var(--sans);
+        font-weight: 600;
+        font-size: 13px;
+        letter-spacing: -0.01em;
+        line-height: 1.35;
+        color: var(--text);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .card .tags {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .card .tags b {
+        font-weight: 500;
+        color: var(--gold);
+      }
+      .card .tags i {
+        font-style: normal;
+      }
+      .card:hover,
+      .card:focus-visible {
+        transform: scale(1.12);
+        box-shadow: 0 20px 50px var(--shadow);
+        z-index: 3;
+        transition-delay: 0.25s;
+      }
+      .card:hover .info,
+      .card:focus-visible .info {
+        opacity: 1;
+        padding: 10px 12px 12px;
+        max-height: 120px;
+        transition-delay: 0.3s;
+      }
+      .card:hover .play,
+      .card:focus-visible .play {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+        transition-delay: 0.3s;
+      }
+      .card:hover .frame::after {
+        opacity: 1;
+        transition-delay: 0.3s;
+      }
+      .card:first-child:hover,
+      .card:first-child:focus-visible {
+        transform-origin: left center;
+      }
+      .card:last-of-type:hover,
+      .card:last-of-type:focus-visible {
+        transform-origin: right center;
+      }
+      .card .badge {
+        position: absolute;
+        top: 8px;
+        left: 8px;
+        z-index: 1;
+        font-size: 10.5px;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 4px;
+        background: var(--gold);
+        color: var(--black);
+      }
+      .card .dur {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        z-index: 1;
+        font-size: 10.5px;
+        font-weight: 500;
+        padding: 1px 6px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.7);
+        color: var(--white);
+      }
+
+
+      /* portrait shelf — infographics */
+      .card.tall {
+        width: clamp(160px, 14vw, 210px);
+      }
+      .card.tall .frame {
+        aspect-ratio: 3 / 4;
+      }
+      .card.tall .frame img {
+        object-position: top;
+      }
+      .card.tall .play::before {
+        border: none;
+        width: 14px;
+        height: 14px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f0f0f' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7'/%3E%3C/svg%3E") center/contain no-repeat;
+        left: 50%;
+      }
+
+      /* edge arrows */
+      .edge {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: var(--gutter);
+        min-width: 44px;
+        z-index: 4;
+        display: grid;
+        place-items: center;
+        color: var(--text);
+        background: linear-gradient(90deg, rgba(var(--bg-rgb), 0.85), rgba(var(--bg-rgb), 0));
+        opacity: 0;
+        transition: opacity 0.25s;
+      }
+      .edge.next {
+        right: 0;
+        background: linear-gradient(270deg, rgba(var(--bg-rgb), 0.85), rgba(var(--bg-rgb), 0));
+      }
+      .edge.prev {
+        left: 0;
+      }
+      .edge svg {
+        width: 26px;
+        height: 26px;
+        transition: transform 0.2s var(--ease);
+      }
+      .edge:hover svg {
+        transform: scale(1.25);
+      }
+      .track-wrap:hover .edge:not([hidden]),
+      .track-wrap:focus-within .edge:not([hidden]) {
+        opacity: 1;
+      }
+      .edge[hidden] {
+        display: none;
+      }
+
+      /* genre chips */
+      .chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 26px 0 18px;
+      }
+      .chip {
+        font-size: 12.5px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        color: var(--text-2);
+        transition:
+          background 0.15s,
+          border-color 0.15s,
+          color 0.15s;
+      }
+      .chip:hover {
+        border-color: var(--muted);
+        color: var(--text);
+      }
+      .chip.sel {
+        background: var(--chip-sel-bg);
+        border-color: var(--chip-sel-bg);
+        color: var(--chip-sel-fg);
+      }
+      .shelf[hidden] {
+        display: none;
+      }
+      .no-match {
+        padding: 40px 0 60px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      /* youtube strip */
+      .yt {
+        margin: 40px 0 0;
+        padding: 28px 0;
+        border-top: 1px solid var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+      .yt .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .yt p {
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .yt p b {
+        font-weight: 600;
+        color: var(--text);
+      }
+      .yt .btn-ghost {
+        background: transparent;
+        color: var(--text);
+        border-color: var(--line);
+      }
+      .yt .btn-ghost:hover {
+        background: var(--card);
+      }
+      .yt-ic {
+        width: 16px;
+        height: 16px;
+        background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ff0000'%3E%3Cpath d='M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z'/%3E%3C/svg%3E") center/contain no-repeat;
+      }
+
+      /* cta */
+      .cta {
+        background: var(--gold);
+        color: var(--black);
+        padding: clamp(48px, 7vh, 72px) 0;
+      }
+      .cta .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        flex-wrap: wrap;
+      }
+      .cta h2 {
+        font-size: clamp(24px, 2.6vw, 32px);
+        color: var(--black);
+      }
+      .cta p {
+        margin-top: 8px;
+        max-width: 52ch;
+        color: #3a3a3a;
+        font-size: 14.5px;
+      }
+      .cta .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .cta .btn-black {
+        background: var(--black);
+        color: var(--white);
+        border-color: var(--black);
+      }
+      .cta .btn-black:hover {
+        background: #2a2a2a;
+      }
+      .cta .btn-white {
+        border-color: var(--black);
+      }
+
+      /* footer */
+      .foot {
+        background: var(--black);
+        color: var(--grey-4);
+        padding: 56px 0 32px;
+        font-size: 13px;
+        border-top: 1px solid var(--line);
+      }
+      .foot .grid {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr 1fr 1.2fr 1.4fr;
+        gap: 40px;
+      }
+      .foot .logo img {
+        height: 36px;
+      }
+      .foot .about {
+        margin-top: 16px;
+        line-height: 1.7;
+        max-width: 34ch;
+      }
+      .foot h4 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--white);
+        margin-bottom: 12px;
+      }
+      .foot ul {
+        list-style: none;
+        display: grid;
+        gap: 8px;
+      }
+      .foot a:hover {
+        color: var(--white);
+      }
+      .foot .nl label {
+        display: block;
+        margin-bottom: 10px;
+      }
+      .foot .nl .field {
+        display: flex;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .foot .nl input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--white);
+        padding: 9px 12px;
+        font: inherit;
+        outline: none;
+        min-width: 0;
+      }
+      .foot .nl input::placeholder {
+        color: var(--grey-4);
+      }
+      .foot .nl button {
+        background: var(--gold);
+        color: var(--black);
+        padding: 0 14px;
+        font-weight: 600;
+      }
+      .foot .nl .msg {
+        margin-top: 8px;
+        font-size: 12px;
+        min-height: 1.2em;
+      }
+      .foot .bot {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-top: 44px;
+        padding-top: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 12px;
+      }
+      .foot .bot div {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      @media (max-width: 900px) {
+        .foot .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .bill {
+          min-height: min(78vh, 640px);
+        }
+      }
+      @media (max-width: 640px) {
+        .card {
+          width: 200px;
+        }
+        .card.tall {
+          width: 150px;
+        }
+        .card:hover,
+        .card:focus-visible {
+          transform: scale(1.04);
+        }
+        .edge {
+          display: none;
+        }
+        .bill .actions .btn {
+          flex: 1 1 auto;
+          justify-content: center;
+        }
+      }
+      @media (max-width: 560px) {
+        .foot .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (hover: none) {
+        .card .info {
+          opacity: 1;
+          padding: 10px 12px 12px;
+          max-height: 120px;
+        }
+        .card:hover {
+          transform: none;
+          box-shadow: none;
+        }
+        .edge {
+          display: none;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html {
+          scroll-behavior: auto;
+        }
+        .track {
+          scroll-behavior: auto;
+        }
+        * {
+          animation: none !important;
+          transition-duration: 0.01ms !important;
+          transition-delay: 0s !important;
+        }
+      }
+
+      /* ---- thumbnails: shimmer until loaded, then fade in ---- */
+      .card .frame,
+      .rel span.ph {
+        background: linear-gradient(100deg, var(--card-2) 30%, var(--card) 50%, var(--card-2) 70%);
+        background-size: 200% 100%;
+        animation: shimmer 1.6s linear infinite;
+      }
+      @keyframes shimmer {
+        to { background-position: -200% 0; }
+      }
+      .card .frame img,
+      .rel img {
+        position: relative;
+        z-index: 1;
+        background: var(--card-2);
+      }
+      .card .frame.ok {
+        animation: none;
+      }
+
+      /* ---- cards: title always on, description on hover ---- */
+      .card .info,
+      .card:hover .info,
+      .card:focus-visible .info {
+        opacity: 1;
+        max-height: none;
+        padding: 10px 12px 12px;
+        transition: none;
+      }
+      .card .desc {
+        display: block;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--muted);
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transition:
+          max-height 0.35s var(--ease),
+          opacity 0.25s;
+      }
+      .card:hover .desc,
+      .card:focus-visible .desc {
+        max-height: 140px;
+        opacity: 1;
+        margin-top: 4px;
+        transition-delay: 0.25s;
+      }
+      .card .tags i:nth-child(3) {
+        display: none;
+      }
+      .card:hover .tags i:nth-child(3) {
+        display: inline;
+      }
+      .card.tall .desc {
+        font-size: 11.5px;
+      }
+      @media (hover: none) {
+        .card .desc {
+          display: none;
+        }
+      }
+
+      /* ---- billboard: copy left, framed video right ---- */
+      .bill {
+        min-height: 0;
+        align-items: stretch;
+      }
+      .bill .art img {
+        transform: scale(1.12);
+        filter: blur(34px) saturate(1.2) brightness(0.55);
+        object-position: center;
+      }
+      .bill .art::before {
+        background:
+          linear-gradient(90deg, rgba(11, 11, 11, 0.85) 0%, rgba(11, 11, 11, 0.55) 55%, rgba(11, 11, 11, 0.7) 100%),
+          linear-gradient(180deg, rgba(11, 11, 11, 0.55) 0%, rgba(11, 11, 11, 0.2) 50%, rgba(11, 11, 11, 0.85) 100%);
+      }
+      .bill .slide,
+      .bill .slide.on {
+        min-height: 0;
+      }
+      .bill .slide .wrap.bill-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(360px, 46%);
+        gap: clamp(28px, 4vw, 64px);
+        align-items: center;
+        padding-top: calc(var(--nav-h) + 40px);
+        padding-bottom: 64px;
+      }
+      .bill h1 {
+        font-size: clamp(28px, 3.2vw, 44px);
+        max-width: 20ch;
+        text-shadow: none;
+      }
+      .bill p.sub {
+        text-shadow: none;
+        font-size: 15px;
+      }
+      .bill-video {
+        position: relative;
+        display: block;
+        aspect-ratio: 16 / 9;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #000;
+        box-shadow:
+          0 30px 70px rgba(0, 0, 0, 0.6),
+          0 0 0 1px rgba(255, 255, 255, 0.08);
+        transition:
+          transform 0.4s var(--ease),
+          box-shadow 0.4s var(--ease);
+      }
+      .bill-video img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .bill-video .play {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 68px;
+        height: 68px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.94);
+        transform: translate(-50%, -50%);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        transition: transform 0.3s var(--ease);
+      }
+      .bill-video .play::before {
+        content: "";
+        position: absolute;
+        left: 56%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        border-style: solid;
+        border-width: 12px 0 12px 20px;
+        border-color: transparent transparent transparent var(--black);
+      }
+      .bill-video:hover {
+        transform: translateY(-3px);
+        box-shadow:
+          0 40px 80px rgba(0, 0, 0, 0.65),
+          0 0 0 1px rgba(255, 255, 255, 0.14);
+      }
+      .bill-video:hover .play {
+        transform: translate(-50%, -50%) scale(1.08);
+      }
+      @media (max-width: 640px) {
+        .bill-arrow {
+          display: none; /* swipe and the dots take over on phones */
+        }
+      }
+      @media (max-width: 900px) {
+        .bill .slide .wrap.bill-grid {
+          grid-template-columns: 1fr;
+          gap: 22px;
+          padding-top: calc(var(--nav-h) + 20px);
+          padding-bottom: 56px;
+        }
+        .bill-video {
+          order: -1;
+        }
+        .bill h1 {
+          font-size: clamp(24px, 6vw, 32px);
+        }
+      }
+
+      /* ---- additions: topic colour, billboard carousel, search, player ---- */
+      .card::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 3px;
+        background: var(--tc, var(--gold));
+        z-index: 2;
+        opacity: 0.9;
+      }
+      .card.short {
+        width: clamp(150px, 12.5vw, 190px);
+      }
+      .card.short .frame {
+        aspect-ratio: 9 / 16;
+      }
+      .card.short .frame img {
+        object-fit: cover;
+      }
+      .chip i {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--tc);
+        margin-right: 7px;
+        vertical-align: 1px;
+      }
+      .chip.sel i {
+        background: var(--tc);
+      }
+      .shelf-sub {
+        font-size: 12.5px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+      .browse-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 26px 0 18px;
+      }
+      .browse-bar .chips {
+        padding: 0;
+      }
+      .search {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 240px;
+        padding: 7px 12px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--muted);
+        background: var(--bg-2);
+        transition: border-color 0.15s;
+      }
+      .search:focus-within {
+        border-color: var(--muted);
+      }
+      .search svg {
+        width: 15px;
+        height: 15px;
+        flex: none;
+      }
+      .search input {
+        flex: 1;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: var(--text);
+        font: inherit;
+        font-size: 13.5px;
+        min-width: 0;
+      }
+      .search input::placeholder {
+        color: var(--muted);
+      }
+      .search input::-webkit-search-cancel-button {
+        -webkit-appearance: none;
+      }
+      .shelf[hidden] {
+        display: none;
+      }
+      .card[hidden] {
+        display: none;
+      }
+
+      /* billboard carousel */
+      .bill {
+        display: block;
+      }
+      .bill h1 {
+        font-size: clamp(30px, 4.2vw, 54px);
+        max-width: 18ch;
+      }
+      .player-box {
+        width: min(960px, 100%);
+      }
+      .bill .slide {
+        position: absolute;
+        inset: 0;
+        min-height: inherit;
+        display: flex;
+        align-items: flex-end;
+        opacity: 0;
+        transition: opacity 0.9s ease;
+        pointer-events: none;
+      }
+      .bill .slide.on {
+        position: relative;
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .bill .slide .wrap {
+        width: 100%;
+      }
+      .bill .slide:not(.on) .bill-copy {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      .bill-arrow {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 3;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: var(--white);
+        background: rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+        opacity: 0.55;
+        transition:
+          opacity 0.2s,
+          background 0.2s,
+          transform 0.2s var(--ease);
+      }
+      .bill-arrow.prev {
+        left: clamp(10px, 1.5vw, 24px);
+      }
+      @media (min-width: 641px) {
+        .bill .slide .wrap {
+          padding-left: calc(var(--gutter) + 44px);
+          padding-right: calc(var(--gutter) + 44px);
+        }
+      }
+      .bill-arrow.next {
+        right: clamp(10px, 1.5vw, 24px);
+      }
+      .bill-arrow svg {
+        width: 22px;
+        height: 22px;
+      }
+      .bill:hover .bill-arrow,
+      .bill-arrow:focus-visible {
+        opacity: 1;
+      }
+      .bill-arrow:hover {
+        background: rgba(0, 0, 0, 0.7);
+        transform: translateY(-50%) scale(1.06);
+      }
+      @media (hover: none) {
+        .bill-arrow {
+          opacity: 0.9;
+          width: 40px;
+          height: 40px;
+        }
+      }
+      .bill .dots {
+        position: absolute;
+        right: var(--gutter);
+        bottom: 28px;
+        display: flex;
+        gap: 8px;
+        z-index: 2;
+      }
+      .dot-btn {
+        width: 26px;
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.32);
+        transition: background 0.2s, width 0.2s;
+      }
+      .dot-btn.on {
+        background: var(--white);
+        width: 38px;
+      }
+      .bill .art,
+      .bill .art::before,
+      .bill h1,
+      .bill .meta,
+      .bill p.sub {
+        transition: none;
+      }
+
+      /* in-page player */
+      .player[hidden] {
+        display: none;
+      }
+      .player {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .player-bg {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.78);
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+        animation: fade 0.25s ease;
+      }
+      .player-box {
+        position: relative;
+        width: min(1040px, 100%);
+        max-height: calc(100vh - 48px);
+        overflow: auto;
+        background: var(--pop);
+        color: var(--text);
+        border-radius: 12px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+        animation: pop 0.3s var(--ease);
+        scrollbar-width: thin;
+      }
+      @keyframes fade {
+        from { opacity: 0; }
+      }
+      @keyframes pop {
+        from { opacity: 0; transform: translateY(16px) scale(0.98); }
+      }
+      .player-x {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 3;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.6);
+        color: var(--white);
+        display: grid;
+        place-items: center;
+      }
+      .player-x:hover {
+        background: rgba(0, 0, 0, 0.85);
+      }
+      .player-x svg {
+        width: 16px;
+        height: 16px;
+      }
+      .player-frame {
+        aspect-ratio: 16 / 9;
+        background: #000;
+        border-radius: 12px 12px 0 0;
+        overflow: hidden;
+      }
+      .player-frame.short {
+        aspect-ratio: 16 / 9;
+        display: grid;
+        place-items: center;
+      }
+      .player-frame iframe {
+        width: 100%;
+        height: 100%;
+        border: 0;
+        display: block;
+      }
+      .player-frame.short iframe {
+        width: auto;
+        aspect-ratio: 9 / 16;
+        height: 100%;
+      }
+      .player-body {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 28px;
+        padding: 22px 24px 26px;
+      }
+      .player-meta h2 {
+        font-size: clamp(20px, 2.2vw, 26px);
+        color: var(--text);
+      }
+      .player-meta .meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 10px;
+        font-size: 12.5px;
+        color: var(--muted);
+      }
+      .player-meta .pill {
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        padding: 1px 7px;
+        font-size: 11.5px;
+        color: var(--text-2);
+      }
+      .player-meta p {
+        margin-top: 12px;
+        font-size: 14.5px;
+        color: var(--text-2);
+        max-width: 56ch;
+      }
+      .player-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+      }
+      .player .btn-ghost {
+        color: var(--text);
+        border-color: var(--line);
+        background: transparent;
+      }
+      .player .btn-ghost:hover {
+        background: var(--card);
+      }
+      .player-related h3 {
+        font-family: var(--sans);
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        margin-bottom: 10px;
+      }
+      .rel {
+        display: grid;
+        gap: 10px;
+      }
+      .rel a {
+        display: grid;
+        grid-template-columns: 112px 1fr;
+        gap: 12px;
+        align-items: center;
+        padding: 6px;
+        border-radius: 8px;
+        transition: background 0.15s;
+      }
+      .rel a:hover {
+        background: var(--card);
+      }
+      .rel img {
+        width: 112px;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        border-radius: 5px;
+        background: var(--card-2);
+      }
+      .rel h4 {
+        font-family: var(--sans);
+        font-weight: 500;
+        font-size: 13px;
+        line-height: 1.35;
+        color: var(--text);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .rel small {
+        display: block;
+        margin-top: 2px;
+        font-size: 11.5px;
+        color: var(--muted);
+      }
+      body.locked {
+        overflow: hidden;
+      }
+      .player-offline {
+        position: relative;
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .player-offline img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.6;
+      }
+      .player-offline .play {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.94);
+        transform: translate(-50%, -50%);
+      }
+      .player-offline .play::before {
+        content: "";
+        position: absolute;
+        left: 56%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        border-style: solid;
+        border-width: 12px 0 12px 20px;
+        border-color: transparent transparent transparent var(--black);
+      }
+      .player-offline .note {
+        position: absolute;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        width: max-content;
+        max-width: 90%;
+        text-align: center;
+        font-size: 12.5px;
+        color: var(--white);
+        background: rgba(0, 0, 0, 0.7);
+        padding: 6px 12px;
+        border-radius: 6px;
+      }
+      @media (max-width: 860px) {
+        .player {
+          padding: 0;
+        }
+        .player-box {
+          max-height: 100vh;
+          border-radius: 0;
+        }
+        .player-frame {
+          border-radius: 0;
+        }
+        .player-body {
+          grid-template-columns: 1fr;
+          gap: 20px;
+        }
+        .search {
+          flex: 1 1 100%;
+        }
+        .bill .dots {
+          bottom: 16px;
+        }
+      }
+      @media (max-width: 640px) {
+        .card.short {
+          width: 130px;
+        }
+      }
+    
+      /* The Founders Doc mark: the wordmark ruled above and below. Replaces the
+         hosted PNG so the logo never depends on a file loading, and inherits
+         currentColor so one rule serves the nav and the dark footer. */
+      .fd-mark {
+        display: inline-block;
+        font-family: var(--sans);
+        font-size: 11.5px;
+        font-weight: 500;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        line-height: 1;
+        padding: 7px 10px 6px 12px;
+        border-top: 1px solid currentColor;
+        border-bottom: 1px solid currentColor;
+        white-space: nowrap;
+      }
+      .foot .fd-mark { color: #fff; }
+    
+      /* This page's nav floats over a dark hero, then gains a solid themed
+         background once you scroll — which is why the logo used to be two
+         images swapped by .scrolled. The mark needs no swap, only the matching
+         colour at each stage. */
+      nav .fd-mark { color: #fff; }
+      nav.scrolled .fd-mark { color: var(--text); }
+    </style>
+    <script type="application/ld+json">{"@context": "https://schema.org", "@type": "ItemList", "name": "Founders Doc podcast and videos", "itemListElement": [{"@type": "ListItem", "position": 1, "item": {"@type": "VideoObject", "name": "Truth or Drink with Jeremy Au: from Harvard MBA to startup COO", "description": "What does it really take to build a startup legacy? Harvard MBA and startup COO Jeremy Au joins Rachel Wong for an unfiltered round of Truth or Drink.", "thumbnailUrl": ["https://i.ytimg.com/vi/wLl4Z_nq_6g/maxresdefault.jpg", "https://i.ytimg.com/vi/wLl4Z_nq_6g/hqdefault.jpg"], "uploadDate": "2025-05-29", "embedUrl": "https://www.youtube-nocookie.com/embed/wLl4Z_nq_6g", "contentUrl": "https://www.youtube.com/watch?v=wLl4Z_nq_6g", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 2, "item": {"@type": "VideoObject", "name": "Entertainment law basics: what creators and talents should know", "description": "Miss Universe Singapore 2015 Lisa Marie White joins Rachel Wong to unpack how entertainment law protects creators, talents and influencers.", "thumbnailUrl": ["https://i.ytimg.com/vi/JDeztsVNBJg/maxresdefault.jpg", "https://i.ytimg.com/vi/JDeztsVNBJg/hqdefault.jpg"], "uploadDate": "2025-05-19", "embedUrl": "https://www.youtube-nocookie.com/embed/JDeztsVNBJg", "contentUrl": "https://www.youtube.com/watch?v=JDeztsVNBJg", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 3, "item": {"@type": "VideoObject", "name": "Grand Prix: the role of advisor agreement templates", "description": "In F1 a bad pit stop costs the race; in startups a bad advisor agreement costs far more. What to fix before you onboard an advisor.", "thumbnailUrl": ["https://i.ytimg.com/vi/fbN9loaM8fU/maxresdefault.jpg", "https://i.ytimg.com/vi/fbN9loaM8fU/hqdefault.jpg"], "uploadDate": "2025-03-19", "embedUrl": "https://www.youtube-nocookie.com/embed/fbN9loaM8fU", "contentUrl": "https://www.youtube.com/watch?v=fbN9loaM8fU", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 4, "item": {"@type": "VideoObject", "name": "Discover FD Lite: share vesting letters for your startup", "description": "How share vesting protects the company when a founder leaves, and how to put a vesting letter in place with FD Lite.", "thumbnailUrl": ["https://i.ytimg.com/vi/iFnLYdMPEQQ/maxresdefault.jpg", "https://i.ytimg.com/vi/iFnLYdMPEQQ/hqdefault.jpg"], "uploadDate": "2025-02-01", "embedUrl": "https://www.youtube-nocookie.com/embed/iFnLYdMPEQQ", "contentUrl": "https://www.youtube.com/watch?v=iFnLYdMPEQQ", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 5, "item": {"@type": "VideoObject", "name": "Courtroom secrets: how three sexual assault cases were decided", "description": "Criminal lawyer Suang Wijaya (Eugene Thuraisingam LLP) and Rachel Wong on three high-profile cases — the Saudi millionaire, Dominique Pelicot and a Grab driver — and what decided them.", "thumbnailUrl": ["https://i.ytimg.com/vi/jXVps3hy9OE/maxresdefault.jpg", "https://i.ytimg.com/vi/jXVps3hy9OE/hqdefault.jpg"], "uploadDate": "2025-02-01", "embedUrl": "https://www.youtube-nocookie.com/embed/jXVps3hy9OE", "contentUrl": "https://www.youtube.com/watch?v=jXVps3hy9OE", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 6, "item": {"@type": "VideoObject", "name": "Lawyers' tales: a chat with criminal lawyer Eugene Thuraisingam", "description": "Criminal lawyer Eugene Thuraisingam on life at the bar, and a controversial poem explained.", "thumbnailUrl": ["https://i.ytimg.com/vi/VCz90-OvY1A/maxresdefault.jpg", "https://i.ytimg.com/vi/VCz90-OvY1A/hqdefault.jpg"], "uploadDate": "2024-07-01", "embedUrl": "https://www.youtube-nocookie.com/embed/VCz90-OvY1A", "contentUrl": "https://www.youtube.com/watch?v=VCz90-OvY1A", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 7, "item": {"@type": "VideoObject", "name": "Discover FD Lite: employment agreements for your startup", "description": "What a startup employment agreement must cover in Singapore, and how to generate one with FD Lite.", "thumbnailUrl": ["https://i.ytimg.com/vi/JSg2ECzXvCw/maxresdefault.jpg", "https://i.ytimg.com/vi/JSg2ECzXvCw/hqdefault.jpg"], "uploadDate": "2024-07-01", "embedUrl": "https://www.youtube-nocookie.com/embed/JSg2ECzXvCw", "contentUrl": "https://www.youtube.com/watch?v=JSg2ECzXvCw", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 8, "item": {"@type": "VideoObject", "name": "AI vs human lawyers: software service agreement smackdown", "description": "We put ChatGPT up against our lawyers on a SaaS agreement. Who drafts the better contract?", "thumbnailUrl": ["https://i.ytimg.com/vi/QEOpe26tsyE/maxresdefault.jpg", "https://i.ytimg.com/vi/QEOpe26tsyE/hqdefault.jpg"], "uploadDate": "2024-07-01", "embedUrl": "https://www.youtube-nocookie.com/embed/QEOpe26tsyE", "contentUrl": "https://www.youtube.com/watch?v=QEOpe26tsyE", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 9, "item": {"@type": "VideoObject", "name": "Queen of Tears breakdown, part 2: is Hyun-woo innocent?", "description": "Legal experts react to Queen of Tears — the evidence, the charges and whether Hyun-woo walks free.", "thumbnailUrl": ["https://i.ytimg.com/vi/YWow1tUtGS4/maxresdefault.jpg", "https://i.ytimg.com/vi/YWow1tUtGS4/hqdefault.jpg"], "uploadDate": "2024-07-01", "embedUrl": "https://www.youtube-nocookie.com/embed/YWow1tUtGS4", "contentUrl": "https://www.youtube.com/watch?v=YWow1tUtGS4", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 10, "item": {"@type": "VideoObject", "name": "Lawyers react to Queen of Tears, part 1: Hyun-woo arrested in Germany", "description": "Real law versus K-drama: what actually happens when you are arrested abroad.", "thumbnailUrl": ["https://i.ytimg.com/vi/DtQwtS1AMVM/maxresdefault.jpg", "https://i.ytimg.com/vi/DtQwtS1AMVM/hqdefault.jpg"], "uploadDate": "2024-06-01", "embedUrl": "https://www.youtube-nocookie.com/embed/DtQwtS1AMVM", "contentUrl": "https://www.youtube.com/watch?v=DtQwtS1AMVM", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 11, "item": {"@type": "VideoObject", "name": "McDonald's CEO fired: is a workplace affair illegal?", "description": "From McDonald's to Bumble and Tinder: when a workplace relationship becomes a legal problem.", "thumbnailUrl": ["https://i.ytimg.com/vi/iGIna1ZZFQA/maxresdefault.jpg", "https://i.ytimg.com/vi/iGIna1ZZFQA/hqdefault.jpg"], "uploadDate": "2024-05-01", "embedUrl": "https://www.youtube-nocookie.com/embed/iGIna1ZZFQA", "contentUrl": "https://www.youtube.com/watch?v=iGIna1ZZFQA", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 12, "item": {"@type": "VideoObject", "name": "Workplace fairness in Singapore: recruiting only gay employees", "description": "Can an employer hire on the basis of sexual orientation? A look at Singapore's workplace fairness rules.", "thumbnailUrl": ["https://i.ytimg.com/vi/CCKIxjHFe9Y/maxresdefault.jpg", "https://i.ytimg.com/vi/CCKIxjHFe9Y/hqdefault.jpg"], "uploadDate": "2024-04-01", "embedUrl": "https://www.youtube-nocookie.com/embed/CCKIxjHFe9Y", "contentUrl": "https://www.youtube.com/watch?v=CCKIxjHFe9Y", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 13, "item": {"@type": "VideoObject", "name": "Real Singaporean lawyers react to Suits", "description": "Harvey, Mike and the parts of Suits that would never fly in a Singapore firm.", "thumbnailUrl": ["https://i.ytimg.com/vi/amCd1nwvQKo/maxresdefault.jpg", "https://i.ytimg.com/vi/amCd1nwvQKo/hqdefault.jpg"], "uploadDate": "2024-03-01", "embedUrl": "https://www.youtube-nocookie.com/embed/amCd1nwvQKo", "contentUrl": "https://www.youtube.com/watch?v=amCd1nwvQKo", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 14, "item": {"@type": "VideoObject", "name": "Navigating tough times: Flash Coffee, WeWork and Lazada", "description": "Three restructurings, three lessons for founders on insolvency, layoffs and creditors.", "thumbnailUrl": ["https://i.ytimg.com/vi/C5uBvu2hZsM/maxresdefault.jpg", "https://i.ytimg.com/vi/C5uBvu2hZsM/hqdefault.jpg"], "uploadDate": "2024-02-01", "embedUrl": "https://www.youtube-nocookie.com/embed/C5uBvu2hZsM", "contentUrl": "https://www.youtube.com/watch?v=C5uBvu2hZsM", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 15, "item": {"@type": "VideoObject", "name": "The house that Jack Ma built: tips for startups (part 2)", "description": "More lessons from Alibaba's rise — governance, control and keeping founders aligned.", "thumbnailUrl": ["https://i.ytimg.com/vi/CUj4t5nPEO0/maxresdefault.jpg", "https://i.ytimg.com/vi/CUj4t5nPEO0/hqdefault.jpg"], "uploadDate": "2024-02-01", "embedUrl": "https://www.youtube-nocookie.com/embed/CUj4t5nPEO0", "contentUrl": "https://www.youtube.com/watch?v=CUj4t5nPEO0", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 16, "item": {"@type": "VideoObject", "name": "The house that Jack Ma built: tips for startups (part 1)", "description": "What Alibaba's early years teach founders about fundraising and cap tables.", "thumbnailUrl": ["https://i.ytimg.com/vi/OVWYa6pflv8/maxresdefault.jpg", "https://i.ytimg.com/vi/OVWYa6pflv8/hqdefault.jpg"], "uploadDate": "2024-02-01", "embedUrl": "https://www.youtube-nocookie.com/embed/OVWYa6pflv8", "contentUrl": "https://www.youtube.com/watch?v=OVWYa6pflv8", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 17, "item": {"@type": "VideoObject", "name": "Navigating closure: practical tips for winding up your startup", "description": "Rachel Wong and disputes lawyer Suang Wijaya on closing a company cleanly, using the Gala Vegetarian case.", "thumbnailUrl": ["https://i.ytimg.com/vi/ujdYPE2KBRo/maxresdefault.jpg", "https://i.ytimg.com/vi/ujdYPE2KBRo/hqdefault.jpg"], "uploadDate": "2023-08-11", "embedUrl": "https://www.youtube-nocookie.com/embed/ujdYPE2KBRo", "contentUrl": "https://www.youtube.com/watch?v=ujdYPE2KBRo", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 18, "item": {"@type": "VideoObject", "name": "The hidden role of legal terms: unlocking your startup's value", "description": "Valuation is not just a number — the legal terms around it move it up or down.", "thumbnailUrl": ["https://i.ytimg.com/vi/72Uk-FWyC50/maxresdefault.jpg", "https://i.ytimg.com/vi/72Uk-FWyC50/hqdefault.jpg"], "uploadDate": "2023-06-27", "embedUrl": "https://www.youtube-nocookie.com/embed/72Uk-FWyC50", "contentUrl": "https://www.youtube.com/watch?v=72Uk-FWyC50", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 19, "item": {"@type": "VideoObject", "name": "Startup endgame: key insights for founders navigating winding up", "description": "Nine in ten startups fail. How to avoid further slip-ups when the end is near.", "thumbnailUrl": ["https://i.ytimg.com/vi/Fe5n-j1OmEc/maxresdefault.jpg", "https://i.ytimg.com/vi/Fe5n-j1OmEc/hqdefault.jpg"], "uploadDate": "2023-06-13", "embedUrl": "https://www.youtube-nocookie.com/embed/Fe5n-j1OmEc", "contentUrl": "https://www.youtube.com/watch?v=Fe5n-j1OmEc", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 20, "item": {"@type": "VideoObject", "name": "Mastering co-founder agreements: essential tips for startup success", "description": "Why a co-founder agreement is a lifesaver, and the clauses that matter most.", "thumbnailUrl": ["https://i.ytimg.com/vi/dk0i211myF0/maxresdefault.jpg", "https://i.ytimg.com/vi/dk0i211myF0/hqdefault.jpg"], "uploadDate": "2023-05-26", "embedUrl": "https://www.youtube-nocookie.com/embed/dk0i211myF0", "contentUrl": "https://www.youtube.com/watch?v=dk0i211myF0", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 21, "item": {"@type": "VideoObject", "name": "Employee share option plan (ESOP), part 1", "description": "The four rules of an ESOP and how the plan actually works.", "thumbnailUrl": ["https://i.ytimg.com/vi/ZzBQ_NlPwMM/maxresdefault.jpg", "https://i.ytimg.com/vi/ZzBQ_NlPwMM/hqdefault.jpg"], "uploadDate": "2023-03-06", "embedUrl": "https://www.youtube-nocookie.com/embed/ZzBQ_NlPwMM", "contentUrl": "https://www.youtube.com/watch?v=ZzBQ_NlPwMM", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 22, "item": {"@type": "VideoObject", "name": "YC SAFE, part 3: the side letter", "description": "The letter you shouldn't leave on the sidelines — key side-letter terms explained.", "thumbnailUrl": ["https://i.ytimg.com/vi/3XFXzf0mpgI/maxresdefault.jpg", "https://i.ytimg.com/vi/3XFXzf0mpgI/hqdefault.jpg"], "uploadDate": "2023-02-20", "embedUrl": "https://www.youtube-nocookie.com/embed/3XFXzf0mpgI", "contentUrl": "https://www.youtube.com/watch?v=3XFXzf0mpgI", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 23, "item": {"@type": "VideoObject", "name": "YC SAFE, part 2: which SAFE to pick", "description": "Pre-money, post-money, cap or discount — choosing the right SAFE.", "thumbnailUrl": ["https://i.ytimg.com/vi/EL-qRGM7DXQ/maxresdefault.jpg", "https://i.ytimg.com/vi/EL-qRGM7DXQ/hqdefault.jpg"], "uploadDate": "2023-02-15", "embedUrl": "https://www.youtube-nocookie.com/embed/EL-qRGM7DXQ", "contentUrl": "https://www.youtube.com/watch?v=EL-qRGM7DXQ", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 24, "item": {"@type": "VideoObject", "name": "YC SAFE, part 1: what a SAFE is", "description": "The Simple Agreement for Future Equity in under a minute.", "thumbnailUrl": ["https://i.ytimg.com/vi/W00ueCs9gk4/maxresdefault.jpg", "https://i.ytimg.com/vi/W00ueCs9gk4/hqdefault.jpg"], "uploadDate": "2023-02-13", "embedUrl": "https://www.youtube-nocookie.com/embed/W00ueCs9gk4", "contentUrl": "https://www.youtube.com/watch?v=W00ueCs9gk4", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 25, "item": {"@type": "VideoObject", "name": "Shareholders' agreement, part 1: is there a standard one?", "description": "Is there such a thing as a standard shareholders' agreement? Short answer inside.", "thumbnailUrl": ["https://i.ytimg.com/vi/5kqpQ6YGGZo/maxresdefault.jpg", "https://i.ytimg.com/vi/5kqpQ6YGGZo/hqdefault.jpg"], "uploadDate": "2023-02-07", "embedUrl": "https://www.youtube-nocookie.com/embed/5kqpQ6YGGZo", "contentUrl": "https://www.youtube.com/watch?v=5kqpQ6YGGZo", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 26, "item": {"@type": "VideoObject", "name": "Startup shareholders' agreements: loopholes founders should look out for", "description": "Shareholders' agreements explained, and the loopholes that catch founders out.", "thumbnailUrl": ["https://i.ytimg.com/vi/uz8xpTh68jc/maxresdefault.jpg", "https://i.ytimg.com/vi/uz8xpTh68jc/hqdefault.jpg"], "uploadDate": "2023-01-18", "embedUrl": "https://www.youtube-nocookie.com/embed/uz8xpTh68jc", "contentUrl": "https://www.youtube.com/watch?v=uz8xpTh68jc", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 27, "item": {"@type": "VideoObject", "name": "Term sheet success: avoid common pitfalls in startup fundraising", "description": "The term sheet clauses that land startups in trouble, and how to negotiate them.", "thumbnailUrl": ["https://i.ytimg.com/vi/v270ZWcsj_E/maxresdefault.jpg", "https://i.ytimg.com/vi/v270ZWcsj_E/hqdefault.jpg"], "uploadDate": "2023-01-04", "embedUrl": "https://www.youtube-nocookie.com/embed/v270ZWcsj_E", "contentUrl": "https://www.youtube.com/watch?v=v270ZWcsj_E", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}, {"@type": "ListItem", "position": 28, "item": {"@type": "VideoObject", "name": "Advisor agreements: what to look out for when onboarding an advisor", "description": "Bringing on an advisor? How to protect your ideas and set clear terms from day one.", "thumbnailUrl": ["https://i.ytimg.com/vi/_PZah8mA7n0/maxresdefault.jpg", "https://i.ytimg.com/vi/_PZah8mA7n0/hqdefault.jpg"], "uploadDate": "2021-03-13", "embedUrl": "https://www.youtube-nocookie.com/embed/_PZah8mA7n0", "contentUrl": "https://www.youtube.com/watch?v=_PZah8mA7n0", "publisher": {"@type": "Organization", "name": "Founders Doc", "url": "https://foundersdoc.com/"}}}]}</script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <nav class="nav" aria-label="Main">
+      <div class="wrap">
+        <a class="logo" href="/" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+        <div class="links">
+          <div class="has-sub" data-open="false">
+            <button type="button" aria-expanded="false" aria-haspopup="true">FD AI <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/draft">Draft</a>
+              <a href="/#about">Review</a>
+            </div>
+          </div>
+          <a href="/#lawyers">Ask a Lawyer</a>
+          <a href="/#services">Services</a>
+        </div>
+        <div class="links r">
+          <div class="has-sub" data-open="false">
+            <button type="button" class="on" aria-expanded="false" aria-haspopup="true">Resources <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
+            <div class="nav-sub">
+              <a href="/resources">Blog</a>
+              <a href="/coming-soon?f=Courses">Courses</a>
+              <a href="/podcast" aria-current="page">Podcast</a>
+            </div>
+          </div>
+          <a href="/about">About us</a>
+        </div>
+        <div class="nav-cta">
+          <a class="btn btn-ghost" href="/contact">Book a consultation</a>
+          <a class="btn btn-gold" href="/draft">Launch FD AI</a>
+          <button type="button" class="theme" id="theme" aria-label="Switch to light mode" title="Light / dark mode">
+            <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></svg>
+            <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+          </button>
+        </div>
+        <button class="burger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menu">
+          <span></span>
+        </button>
+      </div>
+      <div class="menu" id="menu" data-open="false">
+        <div class="wrap">
+          <div class="menu-group">
+            <span>FD AI</span>
+            <a href="/draft">Draft</a>
+            <a href="/#about">Review</a>
+          </div>
+          <a href="/#lawyers">Ask a Lawyer</a>
+          <a href="/#services">Services</a>
+          <div class="menu-group">
+            <span>Resources</span>
+            <a href="/resources">Blog</a>
+            <a href="/coming-soon?f=Courses">Courses</a>
+            <a href="/podcast" aria-current="page">Podcast</a>
+          </div>
+          <a href="/about">About us</a>
+          <a href="/contact">Contact us</a>
+        </div>
+      </div>
+    </nav>
+
+    <main id="main">
+      <!-- Billboard: the latest episode, full-bleed -->
+      <header class="bill" id="top" aria-roledescription="carousel" aria-label="Featured episodes"><div class="slide on" data-id="wLl4Z_nq_6g" data-title="Truth or Drink with Jeremy Au: from Harvard MBA to startup COO" data-desc="What does it really take to build a startup legacy? Harvard MBA and startup COO Jeremy Au joins Rachel Wong for an unfiltered round of Truth or Drink." data-cat="general" data-date="2025-05-29" aria-hidden="false"><div class="art" aria-hidden="true"><img src="https://i.ytimg.com/vi/wLl4Z_nq_6g/hqdefault.jpg" alt="" loading="lazy" decoding="async" /></div><div class="wrap bill-grid"><div class="bill-copy"><span class="eyebrow"><i></i>Latest episode</span><h1>Truth or Drink with Jeremy Au: from Harvard MBA to startup COO</h1><div class="meta"><span class="pill">Episode</span><span>29 May 2025</span><span class="dot" aria-hidden="true"></span><span>Lawyers react</span></div><p class="sub">What does it really take to build a startup legacy? Harvard MBA and startup COO Jeremy Au joins Rachel Wong for an unfiltered round of Truth or Drink.</p><div class="actions"><a class="btn btn-white play-btn" data-id="wLl4Z_nq_6g" href="https://www.youtube.com/watch?v=wLl4Z_nq_6g" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8z" /></svg>Play episode</a><a class="btn btn-ghost" href="#browse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" /></svg>Browse all</a></div></div><a class="bill-video play-btn" data-id="wLl4Z_nq_6g" href="https://www.youtube.com/watch?v=wLl4Z_nq_6g" target="_blank" rel="noopener" aria-label="Play: Truth or Drink with Jeremy Au: from Harvard MBA to startup COO"><img data-yt="wLl4Z_nq_6g" src="https://i.ytimg.com/vi/wLl4Z_nq_6g/hqdefault.jpg" alt="" fetchpriority=high decoding="async" /><span class="play" aria-hidden="true"></span></a></div></div><div class="slide" data-id="JDeztsVNBJg" data-title="Entertainment law basics: what creators and talents should know" data-desc="Miss Universe Singapore 2015 Lisa Marie White joins Rachel Wong to unpack how entertainment law protects creators, talents and influencers." data-cat="general" data-date="2025-05-19" aria-hidden="true"><div class="art" aria-hidden="true"><img src="https://i.ytimg.com/vi/JDeztsVNBJg/hqdefault.jpg" alt="" loading="lazy" decoding="async" /></div><div class="wrap bill-grid"><div class="bill-copy"><span class="eyebrow"><i></i>Recently added</span><h1>Entertainment law basics: what creators and talents should know</h1><div class="meta"><span class="pill">Episode</span><span>19 May 2025</span><span class="dot" aria-hidden="true"></span><span>Lawyers react</span></div><p class="sub">Miss Universe Singapore 2015 Lisa Marie White joins Rachel Wong to unpack how entertainment law protects creators, talents and influencers.</p><div class="actions"><a class="btn btn-white play-btn" data-id="JDeztsVNBJg" href="https://www.youtube.com/watch?v=JDeztsVNBJg" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8z" /></svg>Play episode</a><a class="btn btn-ghost" href="#browse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" /></svg>Browse all</a></div></div><a class="bill-video play-btn" data-id="JDeztsVNBJg" href="https://www.youtube.com/watch?v=JDeztsVNBJg" target="_blank" rel="noopener" aria-label="Play: Entertainment law basics: what creators and talents should know"><img data-yt="JDeztsVNBJg" src="https://i.ytimg.com/vi/JDeztsVNBJg/hqdefault.jpg" alt="" loading=lazy decoding="async" /><span class="play" aria-hidden="true"></span></a></div></div><div class="slide" data-id="fbN9loaM8fU" data-title="Grand Prix: the role of advisor agreement templates" data-desc="In F1 a bad pit stop costs the race; in startups a bad advisor agreement costs far more. What to fix before you onboard an advisor." data-cat="hr" data-date="2025-03-19" aria-hidden="true"><div class="art" aria-hidden="true"><img src="https://i.ytimg.com/vi/fbN9loaM8fU/hqdefault.jpg" alt="" loading="lazy" decoding="async" /></div><div class="wrap bill-grid"><div class="bill-copy"><span class="eyebrow"><i></i>Recently added</span><h1>Grand Prix: the role of advisor agreement templates</h1><div class="meta"><span class="pill">Episode</span><span>19 Mar 2025</span><span class="dot" aria-hidden="true"></span><span>HR</span></div><p class="sub">In F1 a bad pit stop costs the race; in startups a bad advisor agreement costs far more. What to fix before you onboard an advisor.</p><div class="actions"><a class="btn btn-white play-btn" data-id="fbN9loaM8fU" href="https://www.youtube.com/watch?v=fbN9loaM8fU" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8z" /></svg>Play episode</a><a class="btn btn-ghost" href="#browse"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" /></svg>Browse all</a></div></div><a class="bill-video play-btn" data-id="fbN9loaM8fU" href="https://www.youtube.com/watch?v=fbN9loaM8fU" target="_blank" rel="noopener" aria-label="Play: Grand Prix: the role of advisor agreement templates"><img data-yt="fbN9loaM8fU" src="https://i.ytimg.com/vi/fbN9loaM8fU/hqdefault.jpg" alt="" loading=lazy decoding="async" /><span class="play" aria-hidden="true"></span></a></div></div><button type="button" class="bill-arrow prev" aria-label="Previous featured episode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="bill-arrow next" aria-label="Next featured episode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button><div class="dots" role="group" aria-label="Featured episodes"><button type="button" class="dot-btn on" aria-label="Show featured episode 1" aria-pressed="true"></button><button type="button" class="dot-btn" aria-label="Show featured episode 2" aria-pressed="false"></button><button type="button" class="dot-btn" aria-label="Show featured episode 3" aria-pressed="false"></button></div></header>
+
+
+      <div class="wrap" id="browse">
+        <div class="browse-bar">
+          <div class="chips" role="group" aria-label="Filter by topic">
+            <button type="button" class="chip sel" data-filter="all" aria-pressed="true">All</button>
+            <button type="button" class="chip" data-filter="fundraising" aria-pressed="false" style="--tc:#f3bf4b"><i></i>Fundraising</button>
+            <button type="button" class="chip" data-filter="companydocs" aria-pressed="false" style="--tc:#6fb1ff"><i></i>Company docs</button>
+            <button type="button" class="chip" data-filter="hr" aria-pressed="false" style="--tc:#7fd6a0"><i></i>HR</button>
+            <button type="button" class="chip" data-filter="ma" aria-pressed="false" style="--tc:#f28b6e"><i></i>M&amp;A</button>
+            <button type="button" class="chip" data-filter="general" aria-pressed="false" style="--tc:#c79bff"><i></i>Lawyers react</button>
+          </div>
+          <label class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></svg>
+            <input type="search" id="q" placeholder="Search episodes" autocomplete="off" aria-label="Search episodes" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Shelves are static HTML, generated by build_podcast.py from its VIDEOS / INFOGRAPHICS / SHELVES lists. Edit the lists and re-run. -->
+      <div class="wrap" id="shelves">
+<section class="shelf" id="shelf-new" aria-labelledby="shelf-h-new"><div class="shelf-h"><div><h2 id="shelf-h-new">New episodes</h2></div></div><div class="track-wrap"><button type="button" class="edge prev" aria-label="Scroll back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="track" tabindex="0" role="group" aria-label="New episodes"><a class="card" data-id="wLl4Z_nq_6g" data-cat="general" data-date="2025-05-29" data-title="Truth or Drink with Jeremy Au: from Harvard MBA to startup COO" data-desc="What does it really take to build a startup legacy? Harvard MBA and startup COO Jeremy Au joins Rachel Wong for an unfiltered round of Truth or Drink." href="https://www.youtube.com/watch?v=wLl4Z_nq_6g" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img data-yt="wLl4Z_nq_6g" src="https://i.ytimg.com/vi/wLl4Z_nq_6g/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="badge">New</span><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Truth or Drink with Jeremy Au: from Harvard MBA to startup COO</h3><span class="tags"><b>Lawyers react</b><i>29 May 2025</i><i>Episode</i></span><span class="desc">What does it really take to build a startup legacy? Harvard MBA and startup COO Jeremy Au joins Rachel Wong for an unfiltered round of Truth or Drink.</span></span></a><a class="card" data-id="JDeztsVNBJg" data-cat="general" data-date="2025-05-19" data-title="Entertainment law basics: what creators and talents should know" data-desc="Miss Universe Singapore 2015 Lisa Marie White joins Rachel Wong to unpack how entertainment law protects creators, talents and influencers." href="https://www.youtube.com/watch?v=JDeztsVNBJg" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img data-yt="JDeztsVNBJg" src="https://i.ytimg.com/vi/JDeztsVNBJg/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="badge">New</span><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Entertainment law basics: what creators and talents should know</h3><span class="tags"><b>Lawyers react</b><i>19 May 2025</i><i>Episode</i></span><span class="desc">Miss Universe Singapore 2015 Lisa Marie White joins Rachel Wong to unpack how entertainment law protects creators, talents and influencers.</span></span></a><a class="card" data-id="fbN9loaM8fU" data-cat="hr" data-date="2025-03-19" data-title="Grand Prix: the role of advisor agreement templates" data-desc="In F1 a bad pit stop costs the race; in startups a bad advisor agreement costs far more. What to fix before you onboard an advisor." href="https://www.youtube.com/watch?v=fbN9loaM8fU" target="_blank" rel="noopener" style="--tc:#7fd6a0"><span class="frame"><img data-yt="fbN9loaM8fU" src="https://i.ytimg.com/vi/fbN9loaM8fU/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Grand Prix: the role of advisor agreement templates</h3><span class="tags"><b>HR</b><i>19 Mar 2025</i><i>Episode</i></span><span class="desc">In F1 a bad pit stop costs the race; in startups a bad advisor agreement costs far more. What to fix before you onboard an advisor.</span></span></a><a class="card" data-id="iFnLYdMPEQQ" data-cat="companydocs" data-date="2025-02-01" data-title="Discover FD Lite: share vesting letters for your startup" data-desc="How share vesting protects the company when a founder leaves, and how to put a vesting letter in place with FD Lite." href="https://www.youtube.com/watch?v=iFnLYdMPEQQ" target="_blank" rel="noopener" style="--tc:#6fb1ff"><span class="frame"><img data-yt="iFnLYdMPEQQ" src="https://i.ytimg.com/vi/iFnLYdMPEQQ/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Discover FD Lite: share vesting letters for your startup</h3><span class="tags"><b>Company docs</b><i>Feb 2025</i><i>Episode</i></span><span class="desc">How share vesting protects the company when a founder leaves, and how to put a vesting letter in place with FD Lite.</span></span></a><a class="card" data-id="jXVps3hy9OE" data-cat="general" data-date="2025-02-01" data-title="Courtroom secrets: how three sexual assault cases were decided" data-desc="Criminal lawyer Suang Wijaya (Eugene Thuraisingam LLP) and Rachel Wong on three high-profile cases — the Saudi millionaire, Dominique Pelicot and a Grab driver — and what decided them." href="https://www.youtube.com/watch?v=jXVps3hy9OE" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img data-yt="jXVps3hy9OE" src="https://i.ytimg.com/vi/jXVps3hy9OE/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Courtroom secrets: how three sexual assault cases were decided</h3><span class="tags"><b>Lawyers react</b><i>Feb 2025</i><i>Episode</i></span><span class="desc">Criminal lawyer Suang Wijaya (Eugene Thuraisingam LLP) and Rachel Wong on three high-profile cases — the Saudi millionaire, Dominique Pelicot and a Grab driver — and what decided them.</span></span></a><a class="card" data-id="VCz90-OvY1A" data-cat="general" data-date="2024-07-01" data-title="Lawyers&#x27; tales: a chat with criminal lawyer Eugene Thuraisingam" data-desc="Criminal lawyer Eugene Thuraisingam on life at the bar, and a controversial poem explained." href="https://www.youtube.com/watch?v=VCz90-OvY1A" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img data-yt="VCz90-OvY1A" src="https://i.ytimg.com/vi/VCz90-OvY1A/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Lawyers&#x27; tales: a chat with criminal lawyer Eugene Thuraisingam</h3><span class="tags"><b>Lawyers react</b><i>Jul 2024</i><i>Episode</i></span><span class="desc">Criminal lawyer Eugene Thuraisingam on life at the bar, and a controversial poem explained.</span></span></a><a class="card" data-id="JSg2ECzXvCw" data-cat="hr" data-date="2024-07-01" data-title="Discover FD Lite: employment agreements for your startup" data-desc="What a startup employment agreement must cover in Singapore, and how to generate one with FD Lite." href="https://www.youtube.com/watch?v=JSg2ECzXvCw" target="_blank" rel="noopener" style="--tc:#7fd6a0"><span class="frame"><img data-yt="JSg2ECzXvCw" src="https://i.ytimg.com/vi/JSg2ECzXvCw/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Discover FD Lite: employment agreements for your startup</h3><span class="tags"><b>HR</b><i>Jul 2024</i><i>Episode</i></span><span class="desc">What a startup employment agreement must cover in Singapore, and how to generate one with FD Lite.</span></span></a><a class="card" data-id="QEOpe26tsyE" data-cat="companydocs" data-date="2024-07-01" data-title="AI vs human lawyers: software service agreement smackdown" data-desc="We put ChatGPT up against our lawyers on a SaaS agreement. Who drafts the better contract?" href="https://www.youtube.com/watch?v=QEOpe26tsyE" target="_blank" rel="noopener" style="--tc:#6fb1ff"><span class="frame"><img data-yt="QEOpe26tsyE" src="https://i.ytimg.com/vi/QEOpe26tsyE/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>AI vs human lawyers: software service agreement smackdown</h3><span class="tags"><b>Company docs</b><i>Jul 2024</i><i>Episode</i></span><span class="desc">We put ChatGPT up against our lawyers on a SaaS agreement. Who drafts the better contract?</span></span></a></div><button type="button" class="edge next" aria-label="Scroll forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div></section>
+<section class="shelf" id="shelf-s0" aria-labelledby="shelf-h-s0"><div class="shelf-h"><div><h2 id="shelf-h-s0">Lawyers react to TV and the headlines</h2></div></div><div class="track-wrap"><button type="button" class="edge prev" aria-label="Scroll back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="track" tabindex="0" role="group" aria-label="Lawyers react to TV and the headlines"><a class="card" data-id="DtQwtS1AMVM" data-cat="general" data-date="2024-06-01" data-title="Lawyers react to Queen of Tears, part 1: Hyun-woo arrested in Germany" data-desc="Real law versus K-drama: what actually happens when you are arrested abroad." href="https://www.youtube.com/watch?v=DtQwtS1AMVM" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img data-yt="DtQwtS1AMVM" src="https://i.ytimg.com/vi/DtQwtS1AMVM/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Lawyers react to Queen of Tears, part 1: Hyun-woo arrested in Germany</h3><span class="tags"><b>Lawyers react</b><i>Jun 2024</i><i>Episode</i></span><span class="desc">Real law versus K-drama: what actually happens when you are arrested abroad.</span></span></a><a class="card" data-id="YWow1tUtGS4" data-cat="general" data-date="2024-07-01" data-title="Queen of Tears breakdown, part 2: is Hyun-woo innocent?" data-desc="Legal experts react to Queen of Tears — the evidence, the charges and whether Hyun-woo walks free." href="https://www.youtube.com/watch?v=YWow1tUtGS4" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img data-yt="YWow1tUtGS4" src="https://i.ytimg.com/vi/YWow1tUtGS4/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Queen of Tears breakdown, part 2: is Hyun-woo innocent?</h3><span class="tags"><b>Lawyers react</b><i>Jul 2024</i><i>Episode</i></span><span class="desc">Legal experts react to Queen of Tears — the evidence, the charges and whether Hyun-woo walks free.</span></span></a><a class="card" data-id="amCd1nwvQKo" data-cat="general" data-date="2024-03-01" data-title="Real Singaporean lawyers react to Suits" data-desc="Harvey, Mike and the parts of Suits that would never fly in a Singapore firm." href="https://www.youtube.com/watch?v=amCd1nwvQKo" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img data-yt="amCd1nwvQKo" src="https://i.ytimg.com/vi/amCd1nwvQKo/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Real Singaporean lawyers react to Suits</h3><span class="tags"><b>Lawyers react</b><i>Mar 2024</i><i>Episode</i></span><span class="desc">Harvey, Mike and the parts of Suits that would never fly in a Singapore firm.</span></span></a><a class="card" data-id="iGIna1ZZFQA" data-cat="hr" data-date="2024-05-01" data-title="McDonald&#x27;s CEO fired: is a workplace affair illegal?" data-desc="From McDonald&#x27;s to Bumble and Tinder: when a workplace relationship becomes a legal problem." href="https://www.youtube.com/watch?v=iGIna1ZZFQA" target="_blank" rel="noopener" style="--tc:#7fd6a0"><span class="frame"><img data-yt="iGIna1ZZFQA" src="https://i.ytimg.com/vi/iGIna1ZZFQA/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>McDonald&#x27;s CEO fired: is a workplace affair illegal?</h3><span class="tags"><b>HR</b><i>May 2024</i><i>Episode</i></span><span class="desc">From McDonald&#x27;s to Bumble and Tinder: when a workplace relationship becomes a legal problem.</span></span></a><a class="card" data-id="CCKIxjHFe9Y" data-cat="hr" data-date="2024-04-01" data-title="Workplace fairness in Singapore: recruiting only gay employees" data-desc="Can an employer hire on the basis of sexual orientation? A look at Singapore&#x27;s workplace fairness rules." href="https://www.youtube.com/watch?v=CCKIxjHFe9Y" target="_blank" rel="noopener" style="--tc:#7fd6a0"><span class="frame"><img data-yt="CCKIxjHFe9Y" src="https://i.ytimg.com/vi/CCKIxjHFe9Y/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Workplace fairness in Singapore: recruiting only gay employees</h3><span class="tags"><b>HR</b><i>Apr 2024</i><i>Episode</i></span><span class="desc">Can an employer hire on the basis of sexual orientation? A look at Singapore&#x27;s workplace fairness rules.</span></span></a><a class="card" data-id="jXVps3hy9OE" data-cat="general" data-date="2025-02-01" data-title="Courtroom secrets: how three sexual assault cases were decided" data-desc="Criminal lawyer Suang Wijaya (Eugene Thuraisingam LLP) and Rachel Wong on three high-profile cases — the Saudi millionaire, Dominique Pelicot and a Grab driver — and what decided them." href="https://www.youtube.com/watch?v=jXVps3hy9OE" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img data-yt="jXVps3hy9OE" src="https://i.ytimg.com/vi/jXVps3hy9OE/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Courtroom secrets: how three sexual assault cases were decided</h3><span class="tags"><b>Lawyers react</b><i>Feb 2025</i><i>Episode</i></span><span class="desc">Criminal lawyer Suang Wijaya (Eugene Thuraisingam LLP) and Rachel Wong on three high-profile cases — the Saudi millionaire, Dominique Pelicot and a Grab driver — and what decided them.</span></span></a><a class="card" data-id="JDeztsVNBJg" data-cat="general" data-date="2025-05-19" data-title="Entertainment law basics: what creators and talents should know" data-desc="Miss Universe Singapore 2015 Lisa Marie White joins Rachel Wong to unpack how entertainment law protects creators, talents and influencers." href="https://www.youtube.com/watch?v=JDeztsVNBJg" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img data-yt="JDeztsVNBJg" src="https://i.ytimg.com/vi/JDeztsVNBJg/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Entertainment law basics: what creators and talents should know</h3><span class="tags"><b>Lawyers react</b><i>19 May 2025</i><i>Episode</i></span><span class="desc">Miss Universe Singapore 2015 Lisa Marie White joins Rachel Wong to unpack how entertainment law protects creators, talents and influencers.</span></span></a><a class="card" data-id="VCz90-OvY1A" data-cat="general" data-date="2024-07-01" data-title="Lawyers&#x27; tales: a chat with criminal lawyer Eugene Thuraisingam" data-desc="Criminal lawyer Eugene Thuraisingam on life at the bar, and a controversial poem explained." href="https://www.youtube.com/watch?v=VCz90-OvY1A" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img data-yt="VCz90-OvY1A" src="https://i.ytimg.com/vi/VCz90-OvY1A/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Lawyers&#x27; tales: a chat with criminal lawyer Eugene Thuraisingam</h3><span class="tags"><b>Lawyers react</b><i>Jul 2024</i><i>Episode</i></span><span class="desc">Criminal lawyer Eugene Thuraisingam on life at the bar, and a controversial poem explained.</span></span></a></div><button type="button" class="edge next" aria-label="Scroll forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div></section>
+<section class="shelf" id="shelf-s1" aria-labelledby="shelf-h-s1"><div class="shelf-h"><div><h2 id="shelf-h-s1">Fundraising and term sheets</h2></div></div><div class="track-wrap"><button type="button" class="edge prev" aria-label="Scroll back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="track" tabindex="0" role="group" aria-label="Fundraising and term sheets"><a class="card" data-id="v270ZWcsj_E" data-cat="fundraising" data-date="2023-01-04" data-title="Term sheet success: avoid common pitfalls in startup fundraising" data-desc="The term sheet clauses that land startups in trouble, and how to negotiate them." href="https://www.youtube.com/watch?v=v270ZWcsj_E" target="_blank" rel="noopener" style="--tc:#f3bf4b"><span class="frame"><img data-yt="v270ZWcsj_E" src="https://i.ytimg.com/vi/v270ZWcsj_E/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Term sheet success: avoid common pitfalls in startup fundraising</h3><span class="tags"><b>Fundraising</b><i>4 Jan 2023</i><i>Episode</i></span><span class="desc">The term sheet clauses that land startups in trouble, and how to negotiate them.</span></span></a><a class="card" data-id="72Uk-FWyC50" data-cat="fundraising" data-date="2023-06-27" data-title="The hidden role of legal terms: unlocking your startup&#x27;s value" data-desc="Valuation is not just a number — the legal terms around it move it up or down." href="https://www.youtube.com/watch?v=72Uk-FWyC50" target="_blank" rel="noopener" style="--tc:#f3bf4b"><span class="frame"><img data-yt="72Uk-FWyC50" src="https://i.ytimg.com/vi/72Uk-FWyC50/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>The hidden role of legal terms: unlocking your startup&#x27;s value</h3><span class="tags"><b>Fundraising</b><i>27 Jun 2023</i><i>Episode</i></span><span class="desc">Valuation is not just a number — the legal terms around it move it up or down.</span></span></a><a class="card" data-id="OVWYa6pflv8" data-cat="fundraising" data-date="2024-02-01" data-title="The house that Jack Ma built: tips for startups (part 1)" data-desc="What Alibaba&#x27;s early years teach founders about fundraising and cap tables." href="https://www.youtube.com/watch?v=OVWYa6pflv8" target="_blank" rel="noopener" style="--tc:#f3bf4b"><span class="frame"><img data-yt="OVWYa6pflv8" src="https://i.ytimg.com/vi/OVWYa6pflv8/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>The house that Jack Ma built: tips for startups (part 1)</h3><span class="tags"><b>Fundraising</b><i>Feb 2024</i><i>Episode</i></span><span class="desc">What Alibaba&#x27;s early years teach founders about fundraising and cap tables.</span></span></a><a class="card" data-id="CUj4t5nPEO0" data-cat="fundraising" data-date="2024-02-01" data-title="The house that Jack Ma built: tips for startups (part 2)" data-desc="More lessons from Alibaba&#x27;s rise — governance, control and keeping founders aligned." href="https://www.youtube.com/watch?v=CUj4t5nPEO0" target="_blank" rel="noopener" style="--tc:#f3bf4b"><span class="frame"><img data-yt="CUj4t5nPEO0" src="https://i.ytimg.com/vi/CUj4t5nPEO0/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>The house that Jack Ma built: tips for startups (part 2)</h3><span class="tags"><b>Fundraising</b><i>Feb 2024</i><i>Episode</i></span><span class="desc">More lessons from Alibaba&#x27;s rise — governance, control and keeping founders aligned.</span></span></a></div><button type="button" class="edge next" aria-label="Scroll forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div></section>
+<section class="shelf" id="shelf-s2" aria-labelledby="shelf-h-s2"><div class="shelf-h"><div><h2 id="shelf-h-s2">Company docs and people</h2></div></div><div class="track-wrap"><button type="button" class="edge prev" aria-label="Scroll back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="track" tabindex="0" role="group" aria-label="Company docs and people"><a class="card" data-id="uz8xpTh68jc" data-cat="companydocs" data-date="2023-01-18" data-title="Startup shareholders&#x27; agreements: loopholes founders should look out for" data-desc="Shareholders&#x27; agreements explained, and the loopholes that catch founders out." href="https://www.youtube.com/watch?v=uz8xpTh68jc" target="_blank" rel="noopener" style="--tc:#6fb1ff"><span class="frame"><img data-yt="uz8xpTh68jc" src="https://i.ytimg.com/vi/uz8xpTh68jc/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Startup shareholders&#x27; agreements: loopholes founders should look out for</h3><span class="tags"><b>Company docs</b><i>18 Jan 2023</i><i>Episode</i></span><span class="desc">Shareholders&#x27; agreements explained, and the loopholes that catch founders out.</span></span></a><a class="card" data-id="dk0i211myF0" data-cat="companydocs" data-date="2023-05-26" data-title="Mastering co-founder agreements: essential tips for startup success" data-desc="Why a co-founder agreement is a lifesaver, and the clauses that matter most." href="https://www.youtube.com/watch?v=dk0i211myF0" target="_blank" rel="noopener" style="--tc:#6fb1ff"><span class="frame"><img data-yt="dk0i211myF0" src="https://i.ytimg.com/vi/dk0i211myF0/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Mastering co-founder agreements: essential tips for startup success</h3><span class="tags"><b>Company docs</b><i>26 May 2023</i><i>Episode</i></span><span class="desc">Why a co-founder agreement is a lifesaver, and the clauses that matter most.</span></span></a><a class="card" data-id="iFnLYdMPEQQ" data-cat="companydocs" data-date="2025-02-01" data-title="Discover FD Lite: share vesting letters for your startup" data-desc="How share vesting protects the company when a founder leaves, and how to put a vesting letter in place with FD Lite." href="https://www.youtube.com/watch?v=iFnLYdMPEQQ" target="_blank" rel="noopener" style="--tc:#6fb1ff"><span class="frame"><img data-yt="iFnLYdMPEQQ" src="https://i.ytimg.com/vi/iFnLYdMPEQQ/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Discover FD Lite: share vesting letters for your startup</h3><span class="tags"><b>Company docs</b><i>Feb 2025</i><i>Episode</i></span><span class="desc">How share vesting protects the company when a founder leaves, and how to put a vesting letter in place with FD Lite.</span></span></a><a class="card" data-id="QEOpe26tsyE" data-cat="companydocs" data-date="2024-07-01" data-title="AI vs human lawyers: software service agreement smackdown" data-desc="We put ChatGPT up against our lawyers on a SaaS agreement. Who drafts the better contract?" href="https://www.youtube.com/watch?v=QEOpe26tsyE" target="_blank" rel="noopener" style="--tc:#6fb1ff"><span class="frame"><img data-yt="QEOpe26tsyE" src="https://i.ytimg.com/vi/QEOpe26tsyE/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>AI vs human lawyers: software service agreement smackdown</h3><span class="tags"><b>Company docs</b><i>Jul 2024</i><i>Episode</i></span><span class="desc">We put ChatGPT up against our lawyers on a SaaS agreement. Who drafts the better contract?</span></span></a><a class="card" data-id="fbN9loaM8fU" data-cat="hr" data-date="2025-03-19" data-title="Grand Prix: the role of advisor agreement templates" data-desc="In F1 a bad pit stop costs the race; in startups a bad advisor agreement costs far more. What to fix before you onboard an advisor." href="https://www.youtube.com/watch?v=fbN9loaM8fU" target="_blank" rel="noopener" style="--tc:#7fd6a0"><span class="frame"><img data-yt="fbN9loaM8fU" src="https://i.ytimg.com/vi/fbN9loaM8fU/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Grand Prix: the role of advisor agreement templates</h3><span class="tags"><b>HR</b><i>19 Mar 2025</i><i>Episode</i></span><span class="desc">In F1 a bad pit stop costs the race; in startups a bad advisor agreement costs far more. What to fix before you onboard an advisor.</span></span></a><a class="card" data-id="_PZah8mA7n0" data-cat="hr" data-date="2021-03-13" data-title="Advisor agreements: what to look out for when onboarding an advisor" data-desc="Bringing on an advisor? How to protect your ideas and set clear terms from day one." href="https://www.youtube.com/watch?v=_PZah8mA7n0" target="_blank" rel="noopener" style="--tc:#7fd6a0"><span class="frame"><img data-yt="_PZah8mA7n0" src="https://i.ytimg.com/vi/_PZah8mA7n0/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Advisor agreements: what to look out for when onboarding an advisor</h3><span class="tags"><b>HR</b><i>13 Mar 2021</i><i>Episode</i></span><span class="desc">Bringing on an advisor? How to protect your ideas and set clear terms from day one.</span></span></a><a class="card" data-id="ZzBQ_NlPwMM" data-cat="hr" data-date="2023-03-06" data-title="Employee share option plan (ESOP), part 1" data-desc="The four rules of an ESOP and how the plan actually works." href="https://www.youtube.com/watch?v=ZzBQ_NlPwMM" target="_blank" rel="noopener" style="--tc:#7fd6a0"><span class="frame"><img data-yt="ZzBQ_NlPwMM" src="https://i.ytimg.com/vi/ZzBQ_NlPwMM/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Employee share option plan (ESOP), part 1</h3><span class="tags"><b>HR</b><i>6 Mar 2023</i><i>Episode</i></span><span class="desc">The four rules of an ESOP and how the plan actually works.</span></span></a><a class="card" data-id="JSg2ECzXvCw" data-cat="hr" data-date="2024-07-01" data-title="Discover FD Lite: employment agreements for your startup" data-desc="What a startup employment agreement must cover in Singapore, and how to generate one with FD Lite." href="https://www.youtube.com/watch?v=JSg2ECzXvCw" target="_blank" rel="noopener" style="--tc:#7fd6a0"><span class="frame"><img data-yt="JSg2ECzXvCw" src="https://i.ytimg.com/vi/JSg2ECzXvCw/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Discover FD Lite: employment agreements for your startup</h3><span class="tags"><b>HR</b><i>Jul 2024</i><i>Episode</i></span><span class="desc">What a startup employment agreement must cover in Singapore, and how to generate one with FD Lite.</span></span></a></div><button type="button" class="edge next" aria-label="Scroll forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div></section>
+<section class="shelf" id="shelf-s3" aria-labelledby="shelf-h-s3"><div class="shelf-h"><div><h2 id="shelf-h-s3">Founder stories and the endgame</h2></div></div><div class="track-wrap"><button type="button" class="edge prev" aria-label="Scroll back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="track" tabindex="0" role="group" aria-label="Founder stories and the endgame"><a class="card" data-id="wLl4Z_nq_6g" data-cat="general" data-date="2025-05-29" data-title="Truth or Drink with Jeremy Au: from Harvard MBA to startup COO" data-desc="What does it really take to build a startup legacy? Harvard MBA and startup COO Jeremy Au joins Rachel Wong for an unfiltered round of Truth or Drink." href="https://www.youtube.com/watch?v=wLl4Z_nq_6g" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img data-yt="wLl4Z_nq_6g" src="https://i.ytimg.com/vi/wLl4Z_nq_6g/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Truth or Drink with Jeremy Au: from Harvard MBA to startup COO</h3><span class="tags"><b>Lawyers react</b><i>29 May 2025</i><i>Episode</i></span><span class="desc">What does it really take to build a startup legacy? Harvard MBA and startup COO Jeremy Au joins Rachel Wong for an unfiltered round of Truth or Drink.</span></span></a><a class="card" data-id="C5uBvu2hZsM" data-cat="ma" data-date="2024-02-01" data-title="Navigating tough times: Flash Coffee, WeWork and Lazada" data-desc="Three restructurings, three lessons for founders on insolvency, layoffs and creditors." href="https://www.youtube.com/watch?v=C5uBvu2hZsM" target="_blank" rel="noopener" style="--tc:#f28b6e"><span class="frame"><img data-yt="C5uBvu2hZsM" src="https://i.ytimg.com/vi/C5uBvu2hZsM/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Navigating tough times: Flash Coffee, WeWork and Lazada</h3><span class="tags"><b>M&A</b><i>Feb 2024</i><i>Episode</i></span><span class="desc">Three restructurings, three lessons for founders on insolvency, layoffs and creditors.</span></span></a><a class="card" data-id="Fe5n-j1OmEc" data-cat="ma" data-date="2023-06-13" data-title="Startup endgame: key insights for founders navigating winding up" data-desc="Nine in ten startups fail. How to avoid further slip-ups when the end is near." href="https://www.youtube.com/watch?v=Fe5n-j1OmEc" target="_blank" rel="noopener" style="--tc:#f28b6e"><span class="frame"><img data-yt="Fe5n-j1OmEc" src="https://i.ytimg.com/vi/Fe5n-j1OmEc/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Startup endgame: key insights for founders navigating winding up</h3><span class="tags"><b>M&A</b><i>13 Jun 2023</i><i>Episode</i></span><span class="desc">Nine in ten startups fail. How to avoid further slip-ups when the end is near.</span></span></a><a class="card" data-id="ujdYPE2KBRo" data-cat="ma" data-date="2023-08-11" data-title="Navigating closure: practical tips for winding up your startup" data-desc="Rachel Wong and disputes lawyer Suang Wijaya on closing a company cleanly, using the Gala Vegetarian case." href="https://www.youtube.com/watch?v=ujdYPE2KBRo" target="_blank" rel="noopener" style="--tc:#f28b6e"><span class="frame"><img data-yt="ujdYPE2KBRo" src="https://i.ytimg.com/vi/ujdYPE2KBRo/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Video</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Navigating closure: practical tips for winding up your startup</h3><span class="tags"><b>M&A</b><i>11 Aug 2023</i><i>Episode</i></span><span class="desc">Rachel Wong and disputes lawyer Suang Wijaya on closing a company cleanly, using the Gala Vegetarian case.</span></span></a></div><button type="button" class="edge next" aria-label="Scroll forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div></section>
+<section class="shelf" id="shelf-shorts" aria-labelledby="shelf-h-shorts"><div class="shelf-h"><div><h2 id="shelf-h-shorts">Quick explainers</h2><p class="shelf-sub">Under a minute each.</p></div></div><div class="track-wrap"><button type="button" class="edge prev" aria-label="Scroll back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="track" tabindex="0" role="group" aria-label="Quick explainers"><a class="card short" data-id="W00ueCs9gk4" data-cat="fundraising" data-date="2023-02-13" data-title="YC SAFE, part 1: what a SAFE is" data-desc="The Simple Agreement for Future Equity in under a minute." href="https://www.youtube.com/watch?v=W00ueCs9gk4" target="_blank" rel="noopener" style="--tc:#f3bf4b"><span class="frame"><img data-yt="W00ueCs9gk4" src="https://i.ytimg.com/vi/W00ueCs9gk4/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Short</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>YC SAFE, part 1: what a SAFE is</h3><span class="tags"><b>Fundraising</b><i>13 Feb 2023</i><i>Short</i></span><span class="desc">The Simple Agreement for Future Equity in under a minute.</span></span></a><a class="card short" data-id="EL-qRGM7DXQ" data-cat="fundraising" data-date="2023-02-15" data-title="YC SAFE, part 2: which SAFE to pick" data-desc="Pre-money, post-money, cap or discount — choosing the right SAFE." href="https://www.youtube.com/watch?v=EL-qRGM7DXQ" target="_blank" rel="noopener" style="--tc:#f3bf4b"><span class="frame"><img data-yt="EL-qRGM7DXQ" src="https://i.ytimg.com/vi/EL-qRGM7DXQ/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Short</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>YC SAFE, part 2: which SAFE to pick</h3><span class="tags"><b>Fundraising</b><i>15 Feb 2023</i><i>Short</i></span><span class="desc">Pre-money, post-money, cap or discount — choosing the right SAFE.</span></span></a><a class="card short" data-id="3XFXzf0mpgI" data-cat="fundraising" data-date="2023-02-20" data-title="YC SAFE, part 3: the side letter" data-desc="The letter you shouldn&#x27;t leave on the sidelines — key side-letter terms explained." href="https://www.youtube.com/watch?v=3XFXzf0mpgI" target="_blank" rel="noopener" style="--tc:#f3bf4b"><span class="frame"><img data-yt="3XFXzf0mpgI" src="https://i.ytimg.com/vi/3XFXzf0mpgI/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Short</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>YC SAFE, part 3: the side letter</h3><span class="tags"><b>Fundraising</b><i>20 Feb 2023</i><i>Short</i></span><span class="desc">The letter you shouldn&#x27;t leave on the sidelines — key side-letter terms explained.</span></span></a><a class="card short" data-id="5kqpQ6YGGZo" data-cat="companydocs" data-date="2023-02-07" data-title="Shareholders&#x27; agreement, part 1: is there a standard one?" data-desc="Is there such a thing as a standard shareholders&#x27; agreement? Short answer inside." href="https://www.youtube.com/watch?v=5kqpQ6YGGZo" target="_blank" rel="noopener" style="--tc:#6fb1ff"><span class="frame"><img data-yt="5kqpQ6YGGZo" src="https://i.ytimg.com/vi/5kqpQ6YGGZo/hqdefault.jpg" alt="" loading="lazy" decoding="async" /><span class="dur">Short</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Shareholders&#x27; agreement, part 1: is there a standard one?</h3><span class="tags"><b>Company docs</b><i>7 Feb 2023</i><i>Short</i></span><span class="desc">Is there such a thing as a standard shareholders&#x27; agreement? Short answer inside.</span></span></a></div><button type="button" class="edge next" aria-label="Scroll forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div></section>
+<section class="shelf" id="shelf-info" aria-labelledby="shelf-h-info"><div class="shelf-h"><div><h2 id="shelf-h-info">Infographics</h2><p class="shelf-sub">The whole picture at a glance — each opens as a PDF.</p></div></div><div class="track-wrap"><button type="button" class="edge prev" aria-label="Scroll back" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><div class="track" tabindex="0" role="group" aria-label="Infographics"><a class="card tall" data-cat="ma" data-title="Steps for startups preparing for a mid-cycle exit in Singapore" href="https://foundersdoc.com/wp-content/uploads/2024/08/MA-Infographic.pdf" target="_blank" rel="noopener" style="--tc:#f28b6e"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2024/08/Essential-Steps-for-Startups-Preparing-for-a-MID-CYCLE-Exit-in-singapore-1.png" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Steps for startups preparing for a mid-cycle exit in Singapore</h3><span class="tags"><b>M&A</b><i>Opens as PDF</i></span><span class="desc">A one-page checklist for founders selling before the final round: diligence, approvals and what buyers will ask for.</span></span></a><a class="card tall" data-cat="ma" data-title="M&amp;A cheat sheet for startup founders" href="https://foundersdoc.com/wp-content/uploads/2023/06/FD-I-MA-Infographic-1.pdf" target="_blank" rel="noopener" style="--tc:#f28b6e"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2023/06/mario.png" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>M&amp;A cheat sheet for startup founders</h3><span class="tags"><b>M&A</b><i>Opens as PDF</i></span><span class="desc">The M&amp;A process from first approach to completion, and the terms that decide how much you actually keep.</span></span></a><a class="card tall" data-cat="fundraising" data-title="SAFE conversion in 7 steps" href="https://foundersdoc.com/wp-content/uploads/2023/04/FD-Infographics-SAFE-conversion-3.pdf" target="_blank" rel="noopener" style="--tc:#f3bf4b"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2023/04/safe.png" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>SAFE conversion in 7 steps</h3><span class="tags"><b>Fundraising</b><i>Opens as PDF</i></span><span class="desc">How a SAFE turns into shares at the priced round, worked through step by step.</span></span></a><a class="card tall" data-cat="fundraising" data-title="Common differences between SAFE and KISS" href="https://foundersdoc.com/wp-content/uploads/2022/05/Comparison-of-SAFE-vs-KISS.pdf" target="_blank" rel="noopener" style="--tc:#f3bf4b"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2022/05/fund-2.jpg" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Common differences between SAFE and KISS</h3><span class="tags"><b>Fundraising</b><i>Opens as PDF</i></span><span class="desc">Side-by-side comparison of the two most common early-stage convertible instruments.</span></span></a><a class="card tall" data-cat="fundraising" data-title="Overview of convertible instruments" href="https://foundersdoc.com/wp-content/uploads/2022/05/Comparison-of-Convertible-Instruments.pdf" target="_blank" rel="noopener" style="--tc:#f3bf4b"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2022/05/fund-3.jpg" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Overview of convertible instruments</h3><span class="tags"><b>Fundraising</b><i>Opens as PDF</i></span><span class="desc">SAFEs, KISSes and convertible notes compared on interest, maturity, caps and discounts.</span></span></a><a class="card tall" data-cat="fundraising" data-title="Fundraising in Singapore: a quick guide" href="https://foundersdoc.com/wp-content/uploads/2022/05/Fundraising-in-Singapore-A-Quick-Guide.pdf" target="_blank" rel="noopener" style="--tc:#f3bf4b"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2022/05/fund-1.jpg" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Fundraising in Singapore: a quick guide</h3><span class="tags"><b>Fundraising</b><i>Opens as PDF</i></span><span class="desc">The stages, documents and typical timelines of a Singapore fundraise on one page.</span></span></a><a class="card tall" data-cat="companydocs" data-title="Legal documentation" href="https://foundersdoc.com/wp-content/uploads/2023/05/FD-Legal-Documentation.pdf" target="_blank" rel="noopener" style="--tc:#6fb1ff"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2023/05/Screenshot-2023-05-24-at-10.44.53-PM.png" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Legal documentation</h3><span class="tags"><b>Company docs</b><i>Opens as PDF</i></span><span class="desc">Which documents a startup needs at each stage, and which are nice-to-have.</span></span></a><a class="card tall" data-cat="companydocs" data-title="Execution of deeds" href="https://foundersdoc.com/wp-content/uploads/2023/05/FD-Execution-of-Deeds.pdf" target="_blank" rel="noopener" style="--tc:#6fb1ff"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2023/05/Screenshot-2023-05-24-at-10.45.54-PM.png" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Execution of deeds</h3><span class="tags"><b>Company docs</b><i>Opens as PDF</i></span><span class="desc">How individuals and companies sign a deed properly under Singapore law — witnesses, seals and all.</span></span></a><a class="card tall" data-cat="companydocs" data-title="Winding up a startup" href="https://foundersdoc.com/wp-content/uploads/2023/05/Founders-Doc-I-Winding-Up-Startup-1.pdf" target="_blank" rel="noopener" style="--tc:#6fb1ff"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2023/05/star-wars-1024x659.png" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Winding up a startup</h3><span class="tags"><b>Company docs</b><i>Opens as PDF</i></span><span class="desc">The routes to closing a company and what each means for directors and creditors.</span></span></a><a class="card tall" data-cat="hr" data-title="Employer duties" href="https://foundersdoc.com/wp-content/uploads/2022/07/Employer-Duties-Infographic-1.pdf" target="_blank" rel="noopener" style="--tc:#7fd6a0"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2022/08/2022-08-03_13-54-17.jpg" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>Employer duties</h3><span class="tags"><b>HR</b><i>Opens as PDF</i></span><span class="desc">The obligations every Singapore employer owes staff — CPF, leave, hours and notice.</span></span></a><a class="card tall" data-cat="general" data-title="PDPA compliance tips" href="https://foundersdoc.com/wp-content/uploads/2022/06/PDPA-Compliance-Tips.pdf" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2022/06/PersonalDataProtection.jpg" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>PDPA compliance tips</h3><span class="tags"><b>Lawyers react</b><i>Opens as PDF</i></span><span class="desc">Practical steps to keep your startup on the right side of the Personal Data Protection Act.</span></span></a><a class="card tall" data-cat="general" data-title="5 ways startups can avoid an FTX scandal" href="https://foundersdoc.com/wp-content/uploads/2022/12/FD-I-5-Ways-Founders-Can-Avoid-an-FTX-Scandal-6-Dec-2022.pdf" target="_blank" rel="noopener" style="--tc:#c79bff"><span class="frame"><img src="https://foundersdoc.com/wp-content/uploads/2022/12/FD-I-5-Ways-Founders-Can-Avoid-an-FTX-Scandal-6-Dec-2022.png" alt="" loading="lazy" decoding="async" data-fade="1" /><span class="dur">PDF</span><span class="play" aria-hidden="true"></span></span><span class="info"><h3>5 ways startups can avoid an FTX scandal</h3><span class="tags"><b>Lawyers react</b><i>Opens as PDF</i></span><span class="desc">Governance lessons from FTX&#x27;s collapse, distilled into five things to put in place early.</span></span></a></div><button type="button" class="edge next" aria-label="Scroll forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div></section>
+<p class="no-match" id="no-match" hidden>Nothing matches — try another topic or search term.</p>
+      </div>
+
+      <section class="yt">
+        <div class="wrap">
+          <p><b>New episodes land on YouTube first.</b> Subscribe to get them the moment they go live.</p>
+          <a class="btn btn-ghost" href="https://www.youtube.com/channel/UCYQebtLCvD2esHthgPAxrFg" target="_blank" rel="noopener"><span class="yt-ic" aria-hidden="true"></span>Subscribe on YouTube</a>
+        </div>
+      </section>
+
+      <section class="cta">
+        <div class="wrap">
+          <div>
+            <h2>Working on a document of your own?</h2>
+            <p>Have Jessica review it in minutes, or put your question to one of the practising lawyers behind her.</p>
+          </div>
+          <div class="actions">
+            <a class="btn btn-black" href="/draft">Launch FD AI</a>
+            <a class="btn btn-white" href="/#lawyers">Ask a Lawyer</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+
+    <div class="player" id="player" hidden>
+      <div class="player-bg" data-close></div>
+      <div class="player-box" role="dialog" aria-modal="true" aria-labelledby="pl-title">
+        <button type="button" class="player-x" aria-label="Close player" data-close>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19" /></svg>
+        </button>
+        <div class="player-frame" id="pl-frame"></div>
+        <div class="player-body">
+          <div class="player-meta">
+            <h2 id="pl-title"></h2>
+            <div class="meta"><span class="pill" id="pl-cat"></span><span id="pl-date"></span></div>
+            <p id="pl-desc"></p>
+            <div class="player-actions">
+              <a class="btn btn-ghost" id="pl-yt" href="#" target="_blank" rel="noopener"><span class="yt-ic" aria-hidden="true"></span>Open on YouTube</a>
+              <a class="btn btn-gold" href="/draft">Try FD AI</a>
+            </div>
+          </div>
+          <div class="player-related">
+            <h3>Related episodes</h3>
+            <div class="rel" id="pl-rel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="foot">
+      <div class="wrap">
+        <div class="grid">
+          <div>
+            <a class="logo" href="/" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+            <p class="about">
+              Contracts for founders everywhere, reviewed and drafted by Jessica, our AI, and the practising
+              lawyers behind her.
+            </p>
+          </div>
+          <div>
+            <h4>Quick links</h4>
+            <ul>
+              <li><a href="/">Home</a></li>
+              <li><a href="/about">About us</a></li>
+              <li><a href="/coming-soon?f=All%20services">Our services</a></li>
+              <li><a href="/resources">Blog</a></li>
+              <li><a href="/coming-soon?f=Courses">Courses</a></li>
+              <li><a href="/podcast">Podcast</a></li>
+              <li><a href="/contact">Contact us</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Useful links</h4>
+            <ul>
+              <li><a href="/draft">Launch FD AI</a></li>
+              <li><a href="https://foundersdoc.com/terms-conditions/">Terms &amp; conditions</a></li>
+              <li><a href="https://foundersdoc.com/privacy-policy/">Privacy policy</a></li>
+              <li><a href="https://foundersdoc.com/community-guidelines/">Community guidelines</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4>Contact us</h4>
+            <ul>
+              <li><a href="https://wa.me/6594617390?text=Hi!">+65 9461 7390 (WhatsApp only)</a></li>
+              <li><a href="mailto:administrator@foundersdoc.com">administrator@foundersdoc.com</a></li>
+            </ul>
+          </div>
+          <div class="nl">
+            <form id="nl-form" novalidate>
+              <label for="em">Subscribe to our newsletter</label>
+              <div class="field">
+                <input id="em" name="email" type="email" placeholder="Email address" autocomplete="email" required />
+                <button type="submit" aria-label="Subscribe">→</button>
+              </div>
+              <p class="msg" id="nl-msg" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+        <div class="bot">
+          <span>© 2026 Founders Doc. All rights reserved.</span>
+          <div>
+            <a href="https://www.linkedin.com/company/foundersdoc/">LinkedIn</a>
+            <a href="https://www.instagram.com/foundersdoc/">Instagram</a>
+            <a href="https://www.youtube.com/channel/UCYQebtLCvD2esHthgPAxrFg">YouTube</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        var CAT = { fundraising: "Fundraising", companydocs: "Company docs", hr: "HR", ma: "M&A", general: "Lawyers react" };
+        function fmtDate(iso) {
+          var d = new Date(iso + "T00:00:00");
+          var m = d.toLocaleString("en-GB", { month: "short" });
+          return d.getDate() === 1 ? m + " " + d.getFullYear() : d.getDate() + " " + m + " " + d.getFullYear();
+        }
+        // ---- Thumbnail loader: try the sharpest YouTube frame, fall back when YouTube
+        // returns its 120x90 "no image" placeholder (which is a 200, not an error) ----
+        // The <img> starts on hqdefault (exists for every video) and is visible from the first paint.
+        // We then try sharper sizes in the background and swap in the first real one.
+        var YT_UPGRADES = ["maxresdefault", "sddefault"];
+        function loadThumb(img) {
+          if (img.dataset.done) return;
+          img.dataset.done = "1";
+          var id = img.dataset.yt, i = 0;
+          function settled() {
+            var f = img.closest(".frame");
+            if (f) f.classList.add("ok");
+          }
+          img.addEventListener("load", settled);
+          img.addEventListener("error", settled);
+          if (img.complete) settled();
+          function attempt() {
+            if (i >= YT_UPGRADES.length) return;
+            var probe = new Image();
+            var url = "https://i.ytimg.com/vi/" + id + "/" + YT_UPGRADES[i] + ".jpg";
+            probe.onload = function () {
+              if (probe.naturalWidth > 200) img.src = url; // real frame, not YouTube's 120x90 placeholder
+              else { i++; attempt(); }
+            };
+            probe.onerror = function () { i++; attempt(); };
+            probe.src = url;
+          }
+          attempt();
+        }
+        function fadeIn(img) {
+          var f = img.closest(".frame");
+          function settled() { if (f) f.classList.add("ok"); }
+          img.addEventListener("load", settled);
+          img.addEventListener("error", settled);
+          if (img.complete) settled();
+        }
+        function bootThumbs(root) {
+          Array.prototype.forEach.call((root || document).querySelectorAll("img[data-yt]"), loadThumb);
+          Array.prototype.forEach.call((root || document).querySelectorAll("img[data-fade]"), fadeIn);
+        }
+        bootThumbs(document);
+
+        var host = document.getElementById("shelves");
+        var allCards = Array.prototype.slice.call(host.querySelectorAll(".card[data-id]"));
+        var byId = {};
+        allCards.forEach(function (c) { if (!byId[c.dataset.id]) byId[c.dataset.id] = c; });
+
+        // ---- In-page player ---------------------------------------------------
+        var player = document.getElementById("player"),
+          plFrame = document.getElementById("pl-frame"),
+          plTitle = document.getElementById("pl-title"),
+          plCat = document.getElementById("pl-cat"),
+          plDate = document.getElementById("pl-date"),
+          plDesc = document.getElementById("pl-desc"),
+          plYt = document.getElementById("pl-yt"),
+          plRel = document.getElementById("pl-rel"),
+          lastFocus = null;
+        function openPlayer(data) {
+          lastFocus = document.activeElement;
+          plTitle.textContent = data.title;
+          plCat.textContent = CAT[data.cat] || data.cat;
+          plDate.textContent = fmtDate(data.date);
+          plDesc.textContent = data.desc;
+          plYt.href = "https://www.youtube.com/watch?v=" + data.id;
+          plFrame.className = "player-frame" + (data.short ? " short" : "");
+          var served = /^https?:$/.test(location.protocol);
+          if (served) {
+            // YouTube requires a referrer (error 153 otherwise) — send our origin explicitly
+            plFrame.innerHTML =
+              '<iframe src="https://www.youtube.com/embed/' + data.id + '?autoplay=1&rel=0&modestbranding=1&playsinline=1&origin=' + encodeURIComponent(location.origin) + '" title="' +
+              data.title.replace(/"/g, "&quot;") + '" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen loading="eager"></iframe>';
+          } else {
+            // Opened from disk: browsers send no referrer, so YouTube blocks the embed. Show a poster with a direct link instead.
+            plFrame.innerHTML =
+              '<a class="player-offline" href="https://www.youtube.com/watch?v=' + data.id + '" target="_blank" rel="noopener">' +
+              '<img src="https://i.ytimg.com/vi/' + data.id + '/hqdefault.jpg" alt="" />' +
+              '<span class="play" aria-hidden="true"></span>' +
+              '<span class="note">In-page playback works once this page is on your website. Click to watch on YouTube.</span></a>';
+          }
+          // related: same topic first, newest first, then anything else
+          var rel = allCards
+            .filter(function (c) { return c.dataset.id !== data.id; })
+            .filter(function (c, i, arr) { return arr.findIndex(function (x) { return x.dataset.id === c.dataset.id; }) === i; })
+            .sort(function (a, b) {
+              var sa = (a.dataset.cat === data.cat ? 1 : 0), sb = (b.dataset.cat === data.cat ? 1 : 0);
+              return sb - sa || (b.dataset.date > a.dataset.date ? 1 : -1);
+            })
+            .slice(0, 4);
+          plRel.innerHTML = rel
+            .map(function (c) {
+              return '<a href="https://www.youtube.com/watch?v=' + c.dataset.id + '" data-id="' + c.dataset.id + '">' +
+                '<img data-yt="' + c.dataset.id + '" src="https://i.ytimg.com/vi/' + c.dataset.id + '/hqdefault.jpg" alt="" loading="lazy" decoding="async" />' +
+                "<span><h4>" + c.dataset.title + "</h4><small>" + (CAT[c.dataset.cat] || "") + " · " + fmtDate(c.dataset.date) + "</small></span></a>";
+            })
+            .join("");
+          bootThumbs(plRel);
+          player.hidden = false;
+          document.body.classList.add("locked");
+          player.querySelector(".player-x").focus();
+        }
+        function closePlayer() {
+          player.hidden = true;
+          plFrame.innerHTML = "";
+          document.body.classList.remove("locked");
+          if (lastFocus && lastFocus.focus) lastFocus.focus();
+        }
+        function dataFrom(el) {
+          return { id: el.dataset.id, title: el.dataset.title, desc: el.dataset.desc, cat: el.dataset.cat, date: el.dataset.date, short: el.classList.contains("short") };
+        }
+        document.addEventListener("click", function (e) {
+          var card = e.target.closest(".card[data-id]");
+          if (card && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+            e.preventDefault();
+            openPlayer(dataFrom(card));
+            return;
+          }
+          var pb = e.target.closest(".play-btn");
+          if (pb && !e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            openPlayer(dataFrom(pb.closest(".slide")));
+            return;
+          }
+          var rel = e.target.closest("#pl-rel a");
+          if (rel && !e.metaKey && !e.ctrlKey) {
+            e.preventDefault();
+            var c = byId[rel.dataset.id];
+            if (c) openPlayer(dataFrom(c));
+            return;
+          }
+          if (e.target.closest("[data-close]")) closePlayer();
+        });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape" && !player.hidden) closePlayer();
+          if (e.key === "Tab" && !player.hidden) {
+            var f = player.querySelectorAll("a[href], button, iframe");
+            var first = f[0], last = f[f.length - 1];
+            if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+            else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+          }
+        });
+
+        // ---- Billboard carousel -----------------------------------------------
+        var bill = document.querySelector(".bill"),
+          slides = Array.prototype.slice.call(bill.querySelectorAll(".slide")),
+          dots = Array.prototype.slice.call(bill.querySelectorAll(".dot-btn")),
+          cur = 0, timer = null;
+        function show(i) {
+          cur = (i + slides.length) % slides.length;
+          slides.forEach(function (s, k) {
+            s.classList.toggle("on", k === cur);
+            s.setAttribute("aria-hidden", String(k !== cur));
+          });
+          dots.forEach(function (d, k) {
+            d.classList.toggle("on", k === cur);
+            d.setAttribute("aria-pressed", String(k === cur));
+          });
+        }
+        function play() {
+          stop();
+          if (reduce || slides.length < 2) return;
+          timer = setInterval(function () { show(cur + 1); }, 8000);
+        }
+        function stop() { if (timer) { clearInterval(timer); timer = null; } }
+        dots.forEach(function (d, k) { d.addEventListener("click", function () { show(k); play(); }); });
+        bill.querySelector(".bill-arrow.prev").addEventListener("click", function () { show(cur - 1); play(); });
+        bill.querySelector(".bill-arrow.next").addEventListener("click", function () { show(cur + 1); play(); });
+        bill.addEventListener("keydown", function (e) {
+          if (e.key === "ArrowLeft") { show(cur - 1); play(); e.preventDefault(); }
+          if (e.key === "ArrowRight") { show(cur + 1); play(); e.preventDefault(); }
+        });
+        // touch / pointer swipe
+        var sx = null, sy = null;
+        bill.addEventListener("pointerdown", function (e) { if (e.pointerType !== "mouse") { sx = e.clientX; sy = e.clientY; } }, { passive: true });
+        bill.addEventListener("pointerup", function (e) {
+          if (sx === null) return;
+          var dx = e.clientX - sx, dy = e.clientY - sy;
+          sx = sy = null;
+          if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5) { show(dx < 0 ? cur + 1 : cur - 1); play(); }
+        }, { passive: true });
+        bill.addEventListener("mouseenter", stop);
+        bill.addEventListener("mouseleave", play);
+        bill.addEventListener("focusin", stop);
+        bill.addEventListener("focusout", play);
+        document.addEventListener("visibilitychange", function () { document.hidden ? stop() : play(); });
+        play();
+
+        // ---- Focus keeps the card in view -----------------------------------
+        host.addEventListener("focusin", function (e) {
+          var c = e.target.closest(".card");
+          if (c) c.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduce ? "auto" : "smooth" });
+        });
+
+        // ---- Shelf scrolling (edge arrows, keyboard) --------------------------
+        Array.prototype.forEach.call(host.querySelectorAll(".track-wrap"), function (tw) {
+          var track = tw.querySelector(".track"),
+            prev = tw.querySelector(".edge.prev"),
+            next = tw.querySelector(".edge.next");
+          function page(dir) {
+            track.scrollBy({ left: dir * track.clientWidth * 0.8, behavior: "smooth" });
+          }
+          function sync() {
+            var max = track.scrollWidth - track.clientWidth - 2;
+            prev.hidden = track.scrollLeft <= 2;
+            next.hidden = track.scrollLeft >= max;
+          }
+          prev.addEventListener("click", function () { page(-1); });
+          next.addEventListener("click", function () { page(1); });
+          track.addEventListener("scroll", sync, { passive: true });
+          track.addEventListener("keydown", function (e) {
+            if (e.key === "ArrowRight") { page(1); e.preventDefault(); }
+            if (e.key === "ArrowLeft") { page(-1); e.preventDefault(); }
+          });
+          window.addEventListener("resize", sync, { passive: true });
+          sync();
+        });
+
+
+        // ---- Topic chips + search: filter every shelf, hide shelves left empty --
+        var chips = Array.prototype.slice.call(document.querySelectorAll(".chip")),
+          shelves = Array.prototype.slice.call(host.querySelectorAll(".shelf")),
+          noMatch = document.getElementById("no-match"),
+          q = document.getElementById("q"),
+          filter = "all";
+        function norm(s) { return (s || "").toLowerCase().replace(/[^a-z0-9 ]/g, " "); }
+        function applyFilter() {
+          var term = norm(q.value).trim(), any = false;
+          shelves.forEach(function (sh) {
+            var shown = 0;
+            Array.prototype.forEach.call(sh.querySelectorAll(".card"), function (a) {
+              var ok = (filter === "all" || a.dataset.cat === filter) && (!term || norm(a.dataset.title).indexOf(term) !== -1);
+              a.hidden = !ok;
+              if (ok) shown++;
+            });
+            sh.hidden = shown === 0;
+            if (!sh.hidden) any = true;
+            var t = sh.querySelector(".track");
+            t.scrollLeft = 0;
+            t.dispatchEvent(new Event("scroll"));
+          });
+          noMatch.hidden = any;
+        }
+        chips.forEach(function (c) {
+          c.addEventListener("click", function () {
+            filter = c.getAttribute("data-filter");
+            chips.forEach(function (x) {
+              var on = x === c;
+              x.classList.toggle("sel", on);
+              x.setAttribute("aria-pressed", String(on));
+            });
+            applyFilter();
+          });
+        });
+        var qT = null;
+        q.addEventListener("input", function () { clearTimeout(qT); qT = setTimeout(applyFilter, 120); });
+
+        // ---- Nav: solid on scroll, dropdowns, burger ------------------------
+        var nav = document.querySelector(".nav");
+        function onScroll() {
+          nav.classList.toggle("scrolled", (window.pageYOffset || document.documentElement.scrollTop) > 24);
+        }
+        window.addEventListener("scroll", onScroll, { passive: true });
+        onScroll();
+
+        var subs = Array.prototype.slice.call(document.querySelectorAll(".has-sub"));
+        function closeSubs(except) {
+          subs.forEach(function (d) {
+            if (d !== except) {
+              d.setAttribute("data-open", "false");
+              d.querySelector("button").setAttribute("aria-expanded", "false");
+            }
+          });
+        }
+        subs.forEach(function (d) {
+          var btn = d.querySelector("button");
+          btn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            var open = d.getAttribute("data-open") === "true";
+            closeSubs(d);
+            d.setAttribute("data-open", String(!open));
+            btn.setAttribute("aria-expanded", String(!open));
+          });
+        });
+        document.addEventListener("click", function () { closeSubs(); });
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") closeSubs();
+        });
+
+        var burger = document.querySelector(".burger"),
+          menu = document.getElementById("menu");
+        if (burger && menu) {
+          burger.addEventListener("click", function () {
+            var open = menu.getAttribute("data-open") === "true";
+            menu.setAttribute("data-open", String(!open));
+            burger.setAttribute("aria-expanded", String(!open));
+            burger.setAttribute("aria-label", open ? "Open menu" : "Close menu");
+            nav.classList.toggle("scrolled", !open || window.pageYOffset > 24);
+          });
+          menu.querySelectorAll("a").forEach(function (a) {
+            a.addEventListener("click", function () {
+              menu.setAttribute("data-open", "false");
+              burger.setAttribute("aria-expanded", "false");
+              burger.setAttribute("aria-label", "Open menu");
+            });
+          });
+        }
+
+        // ---- Theme toggle (remembered per browser) --------------------------
+        var tBtn = document.getElementById("theme"),
+          root = document.documentElement;
+        function labelTheme() {
+          var light = root.getAttribute("data-theme") === "light";
+          tBtn.setAttribute("aria-label", light ? "Switch to dark mode" : "Switch to light mode");
+        }
+        tBtn.addEventListener("click", function () {
+          var next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
+          root.setAttribute("data-theme", next);
+          try { localStorage.setItem("fd-theme", next); } catch (e) {}
+          labelTheme();
+        });
+        labelTheme();
+
+        // ---- Billboard entrance ---------------------------------------------
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            document.documentElement.classList.add("loaded");
+          });
+        });
+
+        // ---- Newsletter: validate client-side. Point the form at your email provider via the `action` attribute when ready.
+        var form = document.getElementById("nl-form"),
+          msg = document.getElementById("nl-msg"),
+          em = document.getElementById("em");
+        if (form) {
+          form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            if (!em.value || !em.checkValidity()) {
+              msg.textContent = "Enter a valid email address to subscribe.";
+              em.focus();
+              return;
+            }
+            msg.textContent = "Thanks — please confirm the link we send to " + em.value + ".";
+            form.reset();
+          });
+        }
+      })();
+    </script>
+  <script defer src="/fd-track.js"></script>
+</body>
+</html>

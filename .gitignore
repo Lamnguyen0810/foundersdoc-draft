@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local env
+.env.local
+
+# reference material — sanitised firm documents, never committed
+/reference

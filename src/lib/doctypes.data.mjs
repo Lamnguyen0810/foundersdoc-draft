@@ -1,0 +1,251 @@
+/**
+ * Document type DATA — plain JavaScript on purpose.
+ *
+ * This file is the single source of truth for the NDA definition. It is plain
+ * .mjs rather than TypeScript so that BOTH the app (src/lib/doctypes.ts, which
+ * adds types) and the seed generator (scripts/build-seed-sql.mjs, which runs in
+ * plain node) can read the same object. Duplicating this in SQL is how prompts
+ * and forms drift apart.
+ *
+ * After editing, regenerate the seed:  node scripts/build-seed-sql.mjs
+ */
+
+export const SHARED_PREAMBLE = `You are the drafting assistant for FoundersDoc, a law firm. You produce first drafts
+for a qualified lawyer, who will review and edit everything you write before it is sent.
+
+FIRM CONTEXT
+- Firm name: FoundersDoc
+- House style: British spelling. Formal but plain English. Short sentences. Active voice
+  where possible. No American legalese ("herein", "whereof", "witnesseth"). No exclamation
+  marks. Dates written as 8 September 2026. Currency written as SGD 12,500.00.
+- Numbered clauses where a document has more than three substantive points.
+
+WHAT YOU MUST NOT DO
+- Do not invent facts. If a fact you need is missing, insert the placeholder
+  [[TO CONFIRM: what is missing]] exactly in that form and continue. Never guess a
+  name, an amount, a date, a registration number, a contract reference or a statutory
+  provision.
+- Do not cite legislation, case law or rules unless it was supplied to you in this prompt
+  or in the source document. If a citation would strengthen the draft but you were not
+  given one, write [[TO CONFIRM: citation]] instead.
+- Do not give legal advice, opinions on merits, or an assessment of enforceability.
+- Do not include a confidentiality footer, letterhead, logo or signature styling — the
+  application adds those.
+
+OUTPUT FORMAT
+- Return the document body only. No preamble, no commentary, no markdown code fences,
+  no "Here is your draft".
+- Plain text with blank lines between paragraphs. Use numbered clauses as "1.", "2.".
+- End with a line "---" followed by a short block headed "DRAFTER'S NOTES:" containing
+  (a) every [[TO CONFIRM]] you inserted, (b) any assumption you made, and (c) anything
+  the reviewing lawyer should check. This block is for the lawyer and is stripped before
+  the document is sent.`;
+
+export const NDA_TASK = `TASK: Draft a Non-Disclosure Agreement for FoundersDoc. Our client is ALWAYS the first
+party — the one the form calls "your company". The second party is the counterparty.
+The form no longer asks which side we act for because the answer is now built into the
+question: the user tells us their own company first.
+
+STRUCTURE — follow this order, adjusting numbering to the clauses actually included:
+Title · Date · Parties (full legal name, registration number, registered address) ·
+Background/Recitals (2-3 lettered paragraphs establishing the Permitted Purpose) ·
+1 Definitions (Confidential Information; Representatives; Permitted Purpose) ·
+2 Confidentiality undertakings · 3 Exceptions · 4 Compelled disclosure ·
+5 No licence, no representation, no obligation to proceed · 6 Return and destruction ·
+7 Term and survival · [Non-solicitation, only if the form requires one] ·
+[Personal data, only if the form says personal data will be exchanged] ·
+[IP assignment, only if the form requires one] ·
+Remedies · General (entire agreement, variation, waiver, severance, assignment,
+third party rights, counterparts) · Governing law and jurisdiction · Signature blocks.
+
+DIRECTION
+- Mutual: every obligation is reciprocal. Use "Discloser" and "Recipient" as roles a
+  Party occupies from time to time, never as fixed labels for a named party.
+- One-way, we disclose: obligations run one way, but keep the standard exceptions in
+  clause 3 intact. Do not remove them to strengthen our client's position.
+- One-way, we receive: keep the exceptions generous, keep the term short, and do not
+  include a non-solicit, an IP assignment or an indemnity unless the form asks for one.
+
+HARD RULES
+- The four standard exceptions (public domain, prior possession, third-party receipt,
+  independent development) appear in EVERY draft. If instructed to remove them, include
+  them anyway and raise it in DRAFTER'S NOTES.
+- Never add a non-competition clause to an NDA. If the facts appear to call for one,
+  say so in DRAFTER'S NOTES; do not draft it.
+- Add a non-solicitation clause only if the form requires one, and always with carve-outs
+  for general advertisements and unsolicited approaches.
+- Never state a liquidated damages figure unless one is supplied in the special terms.
+- Never assert that a clause is enforceable. Restraints are assessed on reasonableness;
+  that is the reviewing lawyer's call, not yours.
+- Use the correct third-party-rights statute for the governing law: Contracts (Rights of
+  Third Parties) Act 2001 for Singapore, Contracts (Rights of Third Parties) Act 1999 for
+  England and Wales. If the jurisdiction is neither, write
+  [[TO CONFIRM: third party rights provision for this jurisdiction]].
+- If a party's registration number or registered address is missing, insert
+  [[TO CONFIRM: ...]] — never construct a plausible one.
+
+SKIPPED ANSWERS
+- The user may skip any question. A skipped answer arrives as "(skipped — not answered)".
+  Treat it exactly like a missing fact: draft the clause the document needs and put
+  [[TO CONFIRM: <what you need>]] where the answer would have gone. Never guess, never
+  quietly leave the clause out, and never substitute a default that the user did not
+  choose. List every skipped question in DRAFTER'S NOTES under a line reading
+  "Not yet answered:" so the reviewing lawyer can see at a glance what is outstanding.
+- A draft built from a partial set of answers is still a proper draft. Do not shorten it,
+  hedge it, or add a warning of your own — the application already tells the user.
+
+LENGTH: 900-1,400 words for a standard NDA; under 400 if the facts fit a short form and no
+optional clause is requested. Length is not a measure of protection.`;
+
+export const NDA_DATA = {
+  slug: "nda",
+  label: "Non-Disclosure Agreement",
+  description:
+    "Mutual or one-way NDA. Ships with two worked examples and hard rules against non-competes and invented registration numbers.",
+  systemPrompt: `${SHARED_PREAMBLE}\n\n${NDA_TASK}`,
+  fields: [
+    {
+      key: "nda_direction",
+      label: "Direction",
+      type: "select",
+      options: ["Mutual", "One-way: we disclose", "One-way: we receive"],
+      required: true,
+      group: "The shape of it",
+      help: "Changes which obligations are reciprocal. The single most structural choice on this form.",
+    },
+    {
+      key: "party_a",
+      label: "Your company — legal name and UEN",
+      type: "text",
+      required: true,
+      placeholder: "MERIDIAN LOGISTICS PTE. LTD. (UEN 201812345K)",
+      group: "Parties",
+    },
+    {
+      key: "party_a_address",
+      label: "Your registered address",
+      type: "textarea",
+      required: true,
+      group: "Parties",
+    },
+    {
+      key: "party_b",
+      label: "The other side — legal name and UEN",
+      type: "text",
+      required: true,
+      placeholder: "KESTREL ANALYTICS PTE. LTD. (UEN 202045678M)",
+      group: "Parties",
+    },
+    {
+      key: "party_b_address",
+      label: "Their registered address",
+      type: "textarea",
+      required: true,
+      group: "Parties",
+    },
+    {
+      key: "purpose",
+      label: "What are you working on together?",
+      type: "textarea",
+      required: true,
+      help: "One or two sentences. This defines the limit of permitted use, so be specific.",
+      placeholder:
+        "To explore a possible arrangement under which B would provide route-optimisation analytics to A.",
+      group: "The deal",
+    },
+    {
+      key: "info_categories",
+      label: "What kind of information will be shared?",
+      type: "textarea",
+      required: true,
+      placeholder: "Customer lists, pricing, route and volume data, forecasts, source code",
+      group: "The deal",
+    },
+    {
+      key: "term_years",
+      label: "How long does the agreement last? (years)",
+      type: "number",
+      required: true,
+      defaultValue: "2",
+      group: "Terms",
+    },
+    {
+      key: "survival_years",
+      label: "How long after it ends must secrets be kept? (years)",
+      type: "number",
+      required: true,
+      defaultValue: "3",
+      group: "Terms",
+    },
+    {
+      key: "trade_secret_tail",
+      label: "Protect trade secrets for ever?",
+      type: "select",
+      options: ["Yes", "No"],
+      required: true,
+      defaultValue: "Yes",
+      group: "Terms",
+    },
+    {
+      key: "residuals",
+      label: "Let them use what they remember? (residuals)",
+      type: "select",
+      options: ["No", "Yes"],
+      required: true,
+      defaultValue: "No",
+      help: "Favours the receiving side. Say yes only when we are receiving and have agreed it.",
+      group: "Terms",
+    },
+    {
+      key: "non_solicit",
+      label: "Stop them poaching your staff?",
+      type: "select",
+      options: [
+        "None",
+        "Employees only, 12 months",
+        "Employees only, 24 months",
+      ],
+      required: true,
+      defaultValue: "None",
+      help: "The most common cause of counterparty push-back. Explicit choice, so the model never adds one on its own.",
+      group: "Terms",
+    },
+    {
+      key: "ip_assignment",
+      label: "You own anything they create from your info?",
+      type: "select",
+      options: ["No", "Yes"],
+      required: true,
+      defaultValue: "No",
+      group: "Terms",
+    },
+    {
+      key: "personal_data",
+      label: "Will personal data be shared?",
+      type: "select",
+      options: ["No", "Yes"],
+      required: true,
+      defaultValue: "No",
+      help: "Yes adds a data protection clause.",
+      group: "Terms",
+    },
+    {
+      key: "jurisdiction",
+      label: "Which country's law?",
+      type: "text",
+      required: true,
+      defaultValue: "Singapore",
+      group: "Terms",
+    },
+    {
+      key: "special_terms",
+      label: "Anything else",
+      type: "textarea",
+      required: false,
+      help: "Free instruction. Always last, always optional.",
+      group: "Anything else",
+    },
+  ],
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA];
