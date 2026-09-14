@@ -57,60 +57,6 @@ function FieldInput({
   value: string;
   onChange: (v: string) => void;
 }) {
-  if (field.key === "drafting_depth") {
-    const descriptions: Record<string, string> = {
-      Essential: "Core protections in a shorter, simpler NDA.",
-      Balanced: "Standard detail for most business discussions.",
-      Comprehensive: "Fuller definitions, procedures and protections.",
-    };
-
-    return (
-      <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-        <legend className="field-label" style={{ padding: 0 }}>
-          {field.label}
-          {field.required && <span className="req">*</span>}
-        </legend>
-        <div
-          role="radiogroup"
-          aria-label={field.label}
-          style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}
-        >
-          {(field.options ?? []).map((option) => {
-            const selected = value === option;
-            return (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                onClick={() => onChange(option)}
-                style={{
-                  minWidth: 0,
-                  padding: "12px 10px",
-                  borderRadius: 9,
-                  border: `1px solid ${selected ? "var(--gold-deep)" : "var(--grey-3)"}`,
-                  background: selected ? "rgba(243,191,75,0.12)" : "var(--paper)",
-                  color: "var(--ink)",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  font: "inherit",
-                }}
-              >
-                <span style={{ display: "block", fontSize: 13, fontWeight: 650 }}>{option}</span>
-                <span
-                  style={{ display: "block", marginTop: 4, fontSize: 11.5, lineHeight: 1.4, color: "var(--grey-5)" }}
-                >
-                  {descriptions[option]}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-        {field.help && <span className="field-help">{field.help}</span>}
-      </fieldset>
-    );
-  }
-
   return (
     <label style={{ display: "block" }}>
       <span className="field-label">
