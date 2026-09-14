@@ -121,8 +121,8 @@ interface Step {
   question: string;
   fields: Field[];
   /** chips: one select, answered by tapping. card: a panel of inputs.
-   *  source: the upload question, which has no form fields at all. */
-  kind: "chips" | "card" | "source";
+   *  detail: the NDA depth slider. source: the upload question. */
+  kind: "chips" | "card" | "detail" | "source";
 }
 
 function buildSteps(docType: DocType): Step[] {
@@ -143,6 +143,22 @@ function buildSteps(docType: DocType): Step[] {
     const kind: Step["kind"] = fields.length === 1 && fields[0].type === "select" ? "chips" : "card";
     return { id: g, name: ask.name, question: ask.question, fields, kind };
   });
+  if (docType.slug === "nda") {
+    steps.push({
+      id: "__detail__",
+      name: "Comprehensiveness",
+      question: "How comprehensive should the first NDA be?",
+      kind: "detail",
+      fields: [{
+        key: "_nda_detail_level",
+        label: "Comprehensiveness",
+        type: "number",
+        required: true,
+        group: "Comprehensiveness",
+        defaultValue: "3",
+      }],
+    });
+  }
   steps.push({ ...SOURCE_STEP, fields: [], kind: "source" });
   return steps;
 }
@@ -167,6 +183,7 @@ export interface RecentDraft {
 function initialAnswers(docType: DocType): Record<string, string> {
   const out: Record<string, string> = {};
   for (const f of docType.fields) out[f.key] = f.defaultValue ?? "";
+  if (docType.slug === "nda") out._nda_detail_level = "3";
   return out;
 }
 
@@ -783,8 +800,7 @@ function Chat({
       const parties = [clean(answers.party_a ?? ""), clean(answers.party_b ?? "")].filter(Boolean);
       const detailName = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"]
         [detailLevel - 1] ?? "Revised";
-      return ["NDA", ...parties, `V${version}`, ...(version > 1 ? [detailName] : [])]
-        .join("-") + ".docx";
+      return ["NDA", ...parties, `V${version}`, detailName].join("-") + ".docx";
     },
     [answers.party_a, answers.party_b],
   );
@@ -879,6 +895,11 @@ function Chat({
       return attachments.length ? `Attached: ${attachments.join(", ")}` : "No — start fresh";
     }
     const src = { ...answers, ...(override ?? {}) };
+    if (s.kind === "detail") {
+      const level = Math.min(5, Math.max(1, Number(src._nda_detail_level) || 3));
+      const label = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"][level - 1];
+      return `${level}/5 · ${label}`;
+    }
     const parts: string[] = [];
     for (const f of s.fields) {
       const v = (src[f.key] ?? "").trim();
@@ -917,6 +938,7 @@ function Chat({
 
       setMsgs((prev) => [
         ...prev,
+        { who: "fd", text: s.question },
         {
           who: "me",
           label: s.name,
@@ -1038,7 +1060,6 @@ function Chat({
     setFollow([]);
     setDocumentVersions([]);
     setDocumentVersion(1);
-    setNdaDetailLevel(3);
     versionCounterRef.current = 1;
     setDocOpen(false);
     setBusy(true);
@@ -1055,6 +1076,12 @@ function Chat({
         return a;
       });
     });
+
+    const initialDetailLevel = Math.min(
+      5,
+      Math.max(1, Number(payload._nda_detail_level) || 3),
+    ) as 1 | 2 | 3 | 4 | 5;
+    setNdaDetailLevel(initialDetailLevel);
 
     /* ── DON'T SPIN FOREVER ──────────────────────────────────────────────
        If the function is killed by the platform it never closes the stream,
@@ -1075,7 +1102,12 @@ function Chat({
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ docTypeSlug: docType.slug, answers: payload, sourceText }),
+        body: JSON.stringify({
+          docTypeSlug: docType.slug,
+          answers: payload,
+          sourceText,
+          detailLevel: initialDetailLevel,
+        }),
         signal: giveUp.signal,
       });
       if (!res.ok || !res.body) {
@@ -1147,11 +1179,11 @@ function Chat({
               setDocumentVersions([{
                 documentText: acc,
                 version: 1,
-                detailLevel: 3,
-                fileName: fileNameFor(1, 3),
+                detailLevel: initialDetailLevel,
+                fileName: fileNameFor(1, initialDetailLevel),
               }]);
               setDocumentVersion(1);
-              setNdaDetailLevel(3);
+              setNdaDetailLevel(initialDetailLevel);
               versionCounterRef.current = 1;
             }
             if (msg.partial) {
@@ -1413,6 +1445,39 @@ function Chat({
   /* ───────────────────────────────────────────────────── render pieces */
 
   function stepAnswerUI(s: Step) {
+    if (s.kind === "detail") {
+      const level = Math.min(5, Math.max(1, Number(answers._nda_detail_level) || 3));
+      const labels = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"];
+      return (
+        <>
+          <div className="gen-depth" style={{ width: 240, maxWidth: "100%", margin: "4px 0 14px" }}>
+            <div className="gen-depth-head">
+              <span className="gen-section-label">Comprehensiveness</span>
+              <b>{level}/5 · {labels[level - 1]}</b>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={5}
+              step={1}
+              value={level}
+              aria-label="Initial NDA comprehensiveness"
+              aria-valuetext={`Level ${level}: ${labels[level - 1]}`}
+              onChange={(event) => setAnswer("_nda_detail_level", event.target.value)}
+            />
+            <div className="gen-depth-labels" aria-hidden="true">
+              <span>Concise</span><span>Maximum</span>
+            </div>
+          </div>
+          <div className="chips">
+            <button type="button" className="go" onClick={() => commit(false)}>
+              Use this level →
+            </button>
+          </div>
+        </>
+      );
+    }
+
     if (s.kind === "chips") {
       const f = s.fields[0];
       return (
@@ -1716,7 +1781,10 @@ function Chat({
           docLabel={docType.label}
           state={busy || !output ? "drafting" : "ready"}
           answers={answerSummary}
-          skippedCount={skippedLabels.length}
+          skippedCount={
+            skippedLabels.length ||
+            docType.fields.filter((field) => answers[field.key] === SKIPPED).length
+          }
           docOpen={docOpen}
           busy={busy || revising}
           onOpenDocument={() => setDocOpen(true)}
@@ -1739,6 +1807,7 @@ function Chat({
             })
           }
           follow={follow}
+          conversation={msgs}
         />
 
         {/* The document is not rendered at all until it exists and the person
