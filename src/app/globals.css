@@ -2114,6 +2114,7 @@ body:has(.login-stage) {
   gap:16px;
 }
 #scr-chat.is-draft .gen-thread>*{width:100%;max-width:720px}
+#scr-chat.is-draft .gen-thread>.gen-depth{width:220px;max-width:100%;margin-inline:0}
 #scr-chat.is-draft .gen-compose{
   padding:12px 22px 14px;
   background:var(--bg);
