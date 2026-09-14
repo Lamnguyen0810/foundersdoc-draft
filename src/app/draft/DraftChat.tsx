@@ -968,22 +968,26 @@ function Chat({
   /** Skip everything still outstanding, then draft. */
   function draftWithWhatIHave() {
     const from = i;
+    const detailIndex = steps.findIndex((item) => item.kind === "detail");
+    const mustChooseDetail = detailIndex >= 0 && status[detailIndex] !== "done";
+    const stopAt = mustChooseDetail ? detailIndex : steps.length;
+
     track("draft_with_what_i_have", {
       doc_type: docType.slug,
       step: from + 1,
       total_steps: steps.length,
-      count: steps.length - from,
+      count: Math.max(0, stopAt - from),
     });
     setAnswers((prev) => {
       const next = { ...prev };
-      for (let k = from; k < steps.length; k++) {
+      for (let k = from; k < stopAt; k++) {
         for (const f of steps[k].fields) if (!(next[f.key] ?? "").trim()) next[f.key] = SKIPPED;
       }
       return next;
     });
     setStatus((prev) => {
       const next = [...prev];
-      for (let k = from; k < steps.length; k++) next[k] = "skp";
+      for (let k = from; k < stopAt; k++) next[k] = "skp";
       return next;
     });
     setMsgs((prev) => [
@@ -991,11 +995,13 @@ function Chat({
       { who: "me", label: "Drafting now", text: "Draft with what I have", skipped: true },
       {
         who: "fd",
-        text: "Drafting from what you’ve given me. Everything you skipped comes back as [[TO CONFIRM]] so nothing is quietly invented.",
+        text: mustChooseDetail
+          ? "Before I draft, choose how comprehensive you want the NDA to be."
+          : "Drafting from what you’ve given me. Everything you skipped comes back as [[TO CONFIRM]] so nothing is quietly invented.",
       },
     ]);
-    setI(steps.length);
-    setTimeout(() => void generate(), 40);
+    setI(stopAt);
+    if (!mustChooseDetail) setTimeout(() => void generate(), 40);
   }
 
   /** Re-open a question that was skipped earlier. */
@@ -1465,8 +1471,10 @@ function Chat({
               aria-valuetext={`Level ${level}: ${labels[level - 1]}`}
               onChange={(event) => setAnswer("_nda_detail_level", event.target.value)}
             />
-            <div className="gen-depth-labels" aria-hidden="true">
-              <span>Concise</span><span>Maximum</span>
+            <div className="gen-depth-scale" aria-hidden="true">
+              {[1, 2, 3, 4, 5].map((mark) => (
+                <span key={mark} className={level === mark ? "on" : ""}>{mark}</span>
+              ))}
             </div>
           </div>
           <div className="chips">
