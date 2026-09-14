@@ -195,9 +195,12 @@ export default function DraftReady({
             what was actually sent is how someone spots that they answered a
             question wrongly — before reading 3,000 words of contract looking
             for the consequence. */}
-        <div className="cg-user">
-          <div className="cg-bubble">
-            <p style={{ margin: 0 }}>Draft my {docLabel} using these answers.</p>
+        <div className="cg-user cg-summary-wrap">
+          <div className="cg-bubble cg-summary">
+            <div className="cg-summary-head">
+              <b>Draft instructions</b>
+              <span>{docLabel}</span>
+            </div>
             {answers.length > 0 && (
               <dl className="cg-answers">
                 {answers.map((a) => (
@@ -210,8 +213,7 @@ export default function DraftReady({
             )}
             {skippedCount > 0 && (
               <p className="cg-answers-skipped">
-                {skippedCount} {skippedCount === 1 ? "question" : "questions"} left for you to
-                confirm later.
+                {skippedCount} {skippedCount === 1 ? "detail needs" : "details need"} confirmation
               </p>
             )}
           </div>
@@ -347,8 +349,10 @@ export default function DraftReady({
                 chooseDetailLevel(Number(event.target.value) as 1 | 2 | 3 | 4 | 5)
               }
             />
-            <div className="gen-depth-labels" aria-hidden="true">
-              <span>Concise</span><span>Maximum</span>
+            <div className="gen-depth-scale" aria-hidden="true">
+              {[1, 2, 3, 4, 5].map((level) => (
+                <span key={level} className={sliderValue === level ? "on" : ""}>{level}</span>
+              ))}
             </div>
           </div>
         )}
