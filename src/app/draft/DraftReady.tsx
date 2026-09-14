@@ -76,6 +76,8 @@ export interface DraftReadyProps {
   fileName: string;
   initialVersion?: { documentText: string; version: number; detailLevel: number; fileName: string };
   ndaDetailLevel: number;
+  error?: string | null;
+  paywalled?: boolean;
   onChangeNdaDetailLevel: (level: 1 | 2 | 3 | 4 | 5) => void;
   /** Follow-up turns, oldest first. */
   follow: {
@@ -101,6 +103,8 @@ export default function DraftReady({
   fileName,
   initialVersion,
   ndaDetailLevel,
+  error,
+  paywalled = false,
   onChangeNdaDetailLevel,
   follow,
 }: DraftReadyProps) {
@@ -108,6 +112,7 @@ export default function DraftReady({
   const detailLabels = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"] as const;
   const [sliderValue, setSliderValue] = useState(ndaDetailLevel);
   const sliderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
 
   const ready = state === "ready";
 
@@ -117,6 +122,14 @@ export default function DraftReady({
     },
     [],
   );
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const thread = threadRef.current;
+      if (thread) thread.scrollTo({ top: thread.scrollHeight, behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [follow, busy, error, paywalled]);
 
   function chooseDetailLevel(level: 1 | 2 | 3 | 4 | 5) {
     setSliderValue(level);
@@ -152,7 +165,7 @@ export default function DraftReady({
         </span>
       </div>
 
-      <div className="gen-thread">
+      <div className="gen-thread" ref={threadRef}>
         {/* The person's own message, with their answers summarised back. Seeing
             what was actually sent is how someone spots that they answered a
             question wrongly — before reading 3,000 words of contract looking
@@ -269,6 +282,22 @@ export default function DraftReady({
                   <i />
                   <i />
                 </p>
+              </div>
+            </div>
+          )}
+          {error && !busy && (
+            <div className="cg-turn" role="alert">
+              <div className="cg-msg">
+                <p>{error}</p>
+                <small>Your current document has been kept. You can try the request again.</small>
+              </div>
+            </div>
+          )}
+          {paywalled && !busy && (
+            <div className="cg-turn">
+              <div className="cg-msg">
+                <p>You’ve used the free revisions included with this draft.</p>
+                <a className="btn btn-gold" href="/billing">Add credits</a>
               </div>
             </div>
           )}

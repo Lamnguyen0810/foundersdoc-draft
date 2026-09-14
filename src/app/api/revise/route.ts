@@ -90,8 +90,8 @@ export async function POST(req: NextRequest) {
     1: "Rewrite the entire NDA as a concise level 1 version of 500-800 words. Consolidate definitions and boilerplate while preserving every core confidentiality protection, standard exception and placeholder.",
     2: "Rewrite the entire NDA as a standard level 2 version of 750-1,050 words. Include the usual practical protections and procedures without unnecessary detail.",
     3: "Rewrite the entire NDA as a detailed level 3 version of 1,000-1,400 words. Use complete standard definitions, confidentiality procedures and general provisions.",
-    4: "Rewrite the entire NDA as a thorough level 4 version of 1,350-1,800 words. Expand relevant definitions, handling duties, representative controls, compelled-disclosure procedure, return or destruction mechanics, remedies and general provisions.",
-    5: "Rewrite the entire NDA as a maximum-detail level 5 version of 1,750-2,300 words. Draft the relevant protections and procedures comprehensively, while remaining proportionate and avoiding repetition.",
+    4: "Rewrite the entire NDA as a thorough level 4 version of about 1,250-1,750 words. Expand relevant definitions, handling duties, representative controls, compelled-disclosure procedure, return or destruction mechanics, remedies and general provisions.",
+    5: "Rewrite the entire NDA as a maximum-detail level 5 version of about 1,500-2,200 words. Draft the relevant protections and procedures comprehensively, while remaining proportionate and avoiding repetition.",
   } as const;
   const targetDetailLevel = Number.isInteger(body.targetDetailLevel) &&
     Number(body.targetDetailLevel) >= 1 && Number(body.targetDetailLevel) <= 5
@@ -177,17 +177,36 @@ export async function POST(req: NextRequest) {
             acc += event.value;
             controller.enqueue(line({ t: "text", v: event.value }));
           } else if (event.type === "done") {
+            // Legal drafts do not become invalid because a sensible clause puts
+            // them just outside an arbitrary word band. Validate a broad band
+            // and, more importantly, movement in the requested direction.
+            // This avoids throwing away a genuinely expanded Maximum draft and
+            // spending the remainder of the request budget on an unnecessary retry.
             const targetRanges = {
-              1: [500, 800],
-              2: [750, 1050],
-              3: [1000, 1400],
-              4: [1350, 1800],
-              5: [1750, 2300],
+              1: [350, 900],
+              2: [550, 1250],
+              3: [800, 1650],
+              4: [1050, 2100],
+              5: [1200, 2800],
             } as const;
             const wordCount = acc.trim().split(/\s+/).length;
+            const currentWordCount = text.trim().split(/\s+/).length;
             const range = targetDetailLevel ? targetRanges[targetDetailLevel] : null;
-            const reachesLevel = !range ||
-              (wordCount >= range[0] * 0.9 && wordCount <= range[1] * 1.1);
+            const levelDifference = targetDetailLevel
+              ? targetDetailLevel - currentDetailLevel
+              : 0;
+            const directionalMinimum = levelDifference > 0
+              ? currentWordCount * (1 + Math.min(levelDifference * 0.12, 0.48))
+              : 0;
+            const directionalMaximum = levelDifference < 0
+              ? currentWordCount * (1 - Math.min(Math.abs(levelDifference) * 0.1, 0.4))
+              : Number.POSITIVE_INFINITY;
+            const reachesLevel = !range || (
+              wordCount >= range[0] &&
+              wordCount <= range[1] &&
+              wordCount >= directionalMinimum &&
+              wordCount <= directionalMaximum
+            );
             if (targetDetailLevel && (!isMaterialDepthRewrite(text, acc) || !reachesLevel)) {
               if (attempt < maxAttempts) {
                 controller.enqueue(line({ t: "retry" }));

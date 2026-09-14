@@ -735,6 +735,8 @@ function Chat({
     detailLevel?: number;
   }[]>([]);
   const [revising, setRevising] = useState(false);
+  /** State disables the controls; the ref also closes the same-tick double-click window. */
+  const revisingRef = useRef(false);
   const [ndaDetailLevel, setNdaDetailLevel] = useState(3);
   const [documentVersion, setDocumentVersion] = useState(1);
   const versionCounterRef = useRef(1);
@@ -1237,7 +1239,8 @@ function Chat({
       targetDetailLevel?: 1 | 2 | 3 | 4 | 5;
     },
   ) {
-    if (revising || busy) return;
+    if (revisingRef.current || generatingRef.current || revising || busy) return;
+    revisingRef.current = true;
     setRevising(true);
     setError(null);
     setPaywalled(false);
@@ -1263,11 +1266,9 @@ function Chat({
         if (res.status === 402 || j?.code === "no_credits") {
           onCreditSpent(0);
           setPaywalled(true);
-          setFollow((f) => f.slice(0, -1));
           return;
         }
         setError(j?.error ?? "Could not revise the draft.");
-        setFollow((f) => f.slice(0, -1));
         return;
       }
 
@@ -1356,14 +1357,11 @@ function Chat({
         track("draft_revised", { doc_type: docType.slug });
       } else if (!failed && acc.trim()) {
         setError("The revision did not materially change the document. Please try again.");
-        setFollow((f) => f.slice(0, -1));
-      } else if (failed) {
-        setFollow((f) => f.slice(0, -1));
       }
     } catch {
       setError("Could not reach the drafting service. Check your connection and try again.");
-      setFollow((f) => f.slice(0, -1));
     } finally {
+      revisingRef.current = false;
       setRevising(false);
     }
   }
@@ -1733,6 +1731,8 @@ function Chat({
           fileName={currentFileName}
           initialVersion={documentVersions[0]}
           ndaDetailLevel={ndaDetailLevel}
+          error={error}
+          paywalled={paywalled}
           onChangeNdaDetailLevel={(level) =>
             void revise(`Rewrite this NDA at comprehensiveness level ${level} of 5.`, {
               targetDetailLevel: level,
