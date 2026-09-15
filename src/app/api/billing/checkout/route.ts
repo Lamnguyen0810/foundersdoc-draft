@@ -88,11 +88,56 @@ export async function POST(req: NextRequest) {
       (await s.customers.create({ email: user.email, metadata: { supabase_user_id: user.id } }));
 
     if (membership) {
-      /* Already a member? Send them to Stripe's billing portal to change or
-         cancel, rather than letting them buy a second subscription alongside
-         the first — which Stripe will happily do, and then charge for both. */
-      const subs = await s.subscriptions.list({ customer: customer.id, status: "active", limit: 1 });
-      if (subs.data.length > 0) {
+      /* ── WHAT "CANCELLED" ACTUALLY MEANS IN STRIPE ────────────────────────
+         Cancelling does not end a subscription there and then. Stripe sets
+         `cancel_at_period_end` and leaves the status ACTIVE until the paid
+         period runs out — the customer has paid for the month, so they keep
+         it. This code used to see that active subscription, decide the person
+         was already a member, and send them to the billing portal, which
+         showed them the plan they had just cancelled and no way to buy
+         anything. A dead end, at the exact moment someone was trying to give
+         us money.
+
+         So: look at every subscription, not just "active" ones, and decide by
+         what the customer is actually asking for. */
+      const subs = await s.subscriptions.list({ customer: customer.id, status: "all", limit: 20 });
+      const live = subs.data.find((sub) =>
+        ["active", "trialing", "past_due"].includes(sub.status),
+      );
+
+      if (live) {
+        const item = live.items.data[0];
+        const onThisPlan = item?.price?.id === price.id;
+
+        const metadata = {
+          supabase_user_id: user.id,
+          tier: membership.tier,
+          monthly_credits: String(membership.monthlyCredits ?? 0),
+        };
+
+        /* Same plan, previously cancelled: they have changed their mind.
+           Simply stop the cancellation — no new subscription, no second
+           charge, and they keep the period they already paid for. */
+        if (onThisPlan && live.cancel_at_period_end) {
+          await s.subscriptions.update(live.id, { cancel_at_period_end: false, metadata });
+          return NextResponse.json({ url: `${origin}/billing?resumed=1` });
+        }
+
+        /* A DIFFERENT plan: move this subscription onto the new price rather
+           than starting a second one. Stripe would happily run both and charge
+           for both, which is the worst outcome available here. */
+        if (!onThisPlan && item) {
+          await s.subscriptions.update(live.id, {
+            items: [{ id: item.id, price: price.id }],
+            cancel_at_period_end: false,
+            proration_behavior: "create_prorations",
+            metadata,
+          });
+          return NextResponse.json({ url: `${origin}/billing?changed=1` });
+        }
+
+        /* Same plan, not cancelled: nothing to sell them. The portal is the
+           right destination — that is where cards and cancellation live. */
         const portal = await s.billingPortal.sessions.create({
           customer: customer.id,
           return_url: `${origin}/billing`,

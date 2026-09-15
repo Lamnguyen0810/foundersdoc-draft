@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { PAID_BENCHMARK } from "@/lib/ai/pricing";
+import { getWallet } from "@/lib/billing/credits";
+import { membershipByTier } from "@/lib/billing/plans";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
 
@@ -50,6 +52,114 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
+/**
+ * What is left, as a bar rather than a number.
+ *
+ * A bar needs an honest denominator, and FD AI has three different ones
+ * depending on who is looking: an Unlimited member is measured against the
+ * fair-use ceiling, a Basic or Pro member against their monthly allowance, and
+ * somebody on the trial against the trial. A person who has only ever bought
+ * bundles has NO denominator at all — "8 documents" is out of nothing — so
+ * they get the figure and no bar, because inventing a maximum to draw a bar
+ * against would be inventing a limit that does not exist.
+ */
+function Meter({
+  remaining,
+  total,
+  resetsLabel,
+  note,
+}: {
+  remaining: number;
+  /** Null when there is no meaningful maximum to measure against. */
+  total: number | null;
+  resetsLabel: string | null;
+  note: string;
+}) {
+  const pct = total && total > 0 ? Math.max(0, Math.min(100, Math.round((remaining / total) * 100))) : null;
+
+  return (
+    <section
+      style={{
+        border: "1px solid var(--grey-2)",
+        borderRadius: 16,
+        background: "var(--white)",
+        padding: "18px 20px",
+        maxWidth: 420,
+        marginBottom: 28,
+      }}
+    >
+      <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>
+        {pct === null
+          ? `${remaining} document${remaining === 1 ? "" : "s"} available`
+          : `${pct}% of your documents remaining`}
+      </p>
+
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          marginTop: 14,
+        }}
+      >
+        <b style={{ fontSize: 15, fontVariantNumeric: "tabular-nums" }}>{remaining}</b>
+
+        {pct !== null && (
+          <span
+            style={{
+              flex: 1,
+              height: 7,
+              borderRadius: 999,
+              background: "var(--grey-1, #eee)",
+              overflow: "hidden",
+            }}
+          >
+            <span
+              style={{
+                display: "block",
+                width: `${pct}%`,
+                height: "100%",
+                borderRadius: 999,
+                background: "var(--ink, #171612)",
+              }}
+            />
+          </span>
+        )}
+
+        {total !== null && (
+          <span style={{ fontSize: 12, color: "var(--grey-5)", whiteSpace: "nowrap" }}>
+            of {total}
+          </span>
+        )}
+      </div>
+
+      <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--grey-5)" }}>
+        {resetsLabel ? `${resetsLabel} · ${note}` : note}
+      </p>
+
+      <Link
+        href="/billing"
+        className="btn"
+        style={{
+          marginTop: 16,
+          width: "100%",
+          height: 42,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--ink, #171612)",
+          color: "#fff",
+          borderColor: "var(--ink, #171612)",
+          borderRadius: 10,
+          fontWeight: 600,
+        }}
+      >
+        Add credits
+      </Link>
+    </section>
+  );
+}
+
 export default async function UsagePage() {
   if (!isSupabaseConfigured()) {
     return (
@@ -96,8 +206,64 @@ export default async function UsagePage() {
 
   const monthLabel = monthStart.toLocaleString("en-GB", { month: "long", year: "numeric" });
 
+  /* What the meter measures against, decided once here so the component itself
+     holds no opinion about pricing. */
+  const wallet = await getWallet();
+  let meter: {
+    remaining: number;
+    total: number | null;
+    resetsLabel: string | null;
+    note: string;
+  } = {
+    remaining: Number.isFinite(wallet.credits) ? wallet.credits : 0,
+    total: null,
+    resetsLabel: null,
+    note: "Bought documents never expire",
+  };
+
+  try {
+    const { data } = await supabase.rpc("billing_summary");
+    const row = Array.isArray(data) ? data[0] : data;
+    const when = (iso: string) =>
+      new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+
+    if (row?.tier === "unlimited") {
+      const cap = Number(row.unlimited_cap ?? 0);
+      const used = Number(row.unlimited_used ?? 0);
+      meter = {
+        remaining: cap > 0 ? Math.max(0, cap - used) : wallet.credits,
+        total: cap > 0 ? cap : null,
+        resetsLabel: row.period_end ? `Resets ${when(row.period_end)}` : null,
+        note: cap > 0 ? "Fair-use allowance" : "No limit set",
+      };
+    } else if (row?.tier) {
+      const plan = membershipByTier(String(row.tier));
+      const monthly = plan?.monthlyCredits ?? null;
+      meter = {
+        remaining: wallet.credits,
+        /* Credits roll over, so a balance can exceed one month's allowance.
+           Taking the larger of the two keeps the bar honest instead of
+           pinning it at 100% and hiding the surplus. */
+        total: monthly ? Math.max(monthly, wallet.credits) : null,
+        resetsLabel: row.period_end ? `Next ${monthly} on ${when(row.period_end)}` : null,
+        note: "Unused documents carry over",
+      };
+    } else if (wallet.inTrial && wallet.trialEndsAt) {
+      meter = {
+        remaining: wallet.credits,
+        total: Math.max(3, wallet.credits),
+        resetsLabel: `Expires ${when(wallet.trialEndsAt)}`,
+        note: "Free trial",
+      };
+    }
+  } catch {
+    // Fall back to the plain count above.
+  }
+
   return (
     <main className="wrap" style={{ paddingTop: 32 }}>
+      <Meter {...meter} />
+
       <header
         style={{
           display: "flex",

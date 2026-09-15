@@ -7,6 +7,7 @@ import { isStripeConfigured, stripeMode } from "@/lib/billing/stripe";
 import { pricedCatalogue } from "@/lib/billing/prices";
 import { TRIAL, perCredit, money } from "@/lib/billing/plans";
 import BuyButton from "./BuyButtons";
+import PricingMotion from "./PricingMotion";
 import "./pricing.css";
 
 export const metadata = { title: "Pricing — FD AI" };
@@ -36,13 +37,19 @@ const SOURCE_LABEL: Record<string, string> = {
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ paid?: string; cancelled?: string; joined?: string }>;
+  searchParams: Promise<{
+    paid?: string;
+    cancelled?: string;
+    joined?: string;
+    resumed?: string;
+    changed?: string;
+  }>;
 }) {
   if (!isSupabaseConfigured()) redirect("/draft");
   const user = await getUser();
   if (!user) redirect("/login?next=%2Fbilling");
 
-  const { paid, cancelled, joined } = await searchParams;
+  const { paid, cancelled, joined, resumed, changed } = await searchParams;
   const wallet = await getWallet();
   const mode = stripeMode();
   const catalogue = await pricedCatalogue();
@@ -90,6 +97,10 @@ export default async function BillingPage({
 
   return (
     <main className="fdp">
+      {/* Decorative only; it adds no content and does nothing without JS. */}
+      <div className="scroll-progress" aria-hidden="true" />
+      <PricingMotion />
+
       <div className="page">
         {/* ── what this account actually has ─────────────────────────────── */}
         <section className="hero">
@@ -203,8 +214,30 @@ export default async function BillingPage({
         </section>
 
         {/* ── notices ────────────────────────────────────────────────────── */}
-        {(joined || paid || cancelled || mode === "test" || mode === "live" || catalogue.anyMissing) && (
+        {(joined || paid || cancelled || resumed || changed || mode === "test" || mode === "live" || catalogue.anyMissing) && (
           <section className="section" style={{ paddingTop: 34 }}>
+            {resumed && (
+              <div className="recommended-bar">
+                <div>
+                  <strong>Your membership is back on.</strong>
+                  <span>
+                    The cancellation is withdrawn and nothing was charged &mdash; you keep the
+                    period you had already paid for.
+                  </span>
+                </div>
+              </div>
+            )}
+            {changed && (
+              <div className="recommended-bar">
+                <div>
+                  <strong>Plan changed.</strong>
+                  <span>
+                    Stripe has adjusted your next invoice for the part-month, so you are not
+                    charged twice for the same days.
+                  </span>
+                </div>
+              </div>
+            )}
             {joined && (
               <div className="recommended-bar">
                 <div>

@@ -156,7 +156,6 @@ function AccountChip({
         <Chevron />
       </button>
       <div className="nav-sub" onClick={onClose}>
-        <Link href="/history">Past drafts</Link>
         {/* Credits sits with the other account business. Before this, /billing
             was reachable only from the paywall — which is to say, only once you
             had already run out. Somebody wanting to top up in advance had no
@@ -347,7 +346,6 @@ export function AppNav({
           {signedIn && (
             <div className="menu-group">
               <span>{userEmail}</span>
-              <Link href="/history">Past drafts</Link>
               <Link href="/billing">Credits</Link>
               <Link href="/usage">Usage</Link>
               <Link href="/settings">Settings</Link>
