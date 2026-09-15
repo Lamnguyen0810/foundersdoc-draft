@@ -42,9 +42,13 @@ if (!raw) { console.error("no <style> block found"); process.exit(1); }
 // edits this next.
 const css = raw.replace(/\/\*[\s\S]*?\*\//g, "");
 
+/* The design ships its own site header. The app renders AppNav instead, so
+   every rule for that header is dropped rather than namespaced. */
 const DROP = [".top-banner", ".banner-close", ".top-chip", ".header", ".nav",
               ".brand", ".links", ".has-sub", ".nav-sub", ".nav-btn",
-              ".nav-left", ".nav-right", ".nav-links"];
+              ".nav-left", ".nav-right", ".nav-links", ".fd-wordmark",
+              ".nav-tools", ".nav-cta", ".theme-btn", ".burger", ".mobile-menu",
+              ".progress"];
 
 function topLevelRules(text) {
   const out = []; let depth = 0, buf = "";
@@ -62,6 +66,9 @@ function scopeSelector(sel) {
     if (!s) return null;
     if (s === "*") return ".fdp *";
     if (s === ":root" || s === "html" || s === "body") return ".fdp";
+    /* `html[data-theme="dark"] { --tokens }` is the design's dark palette. The
+       attribute lives on the real <html>, so the scope goes AFTER it. */
+    if (/^html\[/.test(s)) return s.replace(/^html(\[[^\]]+\])\s*/, "html$1 .fdp ");
     if (s.startsWith(".fdp")) return s;
     return ".fdp " + s;
   }).filter(Boolean).join(",");

@@ -1,168 +1,83 @@
 /* ===========================================================================
-   The firm's yellow, over the designer's.
+   What the app has to add on top of the generated design stylesheet.
 
-   WHY THIS IS A SEPARATE FILE
-     pricing.css is GENERATED from the design by scripts/build-pricing-css.mjs.
-     Editing it works until the next revision of the design arrives, at which
-     point the regeneration silently throws the change away — and nobody finds
-     out, because the page still renders, just in the wrong yellow. Overrides
-     live here instead, loaded after it, and survive.
-
-   WHAT CHANGES
-     1. The yellow itself: #F4B752 → #F3BF4B, the same --gold the rest of FD AI
-        uses, so the pricing page and the app finally agree.
-     2. Flat fills become auras. A solid yellow block is the heaviest thing on
-        a page otherwise made of paper and thin rules; the same colour as a
-        soft radial bloom reads as light falling on the card rather than as a
-        highlighter. The colour is identical — only its distribution changes.
+   pricing.css is GENERATED from the designer's file by
+   scripts/build-pricing-css.mjs and must not be edited — the next revision of
+   the design regenerates it. Anything the application needs that the design
+   cannot know about lives here, loaded after it.
    ========================================================================= */
 
+/* ── the sticky tab bar sits under the APP's header, not the design's ──────
+   The design's header is 58px; AppNav is 64px. Its --nav-h is scoped to .fdp
+   by the generator, so this override is safe and lands on the tab bar and on
+   every scroll-margin-top on the page. */
 .fdp {
-  --yellow: #f3bf4b;
-  --yellow-soft: #fdf3da;
-  --yellow-pale: #fffaf0;
-
-  /* One aura, reused. Defined once so every bloom on the page is the same
-     light and a future change is a single edit. */
-  --aura: radial-gradient(
-    120% 140% at 30% 0%,
-    rgba(243, 191, 75, 0.26) 0%,
-    rgba(243, 191, 75, 0.1) 38%,
-    rgba(243, 191, 75, 0) 78%
-  );
-  --aura-soft: radial-gradient(
-    140% 160% at 50% 0%,
-    rgba(243, 191, 75, 0.15) 0%,
-    rgba(243, 191, 75, 0.045) 45%,
-    rgba(243, 191, 75, 0) 80%
-  );
+  --nav-h: var(--app-nav-h, 64px);
 }
 
-/* ── the pills ───────────────────────────────────────────────────────────
-   RECOMMENDED, the tag on a card, the members-only pill. Each was a flat
-   block of --yellow-soft; each is now the same colour arriving as light,
-   with a hairline to keep the shape legible against a white card. */
-.fdp .side-label,
-.fdp .tag.gold,
-.fdp .exclusive-pill {
-  background: var(--aura), rgba(255, 253, 247, 0.9);
-  border: 1px solid rgba(243, 191, 75, 0.38);
-  /* No colour here: the design gives each of these its own, and they differ. */
-  /* A pill is as wide as its words. Inside a column flex container it would
-     otherwise stretch the full width of the card and stop looking like one. */
-  align-self: flex-start;
+/* ── globals.css leaks, in both directions ─────────────────────────────────
+   Scoping stops the design leaking OUT; it does nothing about what leaks IN.
+   The design and the application both define .btn, .btn-gold, .card and .wrap.
+   Declared properties are won by the design (more specific); these are the
+   ones it never declares because it never needed to. */
+.fdp .btn::after,
+.fdp .btn-gold::after {
+  content: none;
+}
+.fdp .kicker,
+.fdp .section-kicker,
+.fdp .journey-kicker {
+  display: block;
 }
 
-/* ── the badge on the recommended card ───────────────────────────────── */
-.fdp .plan-badge {
-  background: var(--aura), rgba(255, 253, 247, 0.92);
-  border: 1px solid rgba(243, 191, 75, 0.42);
+/* .fdp must never become its own scroll container: the design writes
+   overflow:hidden on the hero only, but the previous design put it on body and
+   this guard has already saved one scroll bug. clip contains, without
+   scrolling, and does not break position:sticky. */
+.fdp {
+  overflow-x: clip;
 }
 
-/* ── the hairlines ───────────────────────────────────────────────────────
-   The rule under the eyebrow, the line above the recommended card, the
-   underline that sweeps in on a quick-nav link. These are 1–3px, so an aura
-   in the usual sense has nowhere to go: they get a gradient along their
-   length instead, solid in the middle and dissolving at both ends. */
-.fdp .eyebrow:before,
-.fdp .recommended-bar::before,
-.fdp .membership-grid .card.featured::before,
-.fdp .quick-nav a::before {
-  background: linear-gradient(
-    90deg,
-    rgba(243, 191, 75, 0) 0%,
-    rgba(243, 191, 75, 0.95) 30%,
-    rgba(243, 191, 75, 0.95) 70%,
-    rgba(243, 191, 75, 0) 100%
-  );
-}
-
-/* The vertical one on the recommendation bar runs the other way. */
-.fdp .recommended-bar::before {
-  background: linear-gradient(
-    180deg,
-    rgba(243, 191, 75, 0) 0%,
-    rgba(243, 191, 75, 0.95) 28%,
-    rgba(243, 191, 75, 0.95) 72%,
-    rgba(243, 191, 75, 0) 100%
-  );
-}
-
-/* ── the little dots in the hero meta ────────────────────────────────────
-   5px across. A gradient inside one is invisible; a soft ring around it is
-   not, and it is the same idea — colour with an edge that is not hard. */
-.fdp .hero-meta i {
-  background: #f3bf4b;
-  box-shadow: 0 0 0 3px rgba(243, 191, 75, 0.18);
-}
-
-/* The cards themselves are left exactly as the design has them. An earlier
-   version of this file washed a bloom across the whole recommendation card and
-   the featured Pro card, which is more than "make the yellow an aura" asked
-   for — it changed the weight of the page. The pills and the hairlines carry
-   the colour; the cards keep the designer's own gradients. */
-
-
-/* ===========================================================================
-   THE CLIPPED DESCENDERS — AND WHY THERE IS NO RULE HERE FOR THEM
-   ---------------------------------------------------------------------------
-   The tails of g, y and p on the hero heading were sliced flat. The first fix
-   was to grow the heading's paint box, because the heading is painted with
-   background-clip:text and a background only paints inside the element's box.
-
-   That was treating the symptom. The cause was the typeface: globals.css was
-   substituting Geist for the design's Inter, and Geist's descenders reach
-   further below the baseline than the line box allowed. Restoring Inter (see
-   below) makes the glyphs fit as the designer's own file always did, verified
-   in a browser at the same width — so the padding trick is gone and this page
-   now matches the design file to the pixel rather than approximately.
-   ========================================================================= */
-
-/* ===========================================================================
-   THE ACCOUNT LINE
-   ---------------------------------------------------------------------------
-   Above the designed card, never inside it. One quiet row: what they hold,
-   what they are on, when it renews. Anything more belongs on /usage.
-   ========================================================================= */
+/* ── the account line ──────────────────────────────────────────────────────
+   Above the hero, outside the designed card. A signed-in person's balance,
+   plan and renewal in one quiet row; the full picture is on /usage. */
 .fdp .account-line {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 18px;
-  margin: 0 0 18px;
+  max-width: var(--wrap);
+  margin: 14px auto 0;
   padding: 11px 16px;
-  border: 1px solid rgba(243, 191, 75, 0.34);
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--aura-soft), rgba(255, 253, 247, 0.85);
+  background: var(--white);
   font-size: 12.5px;
-  color: var(--muted, #6d685f);
+  color: var(--muted);
 }
 .fdp .account-line strong {
-  color: var(--ink, #171612);
-  font-weight: 650;
+  color: var(--ink);
+  font-weight: 600;
 }
 .fdp .account-line > span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
-/* A hairline between items rather than a bullet — quieter, and it disappears
-   on its own when the row wraps. */
 .fdp .account-line > span + span::before {
   content: "";
   width: 1px;
   height: 11px;
-  background: rgba(23, 22, 18, 0.16);
+  background: var(--line-strong);
   margin-right: 12px;
 }
 .fdp .account-line a {
   margin-left: auto;
-  color: var(--ink, #171612);
-  font-weight: 650;
+  color: var(--ink);
+  font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-
 @media (max-width: 700px) {
   .fdp .account-line {
     border-radius: 14px;
@@ -172,145 +87,47 @@
   }
 }
 
-
-/* ===========================================================================
-   THE HEADINGS WERE IN THE WRONG TYPEFACE
-   ---------------------------------------------------------------------------
-   globals.css sets `h1, h2, h3 { font-family: var(--display) }` — Geist —
-   twice, for the whole application. The design sets Inter on the body and lets
-   headings inherit it, and it never declares font-family on a heading, so
-   there was nothing in the generated stylesheet to push back with. Every
-   heading on this page was therefore rendered in a typeface the designer did
-   not choose, at a weight and letter-spacing they did not set, and the
-   different metrics are why the descenders sat where they did.
-
-   This is the general hazard of dropping a designed page into an application:
-   what leaks in is not the rules you can see in the design, it is the ones it
-   never had to write down because a browser's defaults were already right.
-
-   So bare element defaults are restored inside .fdp, and the design's own
-   rules — all of which are more specific than these — land on top unchanged.
-   ========================================================================= */
-/* ===========================================================================
-   THE INHERITED TYPE SCALE
-   ---------------------------------------------------------------------------
-   globals.css sets `font-size: 15px`, `line-height: 1.6` and
-   `letter-spacing: -0.005em` on the body, for the whole application. The
-   design sets none of those, so it was built against a browser's 16px and
-   `normal` line-height — and everything on the page that does not declare its
-   own size or leading was inheriting ours instead. That is why the cards came
-   out taller than the design file, line by line, all the way down.
-
-   These three lines put the page back on the type scale it was drawn to. Every
-   rule the design does declare is more specific and still wins.
-   ========================================================================= */
-.fdp {
-  font-size: 16px;
-  line-height: normal;
-  letter-spacing: normal;
+/* ── notices the design does not have ──────────────────────────────────────
+   Test mode, "you joined", a price that Stripe holds in the wrong currency.
+   Styled as the design's .banner so they belong to the page. */
+.fdp .banner.warn {
+  border-color: #c2410c;
+}
+.fdp .banner.error {
+  border-color: #b42318;
+}
+.fdp .banner.ok {
+  border-color: var(--success);
 }
 
-/* ===========================================================================
-   .kicker WAS HIDDEN
-   ---------------------------------------------------------------------------
-   globals.css carries `.kicker { display: none }`, from somewhere else in the
-   application. The design uses `.kicker` for the small label above every
-   section heading — "Start here", "Option one", "Option two", "Members only",
-   "Quick guide" — so on our page every one of them was invisible. Nothing in
-   the generated stylesheet said `display`, so there was nothing to push back.
-
-   This is the case for namespacing a design under one class and still checking
-   the result against the original: scoping stops the design leaking OUT, and
-   does nothing about what leaks IN.
-   ========================================================================= */
-.fdp .kicker {
-  display: block;
+/* A price-list disagreement, printed under a buy button. */
+.fdp .mismatch {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #b45309;
+}
+.fdp .buy-error {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #b42318;
 }
 
-.fdp h1,
-.fdp h2,
-.fdp h3,
-.fdp h4 {
-  font-family: inherit; /* Inter, from .fdp */
-  font-weight: bold; /* what the design assumed, having set none */
-  letter-spacing: normal;
-  line-height: normal;
+/* ── billing history ───────────────────────────────────────────────────────
+   Invoices in Singapore dollars with a Download button — the reason this
+   section exists on our page and not only in Stripe's portal. */
+.fdp .invoices table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
 }
-
-
-/* ===========================================================================
-   THE TWO HERO BUTTONS WERE THE WRONG SHAPE
-   ---------------------------------------------------------------------------
-   The design writes these as <button>, which is inline-block, so
-   `height: 46px` and `padding: 0 18px` give it a 46px pill with the label
-   centred. Porting them to <a> — necessary, because the design scrolled with
-   an inline onclick handler and React does not take one — made them inline,
-   and an inline box ignores height entirely. Both pills came out short, with
-   the text sitting against the top edge.
-
-   The fix is the display mode, not the measurements: every number below is
-   still the designer's.
-   ========================================================================= */
-.fdp .hero-actions .btn-primary,
-.fdp .hero-actions .btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  box-sizing: border-box;
+.fdp .invoices th {
+  text-align: left;
+  padding: 8px 10px 8px 0;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
 }
-
-/* The design scrolled these two with scrollIntoView({behavior:"smooth"}).
-   As anchors they need the same courtesy from CSS, and it has to sit on the
-   element that actually scrolls — which is the document, not .fdp, where the
-   generator put the design's own `html { scroll-behavior }` rule. Scoped with
-   :has() so no other page in the application starts scrolling differently. */
-html:has(.fdp) {
-  scroll-behavior: smooth;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html:has(.fdp) {
-    scroll-behavior: auto;
-  }
-}
-
-
-/* ===========================================================================
-   .fdp MUST NOT BECOME ITS OWN SCROLL CONTAINER
-   ---------------------------------------------------------------------------
-   The design writes `body { position: relative; overflow-x: hidden }` to keep
-   its two ambient glows from ever widening the page. Namespacing turns `body`
-   into `.fdp`, and there it means something different: `overflow-x: hidden`
-   makes an element a scroll container in BOTH axes, so <main class="fdp">
-   started scrolling itself instead of the document. The page then rendered 18
-   pixels wider than the design — the document scrollbar was gone — and every
-   card, column and rule inherited that error.
-
-   It is also the same shape of mistake as the `html, body { overflow: clip }`
-   rule that once stopped every page in this application from scrolling: a
-   viewport-level declaration applied to an element that is not the viewport.
-
-   `clip` does the job the designer wanted — nothing escapes sideways — without
-   creating a scroll container, so the document scrolls as it should and the
-   measurements match the design file again.
-   ========================================================================= */
-.fdp {
-  overflow-x: clip;
-}
-
-
-/* ===========================================================================
-   ANCHORS MUST LAND BELOW THE STICKY NAVIGATION
-   ---------------------------------------------------------------------------
-   The design is a standalone page with its own header, so a jump to #membership
-   put the heading at the top of the window and that was correct. Inside the
-   application the nav is `position: sticky` and 64px tall, so the same jump
-   parks the heading underneath it: the page moves, the thing you asked for is
-   hidden, and it reads as a link that half worked.
-
-   scroll-margin-top tells the browser where the top of each target really is.
-   ========================================================================= */
-.fdp [id] {
-  scroll-margin-top: calc(var(--nav-h, 64px) + 24px);
+.fdp .invoices td {
+  padding: 12px 10px 12px 0;
+  border-top: 1px solid var(--line);
 }
