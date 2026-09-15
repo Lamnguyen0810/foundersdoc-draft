@@ -47,11 +47,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="theme-color" content="#0f0f0f" media="(prefers-color-scheme: dark)" />
       </head>
       <body>
-        <p className="strip-warn">
-          <strong>AI-generated draft</strong> — must be reviewed by a qualified lawyer before use.
-          Do not enter confidential client material while a free-tier API key is in use.
-        </p>
-
         {!configured && (
           <p className="strip-dark">
             Running without accounts — nothing is saved. See SETUP_SUPABASE.md to enable sign-in.

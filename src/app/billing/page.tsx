@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { getUser, createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getWallet } from "@/lib/billing/credits";
-import { isStripeConfigured, stripeMode } from "@/lib/billing/stripe";
 import { pricedCatalogue } from "@/lib/billing/prices";
 import { recentInvoices, type InvoiceRow } from "@/lib/billing/invoices";
 import { TRIAL, money } from "@/lib/billing/plans";
@@ -39,7 +38,6 @@ export default async function BillingPage({
 
   const { paid, cancelled, joined, resumed, changed } = await searchParams;
   const wallet = await getWallet();
-  const mode = stripeMode();
   const catalogue = await pricedCatalogue();
 
   /* One round trip for balance, membership and fair-use usage. The database
@@ -82,8 +80,6 @@ export default async function BillingPage({
   const invoices: InvoiceRow[] = await recentInvoices(stripeCustomerId);
 
   const tier = membership?.tier ?? null;
-  const isMember = Boolean(tier);
-  const isUnlimited = tier === "unlimited";
   const trialLive = Boolean(wallet.inTrial && wallet.trialEndsAt);
 
   const notices = joined || paid || cancelled || resumed || changed;
@@ -107,32 +103,6 @@ export default async function BillingPage({
         </div>
       </div>
 
-      {/* ── the account line: ours, above the designed hero ──────────────── */}
-      {(isMember || wallet.credits > 0 || trialLive) && (
-        <div className="wrap">
-          <p className="account-line">
-            <span>
-              <strong>{wallet.credits} document{wallet.credits === 1 ? "" : "s"}</strong> in your
-              account
-            </span>
-            {isMember && (
-              <span>
-                <strong style={{ textTransform: "capitalize" }}>{tier}</strong> member
-                {membership!.status === "past_due" && " — payment needs attention"}
-              </span>
-            )}
-            {isUnlimited && membership!.unlimited_cap > 0 && (
-              <span>
-                {membership!.unlimited_used} of {membership!.unlimited_cap} drafted this month
-              </span>
-            )}
-            {membership?.period_end && <span>Renews {when(membership.period_end)}</span>}
-            {trialLive && <span>Trial ends {when(wallet.trialEndsAt!)}</span>}
-            <Link href="/usage">Your usage</Link>
-          </p>
-        </div>
-      )}
-
       {/* ── hero, as designed ────────────────────────────────────────────── */}
       <div className="hero-shell">
         <section className="hero wrap" id="top">
@@ -153,7 +123,7 @@ export default async function BillingPage({
       </div>
 
       {/* ── notices the design does not have ─────────────────────────────── */}
-      {(notices || mode === "test" || catalogue.anyMissing || catalogue.anyWrongCurrency) && (
+      {(notices || catalogue.anyMissing || catalogue.anyWrongCurrency) && (
         <div className="wrap" style={{ paddingTop: 24 }}>
           {resumed && (
             <div className="banner ok"><div><strong>Your membership is back on.</strong><span>The cancellation is withdrawn and nothing was charged — you keep the period you had already paid for.</span></div></div>
@@ -169,9 +139,6 @@ export default async function BillingPage({
           )}
           {cancelled && (
             <div className="banner"><div><strong>Nothing was charged.</strong><span>You left the payment page before finishing. Your account is unchanged.</span></div></div>
-          )}
-          {mode === "test" && isStripeConfigured() && (
-            <div className="banner"><div><strong>Test mode — no money moves.</strong><span>Use card 4242 4242 4242 4242, any future expiry, any CVC.</span></div></div>
           )}
           {catalogue.anyMissing && (
             <div className="banner warn"><div><strong>Some products do not exist in Stripe yet.</strong><span>Run scripts/create-stripe-products.mjs against this Stripe account. Until then those buttons will not work.</span></div></div>
