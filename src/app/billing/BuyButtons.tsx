@@ -22,11 +22,14 @@ export default function BuyButton({
   item,
   label,
   isCurrent = false,
+  className = "btn btn-white card-btn",
 }: {
   item: Item;
   label: string;
   /** True when this is the plan the viewer is already paying for. */
   isCurrent?: boolean;
+  /** The design's button classes for this card, e.g. "btn btn-black card-btn". */
+  className?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +60,7 @@ export default function BuyButton({
     <>
       <button
         type="button"
-        className="card-btn"
+        className={className}
         disabled={busy || item.missing || isCurrent}
         onClick={() => void buy()}
       >
@@ -71,13 +74,13 @@ export default function BuyButton({
       </button>
 
       {item.mismatch && (
-        <div className="plan-rate" style={{ color: "#b45309", marginTop: 8 }}>
+        <div className="mismatch">
           {item.mismatch}
         </div>
       )}
 
       {error && (
-        <div className="plan-rate" style={{ color: "#b42318", marginTop: 8 }}>
+        <div className="buy-error">
           {error}
         </div>
       )}

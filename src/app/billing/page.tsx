@@ -6,7 +6,7 @@ import { getWallet } from "@/lib/billing/credits";
 import { isStripeConfigured, stripeMode } from "@/lib/billing/stripe";
 import { pricedCatalogue } from "@/lib/billing/prices";
 import { recentInvoices, type InvoiceRow } from "@/lib/billing/invoices";
-import { TRIAL, perCredit, money } from "@/lib/billing/plans";
+import { TRIAL, money } from "@/lib/billing/plans";
 import BuyButton from "./BuyButtons";
 import PricingMotion from "./PricingMotion";
 import "./pricing.css";
@@ -86,27 +86,34 @@ export default async function BillingPage({
   const isUnlimited = tier === "unlimited";
   const trialLive = Boolean(wallet.inTrial && wallet.trialEndsAt);
 
+  const notices = joined || paid || cancelled || resumed || changed;
+  const savings = (credits: number, cents: number) =>
+    money(credits * catalogue.packs[0].amountCents - cents);
+
   return (
     <main className="fdp">
-      {/* Decorative only; it adds no content and does nothing without JS. */}
-      <div className="scroll-progress" aria-hidden="true" />
       <PricingMotion />
 
-      <div className="page">
-        {/* ── the account line ─────────────────────────────────────────────
-            OUTSIDE the designed card, deliberately. The design is a pricing
-            page and has no place in it for a signed-in person's balance; an
-            earlier version of this file put one there by rewriting the hero,
-            which replaced the firm's own marketing copy with an account
-            readout. This sits above the card instead, so the design below is
-            exactly the file the designer sent. The full picture is on /usage. */}
-        {isMember || wallet.credits > 0 || trialLive ? (
+      {/* ── the section tabs, sticky under the app's header ──────────────── */}
+      <div className="pricing-nav-shell">
+        <div className="wrap">
+          <nav className="pricing-nav" aria-label="Pricing sections">
+            <a className="tab-link active" href="#trial">Free trial</a>
+            <a className="tab-link" href="#credits">Flexible credits</a>
+            <a className="tab-link" href="#memberships">Memberships</a>
+            <a className="tab-link" href="#topups">Member top-ups</a>
+            <a className="tab-link" href="#compare">Compare</a>
+          </nav>
+        </div>
+      </div>
+
+      {/* ── the account line: ours, above the designed hero ──────────────── */}
+      {(isMember || wallet.credits > 0 || trialLive) && (
+        <div className="wrap">
           <p className="account-line">
             <span>
-              <strong>
-                {wallet.credits} document{wallet.credits === 1 ? "" : "s"}
-              </strong>{" "}
-              in your account
+              <strong>{wallet.credits} document{wallet.credits === 1 ? "" : "s"}</strong> in your
+              account
             </span>
             {isMember && (
               <span>
@@ -123,538 +130,321 @@ export default async function BillingPage({
             {trialLive && <span>Trial ends {when(wallet.trialEndsAt!)}</span>}
             <Link href="/usage">Your usage</Link>
           </p>
-        ) : null}
+        </div>
+      )}
 
-        {/* ── the hero, as designed ─────────────────────────────────────────
-            Copied from the design file unchanged. Only the two buttons differ:
-            the design scrolled with inline onclick handlers, which React does
-            not take, so they are anchors to the same two sections. */}
-        <section className="hero">
-          <div className="hero-copy">
-            <div className="eyebrow">FD AI pricing</div>
-            <h1>Simple pricing for every stage of use.</h1>
-            <p>
-              Start with a free trial, buy credits when you need them, or choose a monthly
-              membership for more regular use.
-            </p>
-            <div className="hero-actions">
-              <a className="btn-primary" href="#pricing">
-                View pricing
-              </a>
-              <a className="btn-secondary" href="#compare">
-                Help me choose
-              </a>
-            </div>
-            <div className="hero-meta">
-              <span>
-                <i />
-                No card required
-              </span>
-              <span>
-                <i />
-                Purchased credits do not expire
-              </span>
-              <span>
-                <i />
-                Cancel anytime
-              </span>
-            </div>
-            <div className="quick-nav">
-              <a href="#trial">Free trial</a>
-              <a href="#payg">Flexible credits</a>
-              <a href="#membership">Monthly memberships</a>
-              <a href="#topups">Exclusive top-ups</a>
+      {/* ── hero, as designed ────────────────────────────────────────────── */}
+      <div className="hero-shell">
+        <section className="hero wrap" id="top">
+          <div className="eyebrow">FD AI pricing</div>
+          <h1>Simple, flexible pricing for every way you use FD AI.</h1>
+          <p>Start free, buy credits when needed, or switch to a monthly plan for better ongoing value.</p>
+          <div className="hero-actions">
+            <a className="btn btn-black" href="#trial">Start with free trial</a>
+            <a className="btn btn-white" href="#compare">Help me choose</a>
+          </div>
+          <div className="hero-meta">
+            <span><i />No card required</span>
+            <span><i />Purchased credits do not expire</span>
+            <span><i />Cancel anytime</span>
+          </div>
+          <div className="scroll-note">Scroll to explore <i>↓</i></div>
+        </section>
+      </div>
+
+      {/* ── notices the design does not have ─────────────────────────────── */}
+      {(notices || mode === "test" || catalogue.anyMissing || catalogue.anyWrongCurrency) && (
+        <div className="wrap" style={{ paddingTop: 24 }}>
+          {resumed && (
+            <div className="banner ok"><div><strong>Your membership is back on.</strong><span>The cancellation is withdrawn and nothing was charged — you keep the period you had already paid for.</span></div></div>
+          )}
+          {changed && (
+            <div className="banner ok"><div><strong>Plan changed.</strong><span>Stripe has adjusted your next invoice for the part-month, so you are not charged twice for the same days.</span></div></div>
+          )}
+          {joined && (
+            <div className="banner ok"><div><strong>Welcome to FD AI.</strong><span>Your membership is active. This month&rsquo;s documents land on your account within a few seconds — reload if the number above has not moved yet.</span></div></div>
+          )}
+          {paid && (
+            <div className="banner ok"><div><strong>Payment received.</strong><span>Your documents are on your account. If the number above has not moved yet, reload in a moment.</span></div></div>
+          )}
+          {cancelled && (
+            <div className="banner"><div><strong>Nothing was charged.</strong><span>You left the payment page before finishing. Your account is unchanged.</span></div></div>
+          )}
+          {mode === "test" && isStripeConfigured() && (
+            <div className="banner"><div><strong>Test mode — no money moves.</strong><span>Use card 4242 4242 4242 4242, any future expiry, any CVC.</span></div></div>
+          )}
+          {catalogue.anyMissing && (
+            <div className="banner warn"><div><strong>Some products do not exist in Stripe yet.</strong><span>Run scripts/create-stripe-products.mjs against this Stripe account. Until then those buttons will not work.</span></div></div>
+          )}
+          {catalogue.anyWrongCurrency && (
+            <div className="banner error"><div><strong>A price in Stripe is not in Singapore dollars.</strong><span>FD AI sells in SGD. The affected items are marked below and cannot be bought until they are re-created in SGD.</span></div></div>
+          )}
+        </div>
+      )}
+
+      {/* ── overview, as designed ────────────────────────────────────────── */}
+      <section className="overview wrap reveal">
+        <div className="overview-grid">
+          <div className="panel journey-panel">
+            <div className="journey-kicker">How pricing works</div>
+            <h2>Choose the path that fits your workflow.</h2>
+            <p className="sub">The page is designed as a clear decision flow: start free, stay flexible with one-off credits, or choose a monthly membership for better value.</p>
+            <div className="journey-steps">
+              <div className="journey-step"><small>Start free</small><strong>{TRIAL.credits} trial credits</strong><p>Try FD AI over {TRIAL.days} days before making any commitment.</p></div>
+              <div className="journey-step"><small>Occasional use</small><strong>From {catalogue.packs[0].price}</strong><p>Buy credits only when you need them, with no expiry.</p></div>
+              <div className="journey-step"><small>Regular use</small><strong>From {catalogue.memberships[0].price} / month</strong><p>Lower your effective cost with a monthly membership.</p></div>
             </div>
           </div>
 
-          <aside className="hero-side">
-            <div className="side-label">Recommended</div>
+          <div className="panel recommended-panel">
+            <div className="pill">Recommended for most regular users</div>
             <div className="rec-card">
               <h2>Pro Membership</h2>
-              <div className="rec-price">
-                <strong>S$49.80</strong>
-                <span>/ month</span>
+              <div className="rec-price"><strong>{catalogue.memberships[1].price}</strong><span>/ month</span></div>
+              <div className="rec-meta">10 credits each month</div>
+              <div className="rec-copy">A strong default choice for regular users who want better monthly value without jumping straight to unlimited usage.</div>
+              <div className="checklist">
+                <div><b>✓</b><span>S$4.98 per included credit</span></div>
+                <div><b>✓</b><span>Best value for frequent individual use</span></div>
+                <div><b>✓</b><span>Access to exclusive member top-up rates</span></div>
               </div>
-              <div className="rec-credit">10 credits each month</div>
-              <div className="rec-copy">
-                Best for regular users who want a lower effective rate and the flexibility to top up
-                when needed.
-              </div>
-              <div className="rec-points">
-                <div>
-                  <b>✓</b>
-                  <span>S$4.98 per included credit</span>
-                </div>
-                <div>
-                  <b>✓</b>
-                  <span>Lower effective cost than pay-as-you-go</span>
-                </div>
-                <div>
-                  <b>✓</b>
-                  <span>Access to exclusive member top-up rates</span>
-                </div>
-              </div>
-              <a className="rec-link" href="#membership">
-                See membership plans
-              </a>
+              <a className="btn btn-black" href="#memberships">Choose Pro Membership</a>
+              <div className="helper-note">A good default for regular users and small teams.</div>
             </div>
-          </aside>
-        </section>
+          </div>
+        </div>
+      </section>
 
-        {/* ── notices ────────────────────────────────────────────────────── */}
-        {(joined || paid || cancelled || resumed || changed || mode === "test" || mode === "live" || catalogue.anyMissing) && (
-          <section className="section" style={{ paddingTop: 34 }}>
-            {resumed && (
-              <div className="recommended-bar">
-                <div>
-                  <strong>Your membership is back on.</strong>
-                  <span>
-                    The cancellation is withdrawn and nothing was charged &mdash; you keep the
-                    period you had already paid for.
-                  </span>
-                </div>
-              </div>
-            )}
-            {changed && (
-              <div className="recommended-bar">
-                <div>
-                  <strong>Plan changed.</strong>
-                  <span>
-                    Stripe has adjusted your next invoice for the part-month, so you are not
-                    charged twice for the same days.
-                  </span>
-                </div>
-              </div>
-            )}
-            {joined && (
-              <div className="recommended-bar">
-                <div>
-                  <strong>Welcome to FD AI.</strong>
-                  <span>
-                    Your membership is active. This month&rsquo;s documents land on your account
-                    within a few seconds — reload if the number above has not moved yet.
-                  </span>
-                </div>
-              </div>
-            )}
-            {paid && (
-              <div className="recommended-bar">
-                <div>
-                  <strong>Payment received.</strong>
-                  <span>
-                    Your documents appear within a few seconds. Stripe tells us directly, so reload
-                    in a moment if the number has not moved.
-                  </span>
-                </div>
-              </div>
-            )}
-            {cancelled && (
-              <div className="recommended-bar">
-                <div>
-                  <strong>Checkout cancelled.</strong>
-                  <span>Nothing was charged.</span>
-                </div>
-              </div>
-            )}
-            {mode === "test" && isStripeConfigured() && (
-              <div className="recommended-bar">
-                <div>
-                  <strong>Test mode — no money moves.</strong>
-                  <span>
-                    Use card 4242 4242 4242 4242, any future expiry, any CVC.
-                  </span>
-                </div>
-              </div>
-            )}
-            {mode === "live" && (
-              <div className="recommended-bar" style={{ borderColor: "#c2410c" }}>
-                <div>
-                  <strong>Live mode — real cards will be charged.</strong>
-                  <span>Check the prices below are the ones you intend before anyone uses this.</span>
-                </div>
-              </div>
-            )}
-            {catalogue.anyMissing && (
-              <div className="recommended-bar" style={{ borderColor: "#c2410c" }}>
-                <div>
-                  <strong>Some products do not exist in Stripe yet.</strong>
-                  <span>
-                    Run scripts/create-stripe-products.mjs against this Stripe account. Until then
-                    those buttons will not work.
-                  </span>
-                </div>
-              </div>
-            )}
-            {/* Only an administrator ever sees a wrong currency here, because the
-                checkout route refuses to charge one — but it has to be visible
-                somewhere, and this is the page the prices are read from. */}
-            {catalogue.anyWrongCurrency && (
-              <div className="recommended-bar" style={{ borderColor: "#b42318" }}>
-                <div>
-                  <strong>A price in Stripe is not in Singapore dollars.</strong>
-                  <span>
-                    FD AI sells in SGD and every figure here is written S$. The affected items are
-                    marked below and cannot be bought until they are re-created in SGD — nobody can
-                    be charged in the wrong currency in the meantime.
-                  </span>
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* ── the trial ─────────────────────────────────────────────────────
-            From the design, which our page had dropped — which is also why the
-            hero's "Free trial" button pointed at an id that did not exist and
-            did nothing when pressed. The figures come from the price list
-            rather than being written into the copy, so changing the trial in
-            one place changes it here too. The box on the right is the one
-            departure: the design shows a "Start free trial" button, and
-            everybody reading this page is signed in and already has theirs, so
-            it says where they actually stand. */}
-        <section className="section" id="trial">
+      {/* ── step 1: trial ─────────────────────────────────────────────────── */}
+      <section className="section" id="trial">
+        <div className="wrap reveal">
           <div className="section-head">
-            <div className="kicker">Start here</div>
-            <h2>Try FD AI first</h2>
-            <p>A simple way to explore FD AI before paying.</p>
+            <div className="section-kicker">Step 1</div>
+            <h2>Start with a free trial</h2>
+            <p>A simple way to explore FD AI before committing to a paid option.</p>
           </div>
-
-          <div className="trial-section-card">
-            <div className="trial-main">
-              <h3>Your first {TRIAL.credits} documents are free.</h3>
-              <p>
-                Use them over {TRIAL.days} days, then continue with pay-as-you-go documents or a
-                monthly membership if FD AI suits your work.
-              </p>
-              <div className="trial-stats">
-                <div className="trial-stat">
-                  <small>Included</small>
-                  <strong>{TRIAL.credits} documents</strong>
-                </div>
-                <div className="trial-stat">
-                  <small>Access period</small>
-                  <strong>{TRIAL.days} days</strong>
-                </div>
-                <div className="trial-stat">
-                  <small>Payment</small>
-                  <strong>No card required</strong>
-                </div>
-              </div>
+          <div className="banner">
+            <div>
+              <strong>Your first {TRIAL.credits} credits are free.</strong>
+              <span>Use them over {TRIAL.days} days, then continue with flexible credits or a membership if FD AI suits your workflow.</span>
             </div>
-
-            <div className="trial-box">
-              <strong>{trialLive ? "Your trial is running" : "Best for first-time users"}</strong>
-              <p>
-                {trialLive ? (
-                  <>
-                    It ends on <strong>{when(wallet.trialEndsAt!)}</strong>. Unused trial documents
-                    stop then; anything you buy is yours for good.
-                  </>
-                ) : (
-                  <>
-                    Test the experience first, then decide whether occasional documents or a regular
-                    membership makes more sense.
-                  </>
-                )}
-              </p>
-              <Link
-                href="/draft"
-                className="btn-primary"
-                style={{
-                  marginTop: 18,
-                  height: 44,
-                  borderRadius: 12,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                Start a draft
-              </Link>
-              <div className="trial-note">
-                Unused trial documents expire after {TRIAL.days} days.
-              </div>
-            </div>
+            <div className="badge">No card required</div>
           </div>
-        </section>
+          <div className="card-grid three-up">
+            <article className="card">
+              <div className="tag gold">Included</div>
+              <div className="plan-title">{TRIAL.credits} credits</div>
+              <div className="plan-rate">Use them to try FD AI before paying.</div>
+              <div className="divider" />
+              <div className="points">
+                <div><b>✓</b><span>Designed for first-time users</span></div>
+                <div><b>✓</b><span>An easy way to test the experience</span></div>
+              </div>
+              <Link className="btn btn-white card-btn" href="/draft">{trialLive ? "Start a draft" : "Start free trial"}</Link>
+            </article>
+            <article className="card">
+              <div className="tag">Access period</div>
+              <div className="plan-title">{TRIAL.days} days</div>
+              <div className="plan-rate">Trial credits expire after {TRIAL.days} days.</div>
+              <div className="divider" />
+              <div className="points">
+                <div><b>✓</b><span>Enough time to explore the workflow</span></div>
+                <div><b>✓</b><span>Decide later if you want to upgrade</span></div>
+              </div>
+              <a className="btn btn-white card-btn" href="#compare">Learn more</a>
+            </article>
+            <article className="card featured">
+              <div className="tag gold">Best next step</div>
+              <div className="plan-title">Then choose a plan</div>
+              <div className="plan-rate">Move to credits or a membership once you are ready.</div>
+              <div className="divider" />
+              <div className="points">
+                <div><b>✓</b><span>Occasional use: buy credits</span></div>
+                <div><b>✓</b><span>Regular use: choose membership</span></div>
+              </div>
+              <a className="btn btn-black card-btn" href="#credits">See pricing options</a>
+            </article>
+          </div>
+        </div>
+      </section>
 
-        {!isStripeConfigured() ? (
-          <section className="section">
-            <div className="recommended-bar">
+      {/* ── step 2A: flexible credits ─────────────────────────────────────── */}
+      <section className="section alt" id="credits">
+        <div className="wrap reveal">
+          <div className="section-head">
+            <div className="section-kicker">Step 2A</div>
+            <h2>Flexible credits</h2>
+            <p>For occasional use. Buy only what you need, with no subscription and no expiry.</p>
+          </div>
+          <div className="card-grid three-up">
+            {catalogue.packs.map((pk, i) => {
+              const featured = pk.credits === 3;
+              const last = i === catalogue.packs.length - 1;
+              return (
+                <article key={pk.lookupKey} className={`card${featured ? " featured" : ""}`}>
+                  <div className={`tag${featured ? " gold" : ""}`}>{featured ? "Most popular" : last ? "Best PAYG rate" : "One-off"}</div>
+                  <div className="plan-title">{pk.credits === 1 ? "Single credit" : `${pk.credits}-credit bundle`}</div>
+                  <div className="plan-price"><strong>{pk.price}</strong></div>
+                  <div className="plan-credit">{pk.credits} credit{pk.credits === 1 ? "" : "s"}</div>
+                  <div className="plan-rate">{money(Math.round(pk.amountCents / pk.credits))} per credit</div>
+                  <div className="divider" />
+                  <div className="points">
+                    <div><b>✓</b><span>No expiry</span></div>
+                    <div><b>✓</b><span>{pk.credits === 1 ? "Best for one-off use" : featured ? "Useful for occasional drafting" : "Best value without membership"}</span></div>
+                  </div>
+                  {pk.credits > 1 && <div className="saving">Save {savings(pk.credits, pk.amountCents)} vs single credits</div>}
+                  <BuyButton item={pk} label={pk.credits === 1 ? "Buy credit" : "Buy bundle"} className={`btn ${featured ? "btn-black" : "btn-white"} card-btn`} />
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── step 2B: memberships ──────────────────────────────────────────── */}
+      <section className="section" id="memberships">
+        <div className="wrap reveal">
+          <div className="section-head">
+            <div className="section-kicker">Step 2B</div>
+            <h2>Monthly memberships</h2>
+            <p>For regular use. Get a lower effective rate, plus access to exclusive member top-ups.</p>
+          </div>
+          <div className="shell soft">
+            <div className="banner">
               <div>
-                <strong>Payments are not switched on yet.</strong>
-                <span>Set STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET to enable this page.</span>
+                <strong>Recommended: Pro Membership</strong>
+                <span>Best value for regular users and small teams.</span>
               </div>
+              <div className="badge">Billed monthly</div>
             </div>
-          </section>
-        ) : (
-          /* `pricing` is the id the hero's "View pricing" button points at. In
-             the design it is the section that opens the price list; here it
-             wraps all three blocks, because our order puts memberships first. */
-          <div id="pricing">
-            {/* ── memberships ────────────────────────────────────────────── */}
-            <section className="section" id="membership">
-              <div className="section-head">
-                <div className="kicker">Option one</div>
-                <h2>Monthly memberships</h2>
-                <p>
-                  For regular use. A monthly allowance at a lower rate per document, and it carries
-                  over for as long as you stay a member.
-                </p>
-              </div>
-
-              <div className="card-grid membership-grid">
-                {catalogue.memberships.map((m) => {
-                  const current = m.tier === tier;
-                  const featured = m.tier === "pro";
-                  return (
-                    <article
-                      key={m.lookupKey}
-                      className={`card${featured ? " featured" : ""}`}
-                    >
-                      <div className={`tag${featured ? " gold" : ""}`}>
-                        {current ? "Your plan" : featured ? "Recommended" : m.bestFor}
-                      </div>
-                      <div className="plan-title">{m.label}</div>
-                      <div className="plan-price">
-                        <strong>{m.price}</strong>
-                        <span>/ month</span>
-                      </div>
-                      <div className="plan-credit">
-                        {m.monthlyCredits
-                          ? `${m.monthlyCredits} documents each month`
-                          : "Unlimited usage*"}
-                      </div>
-                      <div className="plan-rate">
-                        {m.monthlyCredits
-                          ? `${money(Math.round(m.amountCents / m.monthlyCredits))} per included document`
-                          : "Fixed monthly price, fair-use terms apply"}
-                      </div>
-                      <div className="divider" />
-                      <div className="points">
-                        <div>
-                          <b>✓</b>
-                          <span>{m.bestFor}</span>
-                        </div>
-                        <div>
-                          <b>✓</b>
-                          <span>
-                            {m.monthlyCredits
-                              ? "Unused documents carry over while you remain a member"
-                              : "No credits to keep track of"}
-                          </span>
-                        </div>
-                        <div>
-                          <b>✓</b>
-                          <span>
-                            {m.tier === "unlimited"
-                              ? "Fair-use terms apply"
-                              : "Access to member top-up rates"}
-                          </span>
-                        </div>
-                      </div>
-                      <BuyButton
-                        item={m}
-                        isCurrent={current}
-                        label={isMember ? "Change plan" : `Choose ${m.label}`}
-                      />
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* ── pay as you go ──────────────────────────────────────────── */}
-            <section className="section" id="payg">
-              <div className="section-head">
-                <div className="kicker">Option two</div>
-                <h2>Buy as you go</h2>
-                <p>For occasional use. No commitment, and these never expire.</p>
-              </div>
-
-              <div className="card-grid payg-grid">
-                {catalogue.packs.map((p, i) => {
-                  const featured = i === 1;
-                  const saving = p.credits * 880 - p.amountCents;
-                  return (
-                    <article key={p.lookupKey} className={`card${featured ? " featured" : ""}`}>
-                      <div className={`tag${featured ? " gold" : ""}`}>
-                        {featured ? "Most popular" : i === 2 ? "Best rate" : "One-off"}
-                      </div>
-                      <div className="plan-title">{p.label}</div>
-                      <div className="plan-price">
-                        <strong>{p.price}</strong>
-                      </div>
-                      <div className="plan-credit">
-                        {p.credits} document{p.credits === 1 ? "" : "s"}
-                      </div>
-                      <div className="plan-rate">{perCredit(p)} per document</div>
-                      <div className="divider" />
-                      <div className="points">
-                        <div>
-                          <b>✓</b>
-                          <span>No expiry</span>
-                        </div>
-                        <div>
-                          <b>✓</b>
-                          <span>{p.blurb}</span>
-                        </div>
-                      </div>
-                      <div className="saving">
-                        {saving > 0 ? `Save ${money(saving)} against single documents` : ""}
-                      </div>
-                      <BuyButton item={p} label="Buy" />
-                    </article>
-                  );
-                })}
-              </div>
-            </section>
-
-            {/* ── top-ups, members only ──────────────────────────────────── */}
-            {isMember && !isUnlimited && (
-              <section className="section" id="topups">
-                <div className="section-head">
-                  <div className="kicker">Members only</div>
-                  <h2>Your top-up rates</h2>
-                  <p>
-                    For when this month&rsquo;s allowance runs out before the next one arrives.
-                    Cheaper than buying publicly, and they never expire.
-                  </p>
-                </div>
-
-                <div className="topup-wrap">
-                  <div className="topup-head-inline">
-                    <div>
-                      <h3>Member pricing</h3>
-                      <p>Top up without changing your plan.</p>
+            <div className="card-grid three-up">
+              {catalogue.memberships.map((m) => {
+                const current = m.tier === tier;
+                const featured = m.tier === "pro";
+                const tagText = current ? "Your plan" : m.tier === "basic" ? "Light use" : m.tier === "pro" ? "Recommended" : "Heavy use";
+                return (
+                  <article key={m.lookupKey} className={`card${featured ? " featured" : ""}`}>
+                    <div className={`tag${featured || current ? " gold" : ""}`}>{tagText}</div>
+                    <div className="plan-title">{m.label}</div>
+                    <div className="plan-price"><strong>{m.price}</strong><span>/ month</span></div>
+                    <div className="plan-credit">{m.monthlyCredits ? `${m.monthlyCredits} credits each month` : "Unlimited usage*"}</div>
+                    <div className="plan-rate">{m.monthlyCredits ? `${money(Math.round(m.amountCents / m.monthlyCredits))} per included credit` : "Fixed monthly pricing"}</div>
+                    <div className="divider" />
+                    <div className="points">
+                      {m.tier === "basic" && (<><div><b>✓</b><span>For light monthly use</span></div><div><b>✓</b><span>Member top-ups available</span></div><div><b>✓</b><span>Credits reset monthly</span></div></>)}
+                      {m.tier === "pro" && (<><div><b>✓</b><span>For frequent monthly use</span></div><div><b>✓</b><span>Best value for regular use</span></div><div><b>✓</b><span>Access to exclusive top-up rates</span></div></>)}
+                      {m.tier === "unlimited" && (<><div><b>✓</b><span>For heavy users and teams</span></div><div><b>✓</b><span>No need to manage credits</span></div><div><b>✓</b><span>Fair-use terms apply</span></div></>)}
                     </div>
-                    <div className="exclusive-pill">Exclusive access</div>
-                  </div>
-
-                  <div className="card-grid topup-grid">
-                    {catalogue.topups.map((t, i) => (
-                      <article
-                        key={t.lookupKey}
-                        className={`card topup-card topup-exclusive${i === 3 ? " featured" : ""}`}
-                      >
-                        <div className={`tag ${i === 3 ? "gold" : "exclusive"}`}>
-                          {i === 3 ? "Best rate" : "Members only"}
-                        </div>
-                        <div className="plan-title">
-                          {t.credits} document{t.credits === 1 ? "" : "s"}
-                        </div>
-                        <div className="plan-price">
-                          <strong>{t.price}</strong>
-                        </div>
-                        <div className="plan-rate">{perCredit(t)} per document</div>
-                        <BuyButton item={t} label="Top up" />
-                      </article>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-          </div>
-        )}
-
-        {/* ── what you have been charged ─────────────────────────────────
-            Stripe's own portal shows this as "$88.80" with the real currency
-            in grey underneath and a download icon the size of a full stop.
-            None of that is configurable. So the same invoices are read through
-            the API and written out here in FD's own type: S$18.80, and a
-            download that says Download. */}
-        {invoices.length > 0 && (
-          <section className="section" id="invoices">
-            <div className="section-head">
-              <div className="kicker">Your account</div>
-              <h2>Billing history</h2>
-              <p>
-                Every charge, in Singapore dollars. Receipts are issued by Stripe and are valid for
-                your own accounts.
-              </p>
+                    <BuyButton item={m} label={`Choose ${m.label}`} isCurrent={current} className={`btn ${featured ? "btn-black" : "btn-white"} card-btn`} />
+                  </article>
+                );
+              })}
             </div>
+          </div>
+        </div>
+      </section>
 
-            <div className="topup-wrap" style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ textAlign: "left", color: "#8a8378", fontSize: 11 }}>
-                    <th style={{ padding: "8px 10px 8px 0" }}>Date</th>
-                    <th style={{ padding: "8px 10px" }}>What</th>
-                    <th style={{ padding: "8px 10px" }}>Amount</th>
-                    <th style={{ padding: "8px 10px" }}>Status</th>
-                    <th style={{ padding: "8px 0 8px 10px", textAlign: "right" }}>Receipt</th>
-                  </tr>
-                </thead>
+      {/* ── member top-ups ────────────────────────────────────────────────── */}
+      <section className="section alt" id="topups">
+        <div className="wrap reveal">
+          <div className="section-head">
+            <div className="section-kicker">Members only</div>
+            <h2>Exclusive member top-ups</h2>
+            <p>Available only to active Basic and Pro members who need extra credits before their monthly reset.</p>
+          </div>
+          <div className="shell gold">
+            <div className="exclusive-top">
+              <div>
+                <div className="pill">Exclusive access</div>
+                <h3 style={{ marginTop: 12 }}>Private top-up rates for members</h3>
+                <p>Top up only when needed, without changing your membership plan.</p>
+              </div>
+              <div className="badge">Basic and Pro members only</div>
+            </div>
+            <div className="card-grid four-up">
+              {catalogue.topups.map((t) => {
+                const featured = t.credits === 10;
+                return (
+                  <article key={t.lookupKey} className={`card topup-card${featured ? " featured" : ""}`}>
+                    <div className={`tag ${featured ? "gold" : "exclusive"}`}>{featured ? "Best top-up rate" : "Members only"}</div>
+                    <div className="plan-title">{t.credits} credit{t.credits === 1 ? "" : "s"}</div>
+                    <div className="plan-price"><strong>{t.price}</strong></div>
+                    <div className="plan-rate">{money(Math.round(t.amountCents / t.credits))} per credit</div>
+                    <BuyButton item={t} label="Top up" className={`btn ${featured ? "btn-black" : "btn-white"} card-btn`} />
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── compare ───────────────────────────────────────────────────────── */}
+      <section className="section" id="compare">
+        <div className="wrap reveal">
+          <div className="section-head">
+            <div className="section-kicker">Quick guide</div>
+            <h2>Which option fits you?</h2>
+            <p>Choose based on how often you expect to use FD AI.</p>
+          </div>
+          <div className="compare-grid">
+            <article className="compare-card"><small>Occasional</small><h3>Flexible credits</h3><p>Best if you only use FD AI from time to time and want full flexibility with no expiry.</p><a href="#credits">View flexible credits →</a></article>
+            <article className="compare-card"><small>Regular</small><h3>Basic or Pro</h3><p>Best if you use FD AI every month and want a lower effective cost.</p><a href="#memberships">View memberships →</a></article>
+            <article className="compare-card"><small>Heavy</small><h3>Unlimited</h3><p>Best if you use FD AI heavily and prefer one predictable monthly price.</p><a href="#memberships">View Unlimited →</a></article>
+          </div>
+          <div className="footer-note">
+            <span>Trial credits expire {TRIAL.days} days after activation. Purchased pay-as-you-go credits do not expire.</span>
+            <span>All prices shown in SGD. Unlimited usage is subject to FD AI fair-use terms.</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ── billing history: ours ─────────────────────────────────────────── */}
+      {invoices.length > 0 && (
+        <section className="section alt" id="invoices">
+          <div className="wrap reveal">
+            <div className="section-head">
+              <div className="section-kicker">Your account</div>
+              <h2>Billing history</h2>
+              <p>Every charge, in Singapore dollars. Receipts are issued by Stripe.</p>
+            </div>
+            <div className="shell invoices" style={{ overflowX: "auto" }}>
+              <table>
+                <thead><tr><th>Date</th><th>What</th><th>Amount</th><th>Status</th><th style={{ textAlign: "right" }}>Receipt</th></tr></thead>
                 <tbody>
                   {invoices.map((inv) => (
-                    <tr key={inv.id} style={{ borderTop: "1px solid #efe7da" }}>
-                      <td style={{ padding: "12px 10px 12px 0", whiteSpace: "nowrap" }}>
-                        {inv.paidAt ? when(inv.paidAt) : "—"}
-                      </td>
-                      <td style={{ padding: "12px 10px" }}>{inv.description}</td>
-                      <td style={{ padding: "12px 10px", fontWeight: 650, whiteSpace: "nowrap" }}>
-                        {inv.amount}
-                        {/* Only shown when Stripe charged in something other than
-                            Singapore dollars — which should never happen, and is
-                            worth seeing immediately if it does. */}
-                        {inv.currency !== "sgd" && (
-                          <span style={{ color: "#b42318", fontWeight: 500 }}>
-                            {" "}
-                            ({inv.currency.toUpperCase()})
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ padding: "12px 10px" }}>
-                        <span className={`tag ${inv.status === "paid" ? "gold" : ""}`}>
-                          {inv.status === "paid" ? "Paid" : inv.status}
-                        </span>
-                      </td>
-                      <td style={{ padding: "12px 0 12px 10px", textAlign: "right" }}>
-                        {inv.pdfUrl ? (
-                          <a
-                            className="btn-secondary"
-                            href={inv.pdfUrl}
-                            /* Stripe serves the PDF from its own domain, so the
-                               download attribute would be ignored; the link is
-                               opened instead and the browser saves it. */
-                            target="_blank"
-                            rel="noreferrer"
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 7,
-                              padding: "8px 14px",
-                              fontSize: 12,
-                            }}
-                          >
-                            <span aria-hidden="true">↓</span> Download
-                          </a>
-                        ) : inv.hostedUrl ? (
-                          <a href={inv.hostedUrl} target="_blank" rel="noreferrer">
-                            View
-                          </a>
-                        ) : (
-                          <span style={{ color: "#8a8378" }}>—</span>
-                        )}
+                    <tr key={inv.id}>
+                      <td style={{ whiteSpace: "nowrap" }}>{inv.paidAt ? when(inv.paidAt) : "—"}</td>
+                      <td>{inv.description}</td>
+                      <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{inv.amount}{inv.currency !== "sgd" && <span style={{ color: "#b42318", fontWeight: 500 }}> ({inv.currency.toUpperCase()})</span>}</td>
+                      <td><span className={`tag ${inv.status === "paid" ? "gold" : ""}`}>{inv.status === "paid" ? "Paid" : inv.status}</span></td>
+                      <td style={{ textAlign: "right" }}>
+                        {inv.pdfUrl ? <a className="btn btn-white" href={inv.pdfUrl} target="_blank" rel="noreferrer" style={{ minHeight: 36, padding: "6px 12px", fontSize: 12 }}>↓ Download</a>
+                          : inv.hostedUrl ? <a href={inv.hostedUrl} target="_blank" rel="noreferrer">View</a> : "—"}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </section>
-        )}
+          </div>
+        </section>
+      )}
 
-
-        <p style={{ marginTop: 24, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <Link className="btn-secondary" href="/draft" style={{ display: "inline-flex", alignItems: "center", padding: "0 18px" }}>
-            Back to drafting
-          </Link>
-          <Link className="btn-secondary" href="/history" style={{ display: "inline-flex", alignItems: "center", padding: "0 18px" }}>
-            Past drafts
-          </Link>
-        </p>
-      </div>
+      {/* ── final CTA, as designed ────────────────────────────────────────── */}
+      <section className="final-cta">
+        <div className="wrap reveal">
+          <div className="cta-box">
+            <div className="section-kicker">Still unsure?</div>
+            <h2>Start free and choose later.</h2>
+            <p>If you are not ready to commit, begin with {TRIAL.credits} free credits. You can explore FD AI first and decide what fits your workflow afterwards.</p>
+            <div className="hero-actions">
+              <a className="btn btn-black" href="#trial">Start free</a>
+              <a className="btn btn-white" href="#compare">Compare options</a>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
