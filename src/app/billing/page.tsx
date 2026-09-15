@@ -327,6 +327,81 @@ export default async function BillingPage({
           </section>
         )}
 
+        {/* ── the trial ─────────────────────────────────────────────────────
+            From the design, which our page had dropped — which is also why the
+            hero's "Free trial" button pointed at an id that did not exist and
+            did nothing when pressed. The figures come from the price list
+            rather than being written into the copy, so changing the trial in
+            one place changes it here too. The box on the right is the one
+            departure: the design shows a "Start free trial" button, and
+            everybody reading this page is signed in and already has theirs, so
+            it says where they actually stand. */}
+        <section className="section" id="trial">
+          <div className="section-head">
+            <div className="kicker">Start here</div>
+            <h2>Try FD AI first</h2>
+            <p>A simple way to explore FD AI before paying.</p>
+          </div>
+
+          <div className="trial-section-card">
+            <div className="trial-main">
+              <h3>Your first {TRIAL.credits} documents are free.</h3>
+              <p>
+                Use them over {TRIAL.days} days, then continue with pay-as-you-go documents or a
+                monthly membership if FD AI suits your work.
+              </p>
+              <div className="trial-stats">
+                <div className="trial-stat">
+                  <small>Included</small>
+                  <strong>{TRIAL.credits} documents</strong>
+                </div>
+                <div className="trial-stat">
+                  <small>Access period</small>
+                  <strong>{TRIAL.days} days</strong>
+                </div>
+                <div className="trial-stat">
+                  <small>Payment</small>
+                  <strong>No card required</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="trial-box">
+              <strong>{trialLive ? "Your trial is running" : "Best for first-time users"}</strong>
+              <p>
+                {trialLive ? (
+                  <>
+                    It ends on <strong>{when(wallet.trialEndsAt!)}</strong>. Unused trial documents
+                    stop then; anything you buy is yours for good.
+                  </>
+                ) : (
+                  <>
+                    Test the experience first, then decide whether occasional documents or a regular
+                    membership makes more sense.
+                  </>
+                )}
+              </p>
+              <Link
+                href="/draft"
+                className="btn-primary"
+                style={{
+                  marginTop: 18,
+                  height: 44,
+                  borderRadius: 12,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                Start a draft
+              </Link>
+              <div className="trial-note">
+                Unused trial documents expire after {TRIAL.days} days.
+              </div>
+            </div>
+          </div>
+        </section>
+
         {!isStripeConfigured() ? (
           <section className="section">
             <div className="recommended-bar">
@@ -337,7 +412,10 @@ export default async function BillingPage({
             </div>
           </section>
         ) : (
-          <>
+          /* `pricing` is the id the hero's "View pricing" button points at. In
+             the design it is the section that opens the price list; here it
+             wraps all three blocks, because our order puts memberships first. */
+          <div id="pricing">
             {/* ── memberships ────────────────────────────────────────────── */}
             <section className="section" id="membership">
               <div className="section-head">
@@ -500,7 +578,7 @@ export default async function BillingPage({
                 </div>
               </section>
             )}
-          </>
+          </div>
         )}
 
         {/* ── what you have been charged ─────────────────────────────────
@@ -627,6 +705,42 @@ export default async function BillingPage({
             </div>
           </section>
         )}
+
+        {/* ── the quick guide ───────────────────────────────────────────────
+            Also from the design, also dropped, and also the reason a hero
+            button — "Help me choose" — led nowhere. */}
+        <section className="section" id="compare">
+          <div className="section-head">
+            <div className="kicker">Quick guide</div>
+            <h2>Which option fits you?</h2>
+            <p>Choose based on how often you expect to use FD AI.</p>
+          </div>
+
+          <div className="compare-grid">
+            <article className="compare-card">
+              <small>Occasional</small>
+              <h3>Buy as you go</h3>
+              <p>
+                Best if you only use FD AI from time to time and want documents that do not expire.
+              </p>
+              <a href="#payg">View one-off prices</a>
+            </article>
+
+            <article className="compare-card">
+              <small>Regular</small>
+              <h3>Basic or Pro</h3>
+              <p>Best if you draft every month and want a lower rate per document.</p>
+              <a href="#membership">View memberships</a>
+            </article>
+
+            <article className="compare-card">
+              <small>Heavy</small>
+              <h3>Unlimited</h3>
+              <p>Best if you draft heavily and prefer one predictable monthly price.</p>
+              <a href="#membership">View Unlimited</a>
+            </article>
+          </div>
+        </section>
 
         <div className="footer-note">
           <span>

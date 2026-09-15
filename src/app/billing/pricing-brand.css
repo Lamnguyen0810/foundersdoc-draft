@@ -298,3 +298,19 @@ html:has(.fdp) {
 .fdp {
   overflow-x: clip;
 }
+
+
+/* ===========================================================================
+   ANCHORS MUST LAND BELOW THE STICKY NAVIGATION
+   ---------------------------------------------------------------------------
+   The design is a standalone page with its own header, so a jump to #membership
+   put the heading at the top of the window and that was correct. Inside the
+   application the nav is `position: sticky` and 64px tall, so the same jump
+   parks the heading underneath it: the page moves, the thing you asked for is
+   hidden, and it reads as a link that half worked.
+
+   scroll-margin-top tells the browser where the top of each target really is.
+   ========================================================================= */
+.fdp [id] {
+  scroll-margin-top: calc(var(--nav-h, 64px) + 24px);
+}
