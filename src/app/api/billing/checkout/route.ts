@@ -7,6 +7,7 @@ import {
   moneyIn,
   packByLookupKey,
 } from "@/lib/billing/plans";
+import { portalConfigurationId } from "@/lib/billing/portal";
 
 /**
  * Start a purchase — a bundle, a top-up, or a membership.
@@ -137,6 +138,7 @@ export async function POST(req: NextRequest) {
       if (live) {
         const item = live.items.data[0];
         const onThisPlan = item?.price?.id === price.id;
+        const cancelling = Boolean(live.cancel_at_period_end);
 
         const metadata = {
           supabase_user_id: user.id,
@@ -144,46 +146,48 @@ export async function POST(req: NextRequest) {
           monthly_credits: String(membership.monthlyCredits ?? 0),
         };
 
-        /* ── SAME PLAN, PREVIOUSLY CANCELLED ──────────────────────────────
-           They have changed their mind about the plan they are already on and
-           have already paid for this period. There is nothing to charge and
-           nothing to agree to, so there is no payment page to show: asking for
-           a card here would either take money for a month they own already or
-           start a second subscription beside the first.
-
-           Stopping the cancellation is the whole of it. The page they land on
-           says so in as many words, which is the part that was missing. */
-        if (onThisPlan && live.cancel_at_period_end) {
+        /* ── SAME PLAN, ALREADY CANCELLED: they have changed their mind ────
+           Nothing to charge — the period is paid for — so there is no payment
+           page to show. Asking for a card here would either take money for a
+           month they already own or start a second subscription beside the
+           first. Stopping the cancellation is the whole of it. */
+        if (onThisPlan && cancelling) {
           await s.subscriptions.update(live.id, { cancel_at_period_end: false, metadata });
           return NextResponse.json({ url: `${origin}/billing?resumed=1` });
         }
 
-        /* ── A DIFFERENT PLAN: SHOW THEM WHAT THEY ARE AGREEING TO ────────
-           This used to switch the price silently and return to /billing with
-           a banner. It worked, and it was wrong: somebody who picks a plan
-           expects a page that names it, states what they will be charged and
-           when, and asks them to confirm — the same moment a first-time buyer
-           gets. Changing a plan behind a redirect is the kind of thing people
-           dispute later, and they are right to.
+        /* ── A DIFFERENT PLAN, AFTER CANCELLING ───────────────────────────
+           This is the path that was failing. Somebody on Unlimited cancels,
+           then picks Pro. The old code sent that to Stripe's plan-change flow,
+           and Stripe will not run one against a subscription already scheduled
+           to end — so every attempt came back as "Could not start checkout",
+           which told nobody anything.
 
-           Stripe's `subscription_update_confirm` flow is built for exactly
-           this: it is for merchants with their own pricing page who want
-           Stripe to display the update, the prorations and the next invoice,
-           take the payment, and handle a declined card or a 3-D Secure
-           challenge. So the plan is not changed here at all — Stripe changes
-           it, after the customer presses Confirm on a page showing the figures.
+           It is also the wrong shape. They have cancelled: they are not
+           switching an ongoing plan, they are choosing again from scratch. So
+           the cancelled subscription is ended now, with `prorate` so the unused
+           part of the month they paid for returns as credit on their Stripe
+           balance, and that credit comes straight off the new subscription's
+           first invoice. Then they go through Checkout exactly as a new
+           customer would — the card form, naming the plan they picked, which
+           is what was asked for.
 
-           It also keeps the ONE subscription. Sending them through Checkout
-           again — the literal "card form", which is what it looks like they
-           are asking for — creates a SECOND subscription alongside the first
-           and bills for both. Their card is already on file and this flow
-           shows it and lets them change it, so nothing is lost by not asking
-           for the number again. */
-        if (!onThisPlan && item) {
+           One subscription exists at every moment. Ending the old one before
+           creating the new one is what guarantees that. */
+        if (!onThisPlan && cancelling) {
+          await s.subscriptions.cancel(live.id, { prorate: true });
+          // Falls through to the Checkout session below.
+        } else if (!onThisPlan && item) {
+          /* ── A DIFFERENT PLAN, STILL RUNNING ────────────────────────────
+             A live subscription being switched. Here Checkout is the wrong
+             tool: it would create a SECOND subscription and bill for both.
+             Stripe's confirm flow changes the one that exists, showing the new
+             plan, the proration and the next invoice first. */
           await s.subscriptions.update(live.id, { metadata });
 
           const flow = await s.billingPortal.sessions.create({
             customer: customer.id,
+            configuration: await portalConfigurationId(),
             return_url: `${origin}/billing`,
             flow_data: {
               type: "subscription_update_confirm",
@@ -199,15 +203,16 @@ export async function POST(req: NextRequest) {
           });
 
           return NextResponse.json({ url: flow.url });
+        } else {
+          /* Same plan, running normally. Nothing to sell them; the portal is
+             where cards and cancellation live. */
+          const portal = await s.billingPortal.sessions.create({
+            customer: customer.id,
+            configuration: await portalConfigurationId(),
+            return_url: `${origin}/billing`,
+          });
+          return NextResponse.json({ url: portal.url, changed: true });
         }
-
-        /* Same plan, not cancelled: nothing to sell them. The portal is the
-           right destination — that is where cards and cancellation live. */
-        const portal = await s.billingPortal.sessions.create({
-          customer: customer.id,
-          return_url: `${origin}/billing`,
-        });
-        return NextResponse.json({ url: portal.url, changed: true });
       }
 
       const session = await s.checkout.sessions.create({
@@ -261,7 +266,50 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: session.url });
   } catch (err) {
-    console.error("[billing] checkout failed:", err);
-    return NextResponse.json({ error: "Could not start checkout. Please try again." }, { status: 500 });
+    /* ── SAY WHAT WENT WRONG ──────────────────────────────────────────────
+       This used to answer every failure with "Could not start checkout.
+       Please try again." Trying again never helped, because nothing that
+       reaches here is transient — it is a missing product, a portal feature
+       nobody switched on, a subscription in a state Stripe will not change.
+       The customer retried, FD saw the same red line, and the actual reason
+       sat in a server log nobody was reading.
+
+       Stripe's own message is specific and safe to show: it names the
+       parameter or the feature at fault and contains no card data, no keys
+       and no other customer's details. */
+    const stripeErr = err as { type?: string; code?: string; message?: string };
+    const detail = typeof stripeErr?.message === "string" ? stripeErr.message : "";
+
+    console.error("[billing] checkout failed:", {
+      lookupKey: key,
+      type: stripeErr?.type,
+      code: stripeErr?.code,
+      message: detail,
+    });
+
+    /* The one failure worth translating, because the fix is ours and the
+       Stripe wording ("No such configuration") would send FD hunting in the
+       dashboard for something this code is supposed to create. */
+    if (/portal|configuration/i.test(detail)) {
+      return NextResponse.json(
+        {
+          error:
+            "The billing portal is not set up for plan changes on this Stripe account yet. " +
+            "This should configure itself on the next attempt — if it keeps happening, the " +
+            "membership products may be missing from Stripe.",
+          code: "portal_not_configured",
+        },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: detail
+          ? `Stripe could not start this: ${detail}`
+          : "Could not start checkout, and Stripe gave no reason. The server log has the details.",
+      },
+      { status: 500 },
+    );
   }
 }

@@ -3,7 +3,14 @@ import { PAID_BENCHMARK } from "@/lib/ai/pricing";
 import { getWallet } from "@/lib/billing/credits";
 /* `money` here is the page's own US-dollar formatter for model costs; the
    price list's is Singapore dollars. Two currencies, two names, no confusion. */
-import { MEMBERSHIPS, PACKS, TOPUPS, membershipByTier, money as sgd } from "@/lib/billing/plans";
+import {
+  MEMBERSHIPS,
+  PACKS,
+  TOPUPS,
+  TRIAL,
+  membershipByTier,
+  money as sgd,
+} from "@/lib/billing/plans";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
 
@@ -286,29 +293,49 @@ function PlanCard({
 }
 
 /**
- * What is left, as a bar rather than a number.
+ * How much of this month's allowance has been used.
  *
- * A bar needs an honest denominator, and FD AI has three different ones
- * depending on who is looking: an Unlimited member is measured against the
- * fair-use ceiling, a Basic or Pro member against their monthly allowance, and
- * somebody on the trial against the trial. A person who has only ever bought
- * bundles has NO denominator at all — "8 documents" is out of nothing — so
- * they get the figure and no bar, because inventing a maximum to draw a bar
- * against would be inventing a limit that does not exist.
+ * ── WHY A PERCENTAGE OF THE MONTH, AND NOT OF THE BALANCE ───────────────────
+ * This used to measure the balance against itself. Credits roll over, so a Pro
+ * member holding 470 of them against a 10-a-month allowance produced the
+ * meaningless line "100% of your documents remaining — 470 of 470": a full bar
+ * that said nothing, on a page whose entire job is to say how much has been
+ * used.
+ *
+ * The denominator is now the ALLOWANCE for the month — three on Basic, ten on
+ * Pro, the fair-use ceiling on Unlimited, the trial's own grant on a trial —
+ * and the figure is what has been SPENT against it. That is a percentage with
+ * a real meaning, it moves when somebody drafts, and it cannot exceed 100%.
+ *
+ * Carried-over credits are not hidden; they are stated underneath in words,
+ * where a number that would break the bar cannot break it.
+ *
+ * Somebody who only ever buys bundles has no month and no allowance, so they
+ * get no percentage at all — inventing a denominator for them would invent a
+ * limit that does not exist.
  */
 function Meter({
-  remaining,
-  total,
+  used,
+  allowance,
   resetsLabel,
   note,
+  carriedOver,
+  balance,
 }: {
-  remaining: number;
-  /** Null when there is no meaningful maximum to measure against. */
-  total: number | null;
+  /** Documents drafted in the current period. */
+  used: number;
+  /** The period's allowance. Null when this account has no monthly allowance. */
+  allowance: number | null;
   resetsLabel: string | null;
   note: string;
+  /** Credits held beyond this month's allowance, if any. */
+  carriedOver: number;
+  balance: number;
 }) {
-  const pct = total && total > 0 ? Math.max(0, Math.min(100, Math.round((remaining / total) * 100))) : null;
+  const pct =
+    allowance && allowance > 0
+      ? Math.max(0, Math.min(100, Math.round((used / allowance) * 100)))
+      : null;
 
   return (
     <section
@@ -323,21 +350,12 @@ function Meter({
     >
       <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>
         {pct === null
-          ? `${remaining} document${remaining === 1 ? "" : "s"} available`
-          : `${pct}% of your documents remaining`}
+          ? `${balance} document${balance === 1 ? "" : "s"} available`
+          : `${pct}% of this month's allowance used`}
       </p>
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          marginTop: 14,
-        }}
-      >
-        <b style={{ fontSize: 15, fontVariantNumeric: "tabular-nums" }}>{remaining}</b>
-
-        {pct !== null && (
+      {pct !== null && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14 }}>
           <span
             style={{
               flex: 1,
@@ -357,18 +375,18 @@ function Meter({
               }}
             />
           </span>
-        )}
-
-        {total !== null && (
-          <span style={{ fontSize: 12, color: "var(--grey-5)", whiteSpace: "nowrap" }}>
-            of {total}
-          </span>
-        )}
-      </div>
+        </div>
+      )}
 
       <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--grey-5)" }}>
         {resetsLabel ? `${resetsLabel} · ${note}` : note}
       </p>
+
+      {carriedOver > 0 && (
+        <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--grey-5)" }}>
+          Plus {carriedOver} carried over from earlier months, which this bar does not count.
+        </p>
+      )}
 
       <Link
         href="/billing"
@@ -442,60 +460,80 @@ export default async function UsagePage() {
   /* What the meter measures against, decided once here so the component itself
      holds no opinion about pricing. */
   const wallet = await getWallet();
-  let meter: {
-    remaining: number;
-    total: number | null;
-    resetsLabel: string | null;
-    note: string;
-  } = {
-    remaining: Number.isFinite(wallet.credits) ? wallet.credits : 0,
-    total: null,
-    resetsLabel: null,
-    note: "Bought documents never expire",
-  };
 
   let tierFromSummary: string | null = null;
   let periodEnd: string | null = null;
+  let unlimitedCap = 0;
+  let unlimitedUsed = 0;
+  let spentThisPeriod = 0;
 
   try {
     const { data } = await supabase.rpc("billing_summary");
     const row = Array.isArray(data) ? data[0] : data;
     tierFromSummary = row?.tier ? String(row.tier) : null;
     periodEnd = row?.period_end ?? null;
-    const when = (iso: string) =>
-      new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-
-    if (row?.tier === "unlimited") {
-      const cap = Number(row.unlimited_cap ?? 0);
-      const used = Number(row.unlimited_used ?? 0);
-      meter = {
-        remaining: cap > 0 ? Math.max(0, cap - used) : wallet.credits,
-        total: cap > 0 ? cap : null,
-        resetsLabel: row.period_end ? `Resets ${when(row.period_end)}` : null,
-        note: cap > 0 ? "Fair-use allowance" : "No limit set",
-      };
-    } else if (row?.tier) {
-      const plan = membershipByTier(String(row.tier));
-      const monthly = plan?.monthlyCredits ?? null;
-      meter = {
-        remaining: wallet.credits,
-        /* Credits roll over, so a balance can exceed one month's allowance.
-           Taking the larger of the two keeps the bar honest instead of
-           pinning it at 100% and hiding the surplus. */
-        total: monthly ? Math.max(monthly, wallet.credits) : null,
-        resetsLabel: row.period_end ? `Next ${monthly} on ${when(row.period_end)}` : null,
-        note: "Unused documents carry over",
-      };
-    } else if (wallet.inTrial && wallet.trialEndsAt) {
-      meter = {
-        remaining: wallet.credits,
-        total: Math.max(3, wallet.credits),
-        resetsLabel: `Expires ${when(wallet.trialEndsAt)}`,
-        note: "Free trial",
-      };
-    }
+    unlimitedCap = Number(row?.unlimited_cap ?? 0);
+    unlimitedUsed = Number(row?.unlimited_used ?? 0);
+    /* period_used arrives from the database, counted over the same window
+       fair use is enforced in. Working it out here from a separate query
+       would eventually disagree with the gate about what month it is. */
+    spentThisPeriod = Number(row?.period_used ?? 0);
   } catch {
-    // Fall back to the plain count above.
+    // The page still works without it; it just shows less.
+  }
+
+  const whenDay = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+
+  /* The allowance the percentage is measured against, and nothing else. */
+  let meter: {
+    used: number;
+    allowance: number | null;
+    resetsLabel: string | null;
+    note: string;
+    carriedOver: number;
+    balance: number;
+  } = {
+    used: spentThisPeriod,
+    allowance: null,
+    resetsLabel: null,
+    note: "Bought documents never expire",
+    carriedOver: 0,
+    balance: Number.isFinite(wallet.credits) ? wallet.credits : 0,
+  };
+
+  const planForMeter = tierFromSummary ? membershipByTier(tierFromSummary) : null;
+
+  if (tierFromSummary === "unlimited") {
+    meter = {
+      ...meter,
+      /* The database already counts this one, because fair use is enforced on
+         it — using its figure keeps the page and the gate in agreement. */
+      used: unlimitedUsed,
+      allowance: unlimitedCap > 0 ? unlimitedCap : null,
+      resetsLabel: periodEnd ? `Resets ${whenDay(periodEnd)}` : null,
+      note: unlimitedCap > 0 ? "Fair-use allowance" : "No limit set",
+      carriedOver: 0,
+    };
+  } else if (planForMeter?.monthlyCredits) {
+    const monthly = planForMeter.monthlyCredits;
+    meter = {
+      ...meter,
+      allowance: monthly,
+      resetsLabel: periodEnd ? `${monthly} more on ${whenDay(periodEnd)}` : null,
+      note: "Unused documents carry over",
+      // Anything held beyond this month's allowance came from earlier months
+      // or from a bundle. It is real, and it is not part of this month's bar.
+      carriedOver: Math.max(0, meter.balance - monthly),
+    };
+  } else if (wallet.inTrial && wallet.trialEndsAt) {
+    meter = {
+      ...meter,
+      allowance: TRIAL.credits,
+      resetsLabel: `Expires ${whenDay(wallet.trialEndsAt)}`,
+      note: "Free trial",
+      carriedOver: Math.max(0, meter.balance - TRIAL.credits),
+    };
   }
 
   /* ── WHAT THE PLAN CARD SAYS ──────────────────────────────────────────────
