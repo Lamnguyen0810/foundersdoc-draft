@@ -113,3 +113,78 @@
     background-image: none;
   }
 }
+
+
+/* ===========================================================================
+   THE CLIPPED DESCENDERS
+   ---------------------------------------------------------------------------
+   The hero heading is painted with `background-clip: text` — that is what makes
+   the gold shimmer sweep across the words. A background is only painted inside
+   the element's box, and at `line-height: 1.06` the box ends ABOVE where the
+   descenders reach, so the tails of g, y and p on the last line received no
+   paint at all. With `color: transparent` on top of that, they were not clipped
+   so much as never drawn.
+
+   The fix grows the paint box downward and pulls the layout back up by exactly
+   the same amount, so every glyph is painted and nothing on the page moves.
+   Changing line-height would have fixed it too, and would have reflowed the
+   designer's heading — which is the one thing not to do here.
+   ========================================================================= */
+.fdp .hero h1 {
+  padding-bottom: 0.16em;
+  margin-bottom: -0.16em;
+}
+
+/* ===========================================================================
+   THE ACCOUNT LINE
+   ---------------------------------------------------------------------------
+   Above the designed card, never inside it. One quiet row: what they hold,
+   what they are on, when it renews. Anything more belongs on /usage.
+   ========================================================================= */
+.fdp .account-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin: 0 0 18px;
+  padding: 11px 16px;
+  border: 1px solid rgba(243, 191, 75, 0.34);
+  border-radius: 999px;
+  background: var(--aura-soft), rgba(255, 253, 247, 0.85);
+  font-size: 12.5px;
+  color: var(--muted, #6d685f);
+}
+.fdp .account-line strong {
+  color: var(--ink, #171612);
+  font-weight: 650;
+}
+.fdp .account-line > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+/* A hairline between items rather than a bullet — quieter, and it disappears
+   on its own when the row wraps. */
+.fdp .account-line > span + span::before {
+  content: "";
+  width: 1px;
+  height: 11px;
+  background: rgba(23, 22, 18, 0.16);
+  margin-right: 12px;
+}
+.fdp .account-line a {
+  margin-left: auto;
+  color: var(--ink, #171612);
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 700px) {
+  .fdp .account-line {
+    border-radius: 14px;
+  }
+  .fdp .account-line a {
+    margin-left: 0;
+  }
+}

@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getWallet } from "@/lib/billing/credits";
 import { isStripeConfigured, stripeMode } from "@/lib/billing/stripe";
 import { pricedCatalogue } from "@/lib/billing/prices";
+import { recentInvoices, type InvoiceRow } from "@/lib/billing/invoices";
 import { TRIAL, perCredit, money } from "@/lib/billing/plans";
 import BuyButton from "./BuyButtons";
 import PricingMotion from "./PricingMotion";
@@ -66,6 +67,7 @@ export default async function BillingPage({
     unlimited_used: number;
   } | null = null;
   let history: GrantRow[] = [];
+  let stripeCustomerId: string | null = null;
 
   try {
     const supabase = await createClient();
@@ -88,9 +90,20 @@ export default async function BillingPage({
       };
     }
     history = (grants.data as GrantRow[] | null) ?? [];
+
+    /* The Stripe customer id is recorded by the webhook when the first payment
+       lands. No id means nobody has ever been charged, so there is nothing to
+       list — and no reason to call Stripe. */
+    const { data: account } = await supabase
+      .from("billing_accounts")
+      .select("stripe_customer_id")
+      .maybeSingle();
+    stripeCustomerId = (account?.stripe_customer_id as string | null) ?? null;
   } catch {
     // The page still works without these; it just shows less.
   }
+
+  const invoices: InvoiceRow[] = await recentInvoices(stripeCustomerId);
 
   const tier = membership?.tier ?? null;
   const isMember = Boolean(tier);
@@ -104,112 +117,109 @@ export default async function BillingPage({
       <PricingMotion />
 
       <div className="page">
-        {/* ── what this account actually has ─────────────────────────────── */}
+        {/* ── the account line ─────────────────────────────────────────────
+            OUTSIDE the designed card, deliberately. The design is a pricing
+            page and has no place in it for a signed-in person's balance; an
+            earlier version of this file put one there by rewriting the hero,
+            which replaced the firm's own marketing copy with an account
+            readout. This sits above the card instead, so the design below is
+            exactly the file the designer sent. The full picture is on /usage. */}
+        {isMember || wallet.credits > 0 || trialLive ? (
+          <p className="account-line">
+            <span>
+              <strong>
+                {wallet.credits} document{wallet.credits === 1 ? "" : "s"}
+              </strong>{" "}
+              in your account
+            </span>
+            {isMember && (
+              <span>
+                <strong style={{ textTransform: "capitalize" }}>{tier}</strong> member
+                {membership!.status === "past_due" && " — payment needs attention"}
+              </span>
+            )}
+            {isUnlimited && membership!.unlimited_cap > 0 && (
+              <span>
+                {membership!.unlimited_used} of {membership!.unlimited_cap} drafted this month
+              </span>
+            )}
+            {membership?.period_end && <span>Renews {when(membership.period_end)}</span>}
+            {trialLive && <span>Trial ends {when(wallet.trialEndsAt!)}</span>}
+            <Link href="/usage">Your usage</Link>
+          </p>
+        ) : null}
+
+        {/* ── the hero, as designed ─────────────────────────────────────────
+            Copied from the design file unchanged. Only the two buttons differ:
+            the design scrolled with inline onclick handlers, which React does
+            not take, so they are anchors to the same two sections. */}
         <section className="hero">
           <div className="hero-copy">
-            <div className="eyebrow">Your account</div>
-            <h1>
-              {isUnlimited
-                ? "Unlimited drafting is on."
-                : `${wallet.credits} document${wallet.credits === 1 ? "" : "s"} ready to draft.`}
-            </h1>
+            <div className="eyebrow">FD AI pricing</div>
+            <h1>Simple pricing for every stage of use.</h1>
             <p>
-              {isUnlimited ? (
-                <>
-                  Drafting does not spend credits on your plan.
-                  {membership!.unlimited_cap > 0 && (
-                    <>
-                      {" "}You have drafted {membership!.unlimited_used} of{" "}
-                      {membership!.unlimited_cap} documents this month under fair use.
-                    </>
-                  )}
-                </>
-              ) : trialLive ? (
-                <>
-                  Your {TRIAL.days}-day free trial runs until{" "}
-                  <strong>{when(wallet.trialEndsAt!)}</strong>. Unused trial documents stop then —
-                  bought ones never expire.
-                </>
-              ) : wallet.credits === 0 ? (
-                <>
-                  Buy documents or join a membership to draft again. Everything you have already
-                  drafted stays in <Link href="/history">your history</Link>, readable and
-                  downloadable.
-                </>
-              ) : isMember ? (
-                <>
-                  Unused documents carry over each month for as long as your membership lasts.
-                  Anything you bought outright stays yours either way.
-                </>
-              ) : (
-                <>One document drafts one agreement. These never expire.</>
-              )}
+              Start with a free trial, buy credits when you need them, or choose a monthly
+              membership for more regular use.
             </p>
-
+            <div className="hero-actions">
+              <a className="btn-primary" href="#pricing">
+                View pricing
+              </a>
+              <a className="btn-secondary" href="#compare">
+                Help me choose
+              </a>
+            </div>
             <div className="hero-meta">
-              {isMember && (
-                <span>
-                  <i />
-                  <strong style={{ textTransform: "capitalize" }}>{tier}</strong>&nbsp;member
-                  {membership!.status === "past_due" && " — payment needs attention"}
-                </span>
-              )}
-              {membership?.period_end && (
-                <span>
-                  <i />
-                  Renews {when(membership.period_end)}
-                </span>
-              )}
               <span>
                 <i />
-                Bought documents never expire
+                No card required
+              </span>
+              <span>
+                <i />
+                Purchased credits do not expire
+              </span>
+              <span>
+                <i />
+                Cancel anytime
               </span>
             </div>
-
             <div className="quick-nav">
-              <a href="#payg">Buy as you go</a>
-              <a href="#membership">Memberships</a>
-              {isMember && !isUnlimited && <a href="#topups">Member top-ups</a>}
-              <a href="#history">Your history</a>
+              <a href="#trial">Free trial</a>
+              <a href="#payg">Flexible credits</a>
+              <a href="#membership">Monthly memberships</a>
+              <a href="#topups">Exclusive top-ups</a>
             </div>
           </div>
 
           <aside className="hero-side">
-            <div className="side-label">{isMember ? "Your plan" : "Recommended"}</div>
+            <div className="side-label">Recommended</div>
             <div className="rec-card">
-              <h2>{isUnlimited ? "Unlimited" : isMember ? "Your membership" : "Pro Membership"}</h2>
+              <h2>Pro Membership</h2>
               <div className="rec-price">
-                <strong>{isUnlimited ? money(8880) : wallet.credits}</strong>
-                <span>{isUnlimited ? "/ month" : "documents left"}</span>
+                <strong>S$49.80</strong>
+                <span>/ month</span>
               </div>
-              <div className="rec-credit">
-                {isUnlimited
-                  ? `Fair use: ${membership!.unlimited_used} of ${membership!.unlimited_cap} used`
-                  : isMember
-                    ? "Carried over while you stay a member"
-                    : "10 documents a month for S$49.80"}
-              </div>
+              <div className="rec-credit">10 credits each month</div>
               <div className="rec-copy">
-                {isMember
-                  ? "Members pay less per document and can top up at member rates when a month runs short."
-                  : "Members pay less per document, get a monthly allowance that carries over, and can top up at member-only rates."}
+                Best for regular users who want a lower effective rate and the flexibility to top up
+                when needed.
               </div>
               <div className="rec-points">
                 <div>
                   <b>✓</b>
-                  <span>Reading and downloading past drafts is always free</span>
+                  <span>S$4.98 per included credit</span>
                 </div>
                 <div>
                   <b>✓</b>
-                  <span>Bought documents never expire</span>
+                  <span>Lower effective cost than pay-as-you-go</span>
                 </div>
                 <div>
                   <b>✓</b>
-                  <span>Cancel a membership at any time</span>
+                  <span>Access to exclusive member top-up rates</span>
                 </div>
               </div>
-              <a className="rec-link" href={isMember ? "#topups" : "#membership"}>
-                {isMember ? "Top up your account" : "See membership plans"}
+              <a className="rec-link" href="#membership">
+                See membership plans
               </a>
             </div>
           </aside>
@@ -491,6 +501,94 @@ export default async function BillingPage({
               </section>
             )}
           </>
+        )}
+
+        {/* ── what you have been charged ─────────────────────────────────
+            Stripe's own portal shows this as "$88.80" with the real currency
+            in grey underneath and a download icon the size of a full stop.
+            None of that is configurable. So the same invoices are read through
+            the API and written out here in FD's own type: S$18.80, and a
+            download that says Download. */}
+        {invoices.length > 0 && (
+          <section className="section" id="invoices">
+            <div className="section-head">
+              <div className="kicker">Your account</div>
+              <h2>Billing history</h2>
+              <p>
+                Every charge, in Singapore dollars. Receipts are issued by Stripe and are valid for
+                your own accounts.
+              </p>
+            </div>
+
+            <div className="topup-wrap" style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ textAlign: "left", color: "#8a8378", fontSize: 11 }}>
+                    <th style={{ padding: "8px 10px 8px 0" }}>Date</th>
+                    <th style={{ padding: "8px 10px" }}>What</th>
+                    <th style={{ padding: "8px 10px" }}>Amount</th>
+                    <th style={{ padding: "8px 10px" }}>Status</th>
+                    <th style={{ padding: "8px 0 8px 10px", textAlign: "right" }}>Receipt</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoices.map((inv) => (
+                    <tr key={inv.id} style={{ borderTop: "1px solid #efe7da" }}>
+                      <td style={{ padding: "12px 10px 12px 0", whiteSpace: "nowrap" }}>
+                        {inv.paidAt ? when(inv.paidAt) : "—"}
+                      </td>
+                      <td style={{ padding: "12px 10px" }}>{inv.description}</td>
+                      <td style={{ padding: "12px 10px", fontWeight: 650, whiteSpace: "nowrap" }}>
+                        {inv.amount}
+                        {/* Only shown when Stripe charged in something other than
+                            Singapore dollars — which should never happen, and is
+                            worth seeing immediately if it does. */}
+                        {inv.currency !== "sgd" && (
+                          <span style={{ color: "#b42318", fontWeight: 500 }}>
+                            {" "}
+                            ({inv.currency.toUpperCase()})
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: "12px 10px" }}>
+                        <span className={`tag ${inv.status === "paid" ? "gold" : ""}`}>
+                          {inv.status === "paid" ? "Paid" : inv.status}
+                        </span>
+                      </td>
+                      <td style={{ padding: "12px 0 12px 10px", textAlign: "right" }}>
+                        {inv.pdfUrl ? (
+                          <a
+                            className="btn-secondary"
+                            href={inv.pdfUrl}
+                            /* Stripe serves the PDF from its own domain, so the
+                               download attribute would be ignored; the link is
+                               opened instead and the browser saves it. */
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 7,
+                              padding: "8px 14px",
+                              fontSize: 12,
+                            }}
+                          >
+                            <span aria-hidden="true">↓</span> Download
+                          </a>
+                        ) : inv.hostedUrl ? (
+                          <a href={inv.hostedUrl} target="_blank" rel="noreferrer">
+                            View
+                          </a>
+                        ) : (
+                          <span style={{ color: "#8a8378" }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
 
         {/* ── history ────────────────────────────────────────────────────── */}
