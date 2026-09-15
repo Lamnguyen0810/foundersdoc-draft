@@ -214,6 +214,8 @@ function initials(email: string): string {
 export interface WalletView {
   credits: number;
   inTrial: boolean;
+  /** ISO date the free trial ends, when one is running. */
+  trialEndsAt?: string | null;
 }
 
 export default function DraftChat({
@@ -556,19 +558,27 @@ function Catalogue({
               up front is both fairer and less work to act on. */}
           {wallet && (
             <div className="cat-credits">
+              <span className="cat-credits-ic" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <ellipse cx="12" cy="6" rx="8" ry="3" />
+                  <path d="M4 6v5c0 1.66 3.58 3 8 3s8-1.34 8-3V6" />
+                  <path d="M4 11v5c0 1.66 3.58 3 8 3s8-1.34 8-3v-5" />
+                </svg>
+              </span>
               <span className="cat-credits-n">{wallet.credits}</span>
               <span className="cat-credits-t">
-                <b>{wallet.credits === 1 ? "document" : "documents"} left</b>
+                <b>{wallet.credits === 1 ? "Credit" : "Credits"}</b>
                 <small>
-                  {wallet.inTrial
-                    ? "Free week — trial credits expire"
+                  {wallet.inTrial && wallet.trialEndsAt
+                    ? `Trial ends ${new Date(wallet.trialEndsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
                     : wallet.credits === 0
                       ? "Add credits to draft again"
                       : "These do not expire"}
                 </small>
               </span>
-              <a className="cat-credits-a" href="/billing">
-                {wallet.credits === 0 ? "Add credits" : "Manage"}
+              <a className="cat-credits-a" href={wallet.credits === 0 ? "/billing" : "/usage"}>
+                {wallet.credits === 0 ? "Add credits" : "View details"}
+                <span aria-hidden="true">&rsaquo;</span>
               </a>
             </div>
           )}

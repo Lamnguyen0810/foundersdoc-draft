@@ -86,3 +86,34 @@ export async function recentInvoices(
     return [];
   }
 }
+
+/**
+ * The card Stripe will charge next, for the billing panel on /usage.
+ *
+ * Returns null whenever the answer is not certain — no customer, no default
+ * set, Stripe unreachable — because "•••• 4242" printed from a guess is worse
+ * than no line at all on the one screen where somebody checks which card is
+ * about to be billed.
+ */
+export async function defaultCard(
+  customerId: string | null,
+): Promise<{ brand: string; last4: string } | null> {
+  if (!customerId || !isStripeConfigured()) return null;
+  try {
+    const s = stripe();
+    const customer = await s.customers.retrieve(customerId, {
+      expand: ["invoice_settings.default_payment_method"],
+    });
+    if (customer.deleted) return null;
+
+    const pm = (customer as Stripe.Customer).invoice_settings
+      ?.default_payment_method as Stripe.PaymentMethod | string | null | undefined;
+    const card = typeof pm === "object" && pm?.card ? pm.card : null;
+    if (!card) return null;
+
+    return { brand: card.brand ?? "card", last4: card.last4 ?? "" };
+  } catch (err) {
+    console.error("[billing] could not read the default card:", err);
+    return null;
+  }
+}

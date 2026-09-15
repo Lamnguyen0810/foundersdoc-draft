@@ -11,8 +11,11 @@ import {
   membershipByTier,
   money as sgd,
 } from "@/lib/billing/plans";
+import { defaultCard } from "@/lib/billing/invoices";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
+import { CancelPlan, ManageBilling } from "./PlanActions";
+import "./usage.css";
 
 export const metadata = { title: "Usage — FDAI" };
 export const dynamic = "force-dynamic";
@@ -178,239 +181,6 @@ function suggest(tier: string | null, usedThisMonth: number): Suggestion | null 
  * questions somebody opens /usage to ask: what am I on, and how much have I
  * got left. The cost tables below are interesting; this is the point.
  */
-function PlanCard({
-  planLabel,
-  planPrice,
-  renews,
-  credits,
-  creditsNote,
-  suggestion,
-  isMember,
-}: {
-  planLabel: string;
-  planPrice: string | null;
-  renews: string | null;
-  credits: number;
-  creditsNote: string;
-  suggestion: Suggestion | null;
-  isMember: boolean;
-}) {
-  return (
-    <section
-      style={{
-        border: "1px solid var(--grey-2)",
-        borderRadius: 16,
-        background: "var(--white)",
-        padding: "20px 22px",
-        marginBottom: 16,
-        display: "grid",
-        gap: 18,
-        gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-        alignItems: "start",
-      }}
-    >
-      <div>
-        <p
-          style={{
-            margin: 0,
-            fontSize: 10.5,
-            fontWeight: 600,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "var(--grey-4)",
-          }}
-        >
-          Your plan
-        </p>
-        <p style={{ margin: "8px 0 0", fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em" }}>
-          {planLabel}
-        </p>
-        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--grey-5)" }}>
-          {planPrice ? `${planPrice} a month` : "No monthly fee"}
-          {renews ? ` · ${renews}` : ""}
-        </p>
-      </div>
-
-      <div>
-        <p
-          style={{
-            margin: 0,
-            fontSize: 10.5,
-            fontWeight: 600,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "var(--grey-4)",
-          }}
-        >
-          Documents left
-        </p>
-        <p
-          style={{
-            margin: "8px 0 0",
-            fontSize: 22,
-            fontWeight: 600,
-            fontVariantNumeric: "tabular-nums",
-          }}
-        >
-          {credits}
-        </p>
-        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--grey-5)" }}>{creditsNote}</p>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {suggestion ? (
-          <>
-            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "var(--grey-5)" }}>
-              {suggestion.reason}
-            </p>
-            <Link
-              href={suggestion.href}
-              className="btn btn-gold"
-              style={{ justifyContent: "center", height: 40 }}
-            >
-              {suggestion.label}
-            </Link>
-          </>
-        ) : (
-          <>
-            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "var(--grey-5)" }}>
-              {isMember
-                ? "Your plan fits how much you are drafting. Nothing to change."
-                : "Buy documents as you need them, or join a membership for a lower rate."}
-            </p>
-            <Link
-              href="/billing"
-              className="btn"
-              style={{ justifyContent: "center", height: 40 }}
-            >
-              {isMember ? "Manage membership" : "See plans"}
-            </Link>
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
-
-/**
- * How much of this month's allowance has been used.
- *
- * ── WHY A PERCENTAGE OF THE MONTH, AND NOT OF THE BALANCE ───────────────────
- * This used to measure the balance against itself. Credits roll over, so a Pro
- * member holding 470 of them against a 10-a-month allowance produced the
- * meaningless line "100% of your documents remaining — 470 of 470": a full bar
- * that said nothing, on a page whose entire job is to say how much has been
- * used.
- *
- * The denominator is now the ALLOWANCE for the month — three on Basic, ten on
- * Pro, the fair-use ceiling on Unlimited, the trial's own grant on a trial —
- * and the figure is what has been SPENT against it. That is a percentage with
- * a real meaning, it moves when somebody drafts, and it cannot exceed 100%.
- *
- * Carried-over credits are not hidden; they are stated underneath in words,
- * where a number that would break the bar cannot break it.
- *
- * Somebody who only ever buys bundles has no month and no allowance, so they
- * get no percentage at all — inventing a denominator for them would invent a
- * limit that does not exist.
- */
-function Meter({
-  used,
-  allowance,
-  resetsLabel,
-  note,
-  carriedOver,
-  balance,
-}: {
-  /** Documents drafted in the current period. */
-  used: number;
-  /** The period's allowance. Null when this account has no monthly allowance. */
-  allowance: number | null;
-  resetsLabel: string | null;
-  note: string;
-  /** Credits held beyond this month's allowance, if any. */
-  carriedOver: number;
-  balance: number;
-}) {
-  const pct =
-    allowance && allowance > 0
-      ? Math.max(0, Math.min(100, Math.round((used / allowance) * 100)))
-      : null;
-
-  return (
-    <section
-      style={{
-        border: "1px solid var(--grey-2)",
-        borderRadius: 16,
-        background: "var(--white)",
-        padding: "18px 20px",
-        maxWidth: 420,
-        marginBottom: 28,
-      }}
-    >
-      <p style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>
-        {pct === null
-          ? `${balance} document${balance === 1 ? "" : "s"} available`
-          : `${pct}% of this month's allowance used`}
-      </p>
-
-      {pct !== null && (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14 }}>
-          <span
-            style={{
-              flex: 1,
-              height: 7,
-              borderRadius: 999,
-              background: "var(--grey-1, #eee)",
-              overflow: "hidden",
-            }}
-          >
-            <span
-              style={{
-                display: "block",
-                width: `${pct}%`,
-                height: "100%",
-                borderRadius: 999,
-                background: "var(--ink, #171612)",
-              }}
-            />
-          </span>
-        </div>
-      )}
-
-      <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--grey-5)" }}>
-        {resetsLabel ? `${resetsLabel} · ${note}` : note}
-      </p>
-
-      {carriedOver > 0 && (
-        <p style={{ margin: "6px 0 0", fontSize: 12, color: "var(--grey-5)" }}>
-          Plus {carriedOver} carried over from earlier months, which this bar does not count.
-        </p>
-      )}
-
-      <Link
-        href="/billing"
-        className="btn"
-        style={{
-          marginTop: 16,
-          width: "100%",
-          height: 42,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "var(--ink, #171612)",
-          color: "#fff",
-          borderColor: "var(--ink, #171612)",
-          borderRadius: 10,
-          fontWeight: 600,
-        }}
-      >
-        Add credits
-      </Link>
-    </section>
-  );
-}
-
 export default async function UsagePage() {
   if (!isSupabaseConfigured()) {
     return (
@@ -462,6 +232,7 @@ export default async function UsagePage() {
   const wallet = await getWallet();
 
   let tierFromSummary: string | null = null;
+  let statusFromSummary: string | null = null;
   let periodEnd: string | null = null;
   let unlimitedCap = 0;
   let unlimitedUsed = 0;
@@ -471,6 +242,7 @@ export default async function UsagePage() {
     const { data } = await supabase.rpc("billing_summary");
     const row = Array.isArray(data) ? data[0] : data;
     tierFromSummary = row?.tier ? String(row.tier) : null;
+    statusFromSummary = row?.status ? String(row.status) : null;
     periodEnd = row?.period_end ?? null;
     unlimitedCap = Number(row?.unlimited_cap ?? 0);
     unlimitedUsed = Number(row?.unlimited_used ?? 0);
@@ -563,129 +335,295 @@ export default async function UsagePage() {
       ? `Trial ends ${whenShort(wallet.trialEndsAt)}`
       : "Bought documents never expire";
 
+  /* Who is allowed to see the model-cost figures further down. They are FD's
+     own margin working, not the customer's business, so they are fetched for
+     everyone (the query is the same one the page already runs) but rendered
+     only for an administrator. */
+  const admin = await isAdmin();
+
+  /* The card Stripe will charge next, and the account it belongs to. Both are
+     null until somebody has actually paid, which is the honest thing to show
+     before a first payment rather than an invented placeholder. */
+  let stripeCustomerId: string | null = null;
+  try {
+    const { data: account } = await supabase
+      .from("billing_accounts")
+      .select("stripe_customer_id")
+      .maybeSingle();
+    stripeCustomerId = (account?.stripe_customer_id as string | null) ?? null;
+  } catch {
+    // Same as above: the panel simply says less.
+  }
+  const card = await defaultCard(stripeCustomerId);
+
+  const cancelling = statusFromSummary === "canceled" || statusFromSummary === "cancelling";
+  const pastDue = statusFromSummary === "past_due";
+
+  /* The design draws one percentage bar. It measures this period's drafting
+     against the allowance the plan gives, and shows nothing at all when there
+     is no allowance to measure against — pay-as-you-go has no denominator. */
+  const percent =
+    meter.allowance && meter.allowance > 0
+      ? Math.min(100, Math.round((meter.used / meter.allowance) * 100))
+      : null;
+
+  const suggestion = suggest(currentTier, drafts);
+
   return (
-    <main className="wrap" style={{ paddingTop: 32 }}>
-      <PlanCard
-        planLabel={planLabel}
-        planPrice={plan ? sgd(plan.amountCents) : null}
-        renews={periodEnd ? `renews ${whenShort(periodEnd)}` : null}
-        credits={Number.isFinite(wallet.credits) ? wallet.credits : 0}
-        creditsNote={creditsNote}
-        suggestion={suggest(currentTier, drafts)}
-        isMember={Boolean(plan)}
-      />
-
-      <Meter {...meter} />
-
-      <header
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "flex-end",
-          justifyContent: "space-between",
-          gap: 16,
-          borderBottom: "1px solid var(--grey-2)",
-          paddingBottom: 20,
-          marginBottom: 24,
-        }}
-      >
-        <div>
-          <p className="kicker">FD AI</p>
-          <h1 style={{ fontSize: "clamp(26px, 3vw, 34px)", marginTop: 8 }}>Usage — {monthLabel}</h1>
-          <p className="sub" style={{ marginTop: 6, fontSize: 14 }}>{user?.email}</p>
-        </div>
-        <Link className="btn btn-gold" href="/draft">
-          New draft
-        </Link>
+    <main className="fdu">
+      <header className="page-head">
+        <h1>Plan &amp; Usage</h1>
+        <p>Everything important about your FD AI account, in one place.</p>
       </header>
 
-      {error && (
-        <p className="note note-warn">Could not load usage. Has 001_schema.sql been run?</p>
-      )}
+      <section className="overview" aria-label="Account overview">
+        {/* ── credits ────────────────────────────────────────────────────── */}
+        <article className="overview-section credits-section">
+          <div className="section-label">Credits</div>
+          <div className="credit-balance-row">
+            <div className="credit-coin" aria-label={`${meter.balance} credits available`}>
+              <div className="coin-inner">
+                <strong>{meter.balance}</strong>
+                <span>{meter.balance === 1 ? "credit" : "credits"}</span>
+              </div>
+            </div>
+            <div className="credit-info">
+              <h2 className="credit-title">Available credits</h2>
+              <p className="credit-copy">{creditsNote}</p>
+            </div>
+          </div>
+        </article>
 
-      <dl
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: 12,
-          margin: 0,
-        }}
-      >
-        <Stat label="Drafts" value={drafts.toLocaleString()} hint="this month" />
-        <Stat
-          label="Tokens"
-          value={`${(inputTokens + outputTokens).toLocaleString()}`}
-          hint={`${inputTokens.toLocaleString()} in / ${outputTokens.toLocaleString()} out`}
-        />
-        <Stat label="Actual spend" value={money(actual)} hint="what you have paid" />
-        <Stat
-          label="On a paid model"
-          value={money(benchmark)}
-          hint={`${money(perDraft)} per draft`}
-        />
-      </dl>
+        {/* ── current plan ───────────────────────────────────────────────── */}
+        <article className="overview-section">
+          <div className="section-label">Current plan</div>
+          <div className="plan-top">
+            <div className="plan-name">{planLabel}</div>
+            {plan ? (
+              <div className={cancelling ? "status ending" : "status"}>
+                <i />
+                {cancelling ? "Ending" : pastDue ? "Payment due" : "Active"}
+              </div>
+            ) : (
+              wallet.inTrial && (
+                <div className="status">
+                  <i />
+                  Trial
+                </div>
+              )
+            )}
+          </div>
 
-      <section className="card" style={{ marginTop: 24, padding: 22 }}>
-        <p className="kicker">The number pricing is built on</p>
-        <p style={{ marginTop: 10, fontSize: 14.5, lineHeight: 1.7, color: "var(--grey-5)" }}>
-          {drafts === 0 ? (
-            <>Generate a few drafts and this becomes the margin calculation for pricing.</>
-          ) : (
-            <>
-              A draft costs about <strong>{money(perDraft)}</strong> on a{" "}
-              {PAID_BENCHMARK.label.toLowerCase()}. At $1–3 per draft, or inside a subscription,
-              that is a gross margin of roughly{" "}
-              <strong>{perDraft > 0 ? Math.round(1 / perDraft) : 0}×</strong> at $1 per draft. Take
-              it as an order of magnitude, not a quotation — token counts vary with the length of
-              the source document.
-            </>
+          <div className="price">
+            {plan ? (
+              <>
+                <strong>{sgd(plan.amountCents)}</strong> / month
+              </>
+            ) : (
+              <>Pay only for what you draft</>
+            )}
+          </div>
+
+          <div className="rule" />
+
+          <div className="simple-row">
+            <span>{cancelling ? "Ends" : plan ? "Renews" : wallet.inTrial ? "Trial ends" : "Credits"}</span>
+            <strong>
+              {plan
+                ? (whenShort(periodEnd) ?? "—")
+                : wallet.inTrial && wallet.trialEndsAt
+                  ? whenShort(wallet.trialEndsAt)
+                  : "Never expire"}
+            </strong>
+          </div>
+
+          <div className="action-row">
+            <Link className="u-btn primary" href={suggestion ? suggestion.href : "/billing#credits"}>
+              {suggestion ? suggestion.label : "Buy credits"}
+            </Link>
+            <Link className="u-btn" href="/billing">
+              View pricing
+            </Link>
+          </div>
+
+          {suggestion && <div className="cancelled-note">{suggestion.reason}</div>}
+
+          {plan && !cancelling && (
+            <CancelPlan
+              lookupKey={plan.lookupKey}
+              planLabel={planLabel}
+              endsOn={whenShort(periodEnd)}
+            />
           )}
-        </p>
+          {cancelling && (
+            <div className="cancelled-note">
+              Your plan ends on {whenShort(periodEnd) ?? "the end of this period"}. You can keep
+              using it until then.
+            </div>
+          )}
+        </article>
+
+        {/* ── billing summary ────────────────────────────────────────────── */}
+        <article className="overview-section">
+          <div className="section-label">Billing summary</div>
+          <div className="billing-amount">{plan ? sgd(plan.amountCents) : "—"}</div>
+          <div className="billing-caption">
+            {plan
+              ? cancelling
+                ? "No further payments"
+                : `Next payment · ${whenShort(periodEnd) ?? "date to be set"}`
+              : "No subscription — you pay per document"}
+          </div>
+
+          <div className="rule" />
+
+          <div className="simple-row">
+            <span>Payment method</span>
+            <strong>
+              {card ? `${card.brand.toUpperCase()} •••• ${card.last4}` : "None on file"}
+            </strong>
+          </div>
+
+          {plan ? (
+            <ManageBilling lookupKey={plan.lookupKey} />
+          ) : (
+            <Link className="u-btn billing-btn" href="/billing">
+              See plans
+            </Link>
+          )}
+        </article>
       </section>
 
-      {byModel.size > 0 && (
-        <section style={{ marginTop: 28 }}>
-          <p className="kicker" style={{ marginBottom: 10 }}>By model</p>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", minWidth: 420, fontSize: 13.5, borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--grey-2)", textAlign: "left" }}>
-                  {["Model", "Drafts", "Paid-model cost", "Per draft"].map((h) => (
-                    <th
-                      key={h}
-                      style={{
-                        padding: "8px 0",
-                        fontSize: 10.5,
-                        fontWeight: 600,
-                        letterSpacing: "0.08em",
-                        textTransform: "uppercase",
-                        color: "var(--grey-4)",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[...byModel.entries()].map(([key, v]) => (
-                  <tr key={key} style={{ borderBottom: "1px solid var(--grey-2)" }}>
-                    <td style={{ padding: "9px 0" }}>{key}</td>
-                    <td style={{ padding: "9px 0" }}>{v.drafts}</td>
-                    <td style={{ padding: "9px 0" }}>{money(v.benchmark)}</td>
-                    <td style={{ padding: "9px 0" }}>{money(v.benchmark / v.drafts)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* ── usage this month ─────────────────────────────────────────────── */}
+      <section className="usage" aria-label="Usage this month">
+        <div className="usage-head">
+          <h2>Usage this month</h2>
+          <span>{meter.note}</span>
+        </div>
+        <div className="usage-main">
+          <div className="usage-count">
+            <strong>{drafts}</strong>
+            <span>{drafts === 1 ? "draft created" : "drafts created"}</span>
           </div>
+          <div className="usage-bar">
+            <div className="track">
+              <span style={{ width: `${percent ?? 0}%` }} />
+            </div>
+            <small>
+              {meter.allowance
+                ? `${meter.used} of ${meter.allowance} monthly credits used`
+                : `${meter.used} used this month`}
+              {meter.carriedOver > 0 && ` · ${meter.carriedOver} carried over`}
+              {meter.resetsLabel && ` · ${meter.resetsLabel}`}
+            </small>
+          </div>
+          <div className="usage-percent">
+            <strong>{percent === null ? "—" : `${percent}%`}</strong>
+            <span>{percent === null ? "no monthly allowance" : "allowance used"}</span>
+          </div>
+        </div>
+      </section>
+
+      {error && <p className="note note-warn">Could not load usage. Has 001_schema.sql been run?</p>}
+
+      {/* ── FD's own numbers ─────────────────────────────────────────────────
+          Model costs, the paid-model benchmark and the margin working are
+          commercially sensitive: they tell a customer what a draft costs us
+          and therefore what the mark-up is. They were visible to every signed
+          in account on this page. Now only an administrator sees them. */}
+      {admin && (
+        <section style={{ marginTop: 34 }}>
+          <p className="kicker" style={{ marginBottom: 12 }}>
+            Admin · {monthLabel} · {user?.email}
+          </p>
+
+          <dl
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 12,
+              margin: 0,
+            }}
+          >
+            <Stat label="Drafts" value={drafts.toLocaleString()} hint="this month" />
+            <Stat
+              label="Tokens"
+              value={`${(inputTokens + outputTokens).toLocaleString()}`}
+              hint={`${inputTokens.toLocaleString()} in / ${outputTokens.toLocaleString()} out`}
+            />
+            <Stat label="Actual spend" value={money(actual)} hint="what you have paid" />
+            <Stat
+              label="On a paid model"
+              value={money(benchmark)}
+              hint={`${money(perDraft)} per draft`}
+            />
+          </dl>
+
+          <section className="card" style={{ marginTop: 24, padding: 22 }}>
+            <p className="kicker">The number pricing is built on</p>
+            <p style={{ marginTop: 10, fontSize: 14.5, lineHeight: 1.7, color: "var(--grey-5)" }}>
+              {drafts === 0 ? (
+                <>Generate a few drafts and this becomes the margin calculation for pricing.</>
+              ) : (
+                <>
+                  A draft costs about <strong>{money(perDraft)}</strong> on a{" "}
+                  {PAID_BENCHMARK.label.toLowerCase()}. At $1–3 per draft, or inside a subscription,
+                  that is a gross margin of roughly{" "}
+                  <strong>{perDraft > 0 ? Math.round(1 / perDraft) : 0}×</strong> at $1 per draft.
+                  Take it as an order of magnitude, not a quotation — token counts vary with the
+                  length of the source document.
+                </>
+              )}
+            </p>
+          </section>
+
+          {byModel.size > 0 && (
+            <section style={{ marginTop: 28 }}>
+              <p className="kicker" style={{ marginBottom: 10 }}>By model</p>
+              <div style={{ overflowX: "auto" }}>
+                <table
+                  style={{ width: "100%", minWidth: 420, fontSize: 13.5, borderCollapse: "collapse" }}
+                >
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--grey-2)", textAlign: "left" }}>
+                      {["Model", "Drafts", "Paid-model cost", "Per draft"].map((h) => (
+                        <th
+                          key={h}
+                          style={{
+                            padding: "8px 0",
+                            fontSize: 10.5,
+                            fontWeight: 600,
+                            letterSpacing: "0.08em",
+                            textTransform: "uppercase",
+                            color: "var(--grey-4)",
+                          }}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...byModel.entries()].map(([key, v]) => (
+                      <tr key={key} style={{ borderBottom: "1px solid var(--grey-2)" }}>
+                        <td style={{ padding: "9px 0" }}>{key}</td>
+                        <td style={{ padding: "9px 0" }}>{v.drafts}</td>
+                        <td style={{ padding: "9px 0" }}>{money(v.benchmark)}</td>
+                        <td style={{ padding: "9px 0" }}>{money(v.benchmark / v.drafts)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          <p style={{ marginTop: 24, fontSize: 12, color: "var(--grey-4)" }}>
+            Prices are planning estimates from src/lib/ai/pricing.ts. Check the provider&apos;s
+            pricing page before quoting a figure to anyone.
+          </p>
         </section>
       )}
-
-      <p style={{ marginTop: 24, fontSize: 12, color: "var(--grey-4)" }}>
-        Prices are planning estimates from src/lib/ai/pricing.ts. Check the provider&apos;s pricing
-        page before quoting a figure to anyone.
-      </p>
     </main>
   );
 }

@@ -131,3 +131,17 @@
   padding: 12px 10px 12px 0;
   border-top: 1px solid var(--line);
 }
+
+/* ── the hero's aura was being cut off at the wrap's edges ─────────────────
+   `.hero` is also `.wrap`, so it is 1240px wide and centred, and the design
+   gives it `overflow:hidden` to keep its two blurred gold blobs inside. On a
+   screen wider than 1240px that clip is visible: the glow stops dead in a
+   straight vertical line down both sides of the hero, which is the seam FD
+   circled. Measured on a 1900px viewport it was a 5-point step in the blue
+   channel at exactly the wrap's left edge.
+
+   The clip moves out to `.hero-shell`, which is full-bleed, so the glow now
+   fades out on its own and is only ever cut at the window edge, where nobody
+   can see it. Nothing about the design's own blobs changes. */
+.fdp .hero { overflow: visible; }
+.fdp .hero-shell { overflow: hidden; }
