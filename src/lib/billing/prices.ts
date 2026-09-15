@@ -1,89 +1,103 @@
-import "server-only";
-import { PACKS, type Pack } from "./packs";
-import { isStripeConfigured, stripe } from "./stripe";
-
 /**
- * What each pack actually costs, according to Stripe.
+ * What the pricing page shows, checked against what Stripe will actually charge.
  *
- * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
- * The price used to live in packs.ts as a string, which meant two sources of
- * truth: the number Stripe charges, and the number the page promises. They
- * agree on the day you write them and drift the first time someone edits a
- * price in the Stripe dashboard — at which point the site advertises one amount
- * and charges another. For a law firm that is not a cosmetic bug.
+ * The price list in plans.ts is what the firm decided. Stripe holds what the
+ * customer is really billed. These should agree, and this module is where the
+ * two are put side by side so that a disagreement is visible on the page
+ * instead of being discovered on a card statement.
  *
- * So Stripe is the only authority. Change a price in the dashboard and the page
- * follows on the next load: no deploy, no code edit, and no decision needed
- * before the MVP can be seen.
- *
- * The string in packs.ts survives only as a fallback for when Stripe is not
- * configured at all, and it is labelled as such on screen.
+ * When Stripe has no price for a lookup key, the item is marked `missing` and
+ * the page says so rather than offering a button that leads to an error.
  */
 
-export interface PricedPack extends Pack {
-  /** "S$150.00" — formatted from Stripe's own amount and currency. */
+import { isStripeConfigured, stripe } from "./stripe";
+import { MEMBERSHIPS, PACKS, TOPUPS, money, type CreditPack, type Membership } from "./plans";
+
+export interface Priced {
+  lookupKey: string;
+  /** What to print. Stripe's figure when it is available, ours otherwise. */
   price: string;
-  /** False when this came from the fallback rather than from Stripe. */
+  /** True when this came from Stripe rather than from our own list. */
   live: boolean;
-  /** True when Stripe has no active price with this lookup key. */
+  /** True when Stripe has no active price for this lookup key. */
   missing: boolean;
+  /** Set when Stripe's price and ours disagree — always worth showing FD. */
+  mismatch: string | null;
 }
 
-function money(amount: number, currency: string): string {
-  // Stripe holds minor units: 15000 sgd = S$150.00. Zero-decimal currencies
-  // (JPY and friends) are not divided — Intl knows which are which, so the
-  // division is the only part that needs care.
-  const zeroDecimal = new Set(["bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg", "rwf", "ugx", "vnd", "vuv", "xaf", "xof", "xpf"]);
-  const value = zeroDecimal.has(currency.toLowerCase()) ? amount : amount / 100;
-  const decimals = value % 1 === 0 ? 0 : 2;
+export type PricedPack = CreditPack & Priced;
+export type PricedMembership = Membership & Priced;
 
-  /* Intl renders SGD in an en-SG locale as a bare "$150" — which, to a
-     Singaporean reader looking at a law firm's pricing, is indistinguishable
-     from US dollars. The local convention is "S$", so say "S$". Every other
-     currency goes through Intl unchanged. */
-  const code = currency.toUpperCase();
-  const amountText = value.toLocaleString("en-SG", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-  if (code === "SGD") return `S$${amountText}`;
-
-  try {
-    return new Intl.NumberFormat("en-SG", {
-      style: "currency",
-      currency: code,
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    }).format(value);
-  } catch {
-    return `${code} ${amountText}`;
-  }
+export interface Catalogue {
+  packs: PricedPack[];
+  memberships: PricedMembership[];
+  topups: PricedPack[];
+  /** True when at least one product has not been created in Stripe yet. */
+  anyMissing: boolean;
 }
 
-export async function pricedPacks(): Promise<PricedPack[]> {
+function fallback<T extends { lookupKey: string; amountCents: number }>(item: T, missing: boolean): T & Priced {
+  return { ...item, price: money(item.amountCents), live: false, missing, mismatch: null };
+}
+
+export async function pricedCatalogue(): Promise<Catalogue> {
+  const all = [...PACKS, ...MEMBERSHIPS, ...TOPUPS];
+
   if (!isStripeConfigured()) {
-    return PACKS.map((p) => ({ ...p, price: p.displayPrice, live: false, missing: false }));
+    return {
+      packs: PACKS.map((p) => fallback(p, false)),
+      memberships: MEMBERSHIPS.map((m) => fallback(m, false)),
+      topups: TOPUPS.map((t) => fallback(t, false)),
+      anyMissing: false,
+    };
   }
 
+  let byKey = new Map<string, { unit_amount: number | null; currency: string }>();
   try {
-    // One call for all of them rather than one per pack.
+    // One call for all of them rather than one per product.
     const res = await stripe().prices.list({
-      lookup_keys: PACKS.map((p) => p.lookupKey),
+      lookup_keys: all.map((p) => p.lookupKey),
       active: true,
-      limit: 20,
+      limit: 50,
     });
-
-    const byKey = new Map(res.data.filter((p) => p.lookup_key).map((p) => [p.lookup_key!, p]));
-
-    return PACKS.map((p) => {
-      const price = byKey.get(p.lookupKey);
-      if (!price || price.unit_amount == null) {
-        return { ...p, price: p.displayPrice, live: false, missing: true };
-      }
-      return { ...p, price: money(price.unit_amount, price.currency), live: true, missing: false };
-    });
+    byKey = new Map(
+      res.data
+        .filter((p) => p.lookup_key)
+        .map((p) => [p.lookup_key!, { unit_amount: p.unit_amount, currency: p.currency }]),
+    );
   } catch (err) {
     console.error("[billing] could not read prices from Stripe:", err);
-    return PACKS.map((p) => ({ ...p, price: p.displayPrice, live: false, missing: false }));
+    return {
+      packs: PACKS.map((p) => fallback(p, false)),
+      memberships: MEMBERSHIPS.map((m) => fallback(m, false)),
+      topups: TOPUPS.map((t) => fallback(t, false)),
+      anyMissing: false,
+    };
   }
+
+  const price = <T extends { lookupKey: string; amountCents: number }>(item: T): T & Priced => {
+    const live = byKey.get(item.lookupKey);
+    if (!live || live.unit_amount == null) return fallback(item, true);
+    return {
+      ...item,
+      price: money(live.unit_amount),
+      live: true,
+      missing: false,
+      mismatch:
+        live.unit_amount === item.amountCents
+          ? null
+          : `Stripe charges ${money(live.unit_amount)}, the price list says ${money(item.amountCents)}`,
+    };
+  };
+
+  const packs = PACKS.map(price);
+  const memberships = MEMBERSHIPS.map(price);
+  const topups = TOPUPS.map(price);
+
+  return {
+    packs,
+    memberships,
+    topups,
+    anyMissing: [...packs, ...memberships, ...topups].some((p) => p.missing),
+  };
 }

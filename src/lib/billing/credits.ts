@@ -66,6 +66,14 @@ export async function getWallet(): Promise<Wallet> {
 const BILLING_NOT_INSTALLED = new Set(["PGRST202", "42883"]);
 let warnedNotInstalled = false;
 
+/**
+ * Returned instead of a spend id when an Unlimited member has reached the
+ * fair-use ceiling. It is deliberately not a uuid and not null: null means
+ * "you have run out, here is the paywall", which would be both wrong and
+ * insulting to somebody paying S$88.80 a month.
+ */
+export const FAIR_USE_REACHED = "fair_use_reached";
+
 export async function reserveCredit(): Promise<string | null> {
   if (!isSupabaseConfigured()) return "unmetered";
   const supabase = await createClient();
@@ -107,6 +115,12 @@ export async function reserveCredit(): Promise<string | null> {
         error.message,
       );
       return "unmetered";
+    }
+
+    /* An Unlimited member who has hit the fair-use ceiling. Not a paywall:
+       they are paying, and the right answer is a conversation. */
+    if (/fair_use_reached/.test(error.message ?? "")) {
+      return FAIR_USE_REACHED;
     }
 
     const missing =

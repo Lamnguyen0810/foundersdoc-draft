@@ -1298,6 +1298,20 @@ function Chat({
     revisingRef.current = true;
     setRevising(true);
     setError(null);
+
+    /* ── DON'T SPIN FOREVER ────────────────────────────────────────────────
+       Identical to generate(). A killed function never closes its stream, so
+       fetch waits indefinitely and the page sits on "Revising…" with no error
+       and no way back. The server now sends a line every few seconds whether
+       or not it has text, so silence really does mean the connection is gone. */
+    const REVISE_STALL_MS = 30_000;
+    const giveUp = new AbortController();
+    let stall: ReturnType<typeof setTimeout> | undefined;
+    const heard = () => {
+      clearTimeout(stall);
+      stall = setTimeout(() => giveUp.abort(new Error("stalled")), REVISE_STALL_MS);
+    };
+    heard();
     setPaywalled(false);
     setFollow((f) => [...f, { who: "me", text: instruction }]);
 
@@ -1305,6 +1319,7 @@ function Chat({
       const res = await fetch("/api/revise", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        signal: giveUp.signal,
         body: JSON.stringify({
           draftId,
           instruction,
@@ -1336,6 +1351,7 @@ function Chat({
       for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
+        heard();
         buffer += decoder.decode(value, { stream: true });
         let nl: number;
         while ((nl = buffer.indexOf("\n")) !== -1) {
@@ -1346,6 +1362,10 @@ function Chat({
           try {
             msg = JSON.parse(raw);
           } catch {
+            continue;
+          }
+          if (msg.t === "ping") {
+            // Proof of life only; heard() above has already done the work.
             continue;
           }
           if (msg.t === "retry") {
@@ -1415,8 +1435,17 @@ function Chat({
         setError("The revision did not materially change the document. Please try again.");
       }
     } catch {
-      setError("Could not reach the drafting service. Check your connection and try again.");
+      if (giveUp.signal.aborted) {
+        setError(
+          "The drafting service stopped responding, so the revision was abandoned rather than " +
+            "left spinning. Your document is unchanged. Check the credit count before trying " +
+            "again — if it has not come back, that revision was charged for.",
+        );
+      } else {
+        setError("Could not reach the drafting service. Check your connection and try again.");
+      }
     } finally {
+      clearTimeout(stall);
       revisingRef.current = false;
       setRevising(false);
     }

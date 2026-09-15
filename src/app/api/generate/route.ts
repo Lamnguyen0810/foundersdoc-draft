@@ -28,6 +28,7 @@ import { PAID_BENCHMARK, costUsd, priceFor } from "@/lib/ai/pricing";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
 import {
+  FAIR_USE_REACHED,
   attachDraft,
   currentBalance,
   refundCredit,
@@ -166,6 +167,22 @@ export async function POST(req: NextRequest) {
      The price of reserving first is that a failed draft has already been paid
      for — so every exit path below hands it back. */
   const spendId = await reserveCredit();
+
+  /* A paying member who has reached the monthly fair-use ceiling. A paywall
+     here would be wrong — they have already paid — so say what has actually
+     happened and point them at a person rather than a payment form. */
+  if (spendId === FAIR_USE_REACHED) {
+    return Response.json(
+      {
+        error:
+          "You have reached this month's fair-use limit on the Unlimited plan. Nothing is wrong " +
+          "with your account and nothing has been charged — get in touch and we will raise it.",
+        code: "fair_use",
+      },
+      { status: 429 },
+    );
+  }
+
   if (!spendId) {
     return Response.json(
       {
