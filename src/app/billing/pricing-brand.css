@@ -47,7 +47,7 @@
 .fdp .exclusive-pill {
   background: var(--aura), rgba(255, 253, 247, 0.9);
   border: 1px solid rgba(243, 191, 75, 0.38);
-  color: #7a5a18;
+  /* No colour here: the design gives each of these its own, and they differ. */
   /* A pill is as wide as its words. Inside a column flex container it would
      otherwise stretch the full width of the card and stop looking like one. */
   align-self: flex-start;
@@ -96,44 +96,27 @@
   box-shadow: 0 0 0 3px rgba(243, 191, 75, 0.18);
 }
 
-/* ── the cards themselves ────────────────────────────────────────────────
-   The recommended card gets the bloom in the corner rather than a border in
-   full colour: the eye goes to it without the card shouting. */
-.fdp .hero-side,
-.fdp .membership-grid .card.featured {
-  background-image: var(--aura-soft);
-  background-repeat: no-repeat;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  /* Nothing here animates, but the auras sit under elements that do; keeping
-     them opaque avoids a bloom that appears to pulse when it should not. */
-  .fdp .hero-side,
-  .fdp .membership-grid .card.featured {
-    background-image: none;
-  }
-}
+/* The cards themselves are left exactly as the design has them. An earlier
+   version of this file washed a bloom across the whole recommendation card and
+   the featured Pro card, which is more than "make the yellow an aura" asked
+   for — it changed the weight of the page. The pills and the hairlines carry
+   the colour; the cards keep the designer's own gradients. */
 
 
 /* ===========================================================================
-   THE CLIPPED DESCENDERS
+   THE CLIPPED DESCENDERS — AND WHY THERE IS NO RULE HERE FOR THEM
    ---------------------------------------------------------------------------
-   The hero heading is painted with `background-clip: text` — that is what makes
-   the gold shimmer sweep across the words. A background is only painted inside
-   the element's box, and at `line-height: 1.06` the box ends ABOVE where the
-   descenders reach, so the tails of g, y and p on the last line received no
-   paint at all. With `color: transparent` on top of that, they were not clipped
-   so much as never drawn.
+   The tails of g, y and p on the hero heading were sliced flat. The first fix
+   was to grow the heading's paint box, because the heading is painted with
+   background-clip:text and a background only paints inside the element's box.
 
-   The fix grows the paint box downward and pulls the layout back up by exactly
-   the same amount, so every glyph is painted and nothing on the page moves.
-   Changing line-height would have fixed it too, and would have reflowed the
-   designer's heading — which is the one thing not to do here.
+   That was treating the symptom. The cause was the typeface: globals.css was
+   substituting Geist for the design's Inter, and Geist's descenders reach
+   further below the baseline than the line box allowed. Restoring Inter (see
+   below) makes the glyphs fit as the designer's own file always did, verified
+   in a browser at the same width — so the padding trick is gone and this page
+   now matches the design file to the pixel rather than approximately.
    ========================================================================= */
-.fdp .hero h1 {
-  padding-bottom: 0.16em;
-  margin-bottom: -0.16em;
-}
 
 /* ===========================================================================
    THE ACCOUNT LINE
@@ -187,4 +170,131 @@
   .fdp .account-line a {
     margin-left: 0;
   }
+}
+
+
+/* ===========================================================================
+   THE HEADINGS WERE IN THE WRONG TYPEFACE
+   ---------------------------------------------------------------------------
+   globals.css sets `h1, h2, h3 { font-family: var(--display) }` — Geist —
+   twice, for the whole application. The design sets Inter on the body and lets
+   headings inherit it, and it never declares font-family on a heading, so
+   there was nothing in the generated stylesheet to push back with. Every
+   heading on this page was therefore rendered in a typeface the designer did
+   not choose, at a weight and letter-spacing they did not set, and the
+   different metrics are why the descenders sat where they did.
+
+   This is the general hazard of dropping a designed page into an application:
+   what leaks in is not the rules you can see in the design, it is the ones it
+   never had to write down because a browser's defaults were already right.
+
+   So bare element defaults are restored inside .fdp, and the design's own
+   rules — all of which are more specific than these — land on top unchanged.
+   ========================================================================= */
+/* ===========================================================================
+   THE INHERITED TYPE SCALE
+   ---------------------------------------------------------------------------
+   globals.css sets `font-size: 15px`, `line-height: 1.6` and
+   `letter-spacing: -0.005em` on the body, for the whole application. The
+   design sets none of those, so it was built against a browser's 16px and
+   `normal` line-height — and everything on the page that does not declare its
+   own size or leading was inheriting ours instead. That is why the cards came
+   out taller than the design file, line by line, all the way down.
+
+   These three lines put the page back on the type scale it was drawn to. Every
+   rule the design does declare is more specific and still wins.
+   ========================================================================= */
+.fdp {
+  font-size: 16px;
+  line-height: normal;
+  letter-spacing: normal;
+}
+
+/* ===========================================================================
+   .kicker WAS HIDDEN
+   ---------------------------------------------------------------------------
+   globals.css carries `.kicker { display: none }`, from somewhere else in the
+   application. The design uses `.kicker` for the small label above every
+   section heading — "Start here", "Option one", "Option two", "Members only",
+   "Quick guide" — so on our page every one of them was invisible. Nothing in
+   the generated stylesheet said `display`, so there was nothing to push back.
+
+   This is the case for namespacing a design under one class and still checking
+   the result against the original: scoping stops the design leaking OUT, and
+   does nothing about what leaks IN.
+   ========================================================================= */
+.fdp .kicker {
+  display: block;
+}
+
+.fdp h1,
+.fdp h2,
+.fdp h3,
+.fdp h4 {
+  font-family: inherit; /* Inter, from .fdp */
+  font-weight: bold; /* what the design assumed, having set none */
+  letter-spacing: normal;
+  line-height: normal;
+}
+
+
+/* ===========================================================================
+   THE TWO HERO BUTTONS WERE THE WRONG SHAPE
+   ---------------------------------------------------------------------------
+   The design writes these as <button>, which is inline-block, so
+   `height: 46px` and `padding: 0 18px` give it a 46px pill with the label
+   centred. Porting them to <a> — necessary, because the design scrolled with
+   an inline onclick handler and React does not take one — made them inline,
+   and an inline box ignores height entirely. Both pills came out short, with
+   the text sitting against the top edge.
+
+   The fix is the display mode, not the measurements: every number below is
+   still the designer's.
+   ========================================================================= */
+.fdp .hero-actions .btn-primary,
+.fdp .hero-actions .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* The design scrolled these two with scrollIntoView({behavior:"smooth"}).
+   As anchors they need the same courtesy from CSS, and it has to sit on the
+   element that actually scrolls — which is the document, not .fdp, where the
+   generator put the design's own `html { scroll-behavior }` rule. Scoped with
+   :has() so no other page in the application starts scrolling differently. */
+html:has(.fdp) {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.fdp) {
+    scroll-behavior: auto;
+  }
+}
+
+
+/* ===========================================================================
+   .fdp MUST NOT BECOME ITS OWN SCROLL CONTAINER
+   ---------------------------------------------------------------------------
+   The design writes `body { position: relative; overflow-x: hidden }` to keep
+   its two ambient glows from ever widening the page. Namespacing turns `body`
+   into `.fdp`, and there it means something different: `overflow-x: hidden`
+   makes an element a scroll container in BOTH axes, so <main class="fdp">
+   started scrolling itself instead of the document. The page then rendered 18
+   pixels wider than the design — the document scrollbar was gone — and every
+   card, column and rule inherited that error.
+
+   It is also the same shape of mistake as the `html, body { overflow: clip }`
+   rule that once stopped every page in this application from scrolling: a
+   viewport-level declaration applied to an element that is not the viewport.
+
+   `clip` does the job the designer wanted — nothing escapes sideways — without
+   creating a scroll container, so the document scrolls as it should and the
+   measurements match the design file again.
+   ========================================================================= */
+.fdp {
+  overflow-x: clip;
 }
