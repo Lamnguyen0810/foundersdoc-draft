@@ -1898,6 +1898,7 @@ body:has(.login-stage) {
 
 .cat-credits-n {
   grid-area: n;
+  align-self: center;
   font-size: 28px;
   line-height: 1;
   font-weight: 600;
