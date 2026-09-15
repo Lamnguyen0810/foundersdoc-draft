@@ -22,11 +22,29 @@
 import Stripe from "stripe";
 import { PACKS, MEMBERSHIPS, TOPUPS, money } from "../src/lib/billing/plans.ts";
 
-const key = process.argv[2];
+/* PowerShell and copy-paste both like to bring friends: a trailing space, a
+   pair of quotes, an invisible newline. None of those are part of the key, and
+   all of them produce the same unhelpful 401 from Stripe. */
+const key = (process.argv[2] ?? "").trim().replace(/^["']|["']$/g, "");
 const allowLive = process.argv.includes("--live");
 
 if (!key) {
   console.error("usage: node scripts/create-stripe-products.mjs <sk_test_... | sk_live_...> [--live]");
+  process.exit(1);
+}
+
+if (!/^sk_(test|live)_/.test(key)) {
+  console.error(
+    "\nThat does not look like a SECRET key.\n\n" +
+      (key.startsWith("pk_")
+        ? "  It starts with pk_, which is the PUBLISHABLE key — the one meant for browsers.\n" +
+          "  You need the one starting sk_, on the same page, behind 'Reveal'.\n"
+        : key.startsWith("rk_")
+          ? "  It starts with rk_, a restricted key. It may not be allowed to create products.\n" +
+            "  Use the standard secret key (sk_test_…) instead.\n"
+          : "  A secret key starts with sk_test_ or sk_live_.\n") +
+      "\n  Stripe → Developers → API keys → Secret key → Reveal.\n",
+  );
   process.exit(1);
 }
 if (key.startsWith("sk_live_") && !allowLive) {
@@ -39,7 +57,46 @@ if (key.startsWith("sk_live_") && !allowLive) {
 
 const stripe = new Stripe(key);
 const mode = key.startsWith("sk_live_") ? "LIVE" : "test";
-console.log(`\nCreating FD AI products in the ${mode} account.\n`);
+
+/* Prove the key works before creating anything. Ten half-finished products
+   because the key was wrong is a worse place to be than a clear message. */
+try {
+  const account = await stripe.accounts.retrieve();
+  console.log(
+    `\nCreating FD AI products in the ${mode} account` +
+      (account.settings?.dashboard?.display_name
+        ? ` — ${account.settings.dashboard.display_name}`
+        : "") +
+      `.\n`,
+  );
+} catch (err) {
+  /* Stripe reports an auth failure in more than one shape depending on how the
+     request died, so check all of them rather than the one that happened to
+     show up in testing. */
+  const unauthorised =
+    err?.statusCode === 401 ||
+    err?.raw?.statusCode === 401 ||
+    err?.type === "StripeAuthenticationError" ||
+    err?.rawType === "authentication_error";
+
+  if (unauthorised) {
+    console.error(
+      "\nStripe rejected that key (401).\n\n" +
+        "  The key is wrong, revoked, or from a different account. The three usual causes:\n\n" +
+        "    1. It was rotated. A rotated key stops working immediately — if you rolled this\n" +
+        "       one after it was shared anywhere, you need the new one.\n" +
+        "    2. It was copied truncated. A secret key is long; check the whole thing came.\n" +
+        "    3. It is from the other mode. A sandbox key cannot touch the live account,\n" +
+        "       and the toggle at the top of the Stripe dashboard decides which you are\n" +
+        "       looking at.\n\n" +
+        "  Stripe → Developers → API keys → Secret key → Reveal.\n" +
+        "  Never paste it into a chat, an email or a commit — only into this command.\n",
+    );
+  } else {
+    console.error("\nCould not reach Stripe:", err?.message ?? err, "\n");
+  }
+  process.exit(1);
+}
 
 /** Every product this app sells, flattened into one shape. */
 const ITEMS = [
