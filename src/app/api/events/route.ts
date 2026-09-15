@@ -42,10 +42,26 @@ function refHost(referrer: unknown, selfHost: string): string | null {
   }
 }
 
-/** Path without the query string: /draft/7f3c… must not become a report row. */
+/**
+ * Path without the query string, and without any identifier in it.
+ *
+ * `/draft/7f3c…` names one matter. Left as it is, the top-pages report becomes
+ * a list of client files — sitting in a table the whole point of which is that
+ * it holds nothing privileged. So the id is replaced before the row is written,
+ * here on the server, where it applies to every caller rather than only the
+ * ones that remembered.
+ */
+const ID_SEGMENT = /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-zA-Z_-]{16,}|\d+)$/;
+
 function cleanPath(path: unknown): string | null {
   if (typeof path !== "string" || !path.startsWith("/")) return null;
-  return path.split(/[?#]/)[0].slice(0, 200);
+  const bare = path.split(/[?#]/)[0].slice(0, 200);
+  return (
+    bare
+      .split("/")
+      .map((seg) => (ID_SEGMENT.test(seg) ? ":id" : seg))
+      .join("/") || "/"
+  );
 }
 
 export async function POST(req: NextRequest) {
