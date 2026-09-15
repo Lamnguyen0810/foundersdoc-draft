@@ -1,105 +1,86 @@
 # Switching payments on
 
-Two stages: get it working in **test mode**, then flip three environment
-variables to go live. Nothing else changes — no code edit, no redeploy of a
-different branch.
+Everything the product sells is described in **`src/lib/billing/plans.ts`**. That
+file is the only place prices live in code. Stripe holds its own copy; the app
+never sends an amount to Stripe, only a **lookup key**, and Stripe resolves the
+key to its own price. If the two ever disagree, Stripe wins — the customer is
+charged what Stripe says, which is the safe direction for a mismatch to fail in,
+and the billing page shows the disagreement so you can fix it.
 
----
+## What is sold
 
-## Stage 1 — Supabase
+| | Item | Price | Credits | Expiry |
+|---|---|---|---|---|
+| Trial | 14 days | free | 3 | credits expire with the trial |
+| Bundle | Single / 3 / 5 | S$8.80 / S$24 / S$38 | 1 / 3 / 5 | never |
+| Membership | Basic / Pro | S$18.80 / S$49.80 a month | 3 / 10 a month | roll over while a member |
+| Membership | Unlimited | S$88.80 a month | fair use | — |
+| Top-up | 1 / 3 / 5 / 10 | S$6.80 / S$19.50 / S$31 / S$59 | 1 / 3 / 5 / 10 | never |
 
-Run `supabase/004_billing.sql` in the SQL editor. It creates the credit ledger
-and grants every existing account a free week.
+**The rule that matters:** membership credits roll over for as long as the
+membership lasts and stop when it is cancelled. Anything bought outright — a
+bundle, a top-up — is the customer's property and is never taken back. That
+distinction is enforced by `source` on `credit_grants`; see the note at the top
+of `supabase/010_pricing_model.sql` before changing it.
 
-Check it worked:
+Top-ups are member-only. The check is in the checkout route, on the server. A
+check in the browser would be a suggestion.
 
-```sql
-select trial_credits, trial_days from billing_config;   -- 3 and 7 by default
-select email, credits, trial_ends_at from billing_overview;
+## Setting up an account (sandbox or live)
+
+1. **Run the migration.** Paste `supabase/010_pricing_model.sql` into the
+   Supabase SQL editor. It prints six `OK` rows.
+
+2. **Create the products.**
+
+   ```
+   node scripts/create-stripe-products.mjs sk_test_...
+   ```
+
+   Safe to run twice: it skips anything that already exists and changes nothing.
+   For the live account, run it again with the live key and `--live` on the end.
+   The extra flag exists so a key pasted from the wrong tab cannot create real
+   products by accident.
+
+3. **Add the webhook.** Stripe → Developers → Webhooks → add an endpoint at
+   `https://foundersdoc.com/api/billing/webhook`, subscribed to:
+
+   - `checkout.session.completed`
+   - `invoice.paid`
+   - `customer.subscription.created`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `charge.refunded`
+
+   Copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
+
+4. **Turn on the customer portal.** Stripe → Settings → Billing → Customer
+   portal → activate. Without it, a member who wants to cancel has to email you.
+
+## Going live
+
+A change of three environment variables, and nothing else:
+
+```
+STRIPE_SECRET_KEY        sk_test_…  →  sk_live_…
+STRIPE_WEBHOOK_SECRET    whsec_…    →  the live endpoint's secret
+NEXT_PUBLIC_SITE_URL     https://foundersdoc.com
 ```
 
-To change the free week, change the row — no deploy:
+The lookup keys are identical in both accounts, so no code changes and no
+redeploy of anything but the environment. The billing page shows a **Test mode**
+or **Live mode** banner taken from the key's own prefix, so it cannot be left
+switched on by mistake or be absent when it matters.
+
+## The fair-use ceiling
+
+`billing_config.unlimited_monthly_cap` — 60 by default, and **0 means genuinely
+uncapped**. It is a row in the database rather than a constant in code, so
+changing it is an `UPDATE` and takes effect immediately:
 
 ```sql
-update billing_config set trial_credits = 5, trial_days = 14;
+update public.billing_config set unlimited_monthly_cap = 100 where id;
 ```
 
-## Stage 2 — Stripe, in test mode
-
-1. **Products.** Stripe → Product catalogue → add one product per pack. On each
-   product's price, open the ⋯ menu → **Edit price** → set the **lookup key**:
-
-   | Pack | Lookup key | Credits |
-   |---|---|---|
-   | 3 documents | `fdai_pack_3` | 3 |
-   | 10 documents | `fdai_pack_10` | 10 |
-   | 25 documents | `fdai_pack_25` | 25 |
-
-   The lookup key is the whole trick: the code never mentions a `price_…` id, so
-   the same build works against test and live accounts.
-
-   Prices and names shown on the page come from `src/lib/billing/packs.ts`;
-   the amount actually charged always comes from Stripe.
-
-2. **API key.** Developers → API keys → copy the **secret key** (`sk_test_…`).
-
-3. **Webhook.** Developers → Webhooks → Add endpoint:
-   - URL: `https://foundersdoc.com/api/billing/webhook`
-   - Events: `checkout.session.completed` and `charge.refunded`
-   - Copy the **signing secret** (`whsec_…`).
-
-## Stage 3 — Vercel
-
-| Variable | Value | Type |
-|---|---|---|
-| `STRIPE_SECRET_KEY` | `sk_test_…` | Secret |
-| `STRIPE_WEBHOOK_SECRET` | `whsec_…` | Secret |
-| `SUPABASE_SECRET_KEY` | Supabase → API Keys → **secret** | Secret |
-| `NEXT_PUBLIC_SITE_URL` | `https://foundersdoc.com` | Config |
-
-`SUPABASE_SECRET_KEY` is the one key this project otherwise never uses. Only the
-Stripe webhook touches it, because a webhook arrives with no signed-in user and
-must still credit an account. It must never carry a `NEXT_PUBLIC_` prefix.
-
-## Stage 4 — Supabase sign-up
-
-Authentication → Providers → Email → turn **Enable sign-ups** on, so
-`/signup` works. Keep **Confirm email** on.
-
-## Stage 5 — Test it
-
-Buy a pack with Stripe's test card: **4242 4242 4242 4242**, any future expiry,
-any CVC, any postcode.
-
-| Check | Expect |
-|---|---|
-| `/billing` | A "Test mode" banner, and your balance |
-| After paying | Credits appear within a few seconds |
-| `/draft` → generate | Balance drops by one |
-| Run out, then generate | The paywall message, not an error |
-| Stripe → Webhooks → the endpoint | Recent deliveries all `200` |
-
-## Stage 6 — Go live
-
-1. Recreate the same three products in **live** mode with the **same lookup keys**.
-2. Replace `STRIPE_SECRET_KEY` with `sk_live_…` and `STRIPE_WEBHOOK_SECRET` with
-   the live endpoint's signing secret.
-3. Redeploy.
-
-The "Test mode" banner disappears by itself — it is driven by the key prefix, so
-it cannot be left on by mistake, and it cannot appear when you are live.
-
----
-
-## Before the first real payment
-
-- [ ] `GEMINI_API_KEY` moved to a **paid** Google billing account. Free-tier
-      input may be used to improve Google's models and may be read by human
-      reviewers. Do not take money from people whose information goes there.
-- [ ] Vercel on a **Pro** plan. Hobby is licensed for non-commercial use only.
-- [ ] A privacy policy published, and the analytics and billing data named in it.
-- [ ] Terms of service updated: what a credit buys, refunds, and that a draft is
-      not legal advice.
-- [ ] Decided, and written down, whether a subscriber is a client of the firm.
-      If they are, conflicts and customer due diligence belong in the sign-up
-      flow, not in a footer.
+A member who reaches it is not shown a paywall. They get a 429 and a message
+saying to get in touch — they are paying, and the right answer is a conversation.

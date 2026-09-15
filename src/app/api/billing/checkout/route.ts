@@ -1,21 +1,24 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { getUser } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { isStripeConfigured, siteUrl, stripe } from "@/lib/billing/stripe";
-import { packByLookupKey } from "@/lib/billing/packs";
+import { membershipByLookupKey, packByLookupKey } from "@/lib/billing/plans";
 
 /**
- * Start a purchase.
+ * Start a purchase — a bundle, a top-up, or a membership.
  *
- * The browser asks for a pack by lookup key and gets back a URL to Stripe's own
- * hosted checkout page. That indirection is the entire PCI story: a card number
- * is typed on stripe.com, into Stripe's form, and this server never sees one —
- * not in a request body, not in a log, not in a crash report. For a law firm
- * that is not a nicety, it is the difference between a payment page and a
+ * The browser asks for something by lookup key and gets back a URL to Stripe's
+ * own hosted checkout page. That indirection is the entire PCI story: a card
+ * number is typed on stripe.com, into Stripe's form, and this server never sees
+ * one — not in a request body, not in a log, not in a crash report. For a law
+ * firm that is not a nicety, it is the difference between a payment page and a
  * compliance programme.
  *
- * The AMOUNT is never sent from the browser. The browser names a pack; the
- * price is fetched from Stripe by lookup key. Otherwise anyone could edit the
- * request and buy 25 documents for a dollar.
+ * ── WHAT THE BROWSER IS NOT TRUSTED WITH ────────────────────────────────────
+ * Not the amount: the browser names a lookup key and Stripe resolves the price,
+ * so editing the request cannot buy ten documents for a dollar.
+ * Not the credit count: it comes from the price list on the server.
+ * Not eligibility: top-ups are member-only, and that is checked here against
+ * the database, because a check in the browser is a suggestion.
  */
 export const dynamic = "force-dynamic";
 
@@ -30,36 +33,100 @@ export async function POST(req: NextRequest) {
   }
 
   const body = (await req.json().catch(() => ({}))) as { lookupKey?: string };
-  const pack = body.lookupKey ? packByLookupKey(body.lookupKey) : undefined;
-  if (!pack) {
-    return NextResponse.json({ error: "Unknown pack." }, { status: 400 });
+  const key = body.lookupKey ?? "";
+  const pack = packByLookupKey(key);
+  const membership = membershipByLookupKey(key);
+
+  if (!pack && !membership) {
+    return NextResponse.json({ error: "Unknown item." }, { status: 400 });
+  }
+
+  /* ── THE TOP-UP GATE ──────────────────────────────────────────────────────
+     Top-ups are cheaper per document than anything sold publicly, on the
+     understanding that the buyer is already paying a monthly fee. Without this
+     check, anyone who reads the page source buys at member prices for ever. */
+  if (pack?.kind === "topup") {
+    const supabase = await createClient();
+    const { data } = await supabase.rpc("active_membership");
+    const tier = Array.isArray(data) ? data[0]?.tier : undefined;
+    if (!tier) {
+      return NextResponse.json(
+        {
+          error:
+            "Top-ups are for members. Join Basic, Pro or Unlimited first, or buy a bundle at the " +
+            "standard price.",
+          code: "not_a_member",
+        },
+        { status: 403 },
+      );
+    }
   }
 
   const s = stripe();
   const origin = siteUrl(req.nextUrl.origin);
 
   try {
-    // Price by lookup key, so test and live differ only by which keys are set.
-    const prices = await s.prices.list({ lookup_keys: [pack.lookupKey], active: true, limit: 1 });
+    const prices = await s.prices.list({ lookup_keys: [key], active: true, limit: 1 });
     const price = prices.data[0];
     if (!price) {
       return NextResponse.json(
         {
           error:
-            `No active Stripe price with lookup key "${pack.lookupKey}". Create the product in ` +
-            `Stripe and set that lookup key on its price.`,
+            `No active Stripe price with lookup key "${key}". Run ` +
+            `scripts/create-stripe-products.mjs against this Stripe account.`,
         },
         { status: 500 },
       );
     }
 
     /* One Stripe customer per account, found by email and remembered on the
-       session. Without this, a returning buyer becomes a second customer and
-       the firm's Stripe dashboard fills with duplicates of the same person. */
+       session. Without this a returning buyer becomes a second customer, and
+       — far worse for a subscription — could end up paying twice. */
     const existing = await s.customers.list({ email: user.email, limit: 1 });
     const customer =
       existing.data[0] ??
       (await s.customers.create({ email: user.email, metadata: { supabase_user_id: user.id } }));
+
+    if (membership) {
+      /* Already a member? Send them to Stripe's billing portal to change or
+         cancel, rather than letting them buy a second subscription alongside
+         the first — which Stripe will happily do, and then charge for both. */
+      const subs = await s.subscriptions.list({ customer: customer.id, status: "active", limit: 1 });
+      if (subs.data.length > 0) {
+        const portal = await s.billingPortal.sessions.create({
+          customer: customer.id,
+          return_url: `${origin}/billing`,
+        });
+        return NextResponse.json({ url: portal.url, changed: true });
+      }
+
+      const session = await s.checkout.sessions.create({
+        mode: "subscription",
+        customer: customer.id,
+        line_items: [{ price: price.id, quantity: 1 }],
+        success_url: `${origin}/billing?joined=1&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/billing?cancelled=1`,
+        metadata: {
+          supabase_user_id: user.id,
+          tier: membership.tier,
+          lookup_key: membership.lookupKey,
+        },
+        /* Copied onto the subscription itself, not just the checkout session.
+           Renewal invoices months from now carry no memory of the session that
+           started them, so without this the webhook would have no idea whose
+           account to credit on the second month. */
+        subscription_data: {
+          metadata: {
+            supabase_user_id: user.id,
+            tier: membership.tier,
+            monthly_credits: String(membership.monthlyCredits ?? 0),
+          },
+        },
+        allow_promotion_codes: true,
+      });
+
+      return NextResponse.json({ url: session.url });
+    }
 
     const session = await s.checkout.sessions.create({
       mode: "payment",
@@ -70,11 +137,12 @@ export async function POST(req: NextRequest) {
       // The webhook trusts these, and nothing else, to decide who gets credited.
       metadata: {
         supabase_user_id: user.id,
-        credits: String(pack.credits),
-        lookup_key: pack.lookupKey,
+        credits: String(pack!.credits),
+        lookup_key: pack!.lookupKey,
+        source: pack!.kind === "topup" ? "topup" : "purchase",
       },
       payment_intent_data: {
-        metadata: { supabase_user_id: user.id, credits: String(pack.credits) },
+        metadata: { supabase_user_id: user.id, credits: String(pack!.credits) },
       },
       // A receipt the buyer can produce for their own accounts.
       invoice_creation: { enabled: true },

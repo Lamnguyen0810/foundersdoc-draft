@@ -4,7 +4,8 @@ import { getUser, createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getWallet } from "@/lib/billing/credits";
 import { isStripeConfigured, stripeMode } from "@/lib/billing/stripe";
-import { pricedPacks } from "@/lib/billing/prices";
+import { pricedCatalogue } from "@/lib/billing/prices";
+import { TRIAL } from "@/lib/billing/plans";
 import BuyButtons from "./BuyButtons";
 
 export const metadata = { title: "Credits — FD AI" };
@@ -25,16 +26,46 @@ interface GrantRow {
 export default async function BillingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ paid?: string; cancelled?: string }>;
+  searchParams: Promise<{ paid?: string; cancelled?: string; joined?: string }>;
 }) {
   if (!isSupabaseConfigured()) redirect("/draft");
   const user = await getUser();
   if (!user) redirect("/login?next=%2Fbilling");
 
-  const { paid, cancelled } = await searchParams;
+  const { paid, cancelled, joined } = await searchParams;
   const wallet = await getWallet();
   const mode = stripeMode();
-  const packs = await pricedPacks();
+  const catalogue = await pricedCatalogue();
+
+  /* One round trip for balance, membership and fair-use usage. The database
+     decides all three — the page never works any of it out for itself. */
+  let membership: {
+    tier: string | null;
+    status: string | null;
+    period_end: string | null;
+    unlimited_cap: number;
+    unlimited_used: number;
+  } | null = null;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.rpc("billing_summary");
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row) {
+      membership = {
+        tier: row.tier ?? null,
+        status: row.status ?? null,
+        period_end: row.period_end ?? null,
+        unlimited_cap: Number(row.unlimited_cap ?? 0),
+        unlimited_used: Number(row.unlimited_used ?? 0),
+      };
+    }
+  } catch {
+    // The page still works without it; it just shows no membership panel.
+  }
+
+  const tier = membership?.tier ?? null;
+  const isMember = Boolean(tier);
+  const isUnlimited = tier === "unlimited";
 
   let history: GrantRow[] = [];
   try {
@@ -88,6 +119,13 @@ export default async function BillingPage({
           directly, so if the number below has not moved yet, reload in a moment.
         </p>
       )}
+      {joined && (
+        <p className="note note-ok" style={{ marginBottom: 20 }}>
+          <b>Welcome to FD AI.</b> Your membership is active and this month&rsquo;s documents are on
+          your account within a few seconds. Stripe tells us directly, so reload in a moment if the
+          number below has not moved.
+        </p>
+      )}
       {cancelled && (
         <p className="note" style={{ marginBottom: 20 }}>
           Checkout cancelled. Nothing was charged.
@@ -111,24 +149,69 @@ export default async function BillingPage({
         <p style={{ fontSize: 44, lineHeight: 1.1, margin: "8px 0 0", letterSpacing: "-0.03em" }}>
           {wallet.credits}
         </p>
-        {trialLive ? (
+        {isUnlimited ? (
           <p className="sub" style={{ marginTop: 10, fontSize: 14 }}>
-            Your free week runs until <b style={{ color: "var(--ink)" }}>{when(wallet.trialEndsAt!)}</b>.
-            Unused trial credits stop then — bought credits never expire.
+            You are on <b style={{ color: "var(--ink)" }}>Unlimited</b> — drafting does not spend
+            these.{" "}
+            {membership!.unlimited_cap > 0 && (
+              <>
+                You have drafted <b style={{ color: "var(--ink)" }}>{membership!.unlimited_used}</b>{" "}
+                of {membership!.unlimited_cap} documents this month under fair use.
+              </>
+            )}
+          </p>
+        ) : trialLive ? (
+          <p className="sub" style={{ marginTop: 10, fontSize: 14 }}>
+            Your {TRIAL.days}-day free trial runs until{" "}
+            <b style={{ color: "var(--ink)" }}>{when(wallet.trialEndsAt!)}</b>. Unused trial
+            documents stop then — bought ones never expire.
           </p>
         ) : wallet.credits === 0 ? (
           <p className="sub" style={{ marginTop: 10, fontSize: 14 }}>
-            Your free week has finished. Add credits to draft again. Everything you have already
-            drafted stays in <Link href="/history">your history</Link>, readable and downloadable.
+            Your trial has finished. Buy documents or join a membership to draft again. Everything
+            you have already drafted stays in <Link href="/history">your history</Link>, readable
+            and downloadable.
+          </p>
+        ) : isMember ? (
+          <p className="sub" style={{ marginTop: 10, fontSize: 14 }}>
+            Unused documents carry over each month for as long as your membership lasts. Anything
+            you bought outright stays yours either way.
           </p>
         ) : (
           <p className="sub" style={{ marginTop: 10, fontSize: 14 }}>These do not expire.</p>
         )}
       </section>
 
-      {/* ── the packs ─────────────────────────────────────────────────────── */}
-      <h2 style={{ fontSize: 19, marginBottom: 14 }}>Add credits</h2>
+      {/* ── membership status, when there is one ──────────────────────────── */}
+      {isMember && (
+        <section
+          style={{
+            border: "1px solid var(--grey-2)",
+            borderRadius: 14,
+            padding: "18px 20px",
+            background: "var(--white)",
+            marginBottom: 28,
+          }}
+        >
+          <p style={{ margin: 0, fontSize: 15 }}>
+            <b style={{ textTransform: "capitalize" }}>{tier}</b> membership
+            {membership!.status === "past_due" && (
+              <span style={{ color: "#c2410c" }}> — payment needs attention</span>
+            )}
+          </p>
+          {membership!.period_end && (
+            <p className="sub" style={{ margin: "6px 0 0", fontSize: 13 }}>
+              Renews {when(membership!.period_end)}.
+            </p>
+          )}
+          <p className="sub" style={{ margin: "6px 0 0", fontSize: 13 }}>
+            To change or cancel, choose any membership below and you will be taken to Stripe, where
+            your card details are held.
+          </p>
+        </section>
+      )}
 
+      {/* ── what is for sale ──────────────────────────────────────────────── */}
       {!isStripeConfigured() ? (
         <p className="note note-warn">
           Payments are not switched on yet. Set <code>STRIPE_SECRET_KEY</code> and{" "}
@@ -136,15 +219,38 @@ export default async function BillingPage({
         </p>
       ) : (
         <>
-          {packs.some((p) => p.missing) && (
+          {catalogue.anyMissing && (
             <p className="note note-warn" style={{ marginBottom: 14 }}>
-              <b>Some packs are not set up in Stripe yet.</b> Create a product for each and set
-              its price&rsquo;s <b>lookup key</b> to{" "}
-              {packs.filter((p) => p.missing).map((p) => <code key={p.lookupKey} style={{ marginRight: 6 }}>{p.lookupKey}</code>)}
-              — the prices below are placeholders until you do, and those buttons will not work.
+              <b>Some products do not exist in Stripe yet.</b> Run{" "}
+              <code>node scripts/create-stripe-products.mjs &lt;secret key&gt;</code> against this
+              Stripe account. Until then the prices shown are from the price list, not from Stripe,
+              and those buttons will not work.
             </p>
           )}
-          <BuyButtons packs={packs} />
+
+          <h2 style={{ fontSize: 19, marginBottom: 4 }}>Membership</h2>
+          <p className="sub" style={{ margin: "0 0 14px", fontSize: 14 }}>
+            A monthly allowance that carries over for as long as you stay a member. Better value
+            than buying one at a time, and members pay less for extra documents.
+          </p>
+          <BuyButtons items={catalogue.memberships} highlightTier="pro" currentTier={tier} />
+
+          <h2 style={{ fontSize: 19, margin: "36px 0 4px" }}>Buy as you go</h2>
+          <p className="sub" style={{ margin: "0 0 14px", fontSize: 14 }}>
+            No commitment. These never expire.
+          </p>
+          <BuyButtons items={catalogue.packs} />
+
+          {isMember && !isUnlimited && (
+            <>
+              <h2 style={{ fontSize: 19, margin: "36px 0 4px" }}>Member top-ups</h2>
+              <p className="sub" style={{ margin: "0 0 14px", fontSize: 14 }}>
+                Your member price, for when this month&rsquo;s allowance runs out before the next
+                one arrives. These never expire either.
+              </p>
+              <BuyButtons items={catalogue.topups} />
+            </>
+          )}
         </>
       )}
 
@@ -168,7 +274,17 @@ export default async function BillingPage({
                   <tr key={idx} style={{ borderTop: "1px solid var(--grey-2)" }}>
                     <td style={{ padding: "10px 10px 10px 0" }}>{when(g.created_at)}</td>
                     <td style={{ padding: "10px" }}>
-                      {g.source === "trial" ? "Free week" : g.source === "purchase" ? "Purchase" : g.source}
+                      {g.source === "trial"
+                        ? "Free trial"
+                        : g.source === "purchase"
+                          ? "Bundle"
+                          : g.source === "membership"
+                            ? "Membership"
+                            : g.source === "topup"
+                              ? "Member top-up"
+                              : g.source === "gift"
+                                ? "Added by Founders Doc"
+                                : g.source}
                     </td>
                     <td style={{ padding: "10px" }}>{g.credits}</td>
                     <td style={{ padding: "10px" }}>{g.remaining}</td>

@@ -4,6 +4,43 @@ import { isStripeConfigured, stripe, webhookSecret } from "@/lib/billing/stripe"
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
+ * Keep the local copy of a subscription in step with Stripe's.
+ *
+ * Stripe is the authority; this row exists only so that generating a draft is
+ * one database read instead of a network call to Stripe. Everything is taken
+ * from the event — nothing is inferred — and the row is keyed on the Stripe
+ * subscription id so events arriving out of order converge on the same row
+ * rather than creating a second one.
+ */
+async function upsertSubscription(
+  db: ReturnType<typeof supabaseAdmin>,
+  userId: string,
+  sub: Stripe.Subscription,
+): Promise<void> {
+  const s = sub as Stripe.Subscription & {
+    current_period_start?: number | null;
+    current_period_end?: number | null;
+  };
+  const seconds = (v: number | null | undefined) =>
+    typeof v === "number" ? new Date(v * 1000).toISOString() : null;
+
+  const { error } = await db.from("subscriptions").upsert(
+    {
+      user_id: userId,
+      stripe_customer_id: typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null,
+      stripe_subscription_id: sub.id,
+      tier: sub.metadata?.tier ?? "basic",
+      status: sub.status,
+      current_period_start: seconds(s.current_period_start),
+      current_period_end: seconds(s.current_period_end),
+      cancel_at_period_end: Boolean(sub.cancel_at_period_end),
+    },
+    { onConflict: "stripe_subscription_id" },
+  );
+  if (error) throw error;
+}
+
+/**
  * Where Stripe tells us a payment really happened.
  *
  * ── WHY CREDITS ARE NOT GRANTED ON THE SUCCESS PAGE ─────────────────────────
@@ -73,12 +110,22 @@ export async function POST(req: NextRequest) {
           return ok("no metadata");
         }
 
+        /* A subscription checkout has no `credits` on it — the credits arrive
+           with the invoice, below. Handled there so the first month and the
+           twelfth take exactly the same path. */
+        if (session.mode === "subscription") return ok("subscription start handled by invoice");
+
+        /* Bundles and top-ups are both bought outright and never expire; the
+           source is recorded so cancellation can tell them apart from the
+           monthly membership allowance, which does end. */
+        const source = session.metadata?.source === "topup" ? "topup" : "purchase";
+
         const { error } = await db.from("credit_grants").insert({
           user_id: userId,
           credits,
           remaining: credits,
-          source: "purchase",
-          expires_at: null, // paid credits do not expire
+          source,
+          expires_at: null, // bought credits do not expire
           stripe_ref: session.id,
         });
 
@@ -92,7 +139,76 @@ export async function POST(req: NextRequest) {
             .upsert({ user_id: userId, stripe_customer_id: session.customer }, { onConflict: "user_id" });
         }
 
-        return ok(`granted ${credits} credits`);
+        return ok(`granted ${credits} ${source} credits`);
+      }
+
+      /* ── THE MONTHLY ALLOWANCE ──────────────────────────────────────────
+         Every membership payment lands here — the first one and every renewal
+         — so there is one code path and no "first month is special" bug. The
+         invoice id is the idempotency key, and the database function ignores a
+         repeat, because Stripe WILL deliver this twice eventually. */
+      case "invoice.paid":
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice & {
+          subscription?: string | Stripe.Subscription | null;
+        };
+        const subRef = invoice.subscription;
+        const subId = typeof subRef === "string" ? subRef : subRef?.id;
+        if (!subId) return ok("invoice not for a subscription");
+
+        const sub = await stripe().subscriptions.retrieve(subId);
+        const userId = sub.metadata?.supabase_user_id;
+        const tier = sub.metadata?.tier;
+        const monthly = Number(sub.metadata?.monthly_credits ?? 0);
+
+        if (!userId || !tier) {
+          console.error("[webhook] subscription without metadata:", subId);
+          return ok("subscription missing metadata");
+        }
+
+        await upsertSubscription(db, userId, sub);
+
+        // Unlimited grants no credits — it is metered by fair use instead.
+        if (!Number.isFinite(monthly) || monthly <= 0) {
+          return ok(`${tier}: no monthly credits to grant`);
+        }
+
+        const { error: grantError } = await db.rpc("grant_membership_credits", {
+          p_user_id: userId,
+          p_credits: monthly,
+          p_ref: `invoice_${invoice.id}`,
+        });
+        if (grantError) throw grantError;
+
+        return ok(`${tier}: granted ${monthly} monthly credits`);
+      }
+
+      /* ── STATUS CHANGES ─────────────────────────────────────────────────
+         Kept as a local copy so drafting never has to call Stripe. */
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        const sub = event.data.object;
+        const userId = sub.metadata?.supabase_user_id;
+        if (!userId) return ok("subscription without user metadata");
+        await upsertSubscription(db, userId, sub);
+        return ok(`subscription ${sub.status}`);
+      }
+
+      /* ── CANCELLATION ───────────────────────────────────────────────────
+         The monthly allowance stops. Anything BOUGHT — a bundle, a top-up —
+         is the customer's property and is deliberately left alone. Widening
+         this takes money from people who paid for it. */
+      case "customer.subscription.deleted": {
+        const sub = event.data.object;
+        const userId = sub.metadata?.supabase_user_id;
+        if (!userId) return ok("cancellation without user metadata");
+
+        await upsertSubscription(db, userId, sub);
+
+        const { error: endError } = await db.rpc("end_membership_credits", { p_user_id: userId });
+        if (endError) throw endError;
+
+        return ok("membership ended; bought credits untouched");
       }
 
       case "charge.refunded": {

@@ -8,7 +8,12 @@ import {
 } from "@/lib/ai/types";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
-import { currentBalance, refundCredit, reserveCredit } from "@/lib/billing/credits";
+import {
+  FAIR_USE_REACHED,
+  currentBalance,
+  refundCredit,
+  reserveCredit,
+} from "@/lib/billing/credits";
 
 /**
  * Revising a draft that already exists.
@@ -28,10 +33,29 @@ import { currentBalance, refundCredit, reserveCredit } from "@/lib/billing/credi
  * without a deploy.
  */
 export const runtime = "nodejs";
-// Matches /api/generate: the platform clamps anything higher and then kills
-// the function, which would refund nothing. See the note there.
-export const maxDuration = 120;
-const BUDGET_MS = 110_000;
+
+/**
+ * How long this function may run. Identical reasoning to /api/generate, and
+ * deliberately the identical number: two routes calling the same model on the
+ * same plan must not disagree about the ceiling, or one of them is wrong.
+ *
+ * This said 120 with a 110-second watchdog, which is only safe if Fluid compute
+ * is actually deployed. Without it the real ceiling is 60 seconds — so the
+ * watchdog would never fire, the platform would kill the function, and the
+ * credit reserved above would never be handed back.
+ */
+export const maxDuration = 300;
+
+/**
+ * Stop with enough time left to refund, explain and close cleanly. One setting
+ * shared with /api/generate: raise GENERATE_BUDGET_MS in Vercel once Fluid
+ * compute is on, and both routes move together.
+ */
+const BUDGET_MS = (() => {
+  const raw = Number(process.env.GENERATE_BUDGET_MS);
+  if (!Number.isFinite(raw) || raw < 5_000 || raw > 290_000) return 50_000;
+  return Math.floor(raw);
+})();
 
 function line(obj: unknown): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(obj) + "\n");
@@ -129,6 +153,20 @@ export async function POST(req: NextRequest) {
 
     if (used >= free) {
       spendId = await reserveCredit();
+
+      // Same as /api/generate: a member over fair use is not out of credits.
+      if (spendId === FAIR_USE_REACHED) {
+        return Response.json(
+          {
+            error:
+              "You have reached this month's fair-use limit on the Unlimited plan. Nothing has " +
+              "been charged — get in touch and we will raise it.",
+            code: "fair_use",
+          },
+          { status: 429 },
+        );
+      }
+
       if (!spendId) {
         return Response.json(
           {
@@ -153,7 +191,41 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       let acc = "";
       const startedAt = Date.now();
+      let firstChunkAt = 0;
+
+      /* ── THE DEADLINE ──────────────────────────────────────────────────
+         The watchdog below only runs between chunks, so it cannot see the
+         phase before the first one: connecting, queuing, retrying a busy
+         model, falling back to a lighter one. That phase has no natural
+         limit, and when it overruns the platform kills the function — no
+         refund, no message, and a revision the person paid for. */
+      const deadline = new AbortController();
+      const deadlineTimer = setTimeout(
+        () => deadline.abort(new Error("revise_budget_exhausted")),
+        BUDGET_MS,
+      );
+
+      /* ── HEARTBEAT ─────────────────────────────────────────────────────
+         Say something every few seconds while there is nothing to say, so the
+         browser can tell a slow revision from a dead connection. The client
+         ignores the content and notes only that a line arrived. */
+      let beat: ReturnType<typeof setInterval> | null = setInterval(() => {
+        try {
+          controller.enqueue(line({ t: "ping" }));
+        } catch {
+          // Already closed; nothing to keep alive.
+        }
+      }, 5_000);
+
+      const stopBeating = () => {
+        if (beat) {
+          clearInterval(beat);
+          beat = null;
+        }
+      };
+
       try {
+        try {
         // A completed, materially rewritten document is preferable to throwing
         // it away and starting a second generation that can exceed Vercel's
         // request limit. Depth is directed by the prompt and checked below.
@@ -164,19 +236,34 @@ export async function POST(req: NextRequest) {
             ? userMessage
             : `${userMessage}\n\nRETRY REQUIREMENT: The previous attempt did not materially reach the requested comprehensiveness level. Rewrite the complete document more decisively and stay within the requested word range.`;
 
-        for await (const event of generateDraftStream({ system: SYSTEM, user: attemptMessage })) {
+        for await (const event of generateDraftStream({
+          system: SYSTEM,
+          user: attemptMessage,
+          signal: deadline.signal,
+        })) {
+          /* Secondary guard. The deadline above is the real one and fires
+             first; this only matters if an abort were ever swallowed before
+             reaching us. refund_credit ignores a second refund of the same
+             spend, so the two paths cannot both give the credit back. */
           if (Date.now() - startedAt > BUDGET_MS) {
             if (spendId) await refundCredit(spendId, "timed out");
             controller.enqueue(
               line({
                 t: "error",
-                v: "That revision took longer than this plan allows and was stopped. Nothing was charged.",
+                v:
+                  "That revision was stopped before it finished, so the document you had is " +
+                  "unchanged and nothing was charged. Try again in a moment.",
                 code: "timeout",
               }),
             );
             return;
           }
           if (event.type === "text") {
+            if (!firstChunkAt) {
+              stopBeating();
+              firstChunkAt = Date.now();
+              console.info(`[/api/revise] first token after ${firstChunkAt - startedAt}ms`);
+            }
             acc += event.value;
             controller.enqueue(line({ t: "text", v: event.value }));
           } else if (event.type === "done") {
@@ -267,11 +354,35 @@ export async function POST(req: NextRequest) {
           }
         }
         }
+        } catch (err) {
+          /* Absorb ONLY our own deadline. Every other failure is a real error
+             and belongs to the outer catch, which reports it honestly. */
+          if (!deadline.signal.aborted) throw err;
+
+          const seconds = Math.round((Date.now() - startedAt) / 1000);
+          const waited = firstChunkAt
+            ? `${firstChunkAt - startedAt}ms waiting, then ${Date.now() - firstChunkAt}ms generating`
+            : "never received a first token — all of it was spent waiting on the model";
+          console.warn(`[/api/revise] stopped at ${seconds}s (${waited}). Credit refunded.`);
+
+          if (spendId) await refundCredit(spendId, "timed out");
+          controller.enqueue(
+            line({
+              t: "error",
+              v:
+                "That revision was stopped before it finished, so the document you had is " +
+                "unchanged and nothing was charged. Try again in a moment.",
+              code: "timeout",
+            }),
+          );
+        }
       } catch (err) {
         console.error("[/api/revise]", err);
         if (spendId) await refundCredit(spendId, err instanceof Error ? err.name : "error");
         controller.enqueue(line({ t: "error", v: friendly(err) }));
       } finally {
+        stopBeating();
+        clearTimeout(deadlineTimer);
         controller.close();
       }
     },
