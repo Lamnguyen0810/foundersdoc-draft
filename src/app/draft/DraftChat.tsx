@@ -469,6 +469,34 @@ function Catalogue({
   const totalDocs = CATALOGUE.reduce((t, g) => t + g[1].length, 0);
   const totalReady = CATALOGUE.reduce((t, g) => t + readyOf(g), 0);
 
+  /* ── WHAT "HIDE COMING SOON" HIDES ────────────────────────────────────────
+     It used to hide coming-soon DOCUMENTS and leave their folders standing —
+     so pressing it emptied four folders and left four rows reading "Coming
+     soon" in a list whose whole point was to be shorter. A folder with nothing
+     ready in it is a coming-soon folder, and goes with them.
+
+     Folders are carried with their real index because `folder` points into
+     CATALOGUE, not into this filtered view; renumbering here would select the
+     wrong folder the moment anything is hidden. */
+  const folderIndices = CATALOGUE.map((_, i) => i).filter(
+    (i) => showSoon || readyOf(CATALOGUE[i]) > 0,
+  );
+  const hiddenFolders = CATALOGUE.length - folderIndices.length;
+
+  /* Toggling off can hide the folder being looked at. Moving the selection is
+     done HERE, in the handler, rather than in an effect that watches showSoon:
+     an effect would set state during render and flash the empty folder first. */
+  const toggleSoon = () => {
+    const next = !showSoon;
+    /* Worked out before either setState, not inside the updater: an updater
+       has to be pure, and React runs it twice in development to prove it. */
+    if (!next && readyOf(CATALOGUE[folder]) === 0) {
+      const firstReady = CATALOGUE.findIndex((g) => readyOf(g) > 0);
+      if (firstReady >= 0) setFolder(firstReady);
+    }
+    setShowSoon(next);
+  };
+
   const results: { doc: CatDoc; group: string }[] = [];
   if (query) {
     for (const g of CATALOGUE) {
@@ -592,12 +620,20 @@ function Catalogue({
                 </>
               ) : (
                 <>
-                  <b>Documents</b> · {CATALOGUE.length} folders · {totalReady} ready to draft ·{" "}
-                  {totalDocs - totalReady} coming soon
+                  <b>Documents</b> · {folderIndices.length}{" "}
+                  {folderIndices.length === 1 ? "folder" : "folders"} · {totalReady} ready to
+                  draft{" "}
+                  {showSoon ? (
+                    <>· {totalDocs - totalReady} coming soon</>
+                  ) : hiddenFolders > 0 ? (
+                    <>
+                      · {hiddenFolders} {hiddenFolders === 1 ? "folder" : "folders"} hidden
+                    </>
+                  ) : null}
                 </>
               )}
             </span>
-            <button type="button" className="show-soon" onClick={() => setShowSoon((v) => !v)}>
+            <button type="button" className="show-soon" onClick={toggleSoon}>
               {showSoon ? "Hide coming soon" : "Show coming soon"}
             </button>
           </div>
@@ -605,7 +641,8 @@ function Catalogue({
           <div className="exwrap">
             <nav className="flist" aria-label="Document folders">
               {FDEFS}
-              {CATALOGUE.map((g, gi) => {
+              {folderIndices.map((gi) => {
+                const g = CATALOGUE[gi];
                 const matches = g[1].filter((d) => visible(d) && (!query || hit(d, g)));
                 const r = readyOf(g);
                 const soonN = g[1].length - r;

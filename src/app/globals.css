@@ -1856,44 +1856,93 @@ body:has(.login-stage) {
    Same visual family as .rail-credits, sized for the wider column: the number
    leads, because "how many drafts have I got" is the only question this
    answers, and it should be readable without being read. */
+/* ── the balance card, rebuilt ───────────────────────────────────────────── */
 .cat-credits {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+  /* The sidebar is a column flex with align-items:flex-start, so every card in
+     it shrinks to its own content. That gave a 296px balance card above a
+     194px admin card — two boxes of arbitrary, different widths stacked down a
+     476px column. Stretching both is what makes them read as a set. */
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas:
+    "n label action"
+    "n note  note";
+  column-gap: 12px;
+  row-gap: 2px;
+  align-items: baseline;
   margin-top: 26px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border: 1px solid var(--rule, #e6e6ea);
-  border-left: 2px solid var(--gold, #e9b03c);
-  border-radius: 11px;
+  border-radius: 12px;
   background: var(--card, #fff);
 }
+
+/* The gold was a 2px left border, which a 12px radius turns into a small
+   notch at each corner rather than a clean rule. A pseudo-element sits inside
+   the radius and stops short of both ends, so it reads as an accent. */
+.cat-credits {
+  position: relative;
+  overflow: hidden;
+}
+.cat-credits::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: var(--gold, #e9b03c);
+}
+
 .cat-credits-n {
-  font-size: 26px;
+  grid-area: n;
+  font-size: 28px;
   line-height: 1;
+  font-weight: 600;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
+
+/* The label and the note were one grid child, which is what left "Manage"
+   floating at the vertical centre of a two-line block, aligned to neither
+   line. They are separate cells now, so the link sits on the label's baseline
+   and the note runs the full width beneath. */
 .cat-credits-t {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: 1px;
+  display: contents;
 }
 .cat-credits-t b {
-  font-size: 13px;
+  grid-area: label;
+  font-size: 13.5px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 .cat-credits-t small {
+  grid-area: note;
   font-size: 11.5px;
+  line-height: 1.45;
   color: var(--grey-5, #6b6b76);
 }
+
 .cat-credits-a {
-  flex: none;
+  grid-area: action;
+  justify-self: end;
   font-size: 11.5px;
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  font-weight: 600;
   white-space: nowrap;
+  text-decoration: none;
+  border-bottom: 1px solid var(--rule-2, #d9d9de);
+  padding-bottom: 1px;
+  transition: border-color 0.15s;
+}
+.cat-credits-a:hover {
+  border-bottom-color: var(--ink, #1b1b1e);
+}
+
+/* The admin card is the balance card's neighbour; they should be one width. */
+.admin-open {
+  align-self: stretch;
 }
 
 
