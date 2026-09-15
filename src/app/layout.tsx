@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppNav, SiteFooter } from "@/components/SiteChrome";
+import PageView from "@/components/PageView";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getUser } from "@/lib/supabase/server";
 
@@ -56,6 +57,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             Running without accounts — nothing is saved. See SETUP_SUPABASE.md to enable sign-in.
           </p>
         )}
+
+        <PageView />
 
         <AppNav signedIn={Boolean(user)} userEmail={user?.email} />
 
