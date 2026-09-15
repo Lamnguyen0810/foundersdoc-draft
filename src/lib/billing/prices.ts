@@ -11,7 +11,16 @@
  */
 
 import { isStripeConfigured, stripe } from "./stripe";
-import { MEMBERSHIPS, PACKS, TOPUPS, money, type CreditPack, type Membership } from "./plans";
+import {
+  MEMBERSHIPS,
+  PACKS,
+  SELLING_CURRENCY,
+  TOPUPS,
+  money,
+  moneyIn,
+  type CreditPack,
+  type Membership,
+} from "./plans";
 
 export interface Priced {
   lookupKey: string;
@@ -23,6 +32,10 @@ export interface Priced {
   missing: boolean;
   /** Set when Stripe's price and ours disagree — always worth showing FD. */
   mismatch: string | null;
+  /** The currency Stripe will actually charge in, lower case, e.g. "sgd". */
+  currencyCode: string;
+  /** True when Stripe will charge in something other than Singapore dollars. */
+  wrongCurrency: boolean;
 }
 
 export type PricedPack = CreditPack & Priced;
@@ -34,10 +47,20 @@ export interface Catalogue {
   topups: PricedPack[];
   /** True when at least one product has not been created in Stripe yet. */
   anyMissing: boolean;
+  /** True when any live price is denominated in something other than SGD. */
+  anyWrongCurrency: boolean;
 }
 
 function fallback<T extends { lookupKey: string; amountCents: number }>(item: T, missing: boolean): T & Priced {
-  return { ...item, price: money(item.amountCents), live: false, missing, mismatch: null };
+  return {
+    ...item,
+    price: money(item.amountCents),
+    live: false,
+    missing,
+    mismatch: null,
+    currencyCode: SELLING_CURRENCY,
+    wrongCurrency: false,
+  };
 }
 
 export async function pricedCatalogue(): Promise<Catalogue> {
@@ -49,6 +72,7 @@ export async function pricedCatalogue(): Promise<Catalogue> {
       memberships: MEMBERSHIPS.map((m) => fallback(m, false)),
       topups: TOPUPS.map((t) => fallback(t, false)),
       anyMissing: false,
+      anyWrongCurrency: false,
     };
   }
 
@@ -72,21 +96,42 @@ export async function pricedCatalogue(): Promise<Catalogue> {
       memberships: MEMBERSHIPS.map((m) => fallback(m, false)),
       topups: TOPUPS.map((t) => fallback(t, false)),
       anyMissing: false,
+      anyWrongCurrency: false,
     };
   }
 
   const price = <T extends { lookupKey: string; amountCents: number }>(item: T): T & Priced => {
     const live = byKey.get(item.lookupKey);
     if (!live || live.unit_amount == null) return fallback(item, true);
+
+    /* ── CURRENCY IS CHECKED, NOT ASSUMED ─────────────────────────────────
+       This used to format Stripe's figure with money(), which always writes
+       "S$". A Price created in US dollars therefore appeared on the page as a
+       Singapore price and was charged as an American one — a disagreement the
+       customer would only discover on their statement. Stripe's own currency
+       is printed, and a wrong one is called out. */
+    const wrongCurrency = live.currency.toLowerCase() !== SELLING_CURRENCY;
+    const shown = moneyIn(live.unit_amount, live.currency);
+
+    const notes: string[] = [];
+    if (wrongCurrency) {
+      notes.push(
+        `Stripe will charge in ${live.currency.toUpperCase()}, not Singapore dollars. ` +
+          `Archive this price and re-create it in SGD.`,
+      );
+    }
+    if (live.unit_amount !== item.amountCents) {
+      notes.push(`Stripe charges ${shown}, the price list says ${money(item.amountCents)}`);
+    }
+
     return {
       ...item,
-      price: money(live.unit_amount),
+      price: shown,
       live: true,
       missing: false,
-      mismatch:
-        live.unit_amount === item.amountCents
-          ? null
-          : `Stripe charges ${money(live.unit_amount)}, the price list says ${money(item.amountCents)}`,
+      mismatch: notes.length ? notes.join(" ") : null,
+      currencyCode: live.currency.toLowerCase(),
+      wrongCurrency,
     };
   };
 
@@ -94,10 +139,13 @@ export async function pricedCatalogue(): Promise<Catalogue> {
   const memberships = MEMBERSHIPS.map(price);
   const topups = TOPUPS.map(price);
 
+  const all_ = [...packs, ...memberships, ...topups];
+
   return {
     packs,
     memberships,
     topups,
-    anyMissing: [...packs, ...memberships, ...topups].some((p) => p.missing),
+    anyMissing: all_.some((p) => p.missing),
+    anyWrongCurrency: all_.some((p) => p.wrongCurrency),
   };
 }

@@ -1,7 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { isStripeConfigured, siteUrl, stripe } from "@/lib/billing/stripe";
-import { membershipByLookupKey, packByLookupKey } from "@/lib/billing/plans";
+import {
+  SELLING_CURRENCY,
+  membershipByLookupKey,
+  moneyIn,
+  packByLookupKey,
+} from "@/lib/billing/plans";
 
 /**
  * Start a purchase — a bundle, a top-up, or a membership.
@@ -76,6 +81,30 @@ export async function POST(req: NextRequest) {
             `scripts/create-stripe-products.mjs against this Stripe account.`,
         },
         { status: 500 },
+      );
+    }
+
+    /* ── EVERY PRICE IS IN SINGAPORE DOLLARS, OR NOTHING HAPPENS ──────────
+       FD AI is sold in SGD and every figure on the site is written "S$". A
+       Price created in another currency does not announce itself: Stripe's
+       checkout page simply charges what the Price says while our page keeps
+       saying S$, and the customer finds out from their statement. Refusing
+       here turns a silent mischarge into a message nobody can miss, on the
+       firm's own screen, before any card is entered. */
+    if (price.currency?.toLowerCase() !== SELLING_CURRENCY) {
+      console.error(
+        `[billing] price ${key} is denominated in ${price.currency} — refusing to charge.`,
+      );
+      return NextResponse.json(
+        {
+          error:
+            `This item is priced in ${price.currency?.toUpperCase()} in Stripe ` +
+            `(${moneyIn(price.unit_amount ?? 0, price.currency ?? "")}), but FD AI sells in ` +
+            `Singapore dollars. Archive that price in Stripe and re-create it in SGD — ` +
+            `nothing has been charged.`,
+          code: "wrong_currency",
+        },
+        { status: 409 },
       );
     }
 

@@ -13,6 +13,20 @@
  *    palette would silently restyle the entire application — every page, not
  *    just this one. Scoping is not tidiness here; it is the difference between
  *    a pricing page and a site-wide redesign nobody asked for.
+ *
+ * ── WHAT IT MUST NOT SCOPE, AND WHAT HAPPENED WHEN IT DID ───────────────────
+ *    An earlier version of this script recursed into EVERY at-rule. Inside
+ *    @media that is right. Inside @keyframes it is a disaster: the "selectors"
+ *    there are `from`, `to` and percentages, and `.fdp from` is not a legal
+ *    keyframe selector, so the browser silently discarded every frame. The
+ *    named animation still existed, so `animation: heroItemIn … forwards`
+ *    looked fine and ran — but it had nothing to animate to. Anything sitting
+ *    at `opacity: 0` waiting for its entrance animation stayed at zero for
+ *    ever, and the account summary at the top of the pricing page rendered as
+ *    a blank white card. Nothing in the console, nothing in the build.
+ *
+ *    So: only at-rules that CONTAIN rules are recursed into. Everything else —
+ *    @keyframes, @font-face, @property, @page — is copied out untouched.
  */
 import fs from "node:fs";
 
@@ -53,12 +67,21 @@ function scopeSelector(sel) {
   }).filter(Boolean).join(",");
 }
 
+/* At-rules whose body is a list of RULES, so scoping has to continue inside.
+   Every other at-rule holds declarations or keyframe steps, which must be left
+   exactly as the designer wrote them. */
+const NESTS_RULES = /^@(media|supports|layer|container|scope)\b/;
+
 function scopeRules(text) {
   return topLevelRules(text).map((rule) => {
     const i = rule.indexOf("{");
     const sel = rule.slice(0, i).trim();
     const body = rule.slice(i + 1, rule.lastIndexOf("}"));
-    if (sel.startsWith("@")) return `${sel}{${scopeRules(body)}}`;
+    if (sel.startsWith("@")) {
+      return NESTS_RULES.test(sel)
+        ? `${sel}{${scopeRules(body)}}`
+        : `${sel}{${body.trim()}}`;   // @keyframes, @font-face, @property, …
+    }
     if (DROP.some((d) => sel.includes(d))) return "";
     return `${scopeSelector(sel)}{${body.trim()}}`;
   }).filter(Boolean).join("\n");
