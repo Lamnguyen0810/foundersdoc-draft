@@ -94,6 +94,68 @@ async function upsertSubscription(
 }
 
 /**
+ * Hand a member their monthly allowance, once per invoice.
+ *
+ * ── WHY THIS IS A FUNCTION AND NOT JUST THE INVOICE HANDLER ─────────────────
+ * It is reached from two events, on purpose. `invoice.paid` is the correct one
+ * and carries every renewal. But it is also an event somebody has to remember
+ * to tick in the Stripe dashboard, and if it is not ticked the symptom is the
+ * worst one this system has: the customer is charged, the subscription appears
+ * on their account — because `customer.subscription.created` IS ticked — and no
+ * credits ever arrive. They have paid and received nothing, and the page gives
+ * them no clue why.
+ *
+ * So `checkout.session.completed`, which every Stripe endpoint has, also comes
+ * through here for the first month. The key is the INVOICE id in both cases, so
+ * whichever event arrives first grants, and the other finds the row already
+ * there and does nothing. Running both is not a double payout; it is a belt and
+ * a pair of braces on the one failure nobody would forgive.
+ */
+async function grantMonthly(
+  db: ReturnType<typeof supabaseAdmin>,
+  sub: Stripe.Subscription,
+  invoiceId: string | null,
+): Promise<string> {
+  const userId = sub.metadata?.supabase_user_id;
+  const tier = sub.metadata?.tier;
+  const monthly = Number(sub.metadata?.monthly_credits ?? 0);
+
+  if (!userId || !tier) {
+    console.error("[webhook] subscription without metadata:", sub.id);
+    return "subscription missing metadata";
+  }
+
+  await upsertSubscription(db, userId, sub);
+
+  // Unlimited grants no credits — it is metered by fair use instead.
+  if (!Number.isFinite(monthly) || monthly <= 0) {
+    return `${tier}: no monthly credits to grant`;
+  }
+
+  /* The idempotency key. An invoice id is stable and unique per billing period,
+     which is exactly the granularity wanted: grant once per period, never twice,
+     and again next month. Without an invoice there is nothing safe to key on, so
+     nothing is granted and the invoice event will do it. */
+  if (!invoiceId) return `${tier}: no invoice yet, awaiting invoice.paid`;
+
+  const { error } = await db.rpc("grant_membership_credits", {
+    p_user_id: userId,
+    p_credits: monthly,
+    p_ref: `invoice_${invoiceId}`,
+  });
+  if (error) throw error;
+
+  return `${tier}: granted ${monthly} monthly credits (ref invoice_${invoiceId})`;
+}
+
+/** The invoice a subscription is currently billed under, as a plain id. */
+function latestInvoiceId(sub: Stripe.Subscription): string | null {
+  const v = sub.latest_invoice;
+  if (!v) return null;
+  return typeof v === "string" ? v : v.id ?? null;
+}
+
+/**
  * Where Stripe tells us a payment really happened.
  *
  * ── WHY CREDITS ARE NOT GRANTED ON THE SUCCESS PAGE ─────────────────────────
@@ -157,16 +219,44 @@ export async function POST(req: NextRequest) {
         if (session.payment_status !== "paid") return ok("session not paid yet");
 
         const userId = session.metadata?.supabase_user_id;
-        const credits = Number(session.metadata?.credits ?? 0);
-        if (!userId || !Number.isFinite(credits) || credits <= 0) {
-          console.error("[webhook] paid session with no usable metadata:", session.id);
-          return ok("no metadata");
+        if (!userId) {
+          console.error("[webhook] paid session with no user id:", session.id);
+          return ok("no user metadata");
         }
 
-        /* A subscription checkout has no `credits` on it — the credits arrive
-           with the invoice, below. Handled there so the first month and the
-           twelfth take exactly the same path. */
-        if (session.mode === "subscription") return ok("subscription start handled by invoice");
+        // Remember the customer so future receipts, renewals and refunds line
+        // up — for memberships as much as for one-off purchases.
+        if (typeof session.customer === "string") {
+          await db
+            .from("billing_accounts")
+            .upsert({ user_id: userId, stripe_customer_id: session.customer }, { onConflict: "user_id" });
+        }
+
+        /* ── A MEMBERSHIP STARTING ────────────────────────────────────────
+           This used to return here and leave everything to `invoice.paid`,
+           which is right only when that event is switched on. It is now
+           granted here too, keyed on the same invoice id, so the two events
+           cannot both pay out and neither is load-bearing on its own. */
+        if (session.mode === "subscription") {
+          const subId =
+            typeof session.subscription === "string"
+              ? session.subscription
+              : session.subscription?.id ?? null;
+          if (!subId) return ok("subscription session without a subscription");
+
+          const sub = await stripe().subscriptions.retrieve(subId);
+          const invoiceId =
+            (typeof session.invoice === "string" ? session.invoice : session.invoice?.id ?? null) ??
+            latestInvoiceId(sub);
+
+          return ok(await grantMonthly(db, sub, invoiceId));
+        }
+
+        const credits = Number(session.metadata?.credits ?? 0);
+        if (!Number.isFinite(credits) || credits <= 0) {
+          console.error("[webhook] paid session with no credit count:", session.id);
+          return ok("no credit metadata");
+        }
 
         /* Bundles and top-ups are both bought outright and never expire; the
            source is recorded so cancellation can tell them apart from the
@@ -185,13 +275,6 @@ export async function POST(req: NextRequest) {
         // 23505 is a duplicate stripe_ref: the same purchase arriving twice.
         if (error && error.code !== "23505") throw error;
 
-        // Remember the customer so future receipts and refunds line up.
-        if (typeof session.customer === "string") {
-          await db
-            .from("billing_accounts")
-            .upsert({ user_id: userId, stripe_customer_id: session.customer }, { onConflict: "user_id" });
-        }
-
         return ok(`granted ${credits} ${source} credits`);
       }
 
@@ -207,30 +290,7 @@ export async function POST(req: NextRequest) {
         if (!subId) return ok("invoice not for a subscription");
 
         const sub = await stripe().subscriptions.retrieve(subId);
-        const userId = sub.metadata?.supabase_user_id;
-        const tier = sub.metadata?.tier;
-        const monthly = Number(sub.metadata?.monthly_credits ?? 0);
-
-        if (!userId || !tier) {
-          console.error("[webhook] subscription without metadata:", subId);
-          return ok("subscription missing metadata");
-        }
-
-        await upsertSubscription(db, userId, sub);
-
-        // Unlimited grants no credits — it is metered by fair use instead.
-        if (!Number.isFinite(monthly) || monthly <= 0) {
-          return ok(`${tier}: no monthly credits to grant`);
-        }
-
-        const { error: grantError } = await db.rpc("grant_membership_credits", {
-          p_user_id: userId,
-          p_credits: monthly,
-          p_ref: `invoice_${invoice.id}`,
-        });
-        if (grantError) throw grantError;
-
-        return ok(`${tier}: granted ${monthly} monthly credits`);
+        return ok(await grantMonthly(db, sub, invoice.id ?? null));
       }
 
       /* ── STATUS CHANGES ─────────────────────────────────────────────────

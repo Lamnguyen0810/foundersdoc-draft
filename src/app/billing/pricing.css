@@ -473,15 +473,15 @@
 .fdp .card-btn,.fdp .btn-primary,.fdp .btn-secondary,.fdp .quick-nav a{transition:transform .22s var(--ease-premium), box-shadow .22s ease, border-color .22s ease, background .22s ease;}
 .fdp .card-btn:hover,.fdp .btn-primary:hover,.fdp .btn-secondary:hover{transform:translateY(-1px)}
 .fdp .quick-nav a:hover{transform:translateY(-2px)}
-@keyframes recommendedLine{.fdp from{opacity:0;transform:scaleX(.18)}
-.fdp to{opacity:.7;transform:scaleX(1)}}
-@keyframes recommendedBadgeIn{.fdp from{opacity:0;transform:translateY(8px) scale(.98)}
-.fdp to{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes recommendedCardIn{.fdp from{opacity:0;transform:translateY(14px)}
-.fdp to{opacity:1;transform:translateY(0)}}
-@keyframes badgeSheen{.fdp 0%,.fdp 58%{transform:rotate(20deg) translateX(-240%);opacity:0}
-.fdp 68%{opacity:.75}
-.fdp 82%,.fdp 100%{transform:rotate(20deg) translateX(520%);opacity:0}}
+@keyframes recommendedLine{from{opacity:0;transform:scaleX(.18)}
+  to{opacity:.7;transform:scaleX(1)}}
+@keyframes recommendedBadgeIn{from{opacity:0;transform:translateY(8px) scale(.98)}
+  to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes recommendedCardIn{from{opacity:0;transform:translateY(14px)}
+  to{opacity:1;transform:translateY(0)}}
+@keyframes badgeSheen{0%,58%{transform:rotate(20deg) translateX(-240%);opacity:0}
+  68%{opacity:.75}
+  82%,100%{transform:rotate(20deg) translateX(520%);opacity:0}}
 @media(prefers-reduced-motion:reduce){.fdp *,.fdp *::before,.fdp *::after{animation-duration:.001ms !important;
     animation-iteration-count:1 !important;
     scroll-behavior:auto !important;
@@ -656,34 +656,34 @@
   transform-origin:left;
   background:linear-gradient(90deg,#f4b752,#e2a13a,#f4b752);
   pointer-events:none;}
-@keyframes ambientDrift{.fdp from{transform:translate3d(0,0,0) scale(1)}
-.fdp to{transform:translate3d(70px,42px,0) scale(1.12)}}
-@keyframes ambientDriftTwo{.fdp from{transform:translate3d(0,0,0) scale(1.04)}
-.fdp to{transform:translate3d(-65px,55px,0) scale(.94)}}
-@keyframes topBannerDrop{.fdp from{opacity:0;transform:translateY(-100%)}
-.fdp to{opacity:1;transform:translateY(0)}}
-@keyframes bannerSweep{.fdp 0%,.fdp 58%{transform:translateX(-110%)}
-.fdp 76%,.fdp 100%{transform:translateX(110%)}}
-@keyframes chipPulse{.fdp 0%{box-shadow:0 0 0 0 rgba(244,183,82,.42)}
-.fdp 70%{box-shadow:0 0 0 8px rgba(244,183,82,0)}
-.fdp 100%{box-shadow:0 0 0 0 rgba(244,183,82,0)}}
-@keyframes heroItemIn{.fdp from{opacity:0;transform:translateY(18px)}
-.fdp to{opacity:1;transform:translateY(0)}}
-@keyframes heroGlow{.fdp from{transform:translate3d(0,0,0) scale(.95);opacity:.5}
-.fdp to{transform:translate3d(-32px,25px,0) scale(1.14);opacity:1}}
-@keyframes titleShimmer{.fdp 0%,.fdp 70%{background-position:100% 0}
-.fdp 86%,.fdp 100%{background-position:-120% 0}}
-@keyframes priceSettle{.fdp 0%{opacity:0;transform:translateY(10px) scale(.96)}
-.fdp 70%{opacity:1;transform:translateY(-2px) scale(1.015)}
-.fdp 100%{opacity:1;transform:translateY(0) scale(1)}}
-@keyframes recommendedBreath{.fdp 0%,.fdp 100%{box-shadow:0 0 0 0 rgba(244,183,82,0)}
-.fdp 50%{box-shadow:0 0 0 7px rgba(244,183,82,.10)}}
-@keyframes recommendSweep{.fdp 0%,.fdp 56%{transform:translateX(-110%)}
-.fdp 76%,.fdp 100%{transform:translateX(110%)}}
-@keyframes proGlow{.fdp from{filter:saturate(.96);transform:scale(1)}
-.fdp to{filter:saturate(1.08);transform:scale(1.012)}}
-@keyframes priceBreath{.fdp 0%,.fdp 100%{transform:translateY(0)}
-.fdp 50%{transform:translateY(-2px)}}
+@keyframes ambientDrift{from{transform:translate3d(0,0,0) scale(1)}
+  to{transform:translate3d(70px,42px,0) scale(1.12)}}
+@keyframes ambientDriftTwo{from{transform:translate3d(0,0,0) scale(1.04)}
+  to{transform:translate3d(-65px,55px,0) scale(.94)}}
+@keyframes topBannerDrop{from{opacity:0;transform:translateY(-100%)}
+  to{opacity:1;transform:translateY(0)}}
+@keyframes bannerSweep{0%,58%{transform:translateX(-110%)}
+  76%,100%{transform:translateX(110%)}}
+@keyframes chipPulse{0%{box-shadow:0 0 0 0 rgba(244,183,82,.42)}
+  70%{box-shadow:0 0 0 8px rgba(244,183,82,0)}
+  100%{box-shadow:0 0 0 0 rgba(244,183,82,0)}}
+@keyframes heroItemIn{from{opacity:0;transform:translateY(18px)}
+  to{opacity:1;transform:translateY(0)}}
+@keyframes heroGlow{from{transform:translate3d(0,0,0) scale(.95);opacity:.5}
+  to{transform:translate3d(-32px,25px,0) scale(1.14);opacity:1}}
+@keyframes titleShimmer{0%,70%{background-position:100% 0}
+  86%,100%{background-position:-120% 0}}
+@keyframes priceSettle{0%{opacity:0;transform:translateY(10px) scale(.96)}
+  70%{opacity:1;transform:translateY(-2px) scale(1.015)}
+  100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes recommendedBreath{0%,100%{box-shadow:0 0 0 0 rgba(244,183,82,0)}
+  50%{box-shadow:0 0 0 7px rgba(244,183,82,.10)}}
+@keyframes recommendSweep{0%,56%{transform:translateX(-110%)}
+  76%,100%{transform:translateX(110%)}}
+@keyframes proGlow{from{filter:saturate(.96);transform:scale(1)}
+  to{filter:saturate(1.08);transform:scale(1.012)}}
+@keyframes priceBreath{0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-2px)}}
 @media(max-width:760px){.fdp body::before,.fdp body::after{opacity:.65}
 .fdp .card:hover,.fdp .card.featured:hover,.fdp .compare-card:hover{transform:translateY(-3px) !important}
 .fdp .hero-side{transform:none !important}}

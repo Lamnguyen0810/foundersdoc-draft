@@ -297,6 +297,21 @@ export default async function BillingPage({
                 </div>
               </div>
             )}
+            {/* Only an administrator ever sees a wrong currency here, because the
+                checkout route refuses to charge one — but it has to be visible
+                somewhere, and this is the page the prices are read from. */}
+            {catalogue.anyWrongCurrency && (
+              <div className="recommended-bar" style={{ borderColor: "#b42318" }}>
+                <div>
+                  <strong>A price in Stripe is not in Singapore dollars.</strong>
+                  <span>
+                    FD AI sells in SGD and every figure here is written S$. The affected items are
+                    marked below and cannot be bought until they are re-created in SGD — nobody can
+                    be charged in the wrong currency in the meantime.
+                  </span>
+                </div>
+              </div>
+            )}
           </section>
         )}
 

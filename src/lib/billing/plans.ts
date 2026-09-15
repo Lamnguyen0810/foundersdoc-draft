@@ -182,9 +182,29 @@ export function membershipByTier(tier: string): Membership | undefined {
 
 /** "S$8.80". Cents in, a price a human recognises out. */
 export function money(amountCents: number, currency: Currency = SGD): string {
-  const symbol = currency === "SGD" ? "S$" : "";
-  return `${symbol}${(amountCents / 100).toFixed(2)}`;
+  return moneyIn(amountCents, currency);
 }
+
+/**
+ * The same, for a currency code that did NOT come from our own price list —
+ * in practice, whatever Stripe reports a Price is denominated in.
+ *
+ * ── WHY THIS EXISTS ─────────────────────────────────────────────────────────
+ * money() used to print an empty symbol for anything that was not SGD, so a
+ * Price accidentally created in US dollars rendered as a bare "49.80" on a page
+ * headed "S$". Everything FD AI sells is priced in Singapore dollars; the point
+ * of this function is that a Price which is NOT says so, loudly, on the page
+ * rather than on somebody's card statement.
+ */
+export function moneyIn(amountCents: number, currencyCode: string): string {
+  const code = (currencyCode || "SGD").toUpperCase();
+  const amount = (amountCents / 100).toFixed(2);
+  const symbol: Record<string, string> = { SGD: "S$", USD: "US$", EUR: "€", GBP: "£", AUD: "A$" };
+  return symbol[code] ? `${symbol[code]}${amount}` : `${code} ${amount}`;
+}
+
+/** Everything is sold in Singapore dollars. Anything else is a misconfiguration. */
+export const SELLING_CURRENCY = "sgd";
 
 /** "S$7.60 a document", for showing a bundle is better value than a single. */
 export function perCredit(pack: CreditPack): string {
