@@ -20,22 +20,7 @@ function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
-interface GrantRow {
-  credits: number;
-  remaining: number;
-  source: string;
-  expires_at: string | null;
-  created_at: string;
-}
 
-const SOURCE_LABEL: Record<string, string> = {
-  trial: "Free trial",
-  purchase: "Bundle",
-  membership: "Membership",
-  topup: "Member top-up",
-  gift: "Added by Founders Doc",
-  refund_reversal: "Refund",
-};
 
 export default async function BillingPage({
   searchParams,
@@ -66,19 +51,11 @@ export default async function BillingPage({
     unlimited_cap: number;
     unlimited_used: number;
   } | null = null;
-  let history: GrantRow[] = [];
   let stripeCustomerId: string | null = null;
 
   try {
     const supabase = await createClient();
-    const [summary, grants] = await Promise.all([
-      supabase.rpc("billing_summary"),
-      supabase
-        .from("credit_grants")
-        .select("credits,remaining,source,expires_at,created_at")
-        .order("created_at", { ascending: false })
-        .limit(20),
-    ]);
+    const summary = await supabase.rpc("billing_summary");
     const row = Array.isArray(summary.data) ? summary.data[0] : summary.data;
     if (row) {
       membership = {
@@ -89,7 +66,6 @@ export default async function BillingPage({
         unlimited_used: Number(row.unlimited_used ?? 0),
       };
     }
-    history = (grants.data as GrantRow[] | null) ?? [];
 
     /* The Stripe customer id is recorded by the webhook when the first payment
        lands. No id means nobody has ever been charged, so there is nothing to
@@ -669,89 +645,6 @@ export default async function BillingPage({
           </section>
         )}
 
-        {/* ── history ────────────────────────────────────────────────────── */}
-        {history.length > 0 && (
-          <section className="section" id="history">
-            <div className="section-head">
-              <div className="kicker">Your account</div>
-              <h2>Where your documents came from</h2>
-            </div>
-
-            <div className="topup-wrap" style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ textAlign: "left", color: "#8a8378", fontSize: 11 }}>
-                    <th style={{ padding: "8px 10px 8px 0" }}>Date</th>
-                    <th style={{ padding: "8px 10px" }}>What</th>
-                    <th style={{ padding: "8px 10px" }}>Documents</th>
-                    <th style={{ padding: "8px 10px" }}>Left</th>
-                    <th style={{ padding: "8px 0 8px 10px" }}>Expires</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((g, idx) => (
-                    <tr key={idx} style={{ borderTop: "1px solid #efe7da" }}>
-                      <td style={{ padding: "10px 10px 10px 0" }}>{when(g.created_at)}</td>
-                      <td style={{ padding: "10px" }}>{SOURCE_LABEL[g.source] ?? g.source}</td>
-                      <td style={{ padding: "10px" }}>{g.credits}</td>
-                      <td style={{ padding: "10px" }}>{g.remaining}</td>
-                      <td style={{ padding: "10px 0 10px 10px", color: "#8a8378" }}>
-                        {g.expires_at ? when(g.expires_at) : "Never"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        {/* ── the quick guide ───────────────────────────────────────────────
-            Also from the design, also dropped, and also the reason a hero
-            button — "Help me choose" — led nowhere. */}
-        <section className="section" id="compare">
-          <div className="section-head">
-            <div className="kicker">Quick guide</div>
-            <h2>Which option fits you?</h2>
-            <p>Choose based on how often you expect to use FD AI.</p>
-          </div>
-
-          <div className="compare-grid">
-            <article className="compare-card">
-              <small>Occasional</small>
-              <h3>Buy as you go</h3>
-              <p>
-                Best if you only use FD AI from time to time and want documents that do not expire.
-              </p>
-              <a href="#payg">View one-off prices</a>
-            </article>
-
-            <article className="compare-card">
-              <small>Regular</small>
-              <h3>Basic or Pro</h3>
-              <p>Best if you draft every month and want a lower rate per document.</p>
-              <a href="#membership">View memberships</a>
-            </article>
-
-            <article className="compare-card">
-              <small>Heavy</small>
-              <h3>Unlimited</h3>
-              <p>Best if you draft heavily and prefer one predictable monthly price.</p>
-              <a href="#membership">View Unlimited</a>
-            </article>
-          </div>
-        </section>
-
-        <div className="footer-note">
-          <span>
-            Trial documents expire {TRIAL.days} days after you sign up. Bought documents do not
-            expire. Membership documents carry over while your membership lasts.
-          </span>
-          <span>
-            All prices in SGD. Unlimited usage is subject to fair-use terms. Card details are
-            handled by Stripe and never reach Founders Doc.
-          </span>
-        </div>
 
         <p style={{ marginTop: 24, display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Link className="btn-secondary" href="/draft" style={{ display: "inline-flex", alignItems: "center", padding: "0 18px" }}>
