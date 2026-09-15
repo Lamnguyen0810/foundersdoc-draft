@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { PAID_BENCHMARK } from "@/lib/ai/pricing";
 import { getWallet } from "@/lib/billing/credits";
-import { membershipByTier } from "@/lib/billing/plans";
+/* `money` here is the page's own US-dollar formatter for model costs; the
+   price list's is Singapore dollars. Two currencies, two names, no confusion. */
+import { MEMBERSHIPS, PACKS, TOPUPS, membershipByTier, money as sgd } from "@/lib/billing/plans";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
 
@@ -49,6 +51,237 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
         {hint && <span>{hint}</span>}
       </dd>
     </div>
+  );
+}
+
+/**
+ * The cheapest honest way to buy `perMonth` documents a month.
+ *
+ * ── WHY THIS IS ARITHMETIC AND NOT MARKETING ────────────────────────────────
+ * "Upgrade to Pro!" on a page belonging to somebody who drafts once a quarter
+ * is a lie dressed as a suggestion, and the firm selling it is a law firm. So
+ * nothing is recommended unless the sums say the person would pay LESS for the
+ * documents they are actually using — and the saving is shown, so the claim can
+ * be checked.
+ *
+ * Both sides are compared at the same volume: what a membership costs a month
+ * against what the same number of documents costs in bundles at the best rate
+ * on offer. A bundle buyer has to buy in whole bundles, which is part of why
+ * the per-document price is worse, so that is how it is counted.
+ */
+function cheapestFrom(
+  options: { credits: number; amountCents: number }[],
+  documents: number,
+): number {
+  if (documents <= 0) return 0;
+
+  /* Buy as many of the best-value size as fit, then the smallest single item
+     that covers what is left. Documents cannot be bought by the half, and the
+     leftover is where the per-document price gets worse — which is the whole
+     reason a membership can win. */
+  const byValue = [...options].sort((a, b) => a.amountCents / a.credits - b.amountCents / b.credits);
+  const bySize = [...options].sort((a, b) => a.amountCents - b.amountCents);
+  const best = byValue[0];
+
+  const whole = Math.floor(documents / best.credits);
+  let cost = whole * best.amountCents;
+  let left = documents - whole * best.credits;
+
+  while (left > 0) {
+    const fit = bySize.find((o) => o.credits >= left) ?? best;
+    cost += fit.amountCents;
+    left -= fit.credits;
+  }
+  return cost;
+}
+
+/**
+ * What this month's drafting actually costs on the arrangement they are on.
+ *
+ * For somebody with no membership that is bundles at the best rate. For a
+ * member it is the monthly fee PLUS the member top-ups they have to buy once
+ * the allowance runs out — which is the number an earlier version of this
+ * missed, and missing it made the whole feature dead: it compared a member's
+ * fee against a dearer tier's fee, which a dearer tier can never beat, so no
+ * member was ever shown anything.
+ */
+function costThisMonth(tier: string | null, documents: number): number {
+  const plan = tier ? membershipByTier(tier) : null;
+  if (!plan) return cheapestFrom(PACKS, documents);
+  if (plan.monthlyCredits === null) return plan.amountCents; // Unlimited
+  const overflow = Math.max(0, documents - plan.monthlyCredits);
+  return plan.amountCents + cheapestFrom(TOPUPS, overflow);
+}
+
+interface Suggestion {
+  label: string;
+  reason: string;
+  href: string;
+}
+
+/**
+ * A way up the ladder, or nothing.
+ *
+ * ── WHY THIS IS ARITHMETIC AND NOT MARKETING ────────────────────────────────
+ * "Upgrade to Pro!" on the page of somebody who drafts once a quarter is a
+ * lie dressed as a suggestion, and the firm selling it is a law firm. Nothing
+ * is recommended unless the sums say this person would pay LESS for the
+ * documents they are actually using, and the saving is stated so the claim can
+ * be checked against the price list.
+ */
+function suggest(tier: string | null, usedThisMonth: number): Suggestion | null {
+  // One or two drafts is not a pattern. Nothing is said until there is one.
+  if (usedThisMonth < 2) return null;
+
+  const current = tier ? membershipByTier(tier) : null;
+  if (current?.monthlyCredits === null) return null; // Unlimited: nothing above it
+
+  const nowCosts = costThisMonth(tier, usedThisMonth);
+
+  /* A candidate has to do two things: cover this much drafting without
+     top-ups, and cost less than the present arrangement actually costs. */
+  const better = MEMBERSHIPS.filter((m) => {
+    if (current && m.amountCents <= current.amountCents) return false;
+    const covers = m.monthlyCredits === null || m.monthlyCredits >= usedThisMonth;
+    return covers && m.amountCents < nowCosts;
+  }).sort((a, b) => a.amountCents - b.amountCents)[0];
+
+  if (!better) return null;
+
+  const saving = nowCosts - better.amountCents;
+  const docs = `${usedThisMonth} document${usedThisMonth === 1 ? "" : "s"}`;
+
+  return {
+    label: `Move to ${better.label}`,
+    reason: current
+      ? `You have drafted ${docs} this month. On ${current.label} that is about ` +
+        `${sgd(nowCosts)} once top-ups are counted; ${better.label} covers it for ` +
+        `${sgd(better.amountCents)} — ${sgd(saving)} less at this rate.`
+      : `You have drafted ${docs} this month. Bought as bundles that is about ` +
+        `${sgd(nowCosts)}; ${better.label} covers it for ${sgd(better.amountCents)} a month, ` +
+        `and unused documents carry over.`,
+    href: "/billing",
+  };
+}
+
+/**
+ * The plan, the balance, and — only when the arithmetic earns it — a way up.
+ *
+ * This sits above everything else on the page because it answers the two
+ * questions somebody opens /usage to ask: what am I on, and how much have I
+ * got left. The cost tables below are interesting; this is the point.
+ */
+function PlanCard({
+  planLabel,
+  planPrice,
+  renews,
+  credits,
+  creditsNote,
+  suggestion,
+  isMember,
+}: {
+  planLabel: string;
+  planPrice: string | null;
+  renews: string | null;
+  credits: number;
+  creditsNote: string;
+  suggestion: Suggestion | null;
+  isMember: boolean;
+}) {
+  return (
+    <section
+      style={{
+        border: "1px solid var(--grey-2)",
+        borderRadius: 16,
+        background: "var(--white)",
+        padding: "20px 22px",
+        marginBottom: 16,
+        display: "grid",
+        gap: 18,
+        gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+        alignItems: "start",
+      }}
+    >
+      <div>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 10.5,
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--grey-4)",
+          }}
+        >
+          Your plan
+        </p>
+        <p style={{ margin: "8px 0 0", fontSize: 22, fontWeight: 600, letterSpacing: "-0.02em" }}>
+          {planLabel}
+        </p>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--grey-5)" }}>
+          {planPrice ? `${planPrice} a month` : "No monthly fee"}
+          {renews ? ` · ${renews}` : ""}
+        </p>
+      </div>
+
+      <div>
+        <p
+          style={{
+            margin: 0,
+            fontSize: 10.5,
+            fontWeight: 600,
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            color: "var(--grey-4)",
+          }}
+        >
+          Documents left
+        </p>
+        <p
+          style={{
+            margin: "8px 0 0",
+            fontSize: 22,
+            fontWeight: 600,
+            fontVariantNumeric: "tabular-nums",
+          }}
+        >
+          {credits}
+        </p>
+        <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--grey-5)" }}>{creditsNote}</p>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {suggestion ? (
+          <>
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "var(--grey-5)" }}>
+              {suggestion.reason}
+            </p>
+            <Link
+              href={suggestion.href}
+              className="btn btn-gold"
+              style={{ justifyContent: "center", height: 40 }}
+            >
+              {suggestion.label}
+            </Link>
+          </>
+        ) : (
+          <>
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: "var(--grey-5)" }}>
+              {isMember
+                ? "Your plan fits how much you are drafting. Nothing to change."
+                : "Buy documents as you need them, or join a membership for a lower rate."}
+            </p>
+            <Link
+              href="/billing"
+              className="btn"
+              style={{ justifyContent: "center", height: 40 }}
+            >
+              {isMember ? "Manage membership" : "See plans"}
+            </Link>
+          </>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -221,9 +454,14 @@ export default async function UsagePage() {
     note: "Bought documents never expire",
   };
 
+  let tierFromSummary: string | null = null;
+  let periodEnd: string | null = null;
+
   try {
     const { data } = await supabase.rpc("billing_summary");
     const row = Array.isArray(data) ? data[0] : data;
+    tierFromSummary = row?.tier ? String(row.tier) : null;
+    periodEnd = row?.period_end ?? null;
     const when = (iso: string) =>
       new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
@@ -260,8 +498,45 @@ export default async function UsagePage() {
     // Fall back to the plain count above.
   }
 
+  /* ── WHAT THE PLAN CARD SAYS ──────────────────────────────────────────────
+     Every value below is read back from the database — the tier from
+     billing_summary, the balance from the wallet, the month's drafting from
+     usage_log. Nothing is assumed from what somebody clicked on the pricing
+     page, because that and what they are actually being billed for can differ,
+     and this is the screen where a person checks. */
+  const currentTier = tierFromSummary;
+  const plan = currentTier ? membershipByTier(currentTier) : null;
+  const whenShort = (iso: string | null) =>
+    iso
+      ? new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+      : null;
+
+  const planLabel = plan
+    ? `${plan.label} membership`
+    : wallet.inTrial
+      ? "Free trial"
+      : "Pay as you go";
+
+  const creditsNote = plan
+    ? plan.monthlyCredits === null
+      ? "Drafting does not spend credits on this plan"
+      : "Carries over while you stay a member"
+    : wallet.inTrial && wallet.trialEndsAt
+      ? `Trial ends ${whenShort(wallet.trialEndsAt)}`
+      : "Bought documents never expire";
+
   return (
     <main className="wrap" style={{ paddingTop: 32 }}>
+      <PlanCard
+        planLabel={planLabel}
+        planPrice={plan ? sgd(plan.amountCents) : null}
+        renews={periodEnd ? `renews ${whenShort(periodEnd)}` : null}
+        credits={Number.isFinite(wallet.credits) ? wallet.credits : 0}
+        creditsNote={creditsNote}
+        suggestion={suggest(currentTier, drafts)}
+        isMember={Boolean(plan)}
+      />
+
       <Meter {...meter} />
 
       <header
