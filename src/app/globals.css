@@ -916,7 +916,14 @@ html[data-theme=dark]{--white:#161618;--grey-1:#1d1d20;--grey-2:#2a2a2e;--grey-3
 .btn-gold{font-weight:600}
 .btn-gold:after{display:none}
 .btn:disabled,.btn-gold:disabled{background:transparent;border-color:var(--line);color:var(--grey-4);opacity:1}
-html,body{height:100%;overflow:clip}
+/* The drafting workspace and the sign-in stage are full-screen apps that manage
+   their own scrolling, so they clip the document. EVERY OTHER PAGE MUST SCROLL:
+   this rule was unscoped, which is why /billing and anything else longer than
+   the viewport simply stopped at the fold with no way down. The two rules below
+   scope it the same way the rest of this stylesheet already does. */
+html,body{height:100%}
+html:has(.fdai-screens),body:has(.fdai-screens),
+html:has(.login-stage),body:has(.login-stage){overflow:clip}
 .fdx-state{overflow:clip}
 body{background:var(--surface);color:var(--ink)}
 h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.02em}

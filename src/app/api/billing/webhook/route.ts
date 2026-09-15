@@ -4,6 +4,64 @@ import { isStripeConfigured, stripe, webhookSecret } from "@/lib/billing/stripe"
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
+ * Which subscription an invoice belongs to.
+ *
+ * ⚠ Stripe MOVED this. Up to a point, an invoice carried `subscription` at the
+ * top level. From API version 2025-08-27 it lives at
+ * `parent.subscription_details.subscription` instead, and the old field is
+ * simply absent — not null, absent. Code reading the old path gets `undefined`,
+ * concludes the invoice is not for a subscription, and returns happily having
+ * granted nobody anything. The payment succeeds and the credits never arrive.
+ *
+ * Both shapes are read here so this keeps working whichever API version the
+ * account is pinned to, and whichever it moves to next.
+ */
+function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
+  const shaped = invoice as Stripe.Invoice & {
+    parent?: { subscription_details?: { subscription?: string | { id: string } | null } | null } | null;
+    subscription?: string | { id: string } | null;
+  };
+
+  const current = shaped.parent?.subscription_details?.subscription;
+  if (current) return typeof current === "string" ? current : current.id;
+
+  const legacy = shaped.subscription;
+  if (legacy) return typeof legacy === "string" ? legacy : legacy.id;
+
+  return null;
+}
+
+/**
+ * The current billing period.
+ *
+ * ⚠ Moved in the same release: `current_period_start` / `current_period_end`
+ * were on the subscription and are now on each subscription ITEM. Reading the
+ * old place yields undefined, which is then stored as null — so the renewal
+ * date never shows, and the Unlimited fair-use window silently falls back to
+ * the calendar month instead of the customer's actual billing period.
+ */
+function periodFromSubscription(sub: Stripe.Subscription): {
+  start: string | null;
+  end: string | null;
+} {
+  const item = sub.items?.data?.[0] as
+    | { current_period_start?: number | null; current_period_end?: number | null }
+    | undefined;
+  const legacy = sub as Stripe.Subscription & {
+    current_period_start?: number | null;
+    current_period_end?: number | null;
+  };
+
+  const iso = (v: number | null | undefined) =>
+    typeof v === "number" ? new Date(v * 1000).toISOString() : null;
+
+  return {
+    start: iso(item?.current_period_start ?? legacy.current_period_start),
+    end: iso(item?.current_period_end ?? legacy.current_period_end),
+  };
+}
+
+/**
  * Keep the local copy of a subscription in step with Stripe's.
  *
  * Stripe is the authority; this row exists only so that generating a draft is
@@ -17,12 +75,7 @@ async function upsertSubscription(
   userId: string,
   sub: Stripe.Subscription,
 ): Promise<void> {
-  const s = sub as Stripe.Subscription & {
-    current_period_start?: number | null;
-    current_period_end?: number | null;
-  };
-  const seconds = (v: number | null | undefined) =>
-    typeof v === "number" ? new Date(v * 1000).toISOString() : null;
+  const period = periodFromSubscription(sub);
 
   const { error } = await db.from("subscriptions").upsert(
     {
@@ -31,8 +84,8 @@ async function upsertSubscription(
       stripe_subscription_id: sub.id,
       tier: sub.metadata?.tier ?? "basic",
       status: sub.status,
-      current_period_start: seconds(s.current_period_start),
-      current_period_end: seconds(s.current_period_end),
+      current_period_start: period.start,
+      current_period_end: period.end,
       cancel_at_period_end: Boolean(sub.cancel_at_period_end),
     },
     { onConflict: "stripe_subscription_id" },
@@ -149,11 +202,8 @@ export async function POST(req: NextRequest) {
          repeat, because Stripe WILL deliver this twice eventually. */
       case "invoice.paid":
       case "invoice.payment_succeeded": {
-        const invoice = event.data.object as Stripe.Invoice & {
-          subscription?: string | Stripe.Subscription | null;
-        };
-        const subRef = invoice.subscription;
-        const subId = typeof subRef === "string" ? subRef : subRef?.id;
+        const invoice = event.data.object;
+        const subId = subscriptionIdFromInvoice(invoice);
         if (!subId) return ok("invoice not for a subscription");
 
         const sub = await stripe().subscriptions.retrieve(subId);
