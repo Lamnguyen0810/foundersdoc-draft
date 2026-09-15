@@ -1,0 +1,115 @@
+/* ===========================================================================
+   The firm's yellow, over the designer's.
+
+   WHY THIS IS A SEPARATE FILE
+     pricing.css is GENERATED from the design by scripts/build-pricing-css.mjs.
+     Editing it works until the next revision of the design arrives, at which
+     point the regeneration silently throws the change away — and nobody finds
+     out, because the page still renders, just in the wrong yellow. Overrides
+     live here instead, loaded after it, and survive.
+
+   WHAT CHANGES
+     1. The yellow itself: #F4B752 → #F3BF4B, the same --gold the rest of FD AI
+        uses, so the pricing page and the app finally agree.
+     2. Flat fills become auras. A solid yellow block is the heaviest thing on
+        a page otherwise made of paper and thin rules; the same colour as a
+        soft radial bloom reads as light falling on the card rather than as a
+        highlighter. The colour is identical — only its distribution changes.
+   ========================================================================= */
+
+.fdp {
+  --yellow: #f3bf4b;
+  --yellow-soft: #fdf3da;
+  --yellow-pale: #fffaf0;
+
+  /* One aura, reused. Defined once so every bloom on the page is the same
+     light and a future change is a single edit. */
+  --aura: radial-gradient(
+    120% 140% at 30% 0%,
+    rgba(243, 191, 75, 0.26) 0%,
+    rgba(243, 191, 75, 0.1) 38%,
+    rgba(243, 191, 75, 0) 78%
+  );
+  --aura-soft: radial-gradient(
+    140% 160% at 50% 0%,
+    rgba(243, 191, 75, 0.15) 0%,
+    rgba(243, 191, 75, 0.045) 45%,
+    rgba(243, 191, 75, 0) 80%
+  );
+}
+
+/* ── the pills ───────────────────────────────────────────────────────────
+   RECOMMENDED, the tag on a card, the members-only pill. Each was a flat
+   block of --yellow-soft; each is now the same colour arriving as light,
+   with a hairline to keep the shape legible against a white card. */
+.fdp .side-label,
+.fdp .tag.gold,
+.fdp .exclusive-pill {
+  background: var(--aura), rgba(255, 253, 247, 0.9);
+  border: 1px solid rgba(243, 191, 75, 0.38);
+  color: #7a5a18;
+  /* A pill is as wide as its words. Inside a column flex container it would
+     otherwise stretch the full width of the card and stop looking like one. */
+  align-self: flex-start;
+}
+
+/* ── the badge on the recommended card ───────────────────────────────── */
+.fdp .plan-badge {
+  background: var(--aura), rgba(255, 253, 247, 0.92);
+  border: 1px solid rgba(243, 191, 75, 0.42);
+}
+
+/* ── the hairlines ───────────────────────────────────────────────────────
+   The rule under the eyebrow, the line above the recommended card, the
+   underline that sweeps in on a quick-nav link. These are 1–3px, so an aura
+   in the usual sense has nowhere to go: they get a gradient along their
+   length instead, solid in the middle and dissolving at both ends. */
+.fdp .eyebrow:before,
+.fdp .recommended-bar::before,
+.fdp .membership-grid .card.featured::before,
+.fdp .quick-nav a::before {
+  background: linear-gradient(
+    90deg,
+    rgba(243, 191, 75, 0) 0%,
+    rgba(243, 191, 75, 0.95) 30%,
+    rgba(243, 191, 75, 0.95) 70%,
+    rgba(243, 191, 75, 0) 100%
+  );
+}
+
+/* The vertical one on the recommendation bar runs the other way. */
+.fdp .recommended-bar::before {
+  background: linear-gradient(
+    180deg,
+    rgba(243, 191, 75, 0) 0%,
+    rgba(243, 191, 75, 0.95) 28%,
+    rgba(243, 191, 75, 0.95) 72%,
+    rgba(243, 191, 75, 0) 100%
+  );
+}
+
+/* ── the little dots in the hero meta ────────────────────────────────────
+   5px across. A gradient inside one is invisible; a soft ring around it is
+   not, and it is the same idea — colour with an edge that is not hard. */
+.fdp .hero-meta i {
+  background: #f3bf4b;
+  box-shadow: 0 0 0 3px rgba(243, 191, 75, 0.18);
+}
+
+/* ── the cards themselves ────────────────────────────────────────────────
+   The recommended card gets the bloom in the corner rather than a border in
+   full colour: the eye goes to it without the card shouting. */
+.fdp .hero-side,
+.fdp .membership-grid .card.featured {
+  background-image: var(--aura-soft);
+  background-repeat: no-repeat;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Nothing here animates, but the auras sit under elements that do; keeping
+     them opaque avoids a bloom that appears to pulse when it should not. */
+  .fdp .hero-side,
+  .fdp .membership-grid .card.featured {
+    background-image: none;
+  }
+}

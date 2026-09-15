@@ -9,6 +9,8 @@ import { TRIAL, perCredit, money } from "@/lib/billing/plans";
 import BuyButton from "./BuyButtons";
 import PricingMotion from "./PricingMotion";
 import "./pricing.css";
+/* Loaded after, deliberately: it overrides the generated stylesheet. */
+import "./pricing-brand.css";
 
 export const metadata = { title: "Pricing — FD AI" };
 export const dynamic = "force-dynamic";

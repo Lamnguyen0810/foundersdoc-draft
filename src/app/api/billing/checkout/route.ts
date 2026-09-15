@@ -144,25 +144,61 @@ export async function POST(req: NextRequest) {
           monthly_credits: String(membership.monthlyCredits ?? 0),
         };
 
-        /* Same plan, previously cancelled: they have changed their mind.
-           Simply stop the cancellation — no new subscription, no second
-           charge, and they keep the period they already paid for. */
+        /* ── SAME PLAN, PREVIOUSLY CANCELLED ──────────────────────────────
+           They have changed their mind about the plan they are already on and
+           have already paid for this period. There is nothing to charge and
+           nothing to agree to, so there is no payment page to show: asking for
+           a card here would either take money for a month they own already or
+           start a second subscription beside the first.
+
+           Stopping the cancellation is the whole of it. The page they land on
+           says so in as many words, which is the part that was missing. */
         if (onThisPlan && live.cancel_at_period_end) {
           await s.subscriptions.update(live.id, { cancel_at_period_end: false, metadata });
           return NextResponse.json({ url: `${origin}/billing?resumed=1` });
         }
 
-        /* A DIFFERENT plan: move this subscription onto the new price rather
-           than starting a second one. Stripe would happily run both and charge
-           for both, which is the worst outcome available here. */
+        /* ── A DIFFERENT PLAN: SHOW THEM WHAT THEY ARE AGREEING TO ────────
+           This used to switch the price silently and return to /billing with
+           a banner. It worked, and it was wrong: somebody who picks a plan
+           expects a page that names it, states what they will be charged and
+           when, and asks them to confirm — the same moment a first-time buyer
+           gets. Changing a plan behind a redirect is the kind of thing people
+           dispute later, and they are right to.
+
+           Stripe's `subscription_update_confirm` flow is built for exactly
+           this: it is for merchants with their own pricing page who want
+           Stripe to display the update, the prorations and the next invoice,
+           take the payment, and handle a declined card or a 3-D Secure
+           challenge. So the plan is not changed here at all — Stripe changes
+           it, after the customer presses Confirm on a page showing the figures.
+
+           It also keeps the ONE subscription. Sending them through Checkout
+           again — the literal "card form", which is what it looks like they
+           are asking for — creates a SECOND subscription alongside the first
+           and bills for both. Their card is already on file and this flow
+           shows it and lets them change it, so nothing is lost by not asking
+           for the number again. */
         if (!onThisPlan && item) {
-          await s.subscriptions.update(live.id, {
-            items: [{ id: item.id, price: price.id }],
-            cancel_at_period_end: false,
-            proration_behavior: "create_prorations",
-            metadata,
+          await s.subscriptions.update(live.id, { metadata });
+
+          const flow = await s.billingPortal.sessions.create({
+            customer: customer.id,
+            return_url: `${origin}/billing`,
+            flow_data: {
+              type: "subscription_update_confirm",
+              subscription_update_confirm: {
+                subscription: live.id,
+                items: [{ id: item.id, price: price.id, quantity: 1 }],
+              },
+              after_completion: {
+                type: "redirect",
+                redirect: { return_url: `${origin}/billing?changed=1` },
+              },
+            },
           });
-          return NextResponse.json({ url: `${origin}/billing?changed=1` });
+
+          return NextResponse.json({ url: flow.url });
         }
 
         /* Same plan, not cancelled: nothing to sell them. The portal is the
