@@ -984,7 +984,10 @@ body{background:var(--bg)!important;color:var(--tx)}
 .nav-cta .btn-white{background:transparent;color:var(--tx);border-color:var(--rule-2)}
 .nav-sub{background:var(--card);border-color:var(--rule)}.nav-sub a{color:var(--tx-2)}
 main.wrap-wide{max-width:none!important;padding:0!important;height:calc(100vh - var(--nav-h));display:block;overflow:clip;position:relative}
-main>.side,main>header,.draft-grid,.draft-output{display:none!important}
+/* Scoped to the draft workspace. Unscoped, `main>header` hid the page heading
+   on EVERY page whose heading is a <header> inside <main> — /usage and
+   /history both were, silently, with no rule on either page to explain it. */
+main.wrap-wide>.side,main.wrap-wide>header,.draft-grid,.draft-output{display:none!important}
 .scr{position:absolute;inset:0;display:none;overflow:hidden}
 .scr.on{display:grid}
 .fade-in{animation:scr-in .45s var(--ease) both}
@@ -1854,93 +1857,107 @@ body:has(.login-stage) {
   color: var(--grey-5, #6b6b76);
 }
 
-/* ── the balance on the catalogue's left column ──────────────────────────────
-   Same visual family as .rail-credits, sized for the wider column: the number
-   leads, because "how many drafts have I got" is the only question this
-   answers, and it should be readable without being read. */
-/* ── the balance card, rebuilt ───────────────────────────────────────────── */
+/* ── the balance card on the catalogue's left column ────────────────────────
+   Rebuilt to the design FD supplied: a gold rule down the left edge, a round
+   coin mark, a hairline divider, then the figure and its label, with the
+   action as a pill on the right. The number leads because "how many drafts
+   have I got" is the only question the card answers. */
 .cat-credits {
   /* The sidebar is a column flex with align-items:flex-start, so every card in
-     it shrinks to its own content. That gave a 296px balance card above a
-     194px admin card — two boxes of arbitrary, different widths stacked down a
-     476px column. Stretching both is what makes them read as a set. */
+     it shrinks to its own content. Stretching is what makes this card and the
+     admin card below it read as a set. */
   align-self: stretch;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  grid-template-areas:
-    "n label action"
-    "n note  note";
-  column-gap: 12px;
-  row-gap: 2px;
-  align-items: baseline;
-  margin-top: 26px;
-  padding: 14px 16px;
-  border: 1px solid var(--rule, #e6e6ea);
-  border-radius: 12px;
-  background: var(--card, #fff);
-}
-
-/* The gold was a 2px left border, which a 12px radius turns into a small
-   notch at each corner rather than a clean rule. A pseudo-element sits inside
-   the radius and stops short of both ends, so it reads as an accent. */
-.cat-credits {
   position: relative;
   overflow: hidden;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  column-gap: 16px;
+  margin-top: 26px;
+  padding: 18px 18px 18px 22px;
+  border: 1px solid var(--rule, #e6e6ea);
+  border-radius: 16px;
+  background: var(--card, #fff);
 }
+/* A 2px left border would be turned into a notch at each corner by the radius,
+   so the gold is a pseudo-element sitting inside it. */
 .cat-credits::before {
   content: "";
   position: absolute;
   left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  border-radius: 0 999px 999px 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
   background: var(--gold, #e9b03c);
 }
-
+.cat-credits-ic {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--gold, #e9b03c) 16%, transparent);
+  color: var(--ink, #1b1b1e);
+}
+.cat-credits-ic svg { width: 21px; height: 21px; display: block }
+/* The hairline between the mark and the figure. */
+.cat-credits-ic::after {
+  content: "";
+  position: absolute;
+  margin-left: 66px;
+  width: 1px;
+  height: 34px;
+  background: var(--rule, #e6e6ea);
+}
 .cat-credits-n {
-  grid-area: n;
-  align-self: center;
-  font-size: 28px;
+  font-size: 34px;
   line-height: 1;
-  font-weight: 600;
-  letter-spacing: -0.03em;
+  font-weight: 700;
+  letter-spacing: -0.045em;
   font-variant-numeric: tabular-nums;
 }
-
-/* The label and the note were one grid child, which is what left "Manage"
-   floating at the vertical centre of a two-line block, aligned to neither
-   line. They are separate cells now, so the link sits on the label's baseline
-   and the note runs the full width beneath. */
 .cat-credits-t {
-  display: contents;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
 }
 .cat-credits-t b {
-  grid-area: label;
-  font-size: 13.5px;
+  font-size: 17px;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 .cat-credits-t small {
-  grid-area: note;
-  font-size: 11.5px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.35;
   color: var(--grey-5, #6b6b76);
 }
-
 .cat-credits-a {
-  grid-area: action;
-  justify-self: end;
-  font-size: 11.5px;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   white-space: nowrap;
+  padding: 10px 15px;
+  border: 1px solid var(--rule, #e6e6ea);
+  border-radius: 12px;
+  font-size: 12.5px;
+  font-weight: 600;
   text-decoration: none;
-  border-bottom: 1px solid var(--rule-2, #d9d9de);
-  padding-bottom: 1px;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
 }
 .cat-credits-a:hover {
-  border-bottom-color: var(--ink, #1b1b1e);
+  border-color: var(--rule-2, #d9d9de);
+  background: var(--bg-soft, #faf9f6);
+}
+.cat-credits-a span[aria-hidden] { font-size: 14px; line-height: 1 }
+/* The card is a four-column row; below that it would crush, so the label
+   column gives way first and the action drops under the figure. */
+@media (max-width: 520px) {
+  .cat-credits {
+    grid-template-columns: auto auto 1fr;
+    row-gap: 14px;
+  }
+  .cat-credits-a { grid-column: 1 / -1; justify-content: center }
 }
 
 /* The admin card is the balance card's neighbour; they should be one width. */

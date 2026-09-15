@@ -67,7 +67,7 @@ export default async function DraftPage({
       recent={recent}
       wallet={
         Number.isFinite(wallet.credits)
-          ? { credits: wallet.credits, inTrial: wallet.inTrial }
+          ? { credits: wallet.credits, inTrial: wallet.inTrial, trialEndsAt: wallet.trialEndsAt }
           : null /* unmetered local dev: show nothing rather than "Infinity left" */
       }
       isAdmin={admin}
