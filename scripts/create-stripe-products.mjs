@@ -158,6 +158,10 @@ for (const item of ITEMS) {
     currency: "sgd",
     unit_amount: item.amountCents,
     lookup_key: item.lookupKey,
+    /* An archived price may still hold this lookup key (Stripe never deletes a
+       price that has been charged). Move the key to the new price instead of
+       failing on "lookup_key already exists". */
+    transfer_lookup_key: true,
     ...(item.recurring ? { recurring: { interval: "month" } } : {}),
     metadata: item.metadata,
   });
