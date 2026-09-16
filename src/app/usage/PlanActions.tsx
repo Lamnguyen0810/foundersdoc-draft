@@ -147,18 +147,19 @@ export function CancelPlan({
 }
 
 /**
- * Stripe's portal, for the one thing it is genuinely the right tool for:
- * changing the card on file. Nothing it opens can cancel or buy.
+ * "Update payment method".
  *
- * It appears twice on the page — as the button in the billing panel and as the
- * quiet link in the billing history header — so the classes come in.
+ * Posts to a route that can do nothing but open Stripe's card form for this
+ * customer — no plan, no lookup key, no branch that could start a purchase.
+ * The card is typed on stripe.com; this app never sees a card number.
+ *
+ * It appears twice on the page — the button in the billing panel and the quiet
+ * link in the billing history header — so the classes come in.
  */
 export function UpdateCard({
-  lookupKey,
   className = "u-btn billing-btn",
   label = "Update payment method",
 }: {
-  lookupKey: string;
   className?: string;
   label?: string;
 }) {
@@ -174,11 +175,7 @@ export function UpdateCard({
         onClick={() => {
           setBusy(true);
           setError(null);
-          fetch("/api/billing/checkout", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ lookupKey }),
-          })
+          fetch("/api/billing/payment-method", { method: "POST" })
             .then((r) => r.json())
             .then((json: { url?: string; error?: string }) => {
               if (json.url) window.location.assign(json.url);
@@ -193,7 +190,7 @@ export function UpdateCard({
             });
         }}
       >
-        {busy ? "Opening Stripe\u2026" : label}
+        {busy ? "Opening Stripe…" : label}
       </button>
       {error && <div className="cancelled-note">{error}</div>}
     </>

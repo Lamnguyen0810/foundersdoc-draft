@@ -650,11 +650,11 @@ export default async function UsagePage({
             <strong>{card ? `•••• ${card.last4}` : "None on file"}</strong>
           </div>
 
-          {plan ? (
-            <UpdateCard lookupKey={plan.lookupKey} />
+          {card ? (
+            <UpdateCard />
           ) : (
             <Link className="u-btn billing-btn" href="/billing">
-              See plans
+              {plan ? "View pricing" : "See plans"}
             </Link>
           )}
         </article>
@@ -697,9 +697,7 @@ export default async function UsagePage({
             <h2 id="billingHistoryTitle">Billing history</h2>
             <p>View past payments, invoices and receipts.</p>
           </div>
-          {plan && (
-            <UpdateCard lookupKey={plan.lookupKey} className="history-link" />
-          )}
+          {card && <UpdateCard className="history-link" />}
         </div>
 
         {entries.length === 0 ? (
