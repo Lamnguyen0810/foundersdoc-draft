@@ -1,20 +1,40 @@
-/* ===========================================================================
+/* ── the design under the app's globals.css ──────────────────────────────────
+   Two things globals.css sets on every page that the design does not expect:
+   a 1.08 line-height on all headings (the design leaves them on the body's
+   1.55 and sizes its blocks around that), and `button{color:inherit}`, which
+   hides the browser's own greyed colour on a disabled button — the design
+   relies on that grey for "Ready" and "Processing". Restated here. */
+.fdadmin h1, .fdadmin h2, .fdadmin h3 { line-height: inherit; letter-spacing: inherit; font-weight: inherit; }
+.fdadmin .approve-btn:disabled { color: rgba(16, 16, 16, .3); }
+/* globals.css zeroes the margin on every checkbox; the browser's own 3px 3px
+   3px 4px is what the design's select column is sized around. */
+.fdadmin .file-select { margin: 3px 3px 3px 4px; }
+/* globals.css has its own .pill (uppercase, letter-spaced, bordered) and its
+   own .input (full width, !important background and colour). The design's
+   are neither. Every property globals.css sets is restated to the design's. */
+.fdadmin .pill { text-transform: none; letter-spacing: 0; font-weight: 500; padding: 5px 8px; border: 1px solid var(--line); background: #F7F7F8; color: var(--text); }
+.fdadmin .input { width: auto; min-width: 220px; background: #fff !important; border: 1px solid var(--line) !important; color: var(--ink) !important; border-radius: 9px; padding: 0 14px; font-size: 13px; }
+.fdadmin .input:focus { border-color: #D4B24B !important; box-shadow: 0 0 0 3px rgba(246,191,59,.12); }
+.fdadmin .empty { padding: 14px; font-size: 10px; color: #9B9FA6; }
+
+.fdadmin .fda-legacy /* ===========================================================================
    The admin console.
 
-   The look is the designed admin workspace's, kept: the same cream ground, the
-   same yellow, the same 17px panels, the same pill vocabulary. What has changed
+   The look is the designed admin workspace's, .fdadmin .fda-legacy kept: the same cream ground, .fdadmin .fda-legacy the
+   same yellow, .fdadmin .fda-legacy the same 17px panels, .fdadmin .fda-legacy the same pill vocabulary. What has changed
    is where the colours come from. The design hard-coded them; here every one is
-   an alias of a token the rest of FD AI already uses, so the console follows the
+   an alias of a token the rest of FD AI already uses, .fdadmin .fda-legacy so the console follows the
    app into dark mode and picks up any future change to the palette instead of
    drifting away from it.
 
-   Scoped under .fda throughout. This file loads on one route, but a bare
-   `table { }` or `.panel { }` from a 700-line stylesheet has a way of turning up
+   Scoped under .fda throughout. This file loads on one route, .fdadmin .fda-legacy but a bare
+   `table{ }.fdadmin .fda-legacy ` or `.panel{ }.fdadmin .fda-legacy ` from a 700-line stylesheet has a way of turning up
    somewhere else eventually.
    ========================================================================= */
 
-.fda {
-  --fd-yellow: var(--gold);
+/* Inside the new dashboard shell the legacy panels keep their own tokens
+   but no longer own the page box — the shell does. */
+.fdadmin .fda-legacy{  --fd-yellow: var(--gold);
   --fd-yellow-soft: var(--gold-soft);
   --fd-ink: var(--ink);
   --fd-cream: var(--grey-1);
@@ -25,16 +45,10 @@
   --fd-rule: var(--grey-2);
   --fd-danger: var(--miss);
   --fd-good: var(--ok);
-
-  max-width: var(--wrap-wide);
-  margin: 0 auto;
-  padding: 34px var(--gutter) 72px;
-  color: var(--fd-ink);
-  font-variant-numeric: tabular-nums;
 }
 
 /* ── heading ─────────────────────────────────────────────────────────────── */
-.fda-head {
+.fdadmin .fda-legacy .fda-head{
   display: flex;
   align-items: end;
   justify-content: space-between;
@@ -42,21 +56,21 @@
   flex-wrap: wrap;
   margin-bottom: 20px;
 }
-.fda-head h1 {
+.fdadmin .fda-legacy .fda-head h1{
   margin: 0;
   font-family: var(--display);
   font-size: 32px;
   letter-spacing: -0.045em;
 }
-.fda-head p {
+.fdadmin .fda-legacy .fda-head p{
   margin: 8px 0 0;
   font-size: 14px;
   color: var(--fd-grey);
   max-width: 62ch;
 }
-.fda-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fdadmin .fda-legacy .fda-tools{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-.range {
+.fdadmin .fda-legacy .range{
   display: inline-flex;
   gap: 2px;
   padding: 3px;
@@ -64,7 +78,7 @@
   border: 1px solid var(--fd-line);
   border-radius: 12px;
 }
-.range a {
+.fdadmin .fda-legacy .range a{
   border-radius: 9px;
   padding: 8px 12px;
   font-size: 12px;
@@ -73,11 +87,11 @@
   text-decoration: none;
   white-space: nowrap;
 }
-.range a:hover { color: var(--fd-ink); }
-.range a[aria-current="true"] { background: var(--fd-yellow); color: #202020; }
+.fdadmin .fda-legacy .range a:hover{ color: var(--fd-ink); }
+.fdadmin .fda-legacy .range a[aria-current="true"]{ background: var(--fd-yellow); color: #202020; }
 
 /* ── the three tabs ──────────────────────────────────────────────────────── */
-.fda-tabs {
+.fdadmin .fda-legacy .fda-tabs{
   display: flex;
   gap: 4px;
   margin: 0 0 22px;
@@ -87,7 +101,7 @@
   border-radius: 14px;
   overflow-x: auto;
 }
-.fda-tab {
+.fdadmin .fda-legacy .fda-tab{
   flex: 1 1 0;
   min-width: max-content;
   text-align: center;
@@ -99,12 +113,12 @@
   text-decoration: none;
   white-space: nowrap;
 }
-.fda-tab:hover { color: var(--fd-ink); background: var(--fd-cream); }
-.fda-tab[aria-current="page"] {
+.fdadmin .fda-legacy .fda-tab:hover{ color: var(--fd-ink); background: var(--fd-cream); }
+.fdadmin .fda-legacy .fda-tab[aria-current="page"]{
   background: var(--fd-ink);
   color: var(--white);
 }
-.fda-tab .count {
+.fdadmin .fda-legacy .fda-tab .count{
   display: inline-block;
   margin-left: 7px;
   font-weight: 600;
@@ -112,7 +126,7 @@
 }
 
 /* ── key figures ─────────────────────────────────────────────────────────── */
-.kpi-row {
+.fdadmin .fda-legacy .kpi-row{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 1px;
@@ -121,30 +135,30 @@
   border-radius: 17px;
   overflow: hidden;
 }
-.kpi { background: var(--fd-white); padding: 18px 20px 17px; }
-.kpi-label { font-size: 12px; font-weight: 650; color: var(--fd-grey); }
-.kpi-value {
+.fdadmin .fda-legacy .kpi{ background: var(--fd-white); padding: 18px 20px 17px; }
+.fdadmin .fda-legacy .kpi-label{ font-size: 12px; font-weight: 650; color: var(--fd-grey); }
+.fdadmin .fda-legacy .kpi-value{
   margin: 7px 0 5px;
   font-size: 27px;
   font-weight: 800;
   letter-spacing: -0.045em;
 }
-.kpi-change { font-size: 11px; color: var(--fd-grey); line-height: 1.45; }
-.delta { font-weight: 800; }
-.delta.good { color: var(--fd-good); }
-.delta.bad { color: var(--fd-danger); }
+.fdadmin .fda-legacy .kpi-change{ font-size: 11px; color: var(--fd-grey); line-height: 1.45; }
+.fdadmin .fda-legacy .delta{ font-weight: 800; }
+.fdadmin .fda-legacy .delta.good{ color: var(--fd-good); }
+.fdadmin .fda-legacy .delta.bad{ color: var(--fd-danger); }
 
 /* ── panels ──────────────────────────────────────────────────────────────── */
-.panel {
+.fdadmin .fda-legacy .panel{
   background: var(--fd-white);
   border: 1px solid var(--fd-line);
   border-radius: 17px;
   padding: 20px;
   margin-top: 14px;
 }
-.panel h2 { margin: 0; font-family: var(--display); font-size: 14px; letter-spacing: -0.01em; }
-.panel .sub { margin: 4px 0 0; font-size: 12px; color: var(--fd-grey); }
-.panel-head {
+.fdadmin .fda-legacy .panel h2{ margin: 0; font-family: var(--display); font-size: 14px; letter-spacing: -0.01em; }
+.fdadmin .fda-legacy .panel .sub{ margin: 4px 0 0; font-size: 12px; color: var(--fd-grey); }
+.fdadmin .fda-legacy .panel-head{
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -153,18 +167,18 @@
   flex-wrap: wrap;
 }
 
-.fda-grid {
+.fdadmin .fda-legacy .fda-grid{
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 14px;
   align-items: start;
 }
-.fda-grid > .panel { margin-top: 0; }
+.fdadmin .fda-legacy .fda-grid > .panel{ margin-top: 0; }
 
 /* ── tables ──────────────────────────────────────────────────────────────── */
-.table-wrap { overflow-x: auto; }
-.fda table { width: 100%; border-collapse: collapse; }
-.fda th {
+.fdadmin .fda-legacy .table-wrap{ overflow-x: auto; }
+.fdadmin .fda-legacy .fda table{ width: 100%; border-collapse: collapse; }
+.fdadmin .fda-legacy .fda th{
   text-align: left;
   padding: 11px 14px;
   font-size: 10px;
@@ -175,26 +189,26 @@
   border-bottom: 1px solid var(--fd-line);
   white-space: nowrap;
 }
-.fda td {
+.fdadmin .fda-legacy .fda td{
   padding: 13px 14px;
   font-size: 12px;
   border-bottom: 1px solid var(--fd-rule);
   vertical-align: top;
 }
-.fda tbody tr:last-child td { border-bottom: 0; }
-.fda td.muted { color: var(--fd-grey); }
-.fda td.name { font-weight: 700; }
-.fda td.num { text-align: right; font-weight: 700; }
-.fda th.num { text-align: right; }
-.fda .table-card {
+.fdadmin .fda-legacy .fda tbody tr:last-child td{ border-bottom: 0; }
+.fdadmin .fda-legacy .fda td.muted{ color: var(--fd-grey); }
+.fdadmin .fda-legacy .fda td.name{ font-weight: 700; }
+.fdadmin .fda-legacy .fda td.num{ text-align: right; font-weight: 700; }
+.fdadmin .fda-legacy .fda th.num{ text-align: right; }
+.fdadmin .fda-legacy .fda .table-card{
   border: 1px solid var(--fd-line);
   border-radius: 13px;
   overflow: hidden;
 }
-.fda .wrap-cell { max-width: 30ch; overflow-wrap: anywhere; }
+.fdadmin .fda-legacy .fda .wrap-cell{ max-width: 30ch; overflow-wrap: anywhere; }
 
 /* ── pills ───────────────────────────────────────────────────────────────── */
-.status-pill {
+.fdadmin .fda-legacy .status-pill{
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -206,16 +220,16 @@
   background: var(--grey-1);
   color: var(--fd-grey);
 }
-.status-pill.ready    { background: #eaf8ef; color: #18794e; }
-.status-pill.review   { background: #fff6da; color: #846500; }
-.status-pill.approved { background: #edf4ff; color: #315f9d; }
-.status-pill.error    { background: #fff0f0; color: #b42318; }
-[data-theme="dark"] .status-pill.ready    { background: #11291c; color: #6fce9c; }
-[data-theme="dark"] .status-pill.review   { background: #2e2609; color: #e8c65c; }
-[data-theme="dark"] .status-pill.approved { background: #101f33; color: #86b2ea; }
-[data-theme="dark"] .status-pill.error    { background: #2d1211; color: #ef8d84; }
+.fdadmin .fda-legacy .status-pill.ready{ background: #eaf8ef; color: #18794e; }
+.fdadmin .fda-legacy .status-pill.review{ background: #fff6da; color: #846500; }
+.fdadmin .fda-legacy .status-pill.approved{ background: #edf4ff; color: #315f9d; }
+.fdadmin .fda-legacy .status-pill.error{ background: #fff0f0; color: #b42318; }
+.fdadmin .fda-legacy [data-theme="dark"] .status-pill.ready{ background: #11291c; color: #6fce9c; }
+.fdadmin .fda-legacy [data-theme="dark"] .status-pill.review{ background: #2e2609; color: #e8c65c; }
+.fdadmin .fda-legacy [data-theme="dark"] .status-pill.approved{ background: #101f33; color: #86b2ea; }
+.fdadmin .fda-legacy [data-theme="dark"] .status-pill.error{ background: #2d1211; color: #ef8d84; }
 
-.meta-pill {
+.fdadmin .fda-legacy .meta-pill{
   display: inline-block;
   padding: 4px 7px;
   border: 1px solid var(--fd-line);
@@ -227,8 +241,8 @@
 }
 
 /* ── bar lists ───────────────────────────────────────────────────────────── */
-.bar-list { list-style: none; margin: 0; padding: 0; }
-.bar-row {
+.fdadmin .fda-legacy .bar-list{ list-style: none; margin: 0; padding: 0; }
+.fdadmin .fda-legacy .bar-row{
   position: relative;
   isolation: isolate;
   display: flex;
@@ -243,28 +257,28 @@
      ends mid-label and reads as a rendering fault rather than a small number. */
   background: var(--fd-cream);
 }
-.bar-row .bar {
+.fdadmin .fda-legacy .bar-row .bar{
   position: absolute;
   inset: 0 auto 0 0;
   z-index: -1;
   background: var(--fd-yellow-soft);
   border-radius: 8px;
 }
-.bar-row .name {
+.fdadmin .fda-legacy .bar-row .name{
   font-weight: 700;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.bar-row .name small { font-weight: 500; color: var(--fd-grey); margin-left: 6px; font-size: 11px; }
-.bar-row .num { font-weight: 750; white-space: nowrap; }
-.bar-row .num small { font-weight: 500; color: var(--fd-grey); margin-left: 6px; }
+.fdadmin .fda-legacy .bar-row .name small{ font-weight: 500; color: var(--fd-grey); margin-left: 6px; font-size: 11px; }
+.fdadmin .fda-legacy .bar-row .num{ font-weight: 750; white-space: nowrap; }
+.fdadmin .fda-legacy .bar-row .num small{ font-weight: 500; color: var(--fd-grey); margin-left: 6px; }
 
 /* ── a short list of figures, where a bar would imply a comparison that is
       not there (a request count against a person count, say) ─────────────── */
-.stat-list { list-style: none; margin: 0; padding: 0; }
-.stat-list li {
+.fdadmin .fda-legacy .stat-list{ list-style: none; margin: 0; padding: 0; }
+.fdadmin .fda-legacy .stat-list li{
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -273,32 +287,32 @@
   border-bottom: 1px solid var(--fd-rule);
   font-size: 12px;
 }
-.stat-list li:last-child { border-bottom: 0; }
-.stat-list .k { color: var(--fd-grey); }
-.stat-list .v { font-weight: 750; font-size: 15px; }
+.fdadmin .fda-legacy .stat-list li:last-child{ border-bottom: 0; }
+.fdadmin .fda-legacy .stat-list .k{ color: var(--fd-grey); }
+.fdadmin .fda-legacy .stat-list .v{ font-weight: 750; font-size: 15px; }
 
 /* ── the funnel ──────────────────────────────────────────────────────────── */
-.funnel { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
-.funnel-top { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 700; }
-.funnel-track {
+.fdadmin .fda-legacy .funnel{ list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.fdadmin .fda-legacy .funnel-top{ display: flex; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 700; }
+.fdadmin .fda-legacy .funnel-track{
   height: 8px;
   margin: 7px 0 5px;
   background: var(--fd-soft);
   border-radius: 999px;
   overflow: hidden;
 }
-.funnel-bar { height: 100%; background: var(--fd-yellow); border-radius: 999px; }
-.funnel-note { font-size: 11px; color: var(--fd-grey); }
+.fdadmin .fda-legacy .funnel-bar{ height: 100%; background: var(--fd-yellow); border-radius: 999px; }
+.fdadmin .fda-legacy .funnel-note{ font-size: 11px; color: var(--fd-grey); }
 
 /* ── empty and warning states ────────────────────────────────────────────── */
-.fda-empty {
+.fdadmin .fda-legacy .fda-empty{
   padding: 26px 10px;
   text-align: center;
   font-size: 12px;
   color: var(--fd-grey);
   line-height: 1.6;
 }
-.fda-note {
+.fdadmin .fda-legacy .fda-note{
   margin: 0 0 18px;
   padding: 12px 14px;
   border: 1px solid var(--fd-line);
@@ -309,11 +323,11 @@
   line-height: 1.6;
   color: var(--fd-grey);
 }
-.fda-note.warn { border-left-color: var(--fd-danger); color: var(--fd-danger); }
-.fda-note strong { color: var(--fd-ink); }
+.fdadmin .fda-legacy .fda-note.warn{ border-left-color: var(--fd-danger); color: var(--fd-danger); }
+.fdadmin .fda-legacy .fda-note strong{ color: var(--fd-ink); }
 
 /* ── buttons and fields ──────────────────────────────────────────────────── */
-.fda .primary {
+.fdadmin .fda-legacy .fda .primary{
   border: 0;
   border-radius: 11px;
   background: var(--fd-ink);
@@ -324,9 +338,9 @@
   font-weight: 750;
   cursor: pointer;
 }
-.fda .primary:hover { opacity: 0.9; }
-.fda .primary:disabled { opacity: 0.4; cursor: not-allowed; }
-.fda .secondary {
+.fdadmin .fda-legacy .fda .primary:hover{ opacity: 0.9; }
+.fdadmin .fda-legacy .fda .primary:disabled{ opacity: 0.4; cursor: not-allowed; }
+.fdadmin .fda-legacy .fda .secondary{
   border: 1px solid var(--fd-line);
   border-radius: 11px;
   background: var(--fd-white);
@@ -337,13 +351,13 @@
   font-weight: 700;
   cursor: pointer;
 }
-.fda .secondary:hover { background: var(--fd-cream); }
-.fda .secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+.fdadmin .fda-legacy .fda .secondary:hover{ background: var(--fd-cream); }
+.fdadmin .fda-legacy .fda .secondary:disabled{ opacity: 0.4; cursor: not-allowed; }
 
 /* The search sits in a panel head beside the title. Without a ceiling the
    input takes the whole row and pushes its own button onto the next line. */
-.fda-search { display: flex; gap: 8px; flex-wrap: nowrap; max-width: 380px; }
-.fda-input {
+.fdadmin .fda-legacy .fda-search{ display: flex; gap: 8px; flex-wrap: nowrap; max-width: 380px; }
+.fdadmin .fda-legacy .fda-input{
   flex: 1 1 auto;
   min-width: 0;
   height: 40px;
@@ -356,19 +370,17 @@
   font-size: 13px;
   outline: none;
 }
-.fda-input:focus { border-color: var(--gold-deep); box-shadow: 0 0 0 3px var(--fd-yellow-soft); }
+.fdadmin .fda-legacy .fda-input:focus{ border-color: var(--gold-deep); box-shadow: 0 0 0 3px var(--fd-yellow-soft); }
 
-.fda a:focus-visible,
-.fda button:focus-visible,
-.fda input:focus-visible {
+.fdadmin .fda-legacy .fda a:focus-visible, .fdadmin .fda-legacy .fda button:focus-visible, .fdadmin .fda-legacy .fda input:focus-visible{
   outline: 2px solid var(--fd-ink);
   outline-offset: 2px;
 }
 
 /* ── credits panel ───────────────────────────────────────────────────────── */
-.credit-find { max-width: 34rem; }
-.credit-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.35rem; }
-.credit-label {
+.fdadmin .fda-legacy .credit-find{ max-width: 34rem; }
+.fdadmin .fda-legacy .credit-row{ display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 0.35rem; }
+.fdadmin .fda-legacy .credit-label{
   display: block;
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -377,7 +389,7 @@
   font-weight: 700;
   margin-top: 0.85rem;
 }
-.credit-input {
+.fdadmin .fda-legacy .credit-input{
   flex: 1 1 14rem;
   min-width: 0;
   padding: 0.55rem 0.7rem;
@@ -388,12 +400,12 @@
   font: inherit;
   font-size: 13px;
 }
-.credit-num-input { flex: 0 0 7rem; }
-.credit-input:focus-visible { outline: 2px solid var(--gold-deep); outline-offset: 1px; }
-.credit-msg { margin: 0.7rem 0 0; font-size: 0.8rem; min-height: 1.2em; line-height: 1.5; }
-.credit-msg.err { color: var(--fd-danger); }
-.credit-msg.ok { color: var(--fd-good); }
-.credit-found {
+.fdadmin .fda-legacy .credit-num-input{ flex: 0 0 7rem; }
+.fdadmin .fda-legacy .credit-input:focus-visible{ outline: 2px solid var(--gold-deep); outline-offset: 1px; }
+.fdadmin .fda-legacy .credit-msg{ margin: 0.7rem 0 0; font-size: 0.8rem; min-height: 1.2em; line-height: 1.5; }
+.fdadmin .fda-legacy .credit-msg.err{ color: var(--fd-danger); }
+.fdadmin .fda-legacy .credit-msg.ok{ color: var(--fd-good); }
+.fdadmin .fda-legacy .credit-found{
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 1rem 1.5rem;
@@ -402,22 +414,22 @@
   padding-top: 1.1rem;
   border-top: 1px solid var(--fd-line);
 }
-.credit-who { display: flex; flex-direction: column; gap: 0.15rem; }
-.credit-name { font-weight: 700; }
-.credit-sub { font-size: 0.78rem; color: var(--fd-grey); }
-.credit-balance { text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
-.credit-num { font-size: 1.9rem; font-weight: 700; line-height: 1; }
-.credit-act { grid-column: 1 / -1; max-width: 34rem; }
-.credit-act > .credit-input { display: block; width: 100%; }
-.credit-act > .credit-num-input { width: 7rem; }
-.credit-danger { color: var(--fd-danger); border-color: var(--fd-danger); }
-.credit-log { margin-top: 1.4rem; }
+.fdadmin .fda-legacy .credit-who{ display: flex; flex-direction: column; gap: 0.15rem; }
+.fdadmin .fda-legacy .credit-name{ font-weight: 700; }
+.fdadmin .fda-legacy .credit-sub{ font-size: 0.78rem; color: var(--fd-grey); }
+.fdadmin .fda-legacy .credit-balance{ text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+.fdadmin .fda-legacy .credit-num{ font-size: 1.9rem; font-weight: 700; line-height: 1; }
+.fdadmin .fda-legacy .credit-act{ grid-column: 1 / -1; max-width: 34rem; }
+.fdadmin .fda-legacy .credit-act > .credit-input{ display: block; width: 100%; }
+.fdadmin .fda-legacy .credit-act > .credit-num-input{ width: 7rem; }
+.fdadmin .fda-legacy .credit-danger{ color: var(--fd-danger); border-color: var(--fd-danger); }
+.fdadmin .fda-legacy .credit-log{ margin-top: 1.4rem; }
 
-@media (max-width: 640px) {
-  .credit-found { grid-template-columns: 1fr; }
-  .credit-balance { text-align: left; align-items: flex-start; }
-  .fda-head { align-items: stretch; }
-  .range { width: 100%; }
-  .range a { flex: 1; text-align: center; padding: 8px 6px; }
-  .kpi-value { font-size: 22px; }
+@media (max-width: 640px){
+  .fdadmin .fda-legacy .credit-found{ grid-template-columns: 1fr; }
+  .fdadmin .fda-legacy .credit-balance{ text-align: left; align-items: flex-start; }
+  .fdadmin .fda-legacy .fda-head{ align-items: stretch; }
+  .fdadmin .fda-legacy .range{ width: 100%; }
+  .fdadmin .fda-legacy .range a{ flex: 1; text-align: center; padding: 8px 6px; }
+  .fdadmin .fda-legacy .kpi-value{ font-size: 22px; }
 }

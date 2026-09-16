@@ -116,7 +116,41 @@ export async function loadDocTypes(): Promise<CatalogueResult> {
       if (error) console.error("[doctypes] falling back to built-in catalogue:", error.message);
       return { docTypes: DOC_TYPES, source: "built-in" };
     }
-    return { docTypes: (data as DocTypeRow[]).map(fromRow), source: "database" };
+    const docTypes = (data as DocTypeRow[]).map(fromRow);
+
+    /* ── THE EXAMPLES COME FROM THE AI LIBRARY ────────────────────────────
+       Worked examples used to be baked into the code. They are rows in
+       ai_sources now, managed from the admin console, and only the ones a
+       person has reviewed and approved — status 'ready' — are read. The
+       RPC is the single opening through the library's admin-only wall: it
+       returns title and text for one document type and nothing else.
+
+       If the RPC is not there yet (014_ai_library.sql not run) the code's
+       own examples are used, so a draft never goes out with no example just
+       because a migration is pending. */
+    await Promise.all(
+      docTypes.map(async (docType) => {
+        const { data: rows, error: exErr } = await supabase.rpc("ai_examples_for", {
+          p_slug: docType.slug,
+        });
+        if (exErr) {
+          if (!/ai_examples_for/.test(exErr.message)) {
+            console.error(`[doctypes] could not read examples for "${docType.slug}":`, exErr.message);
+          }
+          return; // keep whatever fromRow chose
+        }
+        const library = ((rows ?? []) as { title: string; text: string }[]).filter(
+          (r) => r.text && r.text.trim().length > 0,
+        );
+        /* An empty library for a type is a real state — every sample was
+           deleted and none uploaded — and it is honoured: the model then
+           drafts from the system prompt alone rather than from examples the
+           firm has removed. */
+        docType.examples = library;
+      }),
+    );
+
+    return { docTypes, source: "database" };
   } catch (err) {
     console.error("[doctypes] falling back to built-in catalogue:", err);
     return { docTypes: DOC_TYPES, source: "built-in" };
