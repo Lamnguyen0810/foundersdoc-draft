@@ -4,6 +4,7 @@ import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib
 import { sendMail } from "@/lib/email/send";
 import { waitlistWelcome } from "@/lib/email/waitlist-welcome";
 import { siteUrl } from "@/lib/billing/stripe";
+import { notifyWaitlistWebhook } from "@/lib/waitlist/notify";
 
 /**
  * Joining the waitlist.
@@ -51,12 +52,15 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  const { error } = await supabase.rpc("join_waitlist", {
+  const company = str(body.company, 160);
+  const note = str(body.note, 1000);
+  const source = str(body.source, 80) ?? "signup_modal";
+  const { data: joined, error } = await supabase.rpc("join_waitlist", {
     p_email: email,
     p_name: name,
-    p_company: str(body.company, 160),
-    p_note: str(body.note, 1000),
-    p_source: str(body.source, 80) ?? "signup_modal",
+    p_company: company,
+    p_note: note,
+    p_source: source,
   });
 
   if (error) {
@@ -89,6 +93,16 @@ export async function POST(req: NextRequest) {
   if (!mailed) {
     // Loud, because a waitlist nobody hears back from looks like a broken firm.
     console.warn(`[waitlist] joined but no welcome email reached ${email}.`);
+  }
+
+  /* ── THE FIRM'S AUTOMATION ────────────────────────────────────────────────
+     A new person is announced to WAITLIST_WEBHOOK_URL (Zapier), once. Since
+     019_waitlist_new_flag.sql the function says whether the row was new;
+     before it, it says true for everyone, and a repeat signup would be
+     announced again — run the file and it stops. The visitor's reply is the
+     same either way. */
+  if (joined !== false) {
+    await notifyWaitlistWebhook({ email, name, company, note, source });
   }
 
   return NextResponse.json({ ...OK, mailed });
