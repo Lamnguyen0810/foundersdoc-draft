@@ -27,7 +27,27 @@ function ext(name: string): "pdf" | "docx" | "doc" | "txt" | null {
   return e === "pdf" || e === "docx" || e === "doc" || e === "txt" ? e : null;
 }
 
+/**
+ * Anything that escapes the per-file handling below — a library that fails to
+ * load on the server, an unexpected shape from Supabase — used to become a
+ * bare 500, which the dashboard could only report as "Upload failed." The
+ * reason belongs on the screen of the person who pressed the button, not
+ * only in a log they have to go and find.
+ */
 export async function POST(req: NextRequest) {
+  try {
+    return await handleUpload(req);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[ai-sources] upload crashed:", err);
+    return NextResponse.json(
+      { error: `The server could not process the upload: ${message}` },
+      { status: 500 },
+    );
+  }
+}
+
+async function handleUpload(req: NextRequest) {
   if (!isSupabaseConfigured()) return NextResponse.json({ error: "Not configured." }, { status: 503 });
   if (!(await isAdmin())) return NextResponse.json({ error: "Not found." }, { status: 404 });
 

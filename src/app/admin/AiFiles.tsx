@@ -613,13 +613,27 @@ function UploadModal({
     fd.set("permitted", permitted ? "1" : "0");
     try {
       const res = await fetch("/api/admin/ai-sources", { method: "POST", body: fd });
-      const json = (await res.json().catch(() => ({}))) as {
+      /* Read the body once as text, then try it as JSON: a crash on the server
+         or a proxy in the way answers with HTML or plain text, and the person
+         should see the status and the first line of it, not a shrug. */
+      const raw = await res.text().catch(() => "");
+      let json: {
         added?: number;
         results?: { filename: string; ok: boolean; error?: string }[];
         error?: string;
-      };
+      } = {};
+      try {
+        json = JSON.parse(raw) as typeof json;
+      } catch {
+        json = {};
+      }
       if (!res.ok) {
-        setError(json.error ?? "Upload failed.");
+        const firstLine = raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+        setError(json.error ?? `Upload failed (HTTP ${res.status})${firstLine ? `: ${firstLine}` : "."}`);
+        return;
+      }
+      if (!json.results && json.added === undefined) {
+        setError(`Upload failed: the server answered with something other than a result (HTTP ${res.status}). If you were signed out, sign in again and retry.`);
         return;
       }
       const failed = (json.results ?? []).filter((r) => !r.ok);
