@@ -27,10 +27,13 @@ function formatField(field: Field, value: string): string {
 export function buildSystem(docType: DocType): string {
   if (docType.examples.length === 0) return docType.systemPrompt;
 
+  /* The examples arrive in the order the firm ranked them — best first — and
+     the model is told so: when two examples handle a clause differently, the
+     earlier one is the house style. */
   const examples = docType.examples
     .map(
       (ex, i) =>
-        `--- WORKED EXAMPLE ${i + 1}: ${ex.title} ---\n${ex.text}\n--- END WORKED EXAMPLE ${i + 1} ---`,
+        `--- WORKED EXAMPLE ${i + 1}${i === 0 ? " (PREFERRED STYLE)" : ""}: ${ex.title} ---\n${ex.text}\n--- END WORKED EXAMPLE ${i + 1} ---`,
     )
     .join("\n\n");
 
@@ -39,8 +42,12 @@ export function buildSystem(docType: DocType): string {
     "",
     "WORKED EXAMPLES",
     "The documents below show the structure, register and level of detail expected.",
-    "Follow their shape and tone. Do NOT copy their facts, parties or figures — those",
-    "come only from THE FACTS section of the user message.",
+    "They are in order of preference: Example 1 is the firm's preferred style, and",
+    "where examples differ, follow the earlier one. Follow their shape and tone.",
+    "Do NOT copy their facts, parties or figures — those come only from THE FACTS",
+    "section of the user message. A placeholder such as [REDACTED COMPANY] marks",
+    "where a detail was removed; treat it as the kind of thing named, never as text",
+    "to reproduce.",
     "",
     examples,
   ].join("\n");

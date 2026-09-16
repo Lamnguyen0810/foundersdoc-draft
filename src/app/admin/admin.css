@@ -68,3 +68,54 @@
 .fdadmin tbody tr.openable { cursor: pointer; }
 .fdadmin tbody tr.openable:hover { background: #FCFCFA; }
 .fdadmin tbody tr.openable:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+
+/* ── redaction ───────────────────────────────────────────────────────────────
+   A black bar the width of the words it hides. Before Apply it is a button —
+   the text is still there, drawn black on black, and a click keeps it. After
+   Apply it is a placeholder: the words are gone and the bar names only the
+   kind of thing that was there. */
+.fdadmin .redact-bar {
+  display: inline;
+  padding: 1px 4px;
+  margin: 0 1px;
+  border: 0;
+  border-radius: 3px;
+  background: #101010;
+  color: #101010;
+  font: inherit;
+  line-height: inherit;
+  cursor: pointer;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.fdadmin .redact-bar:hover { background: #3A2F00; color: #3A2F00; outline: 2px solid var(--gold); }
+.fdadmin .redact-bar.done {
+  color: #9B9FA6;
+  cursor: default;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  padding: 2px 7px;
+  vertical-align: 1px;
+}
+.fdadmin .doc-view.redacting { border-color: #101010; }
+.fdadmin .doc-view.redacting::selection, .fdadmin .doc-view.redacting *::selection { background: var(--gold); color: var(--ink); }
+.fdadmin .redact-bar-row { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.fdadmin .redact-bar-row .btn { white-space: nowrap; flex: none; }
+@media (max-width: 720px) { .fdadmin .redact-bar-row { flex-direction: column; align-items: stretch; } }
+
+/* ── rank ────────────────────────────────────────────────────────────────────
+   Arrows and a number: arrows for the next step, the number for the jump. */
+.fdadmin .rank-col { width: 118px; }
+.fdadmin .rank-cell { display: flex; align-items: center; gap: 3px; }
+.fdadmin .rank-btn { width: 26px; height: 26px; font-size: 12px; border-radius: 7px; }
+.fdadmin .rank-btn:hover { background: #FFFBEB; border-color: #E5C96B; color: var(--ink); }
+.fdadmin .rank-input {
+  width: 44px; height: 26px; padding: 0 4px;
+  border: 1px solid var(--line); border-radius: 7px; background: #fff;
+  font: inherit; font-size: 12px; font-weight: 600; text-align: center; color: var(--ink);
+  -moz-appearance: textfield; appearance: textfield;
+}
+.fdadmin .rank-input::-webkit-outer-spin-button, .fdadmin .rank-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.fdadmin .rank-input:focus { outline: 2px solid var(--gold); outline-offset: -1px; }
+.fdadmin .stage-note { display: block; margin-top: 4px; font-size: 9px; color: #9B9FA6; font-weight: 500; }

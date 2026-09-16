@@ -5,8 +5,12 @@ import type React from "react";
 import { useRouter } from "next/navigation";
 import {
   JURISDICTIONS,
+  PLACEHOLDER_RE,
+  REDACTION_LABEL,
   describeFlags,
+  proposeRedactions,
   type FolderRow,
+  type Redaction,
   type SourcePrivacy,
   type SourceRow,
   type SourceStatus,
@@ -92,14 +96,19 @@ export default function AiFiles({
   sources: initialSources,
   folders: initialFolders,
   docTypes,
+  ranking = true,
 }: {
   sources: SourceRow[];
   folders: FolderRow[];
   docTypes: { slug: string; label: string }[];
+  /** False until 016 has been run: no Rank column, no Redact button. */
+  ranking?: boolean;
 }) {
   const router = useRouter();
   const [sources, setSources] = useState(initialSources);
   const [folders, setFolders] = useState(initialFolders);
+  /* Document types whose order has been changed and not yet saved. */
+  const [dirtyOrder, setDirtyOrder] = useState<Set<string>>(new Set());
 
   /* ── the table follows the server ─────────────────────────────────────
      The rows live in state so a click can change them without a round trip.
@@ -114,6 +123,7 @@ export default function AiFiles({
   if (initialSources !== seenSources) {
     setSeenSources(initialSources);
     setSources(initialSources);
+    setDirtyOrder(new Set());
   }
   if (initialFolders !== seenFolders) {
     setSeenFolders(initialFolders);
@@ -127,8 +137,9 @@ export default function AiFiles({
   const [notice, setNotice] = useState<{ text: string; tone: "ok" | "err" } | null>(null);
 
   const [uploadOpen, setUploadOpen] = useState(false);
-  /* The document window. Any row opens it; it reads and reviews in one place. */
-  const [viewing, setViewing] = useState<SourceRow | null>(null);
+  /* The document window. Any row opens it to read and review; the Redact
+     button opens the same window with the private details already marked. */
+  const [viewing, setViewing] = useState<{ source: SourceRow; mode: "read" | "redact" } | null>(null);
   const [deleting, setDeleting] = useState<string[] | null>(null);
   const [folderOpen, setFolderOpen] = useState(false);
 
@@ -146,6 +157,14 @@ export default function AiFiles({
     return c;
   }, [sources]);
 
+  /* How many ready sources each document type has: Gemini reads at most the
+     top eight of a type, and the "AI ready" card says so. */
+  const readyByType = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of sources) if (s.status === "ready") m.set(s.doc_type_slug, (m.get(s.doc_type_slug) ?? 0) + 1);
+    return [...m.entries()];
+  }, [sources]);
+
   const folderCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const s of sources) m.set(s.folder_id ?? UNFILED, (m.get(s.folder_id ?? UNFILED) ?? 0) + 1);
@@ -154,14 +173,80 @@ export default function AiFiles({
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return sources.filter((s) => {
-      if (stage !== "all" && s.status !== STAGE_STATUS[stage]) return false;
-      if (folder === UNFILED && s.folder_id) return false;
-      if (folder !== ALL && folder !== UNFILED && s.folder_id !== folder) return false;
-      if (q && !`${s.title} ${s.filename} ${s.doc_type_slug} ${s.jurisdiction}`.toLowerCase().includes(q)) return false;
-      return true;
-    });
+    return sources
+      .filter((s) => {
+        if (stage !== "all" && s.status !== STAGE_STATUS[stage]) return false;
+        if (folder === UNFILED && s.folder_id) return false;
+        if (folder !== ALL && folder !== UNFILED && s.folder_id !== folder) return false;
+        if (q && !`${s.title} ${s.filename} ${s.doc_type_slug} ${s.jurisdiction}`.toLowerCase().includes(q)) return false;
+        return true;
+      })
+      /* Best first within a type — the order Gemini reads them in. */
+      .sort((a, b) =>
+        a.doc_type_slug === b.doc_type_slug
+          ? (a.rank ?? 1e9) - (b.rank ?? 1e9) || a.created_at.localeCompare(b.created_at)
+          : a.doc_type_slug.localeCompare(b.doc_type_slug),
+      );
   }, [sources, stage, folder, search]);
+
+  /* ── ordering ────────────────────────────────────────────────────────────
+     Moves change ranks in local state only; "Save order" writes them. A row
+     moves among the rows of its own type — every one of them, filtered out
+     of view or not — so a rank always means the same thing. */
+  const typeRows = (slug: string) =>
+    sources
+      .filter((s) => s.doc_type_slug === slug)
+      .sort((a, b) => (a.rank ?? 1e9) - (b.rank ?? 1e9) || a.created_at.localeCompare(b.created_at));
+
+  function placeAt(id: string, position: number) {
+    const row = sources.find((s) => s.id === id);
+    if (!row) return;
+    const rows = typeRows(row.doc_type_slug).filter((s) => s.id !== id);
+    const at = Math.max(0, Math.min(rows.length, position - 1));
+    rows.splice(at, 0, row);
+    const newRank = new Map(rows.map((s, i) => [s.id, i + 1]));
+    setSources((prev) => prev.map((s) => (newRank.has(s.id) ? { ...s, rank: newRank.get(s.id)! } : s)));
+    setDirtyOrder((d) => new Set(d).add(row.doc_type_slug));
+  }
+
+  function nudge(id: string, delta: -1 | 1) {
+    const row = sources.find((s) => s.id === id);
+    if (!row) return;
+    const rows = typeRows(row.doc_type_slug);
+    const i = rows.findIndex((s) => s.id === id);
+    placeAt(id, i + 1 + delta);
+  }
+
+  function discardOrder() {
+    const server = new Map(seenSources.map((s) => [s.id, s.rank]));
+    setSources((prev) => prev.map((s) => (server.has(s.id) ? { ...s, rank: server.get(s.id) ?? null } : s)));
+    setDirtyOrder(new Set());
+  }
+
+  async function saveOrder() {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const orders = [...dirtyOrder].map((slug) => ({ slug, ids: typeRows(slug).map((s) => s.id) }));
+      const res = await fetch("/api/admin/ai-sources/reorder", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ orders }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; saved?: number; error?: string };
+      if (!res.ok || !json.ok) {
+        setNotice({ text: json.error ?? "Could not save the order.", tone: "err" });
+        return;
+      }
+      setDirtyOrder(new Set());
+      setNotice({ text: "Order saved. Gemini now reads the top-ranked examples first.", tone: "ok" });
+      router.refresh();
+    } catch {
+      setNotice({ text: "Could not reach the server.", tone: "err" });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const visibleIds = visible.map((s) => s.id);
   const allTicked = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
@@ -294,6 +379,13 @@ export default function AiFiles({
           >
             <span>{label}</span>
             <strong>{counts[id]}</strong>
+            {id === "ready" && ranking && (
+              <small className="stage-note">
+                {readyByType.length === 1
+                  ? `${Math.min(8, readyByType[0][1])} of ${readyByType[0][1]} read by AI`
+                  : "top 8 of each type read by AI"}
+              </small>
+            )}
           </button>
         ))}
       </div>
@@ -371,6 +463,16 @@ export default function AiFiles({
             </span>
           </div>
           <div className="toolbar">
+            {dirtyOrder.size > 0 && (
+              <>
+                <button className="btn" type="button" disabled={busy} onClick={discardOrder}>
+                  Discard
+                </button>
+                <button className="btn dark" type="button" disabled={busy} onClick={() => void saveOrder()}>
+                  {busy ? "Saving…" : "Save order"}
+                </button>
+              </>
+            )}
             <button className="btn yellow" type="button" disabled={!canBulkApprove || busy} onClick={() => void bulkApprove()}>
               Approve
             </button>
@@ -410,6 +512,7 @@ export default function AiFiles({
                   />
                 </th>
                 <th>Name</th>
+                {ranking && <th className="rank-col" title="1 is the firm's preferred example. Gemini reads the top 8 of each type, best first.">Rank</th>}
                 <th>Folder</th>
                 <th>Type</th>
                 <th>Jurisdiction</th>
@@ -423,7 +526,7 @@ export default function AiFiles({
             <tbody>
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={10}>
+                  <td colSpan={ranking ? 11 : 10}>
                     <div className="empty">
                       {sources.length === 0
                         ? "No documents in the library yet. Add the firm's sample documents to begin."
@@ -447,11 +550,11 @@ export default function AiFiles({
                     className={selected.has(s.id) ? "selected-row openable" : "openable"}
                     tabIndex={0}
                     title="Open to read and review"
-                    onClick={() => setViewing(s)}
+                    onClick={() => setViewing({ source: s, mode: "read" })}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        setViewing(s);
+                        setViewing({ source: s, mode: "read" });
                       }
                     }}
                   >
@@ -469,6 +572,26 @@ export default function AiFiles({
                         {s.title}
                       </div>
                     </td>
+                    {ranking && (
+                      <td className="rank-col" onClick={(e) => e.stopPropagation()}>
+                        <div className="rank-cell">
+                          <button className="icon-btn rank-btn" type="button" title="Move up" disabled={busy || (s.rank ?? 1) <= 1} onClick={() => nudge(s.id, -1)}>↑</button>
+                          <button className="icon-btn rank-btn" type="button" title="Move down" disabled={busy || (s.rank ?? 0) >= typeRows(s.doc_type_slug).length} onClick={() => nudge(s.id, 1)}>↓</button>
+                          <input
+                            className="rank-input"
+                            type="number"
+                            min={1}
+                            max={typeRows(s.doc_type_slug).length}
+                            value={s.rank ?? ""}
+                            aria-label="Rank"
+                            onChange={(e) => {
+                              const v = Number.parseInt(e.target.value, 10);
+                              if (Number.isFinite(v) && v >= 1) placeAt(s.id, v);
+                            }}
+                          />
+                        </div>
+                      </td>
+                    )}
                     <td>{folderName(s.folder_id)}</td>
                     <td><span className="pill">{typeLabel}</span></td>
                     <td><span className="pill">{s.jurisdiction}</span></td>
@@ -482,6 +605,18 @@ export default function AiFiles({
                     <td>{day(s.updated_at)}</td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="inline-actions">
+                        {ranking && (
+                          <button
+                            className="approve-btn"
+                            data-action="redact"
+                            type="button"
+                            title={s.redacted_at ? `Redacted — ${s.redaction_count} item${s.redaction_count === 1 ? "" : "s"} blacked out. Open to redact more.` : "Black out the private details"}
+                            disabled={busy}
+                            onClick={() => setViewing({ source: s, mode: "redact" })}
+                          >
+                            Redact
+                          </button>
+                        )}
                         {s.status === "ready" ? (
                           <button className="approve-btn" data-action="ready" type="button" disabled>Ready</button>
                         ) : s.status === "reviewed" ? (
@@ -502,7 +637,7 @@ export default function AiFiles({
                             data-action="review"
                             type="button"
                             disabled={busy}
-                            onClick={() => setViewing(s)}
+                            onClick={() => setViewing({ source: s, mode: "read" })}
                           >
                             Review
                           </button>
@@ -545,15 +680,21 @@ export default function AiFiles({
 
       {viewing && (
         <ViewModal
-          key={viewing.id}
-          source={viewing}
+          key={`${viewing.source.id}:${viewing.mode}`}
+          source={sources.find((s) => s.id === viewing.source.id) ?? viewing.source}
+          mode={viewing.mode}
           busy={busy}
           onClose={() => setViewing(null)}
           onSave={async (privacy, note) => {
-            if (await patch(viewing.id, { action: "review", privacy, note })) setViewing(null);
+            if (await patch(viewing.source.id, { action: "review", privacy, note })) setViewing(null);
           }}
           onApprove={async () => {
-            if (await patch(viewing.id, { action: "approve" })) setViewing(null);
+            if (await patch(viewing.source.id, { action: "approve" })) setViewing(null);
+          }}
+          onRedact={async (items, expectedLength) => {
+            const ok = await patch(viewing.source.id, { action: "redact", items, expectedLength });
+            if (ok) setNotice({ text: `Redacted. ${items.length} item${items.length === 1 ? "" : "s"} blacked out; the original words are gone.`, tone: "ok" });
+            return ok;
           }}
         />
       )}
@@ -684,7 +825,7 @@ function UploadModal({
         <div className="modal-head">
           <div>
             <h3>Add training documents</h3>
-            <p>PDF, Word or text documents.</p>
+            <p>PDF, Word (.docx) or text documents.</p>
           </div>
           <button className="close" type="button" onClick={onClose}>×</button>
         </div>
@@ -701,7 +842,7 @@ function UploadModal({
             <button className="btn" type="button" onClick={() => input.current?.click()}>Browse</button>
             <input
               ref={input}
-              accept=".pdf,.doc,.docx,.txt"
+              accept=".pdf,.docx,.txt"
               multiple
               type="file"
               onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }}
@@ -796,44 +937,142 @@ function UploadModal({
  * straight to the parts that decide the privacy question instead of hunting
  * for them in ten pages of boilerplate.
  */
+/**
+ * Text with placeholders drawn as bars. Both modes use it: the read mode
+ * for a document that has already been redacted, and the redact mode after
+ * Apply, when the placeholders have just been written.
+ */
+function withBars(text: string): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  const re = new RegExp(PLACEHOLDER_RE.source, "g");
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(...highlight(text.slice(last, m.index)));
+    const label = m[0].replace(/^\[REDACTED ?/, "").replace(/\]$/, "") || "TEXT";
+    out.push(
+      <span className="redact-bar done" key={`p${key++}`} title={`Redacted ${label.toLowerCase()}`}>
+        {label}
+      </span>,
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(...highlight(text.slice(last)));
+  return out;
+}
+
+/**
+ * The redaction preview: the text with every marked string drawn as a black
+ * bar that still occupies its own width, so the page keeps its shape and the
+ * reviewer can see what is about to go. Clicking a bar keeps that text —
+ * everywhere it occurs, since a name that is not private in one clause is
+ * not private in the next.
+ */
+function withProposals(text: string, items: Redaction[], onKeep: (item: Redaction) => void): React.ReactNode[] {
+  if (items.length === 0) return withBars(text);
+  const ordered = [...items].sort((a, b) => b.text.length - a.text.length);
+  const escaped = ordered.map((r) => r.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = new RegExp(`(${escaped.join("|")})`, "g");
+  const byText = new Map(ordered.map((r) => [r.text, r]));
+  const out: React.ReactNode[] = [];
+  let key = 0;
+  for (const part of text.split(re)) {
+    if (part === "") continue;
+    const item = byText.get(part);
+    if (item) {
+      out.push(
+        <button
+          type="button"
+          className="redact-bar"
+          key={`r${key++}`}
+          title={`${REDACTION_LABEL[item.kind]} — click to keep this text`}
+          onClick={() => onKeep(item)}
+        >
+          {part}
+        </button>,
+      );
+    } else {
+      out.push(...withBars(part));
+    }
+  }
+  return out;
+}
+
+/**
+ * One document, open on the screen — the window a reviewer actually needs.
+ *
+ * READ: the stored text, which is the text Gemini is given verbatim, with
+ * anything the upload scan recognised marked, and the privacy decision under
+ * it. What a reviewer reads here and what the model reads are the same thing
+ * by construction.
+ *
+ * REDACT: the same text with every private detail the detector could find
+ * already drawn as a black bar — UENs, NRICs, emails, phones, company names,
+ * signatories, addresses. The reviewer un-marks a bar by clicking it, marks
+ * anything the detector missed by selecting it, and applies. Applying
+ * replaces the words in the database with typed placeholders; there is no
+ * copy of the original to go back to, which is the point.
+ */
 function ViewModal({
   source,
+  mode: initialMode,
   busy,
   onClose,
   onSave,
   onApprove,
+  onRedact,
 }: {
   source: SourceRow;
+  mode: "read" | "redact";
   busy: boolean;
   onClose: () => void;
   onSave: (privacy: "clear" | "redacted" | "needs_redaction", note: string) => void;
   onApprove: () => void;
+  onRedact: (items: Redaction[], expectedLength: number) => Promise<boolean>;
 }) {
+  const [mode, setMode] = useState(initialMode);
   const [privacy, setPrivacy] = useState<"clear" | "redacted" | "needs_redaction">(
     source.privacy === "redacted" || source.privacy === "needs_redaction" ? source.privacy : "clear",
   );
   const [note, setNote] = useState(source.note ?? "");
   const [text, setText] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
+  /* Redaction: what is marked, and where each mark came from. */
+  const [items, setItems] = useState<Redaction[] | null>(null);
+  const [autoCount, setAutoCount] = useState(0);
+  const [confirming, setConfirming] = useState(false);
+  const [selection, setSelection] = useState("");
+  const docRef = useRef<HTMLDivElement>(null);
   const flags = describeFlags(source.privacy_flags ?? {});
 
   /* The text is fetched when the window opens, not with the table: a hundred
      rows carrying their documents would make the tab slow for the ninety-nine
-     nobody opened. */
+     nobody opened. In redact mode the detector runs on it as it arrives. */
   useEffect(() => {
     let live = true;
     fetch(`/api/admin/ai-sources/${source.id}`)
       .then(async (res) => {
         const json = (await res.json().catch(() => ({}))) as { source?: { content?: string }; error?: string };
         if (!live) return;
-        if (!res.ok) setFailed(json.error ?? "Could not open this document.");
-        else setText(json.source?.content ?? "");
+        if (!res.ok) {
+          setFailed(json.error ?? "Could not open this document.");
+          return;
+        }
+        const content = json.source?.content ?? "";
+        setText(content);
+        if (initialMode === "redact") {
+          const proposed = proposeRedactions(content);
+          setItems(proposed);
+          setAutoCount(proposed.length);
+        }
       })
       .catch(() => live && setFailed("Could not reach the server."));
     return () => {
       live = false;
     };
-  }, [source.id]);
+  }, [source.id, initialMode, reload]);
 
   /* Escape closes it, as it does every other window on this screen. */
   useEffect(() => {
@@ -842,74 +1081,165 @@ function ViewModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [busy, onClose]);
 
+  /* Text the reviewer has selected inside the document, if any. */
+  function readSelection() {
+    const sel = window.getSelection();
+    const t = sel?.toString().trim() ?? "";
+    const inside = sel && sel.rangeCount > 0 && docRef.current?.contains(sel.getRangeAt(0).commonAncestorContainer);
+    setSelection(inside && t.length >= 2 && t.length <= 300 ? t : "");
+  }
+
+  function markSelection() {
+    if (!selection) return;
+    setItems((prev) => {
+      const list = prev ?? [];
+      if (list.some((r) => r.text === selection)) return list;
+      return [...list, { text: selection, kind: "custom" }];
+    });
+    setSelection("");
+    window.getSelection()?.removeAllRanges();
+  }
+
   const live = source.status === "ready";
+  const marked = items ?? [];
+
+  async function apply() {
+    if (text === null || marked.length === 0) return;
+    const ok = await onRedact(marked, text.length);
+    if (ok) {
+      /* Read it back as stored: what the window shows now is what Gemini
+         will be given, placeholders and all. */
+      setConfirming(false);
+      setItems(null);
+      setSelection("");
+      setText(null);
+      setMode("read");
+      setPrivacy("redacted");
+      setReload((n) => n + 1);
+    }
+  }
 
   return (
     <div className="overlay show" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
       <div className="modal wide" role="dialog" aria-modal="true" aria-label={source.title}>
         <div className="modal-head">
           <div>
-            <h3>{source.title}</h3>
+            <h3>{mode === "redact" ? `Redact — ${source.title}` : source.title}</h3>
             <p>
               {source.filename} · {source.jurisdiction}
               {source.version ? ` · ${source.version}` : ""} · {statusPill(source).text}
+              {source.redacted_at ? ` · ${source.redaction_count} item${source.redaction_count === 1 ? "" : "s"} redacted` : ""}
             </p>
           </div>
           <button className="close" type="button" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
-          <p className="doc-caption">
-            This is the text FD AI reads when it drafts — exactly as stored, with anything the
-            upload scan recognised marked in yellow. Scan found: {flags}.
-          </p>
+          {mode === "redact" ? (
+            <div className="redact-bar-row">
+              <p className="doc-caption" style={{ margin: 0 }}>
+                <strong>{marked.length}</strong> marked for redaction
+                {autoCount > 0 ? ` (${autoCount} found automatically)` : ""}. Click a black bar to keep that text.
+                Select any words the detector missed — a name in a clause, say — and press Redact selection.
+              </p>
+              <button className="btn" type="button" disabled={!selection || busy} onClick={markSelection}>
+                Redact selection{selection ? ` “${selection.length > 24 ? `${selection.slice(0, 24)}…` : selection}”` : ""}
+              </button>
+            </div>
+          ) : (
+            <p className="doc-caption">
+              This is the text FD AI reads when it drafts — exactly as stored, with anything the
+              upload scan recognised marked in yellow. Scan found: {flags}.
+            </p>
+          )}
 
-          <div className="doc-view">
+          <div
+            className={mode === "redact" ? "doc-view redacting" : "doc-view"}
+            ref={docRef}
+            onMouseUp={mode === "redact" ? readSelection : undefined}
+            onKeyUp={mode === "redact" ? readSelection : undefined}
+          >
             {failed ? (
               <p className="doc-state">{failed}</p>
             ) : text === null ? (
               <p className="doc-state">Opening…</p>
             ) : text.trim() === "" ? (
               <p className="doc-state">This document has no stored text.</p>
+            ) : mode === "redact" ? (
+              withProposals(text, marked, (item) => setItems((prev) => (prev ?? []).filter((r) => r.text !== item.text)))
             ) : (
-              highlight(text)
+              withBars(text)
             )}
           </div>
 
-          <div className="doc-review">
-            <div>
-              <label className="field-label" htmlFor="reviewPrivacy">Privacy / confidentiality</label>
-              <select
-                id="reviewPrivacy"
-                style={{ width: "100%" }}
-                value={privacy}
-                onChange={(e) => setPrivacy(e.target.value as typeof privacy)}
-              >
-                <option value="clear">Clear — no sensitive data</option>
-                <option value="redacted">Redacted — sensitive data removed</option>
-                <option value="needs_redaction">Needs redaction</option>
-              </select>
+          {mode === "read" && (
+            <div className="doc-review">
+              <div>
+                <label className="field-label" htmlFor="reviewPrivacy">Privacy / confidentiality</label>
+                <select
+                  id="reviewPrivacy"
+                  style={{ width: "100%" }}
+                  value={privacy}
+                  onChange={(e) => setPrivacy(e.target.value as typeof privacy)}
+                >
+                  <option value="clear">Clear — no sensitive data</option>
+                  <option value="redacted">Redacted — sensitive data removed</option>
+                  <option value="needs_redaction">Needs redaction</option>
+                </select>
+              </div>
+              <div>
+                <label className="field-label" htmlFor="reviewNote">Internal note</label>
+                <textarea id="reviewNote" placeholder="Optional note" value={note} onChange={(e) => setNote(e.target.value)} />
+              </div>
             </div>
-            <div>
-              <label className="field-label" htmlFor="reviewNote">Internal note</label>
-              <textarea id="reviewNote" placeholder="Optional note" value={note} onChange={(e) => setNote(e.target.value)} />
-            </div>
-          </div>
+          )}
 
-          {live && (
+          {mode === "read" && live && (
             <p className="queue-warning" style={{ marginBottom: 0 }}>
               This document is in use. Saving a new review takes it out of use until you approve it again.
             </p>
           )}
+          {mode === "redact" && confirming && (
+            <p className="queue-warning duplicate" style={{ marginBottom: 0 }}>
+              Permanently black out {marked.length} item{marked.length === 1 ? "" : "s"}? The original words are
+              replaced in the database and are not kept anywhere in FD AI.
+              {live ? " The document leaves AI use until it is approved again." : ""}
+            </p>
+          )}
         </div>
         <div className="modal-foot">
-          <button className="btn" type="button" onClick={onClose} disabled={busy}>Close</button>
-          <button className="btn" type="button" disabled={busy} onClick={() => onSave(privacy, note)}>
-            {busy ? "Saving…" : "Save review"}
-          </button>
-          {source.status === "reviewed" && (
-            <button className="btn yellow" type="button" disabled={busy} onClick={onApprove}>
-              Approve for AI
-            </button>
+          {mode === "redact" ? (
+            confirming ? (
+              <>
+                <button className="btn" type="button" disabled={busy} onClick={() => setConfirming(false)}>Back</button>
+                <button className="btn dark" type="button" disabled={busy} onClick={() => void apply()}>
+                  {busy ? "Applying…" : "Yes, black them out"}
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn" type="button" disabled={busy} onClick={onClose}>Cancel</button>
+                {autoCount > 0 && marked.length !== autoCount && text !== null && (
+                  <button className="btn" type="button" disabled={busy} onClick={() => setItems(proposeRedactions(text))}>
+                    Reset to auto-found
+                  </button>
+                )}
+                <button className="btn yellow" type="button" disabled={busy || text === null || marked.length === 0} onClick={() => setConfirming(true)}>
+                  Apply redaction{marked.length ? ` (${marked.length})` : ""}
+                </button>
+              </>
+            )
+          ) : (
+            <>
+              <button className="btn" type="button" onClick={onClose} disabled={busy}>Close</button>
+              <button className="btn" type="button" disabled={busy} onClick={() => onSave(privacy, note)}>
+                {busy ? "Saving…" : "Save review"}
+              </button>
+              {source.status === "reviewed" && (
+                <button className="btn yellow" type="button" disabled={busy} onClick={onApprove}>
+                  Approve for AI
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
