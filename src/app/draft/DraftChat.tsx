@@ -161,10 +161,16 @@ export interface RecentDraft {
   when: string;
 }
 
-function initialAnswers(docType: DocType): Record<string, string> {
+function initialAnswers(docType: DocType, prefill?: Prefill | null): Record<string, string> {
   const out: Record<string, string> = {};
   for (const f of docType.fields) out[f.key] = f.defaultValue ?? "";
-  if (docType.slug === "nda") out._nda_detail_level = "3";
+  /* Settings fill in only the questions this form actually asks, and only
+     where the form has no default of its own. */
+  for (const f of docType.fields) {
+    const v = prefill?.answers[f.key];
+    if (v && !out[f.key]) out[f.key] = v;
+  }
+  if (docType.slug === "nda") out._nda_detail_level = String(prefill?.detailLevel ?? 3);
   return out;
 }
 
@@ -186,6 +192,17 @@ export interface WalletView {
   trialEndsAt?: string | null;
 }
 
+/**
+ * What the person's settings offer to a new draft: answers already filled in
+ * from their company profile, and the comprehensiveness they prefer. Read on
+ * the server from user_settings; the form starts with these instead of blank.
+ * They are starting values only — every one is shown and can be changed.
+ */
+export interface Prefill {
+  answers: Record<string, string>;
+  detailLevel?: number;
+}
+
 export default function DraftChat({
   docTypes,
   presetSlug,
@@ -193,6 +210,7 @@ export default function DraftChat({
   recent,
   wallet,
   isAdmin = false,
+  prefill,
 }: {
   docTypes: DocType[];
   presetSlug?: string;
@@ -200,6 +218,7 @@ export default function DraftChat({
   recent?: RecentDraft[];
   wallet?: WalletView | null;
   isAdmin?: boolean;
+  prefill?: Prefill | null;
 }) {
   const liveSlugs = useMemo(() => new Set(docTypes.map((d) => d.slug)), [docTypes]);
 
@@ -277,6 +296,7 @@ export default function DraftChat({
             userEmail={userEmail ?? null}
             recent={recent ?? []}
             wallet={live}
+            prefill={prefill ?? null}
             onCreditSpent={spendCredit}
             onChangeDocument={() => setScreen("select")}
           />
@@ -721,6 +741,7 @@ function Chat({
   userEmail,
   recent,
   wallet,
+  prefill,
   onCreditSpent,
   onChangeDocument,
 }: {
@@ -728,12 +749,13 @@ function Chat({
   userEmail: string | null;
   recent: RecentDraft[];
   wallet: WalletView | null;
+  prefill: Prefill | null;
   onCreditSpent: (creditsLeft: number | null) => void;
   onChangeDocument: () => void;
 }) {
   const steps = useMemo(() => buildSteps(docType), [docType]);
 
-  const [answers, setAnswers] = useState<Record<string, string>>(() => initialAnswers(docType));
+  const [answers, setAnswers] = useState<Record<string, string>>(() => initialAnswers(docType, prefill));
   const [msgs, setMsgs] = useState<Msg[]>(() => [
     {
       who: "fd",

@@ -1,0 +1,59 @@
+/* ── the settings design under the app's globals.css ─────────────────────────
+   settings.css is generated from the designer's file (scripts/build-settings-
+   css.mjs) and must not be edited. What globals.css sets on every page and
+   the design does not expect is restated here, plus the few things this app
+   adds to the design: "Coming soon" controls, the password form, a note. */
+
+/* globals.css: headings at line-height 1.08 and weight 500; the design sizes
+   its blocks around its own values. */
+.fdset h1, .fdset h2, .fdset h3 { line-height: inherit; font-weight: inherit; letter-spacing: inherit; }
+.fdset .hero h1 { line-height: 1.02; letter-spacing: -.06em; font-weight: 600; }
+.fdset .card-head h2 { line-height: 1.08; letter-spacing: -.04em; font-weight: 600; }
+
+/* globals.css: .btn has overflow hidden, a 6px radius, a black border and a
+   hover shadow. The design's .btn is restated in full so none of that shows. */
+.fdset .btn { overflow: visible; gap: 8px; padding: 0 16px; border-radius: 14px; border: 1px solid var(--line-strong); font-size: 12.5px; font-weight: 650; box-shadow: none; text-decoration: none; }
+.fdset .btn:hover:not(:disabled) { box-shadow: none; }
+.fdset .btn.primary { border-color: var(--yellow); }
+.fdset .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.fdset .card { border-radius: 24px; }
+
+/* A designed control with no feature behind it yet. Same shape, quieter. */
+.fdset .btn.soon, .fdset .muted-badge.soon { color: var(--muted); border-style: dashed; background: var(--surface-2); }
+.fdset .btn.soon:hover { transform: none; background: var(--surface); }
+.fdset .switch.soon { display: block; opacity: .45; cursor: pointer; }
+.fdset .switch.soon .slider { background: #d8d4cb; }
+.fdset .switch.soon:hover { opacity: .7; }
+.fdset .soon-note { display: block; margin-top: 7px; font-size: 11px; color: var(--muted-2); text-decoration: underline dotted; }
+.fdset .field select:disabled { opacity: .6; cursor: not-allowed; }
+.fdset .switch input:disabled + .slider { opacity: .55; }
+.fdset .legal-item.updating { color: var(--muted); }
+.fdset .legal-links .legal-item { cursor: pointer; }
+.fdset .legal-links .legal-item:hover span:first-child { text-decoration: underline; }
+
+/* Notes under a field, in the design's small-copy voice. */
+.fdset .field-note { margin: 12px 0 0; font-size: 12px; line-height: 1.6; color: var(--muted); max-width: 620px; }
+.fdset .setup-note { margin: 0 0 14px; padding: 10px 12px; border: 1px solid #e7cbc7; border-radius: 12px; background: rgba(251,239,236,.6); font-size: 12px; color: var(--red); }
+.fdset .setup-note code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.fdset .field input[readonly] { color: var(--muted); cursor: default; }
+
+/* The password form (its own component, styled by globals.css) inside the
+   design's sign-in card: the design's field look, in its own row. */
+.fdset .password-form { padding: 4px 0 18px; border-top: 1px solid var(--line); margin-top: -1px; }
+.fdset .password-form form { max-width: 460px; }
+.fdset .password-form .field-label { display: block; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; color: var(--muted-2); }
+.fdset .password-form .input { width: 100%; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); border-radius: 16px; padding: 13px 14px; font-size: 13px; outline: none; }
+.fdset .password-form .input:focus { border-color: #e3c065; background: var(--surface); box-shadow: 0 0 0 4px rgba(244,183,82,.14); }
+.fdset .password-form .field-help { display: block; margin-top: 7px; font-size: 11.5px; line-height: 1.55; color: var(--muted); }
+.fdset .password-form .note { margin: 0; font-size: 12px; }
+.fdset .password-form .btn-gold { background: var(--yellow); border-color: var(--yellow); color: #171612; min-height: 44px; }
+
+/* The billing rows: a payment that came back, and a plan that is ending. */
+.fdset .paid-pill.muted { background: var(--surface-2); color: var(--muted); border: 1px solid var(--line); }
+.fdset #plan .history-btn { text-decoration: none; }
+.fdset #plan .cancel-link { display: inline-block; }
+.fdset #plan .fdu { display: block; }
+.fdset #plan .fdu .cancel-link { margin-top: 11px; }
+
+/* The design's dark palette applies under the site's own theme switch. */
+html[data-theme="dark"] .fdset .setup-note { background: #201816; border-color: #4a2f2b; }

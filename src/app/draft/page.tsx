@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { getWallet } from "@/lib/billing/credits";
 import DraftChat, { type RecentDraft } from "./DraftChat";
+import { loadPrefill } from "@/lib/settings.server";
 
 export const metadata = { title: "FD AI — draft a document" };
 export const dynamic = "force-dynamic";
@@ -52,11 +53,12 @@ export default async function DraftPage({
   const requested = (await searchParams).type?.trim().toLowerCase();
   const presetSlug = docTypes.find((d) => d.slug === requested)?.slug;
 
-  const [user, recent, wallet, admin] = await Promise.all([
+  const [user, recent, wallet, admin, prefill] = await Promise.all([
     isSupabaseConfigured() ? getUser() : Promise.resolve(null),
     recentDrafts(),
     getWallet(),
     isSupabaseConfigured() ? isAdmin() : Promise.resolve(false),
+    isSupabaseConfigured() ? loadPrefill() : Promise.resolve(null),
   ]);
 
   return (
@@ -71,6 +73,7 @@ export default async function DraftPage({
           : null /* unmetered local dev: show nothing rather than "Infinity left" */
       }
       isAdmin={admin}
+      prefill={prefill}
     />
   );
 }
