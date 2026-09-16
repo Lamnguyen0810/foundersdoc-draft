@@ -3,14 +3,7 @@ import { PAID_BENCHMARK } from "@/lib/ai/pricing";
 import { getWallet } from "@/lib/billing/credits";
 /* `money` here is the page's own US-dollar formatter for model costs; the
    price list's is Singapore dollars. Two currencies, two names, no confusion. */
-import {
-  MEMBERSHIPS,
-  PACKS,
-  TOPUPS,
-  TRIAL,
-  membershipByTier,
-  money as sgd,
-} from "@/lib/billing/plans";
+import { TRIAL, membershipByTier, money as sgd } from "@/lib/billing/plans";
 import { defaultCard } from "@/lib/billing/invoices";
 import { paymentHistory, type PaymentRow } from "@/lib/billing/history";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -80,112 +73,21 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
  * on offer. A bundle buyer has to buy in whole bundles, which is part of why
  * the per-document price is worse, so that is how it is counted.
  */
-function cheapestFrom(
-  options: { credits: number; amountCents: number }[],
-  documents: number,
-): number {
-  if (documents <= 0) return 0;
+/* ── WHAT USED TO BE HERE ───────────────────────────────────────────────────
+   A recommendation engine: it costed the month against every plan and put the
+   cheaper one on the button — "Move to Pro", with the saving worked out.
 
-  /* Buy as many of the best-value size as fit, then the smallest single item
-     that covers what is left. Documents cannot be bought by the half, and the
-     leftover is where the per-document price gets worse — which is the whole
-     reason a membership can win. */
-  const byValue = [...options].sort((a, b) => a.amountCents / a.credits - b.amountCents / b.credits);
-  const bySize = [...options].sort((a, b) => a.amountCents - b.amountCents);
-  const best = byValue[0];
+   It is gone because the button must not name a plan. Choosing between plans
+   is what the pricing page is for, where all of them are side by side with
+   what each includes; a button that has already decided skips the comparison
+   and asks for a yes. The button now says only which direction is open —
+   explore, or upgrade — and the choosing happens where it belongs. */
 
-  const whole = Math.floor(documents / best.credits);
-  let cost = whole * best.amountCents;
-  let left = documents - whole * best.credits;
-
-  while (left > 0) {
-    const fit = bySize.find((o) => o.credits >= left) ?? best;
-    cost += fit.amountCents;
-    left -= fit.credits;
-  }
-  return cost;
-}
-
-/**
- * What this month's drafting actually costs on the arrangement they are on.
- *
- * For somebody with no membership that is bundles at the best rate. For a
- * member it is the monthly fee PLUS the member top-ups they have to buy once
- * the allowance runs out — which is the number an earlier version of this
- * missed, and missing it made the whole feature dead: it compared a member's
- * fee against a dearer tier's fee, which a dearer tier can never beat, so no
- * member was ever shown anything.
- */
-function costThisMonth(tier: string | null, documents: number): number {
-  const plan = tier ? membershipByTier(tier) : null;
-  if (!plan) return cheapestFrom(PACKS, documents);
-  if (plan.monthlyCredits === null) return plan.amountCents; // Unlimited
-  const overflow = Math.max(0, documents - plan.monthlyCredits);
-  return plan.amountCents + cheapestFrom(TOPUPS, overflow);
-}
-
-interface Suggestion {
-  label: string;
-  reason: string;
-  href: string;
-}
-
-/**
- * A way up the ladder, or nothing.
- *
- * ── WHY THIS IS ARITHMETIC AND NOT MARKETING ────────────────────────────────
- * "Upgrade to Pro!" on the page of somebody who drafts once a quarter is a
- * lie dressed as a suggestion, and the firm selling it is a law firm. Nothing
- * is recommended unless the sums say this person would pay LESS for the
- * documents they are actually using, and the saving is stated so the claim can
- * be checked against the price list.
- */
-function suggest(tier: string | null, usedThisMonth: number): Suggestion | null {
-  // One or two drafts is not a pattern. Nothing is said until there is one.
-  if (usedThisMonth < 2) return null;
-
-  const current = tier ? membershipByTier(tier) : null;
-  if (current?.monthlyCredits === null) return null; // Unlimited: nothing above it
-
-  const nowCosts = costThisMonth(tier, usedThisMonth);
-
-  /* A candidate has to do two things: cover this much drafting without
-     top-ups, and cost less than the present arrangement actually costs. */
-  const better = MEMBERSHIPS.filter((m) => {
-    if (current && m.amountCents <= current.amountCents) return false;
-    const covers = m.monthlyCredits === null || m.monthlyCredits >= usedThisMonth;
-    return covers && m.amountCents < nowCosts;
-  }).sort((a, b) => a.amountCents - b.amountCents)[0];
-
-  if (!better) return null;
-
-  const saving = nowCosts - better.amountCents;
-  const docs = `${usedThisMonth} document${usedThisMonth === 1 ? "" : "s"}`;
-
-  return {
-    label: `Move to ${better.label}`,
-    reason: current
-      ? `You have drafted ${docs} this month. On ${current.label} that is about ` +
-        `${sgd(nowCosts)} once top-ups are counted; ${better.label} covers it for ` +
-        `${sgd(better.amountCents)} — ${sgd(saving)} less at this rate.`
-      : `You have drafted ${docs} this month. Bought as bundles that is about ` +
-        `${sgd(nowCosts)}; ${better.label} covers it for ${sgd(better.amountCents)} a month, ` +
-        `and unused documents carry over.`,
-    href: "/billing",
-  };
-}
-
-/**
- * The plan, the balance, and — only when the arithmetic earns it — a way up.
- *
- * This sits above everything else on the page because it answers the two
- * questions somebody opens /usage to ask: what am I on, and how much have I
- * got left. The cost tables below are interesting; this is the point.
- */
 interface MembershipRow {
   id: string;
   tier: string;
   status: string;
+  stripe_subscription_id: string | null;
   current_period_end: string | null;
   cancelled_at: string | null;
   cancel_reason: string | null;
@@ -210,7 +112,9 @@ interface HistoryEntry {
   amount: string;
   amountNote: string | null;
   badge: { text: string; tone: string };
-  url: string | null;
+  /** "Cancelled 16 Sept 2026 · Too expensive", when the plan behind it ended. */
+  note: string | null;
+  url: string;
 }
 
 function paymentBadge(p: PaymentRow): { text: string; tone: string } {
@@ -249,7 +153,7 @@ function HistoryRow({ entry, current = false }: { entry: HistoryEntry; current?:
       </div>
       <div className="history-amount">
         <strong>{entry.amount}</strong>
-        <span>{entry.amountNote ?? entry.subtitle}</span>
+        <span>{entry.note ?? entry.amountNote ?? entry.subtitle}</span>
       </div>
       <div>
         <span className={entry.badge.tone ? `paid-pill ${entry.badge.tone}` : "paid-pill"}>
@@ -257,13 +161,9 @@ function HistoryRow({ entry, current = false }: { entry: HistoryEntry; current?:
         </span>
       </div>
       <div className="history-actions">
-        {entry.url ? (
-          <a className="history-btn receipt" href={entry.url} target="_blank" rel="noopener noreferrer">
-            View
-          </a>
-        ) : (
-          <span style={{ fontSize: 9.5, color: "var(--u-muted)" }}>No document</span>
-        )}
+        <a className="history-btn receipt" href={entry.url} target="_blank" rel="noopener noreferrer">
+          View
+        </a>
       </div>
     </div>
   );
@@ -478,8 +378,6 @@ export default async function UsagePage({
       ? Math.min(100, Math.round((meter.used / meter.allowance) * 100))
       : null;
 
-  const suggestion = suggest(currentTier, drafts);
-
   /* ── BILLING HISTORY, NOW ON THIS PAGE ────────────────────────────────────
      Two sources, one list. Stripe knows what was charged; it does not know
      that a membership was cancelled on the 16th because it was too expensive,
@@ -495,41 +393,47 @@ export default async function UsagePage({
     // 013_cancellation.sql has not been run yet; payments still show.
   }
 
-  const entries: HistoryEntry[] = [
-    ...payments.map((p) => ({
-      key: p.id,
-      at: p.paidAt,
-      title: p.description,
-      subtitle: p.subscriptionInvoice ? "Membership" : "One-off purchase",
-      amount: p.amount,
-      amountNote: card ? `Card •••• ${card.last4}` : null,
-      badge: paymentBadge(p),
-      url: p.url,
-    })),
-    /* Only memberships that have ENDED. A live one is the plan panel above,
-       and repeating it here would read as a charge that never happened. */
-    ...plans
-      .filter((m) => !["active", "trialing", "past_due"].includes(m.status))
-      .map((m) => {
-        const label = membershipByTier(m.tier)?.label ?? m.tier;
-        return {
-          key: `plan_${m.id}`,
-          at: m.cancelled_at ?? m.current_period_end,
-          title: `${label} membership ended`,
-          subtitle: m.cancel_reason
-            ? `Reason: ${REASON_LABEL[m.cancel_reason] ?? m.cancel_reason}${
-                m.cancel_note ? ` — “${m.cancel_note}”` : ""
-              }`
-            : "No longer active",
-          amount: "—",
-          amountNote: null,
-          badge: m.cancelled_at
-            ? { text: "Cancelled", tone: "off" }
-            : { text: "Ended", tone: "off" },
-          url: null,
-        };
-      }),
-  ].sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
+  /* ── ONE ROW PER PAYMENT ──────────────────────────────────────────────────
+     Every row in the design carries a View button, and View opens the Stripe
+     page for that payment. So every row here is a payment — a row with nothing
+     to open would have to say "No document", which is a button-shaped hole in
+     a column of buttons.
+
+     A membership that ended is therefore not a row of its own. It is written
+     onto its final invoice instead: the same payment, with "Cancelled" and the
+     reason underneath. Nothing is lost and View still works. */
+  const endedByInvoice = new Map<string, MembershipRow>();
+  for (const m of plans) {
+    if (["active", "trialing", "past_due"].includes(m.status)) continue;
+    if (m.stripe_subscription_id) endedByInvoice.set(m.stripe_subscription_id, m);
+  }
+
+  const entries: HistoryEntry[] = payments
+    .map((p) => {
+      const ended = p.subscriptionId ? endedByInvoice.get(p.subscriptionId) : undefined;
+      const reason =
+        ended?.cancel_reason && (REASON_LABEL[ended.cancel_reason] ?? ended.cancel_reason);
+
+      return {
+        key: p.id,
+        at: p.paidAt,
+        title: p.description,
+        subtitle: p.subscriptionInvoice ? "Membership" : "One-off purchase",
+        amount: p.amount,
+        amountNote: card ? `Card •••• ${card.last4}` : null,
+        badge: ended
+          ? { text: ended.cancelled_at ? "Cancelled" : "Ended", tone: "off" }
+          : paymentBadge(p),
+        note: ended
+          ? `${ended.cancelled_at ? "Cancelled" : "Ended"} ${whenShort(ended.cancelled_at ?? ended.current_period_end) ?? ""}${
+              reason ? ` · ${reason}` : ""
+            }`
+          : null,
+        url: p.url ?? "",
+      };
+    })
+    .filter((e): e is HistoryEntry => typeof e.url === "string" && e.url.length > 0)
+    .sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
 
   const [latest, ...older] = entries;
 
@@ -610,9 +514,15 @@ export default async function UsagePage({
             </strong>
           </div>
 
+          {/* The button suggests a direction, never a named plan or a price —
+              the pricing page is where a plan is chosen, and a label like
+              "Move to Pro" decides for somebody before they have looked. */}
           <div className="action-row">
-            <Link className="u-btn primary" href={suggestion ? suggestion.href : "/billing#credits"}>
-              {suggestion ? suggestion.label : "Buy credits"}
+            <Link
+              className="u-btn primary"
+              href={plan ? "/billing#memberships" : "/billing"}
+            >
+              {plan ? "Upgrade my plan" : "Explore our plans"}
             </Link>
             <Link className="u-btn" href="/billing">
               View pricing
@@ -635,28 +545,40 @@ export default async function UsagePage({
           <div className="overview-summary billing-summary">
             <div className="billing-amount">{plan ? sgd(plan.amountCents) : "—"}</div>
             <div className="billing-caption">
-              {plan
-                ? cancelling
-                  ? "No further payments"
-                  : `Next payment · ${whenShort(periodEnd) ?? "date to be set"}`
-                : "No subscription — you pay per document"}
+              {plan ? (
+                cancelling ? (
+                  "No further payments"
+                ) : (
+                  `Next payment · ${whenShort(periodEnd) ?? "date to be set"}`
+                )
+              ) : (
+                <>
+                  You haven&rsquo;t subscribed to any of our plans yet. Want to{" "}
+                  <Link href="/billing#memberships">start your first plan</Link>?
+                </>
+              )}
             </div>
           </div>
 
           <div className="rule" />
 
-          <div className="simple-row">
-            <span>Payment method</span>
-            <strong>{card ? `•••• ${card.last4}` : "None on file"}</strong>
-          </div>
-
+          {/* Only shown once there is a card. "None on file" told the customer
+              nothing they wanted to know and put an empty value where the
+              design has a fact. */}
           {card ? (
-            <UpdateCard />
+            <div className="simple-row">
+              <span>Payment method</span>
+              <strong>&bull;&bull;&bull;&bull; {card.last4}</strong>
+            </div>
           ) : (
-            <Link className="u-btn billing-btn" href="/billing">
-              {plan ? "View pricing" : "See plans"}
-            </Link>
+            <div className="simple-row" aria-hidden="true" />
           )}
+
+          {/* Always here, as the design draws it. It opens Stripe's card form
+              whether or not a card exists — the route makes the Stripe
+              customer if there is not one yet, so there is always somewhere
+              to add a card rather than a button that refuses. */}
+          <UpdateCard />
         </article>
       </section>
 
@@ -697,7 +619,7 @@ export default async function UsagePage({
             <h2 id="billingHistoryTitle">Billing history</h2>
             <p>View past payments, invoices and receipts.</p>
           </div>
-          {card && <UpdateCard className="history-link" />}
+          <UpdateCard className="history-link" />
         </div>
 
         {entries.length === 0 ? (

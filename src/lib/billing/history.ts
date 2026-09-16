@@ -35,6 +35,9 @@ export interface PaymentRow {
   url: string | null;
   /** Set when this payment belongs to a membership rather than a one-off. */
   subscriptionInvoice: boolean;
+  /** The Stripe subscription this paid for, when it paid for one. Lets the
+   *  page write "cancelled, and why" onto the right payment. */
+  subscriptionId: string | null;
 }
 
 function describe(charge: Stripe.Charge): string {
@@ -72,12 +75,22 @@ export async function paymentHistory(customerId: string | null): Promise<Payment
         const invoiceRef = (charge as unknown as { invoice?: string | Stripe.Invoice | null })
           .invoice;
         let url: string | null = charge.receipt_url ?? null;
+        let subscriptionId: string | null = null;
 
         if (invoiceRef) {
           try {
             const invoice =
               typeof invoiceRef === "string" ? await s.invoices.retrieve(invoiceRef) : invoiceRef;
             url = invoice.hosted_invoice_url ?? invoice.invoice_pdf ?? url;
+
+            /* Moved onto the line item in the 2025-08 API; the old top-level
+               field is still served to older versions, so read both. */
+            const legacy = invoice as unknown as { subscription?: string | { id: string } | null };
+            const line = invoice.lines?.data?.[0] as unknown as
+              | { subscription?: string | { id: string } | null }
+              | undefined;
+            const ref = legacy.subscription ?? line?.subscription ?? null;
+            subscriptionId = typeof ref === "string" ? ref : (ref?.id ?? null);
           } catch {
             // Keep the receipt URL.
           }
@@ -96,6 +109,7 @@ export async function paymentHistory(customerId: string | null): Promise<Payment
           refunded: refunded > 0 ? moneyIn(refunded, currency) : null,
           url,
           subscriptionInvoice: Boolean(invoiceRef),
+          subscriptionId,
         };
       }),
     );
