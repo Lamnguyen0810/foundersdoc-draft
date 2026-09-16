@@ -100,6 +100,25 @@ export default function AiFiles({
   const router = useRouter();
   const [sources, setSources] = useState(initialSources);
   const [folders, setFolders] = useState(initialFolders);
+
+  /* ── the table follows the server ─────────────────────────────────────
+     The rows live in state so a click can change them without a round trip.
+     But state set from a prop is set ONCE, on mount: when the page re-rendered
+     on the server — after an upload's refresh, or the "Review AI files" link
+     at the top — the fresh rows arrived and the table kept showing the old
+     ones. Opening another tab and coming back "fixed" it only because that
+     remounted the component. This is React's own pattern for adjusting state
+     when a prop changes: compare with what was last seen, and re-sync. */
+  const [seenSources, setSeenSources] = useState(initialSources);
+  const [seenFolders, setSeenFolders] = useState(initialFolders);
+  if (initialSources !== seenSources) {
+    setSeenSources(initialSources);
+    setSources(initialSources);
+  }
+  if (initialFolders !== seenFolders) {
+    setSeenFolders(initialFolders);
+    setFolders(initialFolders);
+  }
   const [stage, setStage] = useState<Stage>("all");
   const [folder, setFolder] = useState<string>(ALL);
   const [search, setSearch] = useState("");
