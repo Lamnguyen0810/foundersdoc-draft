@@ -148,9 +148,20 @@ export function CancelPlan({
 
 /**
  * Stripe's portal, for the one thing it is genuinely the right tool for:
- * changing the card on file. Nothing here can cancel or buy.
+ * changing the card on file. Nothing it opens can cancel or buy.
+ *
+ * It appears twice on the page — as the button in the billing panel and as the
+ * quiet link in the billing history header — so the classes come in.
  */
-export function UpdateCard({ lookupKey }: { lookupKey: string }) {
+export function UpdateCard({
+  lookupKey,
+  className = "u-btn billing-btn",
+  label = "Update payment method",
+}: {
+  lookupKey: string;
+  className?: string;
+  label?: string;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -158,7 +169,7 @@ export function UpdateCard({ lookupKey }: { lookupKey: string }) {
     <>
       <button
         type="button"
-        className="cancel-link card-link"
+        className={className}
         disabled={busy}
         onClick={() => {
           setBusy(true);
@@ -182,7 +193,7 @@ export function UpdateCard({ lookupKey }: { lookupKey: string }) {
             });
         }}
       >
-        {busy ? "Opening Stripe…" : "Update card in Stripe"}
+        {busy ? "Opening Stripe\u2026" : label}
       </button>
       {error && <div className="cancelled-note">{error}</div>}
     </>
