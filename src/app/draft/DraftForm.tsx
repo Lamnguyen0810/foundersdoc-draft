@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DocType, Field } from "@/lib/doctypes";
+import { stepsFor, type DocType, type Field } from "@/lib/doctypes";
 import { splitNotes } from "@/lib/prompt";
 
 interface DoneInfo {
@@ -310,14 +310,11 @@ export default function DraftForm({
   const [status, setStatus] = useState<"draft" | "final">(initial?.status ?? "draft");
   const [dirty, setDirty] = useState(false);
 
-  const groups = useMemo(() => {
-    const map = new Map<string, Field[]>();
-    for (const f of docType.fields) {
-      if (!map.has(f.group)) map.set(f.group, []);
-      map.get(f.group)!.push(f);
-    }
-    return [...map.entries()];
-  }, [docType]);
+  /* Same steps, same order, as the drafting screen and the admin editor. */
+  const groups = useMemo(
+    () => stepsFor(docType).map((st): [string, Field[]] => [st.group.name, st.fields]),
+    [docType],
+  );
 
   // Warn before losing an unsaved edit — a lawyer's twenty minutes of tidying
   // should not vanish on a stray browser back.

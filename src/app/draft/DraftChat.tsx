@@ -21,7 +21,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { DocType, Field } from "@/lib/doctypes";
+import { stepsFor, type DocType, type Field } from "@/lib/doctypes";
 import { track } from "@/lib/track";
 import DocumentEditor from "./DocumentEditor";
 import DraftReady from "./DraftReady";
@@ -85,29 +85,6 @@ const CATALOGUE: CatFolder[] = [
 /** Group name → how FD AI asks for it. Keyed by group rather than by index so
  *  adding a field, or a whole group, cannot silently shift every question by
  *  one. An unlisted group falls back to its own name, which reads acceptably. */
-const ASK: Record<string, { name: string; question: string }> = {
-  "The shape of it": {
-    name: "Direction",
-    question: "Which direction are we going — mutual, or one-way?",
-  },
-  Parties: {
-    name: "Who’s involved",
-    question: "Who are the parties? Just provide each person’s or organisation’s name.",
-  },
-  "The deal": {
-    name: "The deal",
-    question: "What’s the deal about, and what will be shared?",
-  },
-  Terms: {
-    name: "How long and how strict",
-    question:
-      "How long should confidentiality last, and how strict should it be? I’ve set sensible Singapore defaults — change only what you need.",
-  },
-  "Anything else": {
-    name: "Anything else",
-    question: "Anything else you’d like included?",
-  },
-};
 
 /** The five comprehensiveness steps, in order. One list, used by the slider, the
  *  echoed summary and the progress pane — three places that used to drift apart.
@@ -139,22 +116,13 @@ interface Step {
 }
 
 function buildSteps(docType: DocType): Step[] {
-  const order: string[] = [];
-  const byGroup = new Map<string, Field[]>();
-  for (const f of docType.fields) {
-    if (!byGroup.has(f.group)) {
-      byGroup.set(f.group, []);
-      order.push(f.group);
-    }
-    byGroup.get(f.group)!.push(f);
-  }
-  const steps: Step[] = order.map((g) => {
-    const fields = byGroup.get(g)!;
-    const ask = ASK[g] ?? { name: g, question: g };
+  /* The steps come from stepsFor — the same list the admin editor shows — so
+     the order and wording here are the ones the admin published. */
+  const steps: Step[] = stepsFor(docType).map(({ group, fields }) => {
     // A lone select is a tap, not a form. That is what makes the first question
     // feel like a conversation rather than a questionnaire.
     const kind: Step["kind"] = fields.length === 1 && fields[0].type === "select" ? "chips" : "card";
-    return { id: g, name: ask.name, question: ask.question, fields, kind };
+    return { id: group.name, name: group.title, question: group.question, fields, kind };
   });
   if (docType.slug === "nda") {
     steps.push({
