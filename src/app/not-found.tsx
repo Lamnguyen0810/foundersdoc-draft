@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Logo from "@/components/Logo";
 
 /**
  * A 404 that says which of the two halves you fell between.
@@ -10,7 +11,7 @@ import Link from "next/link";
 export default function NotFound() {
   return (
     <main className="wrap" style={{ maxWidth: 640, padding: "72px 24px" }}>
-      <p className="kicker">Founders Doc</p>
+      <p style={{ marginBottom: 6 }}><Logo /></p>
       <h1 style={{ fontSize: "clamp(24px, 3vw, 32px)", marginTop: 10 }}>
         That page isn’t here.
       </h1>

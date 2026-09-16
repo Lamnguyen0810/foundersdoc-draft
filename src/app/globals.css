@@ -906,7 +906,8 @@ html[data-theme="dark"] .glow {
 
 :root{--white:#ffffff;--grey-1:#f4f4f5;--grey-2:#e7e7ea;--grey-3:#cfcfd4;--grey-4:#86868c;--grey-5:#55555b;--black:#141416;--ink:#1b1b1e;--gold:#f3bf4b;--gold-soft:#fbeec9;--gold-deep:#c9962a;--shadow:0, 0, 0;--gold-ring:rgba(243,191,75,.35);--gold-tint:rgba(243,191,75,.12);--line:#e6e6ea;--card:#ffffff;--surface:#ffffff;--nav-h:56px}
 html[data-theme=dark]{--white:#161618;--grey-1:#1d1d20;--grey-2:#2a2a2e;--grey-3:#3d3d42;--grey-4:#86868c;--grey-5:#b0b0b5;--black:#f4f4f5;--ink:#ececee;--gold-soft:#3b2f11;--gold-deep:#e6b955;--line:#2c2c31;--card:#1b1b1f;--surface:#0f0f11}
-.fd-mark{display:inline-block;font-family:var(--sans);font-size:11.5px;font-weight:500;letter-spacing:.3em;text-transform:uppercase;line-height:1;padding:7px 10px 6px 12px;border-top:1px solid currentColor;border-bottom:1px solid currentColor;color:var(--black);white-space:nowrap}
+/* The wordmark, to the designer's latest measure (settings design, 16 Sep 2026): 10.5px, weight 600, .26em tracking, 1px rules above and below, 6px 9px inside. One rule, every page. */
+.fd-mark{display:inline-block;font-family:var(--sans);font-size:10.5px;font-weight:600;letter-spacing:.26em;text-transform:uppercase;line-height:1;padding:6px 9px;border-top:1px solid currentColor;border-bottom:1px solid currentColor;color:var(--black);white-space:nowrap}
 .foot{display:none}
 .nav{background:var(--white)!important;border-bottom:1px solid var(--line);box-shadow:none!important}
 .nav .wrap{max-width:none;padding-inline:24px;height:var(--nav-h)!important}

@@ -458,10 +458,6 @@ export default async function AdminPage({
   logRows.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
   const logShown = kind ? logRows.filter((l) => l.kind === kind) : logRows;
 
-  const stripParts: string[] = [];
-  if (n(ds.failed) > 0) stripParts.push(`${fmt(n(ds.failed))} generation failure${n(ds.failed) === 1 ? "" : "s"}`);
-  if (awaitingReview && awaitingReview > 0) stripParts.push(`${awaitingReview} AI file${awaitingReview === 1 ? "" : "s"} to review`);
-  const strip = stripParts.length > 0 ? stripParts.join(" · ") : "Nothing waiting for review";
 
   return (
     <main className="fdadmin">
@@ -480,18 +476,6 @@ export default async function AdminPage({
             </div>
           </div>
         </section>
-
-        <div className="utility-strip">
-          <div className="utility-left">
-            <span className="health">System operational</span>
-            <span className="utility-text">{strip}</span>
-          </div>
-          <div className="utility-actions">
-            <Link className="btn" href={tabHref("logs", days)}>View logs</Link>
-            <Link className="btn" href={tabHref("ai-files", days)}>Review AI files</Link>
-            <Link className="btn yellow" href={tabHref("credits", days)}>Adjust credits</Link>
-          </div>
-        </div>
 
         <div className="dashboard-shell">
           <aside className="side-nav-wrap">
