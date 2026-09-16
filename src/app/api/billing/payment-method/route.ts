@@ -49,13 +49,35 @@ export async function POST(req: NextRequest) {
     console.error("[payment-method] could not read the billing account:", err);
   }
 
+  /* ── NO CUSTOMER YET IS NOT A REFUSAL ────────────────────────────────────
+     Somebody on the free trial has never paid, so the webhook has never
+     recorded a customer id. The button is on the page all the same, and
+     answering it with "there is no card" would be a button that does nothing
+     — the whole point is to let them put one there.
+
+     So the customer is found by email, or made, and the portal opens on the
+     card form. Making a Stripe customer charges nothing and commits to
+     nothing; it is a row with an email address on it. */
+  if (!customerId && user.email) {
+    try {
+      const s = stripe();
+      const existing = await s.customers.list({ email: user.email, limit: 1 });
+      const customer =
+        existing.data[0] ??
+        (await s.customers.create({
+          email: user.email,
+          metadata: { supabase_user_id: user.id },
+        }));
+      customerId = customer.id;
+    } catch (err) {
+      console.error("[payment-method] could not find or create the customer:", err);
+    }
+  }
+
   if (!customerId) {
     return NextResponse.json(
-      {
-        error:
-          "There is no card on this account yet. One is saved the first time you buy credits or join a plan.",
-      },
-      { status: 409 },
+      { error: "Could not reach Stripe just now. Please try again in a moment." },
+      { status: 502 },
     );
   }
 
