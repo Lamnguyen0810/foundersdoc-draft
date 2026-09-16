@@ -368,6 +368,12 @@ export default async function AdminPage({
         [w.email, w.name, w.company, w.note].some((v) => (v ?? "").toLowerCase().includes(qLower)),
       )
     : waitlist;
+  /* The money meter only has something to say when the model has actually been
+     called: the figure is a sum of per-request costs, so with no requests there
+     is no figure — and a zero would read as "we spent nothing", which is a
+     claim, not a count. Nothing recorded, nothing shown. */
+  const aiRecorded = n(us.ai_requests) > 0;
+
   const members = n(ps.members_basic) + n(ps.members_pro) + n(ps.members_unlimited);
 
   /* The Logs table is four sources read side by side, newest first: the
@@ -494,7 +500,7 @@ export default async function AdminPage({
                   <SummaryCard label="Drafts" value={fmt(n(ds.period))} note="Selected period" />
                   <SummaryCard label="Active users" value={fmt(n(us.active_period))} note="Drafted at least once" />
                   <SummaryCard label="Credits used" value={fmt(n(ps.spent_period))} note="Selected period" />
-                  <SummaryCard label="AI cost" value={money(n(us.ai_cost_usd))} note="Actual spend" />
+                  <SummaryCard label="AI cost" value={aiRecorded ? money(n(us.ai_cost_usd)) : "—"} note={aiRecorded ? "Actual spend" : "Nothing recorded yet"} />
                 </div>
                 <div className="grid-2">
                   <div className="card">
@@ -680,8 +686,8 @@ export default async function AdminPage({
                       <div className="simple-list">
                         <div className="simple-row"><span>Model requests</span><strong>{fmt(n(us.ai_requests))}</strong></div>
                         <div className="simple-row"><span>People who drafted</span><strong>{fmt(n(us.active_period))}</strong></div>
-                        <div className="simple-row"><span>Actual cost</span><strong>{money(n(us.ai_cost_usd))}</strong></div>
-                        <div className="simple-row"><span>Commercial equivalent</span><strong>{money(n(us.ai_benchmark_usd))}</strong></div>
+                        <div className="simple-row"><span>Actual cost</span><strong>{aiRecorded ? money(n(us.ai_cost_usd)) : "—"}</strong></div>
+                        <div className="simple-row"><span>Commercial equivalent</span><strong>{aiRecorded ? money(n(us.ai_benchmark_usd)) : "—"}</strong></div>
                       </div>
                     </div>
                   </div>

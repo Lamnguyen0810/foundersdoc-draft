@@ -23,3 +23,48 @@
 .fdadmin .setup-note { margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid #D64545; border-radius: 12px; background: #fff; font-size: 12px; line-height: 1.6; color: #B53A3A; }
 .fdadmin .setup-note strong { color: var(--ink); }
 .fdadmin .setup-note code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; background: #F7F7F8; padding: 1px 5px; border-radius: 5px; color: var(--ink); }
+
+/* ── the document window ─────────────────────────────────────────────────────
+   Opening a source blurs the screen behind it, so the document is the only
+   thing in focus while somebody is deciding whether it may go to the model.
+   The design's overlay is a flat scrim; this keeps its geometry and adds the
+   blur, with a slightly darker ground so text behind never shows through. */
+.fdadmin .overlay { background: rgba(16, 16, 16, .42); backdrop-filter: blur(7px) saturate(.9); -webkit-backdrop-filter: blur(7px) saturate(.9); }
+
+/* Wider than the design's .modal, because this one holds a contract rather
+   than a form. Same radius, border and shadow. */
+.fdadmin .modal.wide { width: min(920px, 100%); }
+
+.fdadmin .doc-caption { margin: 0 0 12px; font-size: 11px; line-height: 1.6; color: var(--muted); }
+
+/* The document itself: the firm's own words, so it is set to be read — 13px,
+   generous leading, original line breaks kept. */
+.fdadmin .doc-view {
+  max-height: 46vh;
+  overflow: auto;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #FCFCFB;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--ink);
+}
+.fdadmin .doc-view mark { background: #FCEBB6; color: inherit; padding: 0 3px; border-radius: 4px; }
+.fdadmin .doc-state { margin: 0; font-size: 12px; color: var(--muted); }
+
+/* Privacy and note sit side by side under the document on a wide screen, and
+   stack under it on a narrow one. */
+.fdadmin .doc-review { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.fdadmin .doc-review textarea { min-height: 62px; }
+@media (max-width: 720px) {
+  .fdadmin .doc-review { grid-template-columns: 1fr; }
+  .fdadmin .doc-view { max-height: 40vh; }
+}
+
+/* A row opens its document, so it says so on hover. */
+.fdadmin tbody tr.openable { cursor: pointer; }
+.fdadmin tbody tr.openable:hover { background: #FCFCFA; }
+.fdadmin tbody tr.openable:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
