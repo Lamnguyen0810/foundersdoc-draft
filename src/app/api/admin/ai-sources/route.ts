@@ -27,7 +27,27 @@ function ext(name: string): "pdf" | "docx" | "doc" | "txt" | null {
   return e === "pdf" || e === "docx" || e === "doc" || e === "txt" ? e : null;
 }
 
+/**
+ * Anything that escapes the per-file handling below — a library that fails to
+ * load on the server, an unexpected shape from Supabase — used to become a
+ * bare 500, which the dashboard could only report as "Upload failed." The
+ * reason belongs on the screen of the person who pressed the button, not
+ * only in a log they have to go and find.
+ */
 export async function POST(req: NextRequest) {
+  try {
+    return await handleUpload(req);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("[ai-sources] upload crashed:", err);
+    return NextResponse.json(
+      { error: `The server could not process the upload: ${message}` },
+      { status: 500 },
+    );
+  }
+}
+
+async function handleUpload(req: NextRequest) {
   if (!isSupabaseConfigured()) return NextResponse.json({ error: "Not configured." }, { status: 503 });
   if (!(await isAdmin())) return NextResponse.json({ error: "Not found." }, { status: 404 });
 
@@ -45,7 +65,15 @@ export async function POST(req: NextRequest) {
   if (files.length === 0) return NextResponse.json({ error: "No files were selected." }, { status: 400 });
 
   const supabase = await createClient();
-  const results: { filename: string; ok: boolean; error?: string; flags?: Record<string, number> }[] = [];
+  const results: {
+    filename: string;
+    ok: boolean;
+    error?: string;
+    flags?: Record<string, number>;
+    /* The row as written, minus its text, so the table can show it without a
+       second round trip to the server. */
+    row?: Record<string, unknown>;
+  }[] = [];
 
   for (const file of files) {
     const e = ext(file.name);
@@ -89,7 +117,7 @@ export async function POST(req: NextRequest) {
     const flags = scanPrivacy(text);
     const title = file.name.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ").trim().slice(0, 200);
 
-    const { error } = await supabase.from("ai_sources").insert({
+    const { data: row, error } = await supabase.from("ai_sources").insert({
       folder_id: folderId,
       doc_type_slug: docType,
       title: title || file.name,
@@ -104,7 +132,11 @@ export async function POST(req: NextRequest) {
       bytes: Buffer.byteLength(text, "utf-8"),
       uploaded_by: user?.id ?? null,
       uploaded_by_email: user?.email ?? null,
-    });
+    })
+      .select(
+        "id,folder_id,doc_type_slug,title,filename,file_ext,jurisdiction,version,privacy,privacy_flags,status,permitted,note,bytes,uploaded_by_email,reviewed_at,approved_at,created_at,updated_at",
+      )
+      .single();
 
     if (error) {
       console.error("[ai-sources] insert failed:", error.message);
@@ -119,7 +151,7 @@ export async function POST(req: NextRequest) {
       });
       continue;
     }
-    results.push({ filename: file.name, ok: true, flags });
+    results.push({ filename: file.name, ok: true, flags, row: row ?? undefined });
   }
 
   const added = results.filter((r) => r.ok).length;

@@ -100,12 +100,31 @@ export default function AiFiles({
   const router = useRouter();
   const [sources, setSources] = useState(initialSources);
   const [folders, setFolders] = useState(initialFolders);
+
+  /* ── the table follows the server ─────────────────────────────────────
+     The rows live in state so a click can change them without a round trip.
+     But state set from a prop is set ONCE, on mount: when the page re-rendered
+     on the server — after an upload's refresh, or the "Review AI files" link
+     at the top — the fresh rows arrived and the table kept showing the old
+     ones. Opening another tab and coming back "fixed" it only because that
+     remounted the component. This is React's own pattern for adjusting state
+     when a prop changes: compare with what was last seen, and re-sync. */
+  const [seenSources, setSeenSources] = useState(initialSources);
+  const [seenFolders, setSeenFolders] = useState(initialFolders);
+  if (initialSources !== seenSources) {
+    setSeenSources(initialSources);
+    setSources(initialSources);
+  }
+  if (initialFolders !== seenFolders) {
+    setSeenFolders(initialFolders);
+    setFolders(initialFolders);
+  }
   const [stage, setStage] = useState<Stage>("all");
   const [folder, setFolder] = useState<string>(ALL);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ text: string; tone: "ok" | "err" } | null>(null);
 
   const [uploadOpen, setUploadOpen] = useState(false);
   /* The document window. Any row opens it; it reads and reviews in one place. */
@@ -161,13 +180,13 @@ export default function AiFiles({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; source?: Partial<SourceRow> };
       if (!res.ok || !json.ok) {
-        setNotice(json.error ?? "Could not save.");
+        setNotice({ text: json.error ?? "Could not save.", tone: "err" });
         return false;
       }
       setSources((rows) => rows.map((r) => (r.id === id ? { ...r, ...json.source } : r)));
       return true;
     } catch {
-      setNotice("Could not reach the server.");
+      setNotice({ text: "Could not reach the server.", tone: "err" });
       return false;
     } finally {
       setBusy(false);
@@ -185,7 +204,7 @@ export default function AiFiles({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setNotice(json.error ?? "Could not delete.");
+        setNotice({ text: json.error ?? "Could not delete.", tone: "err" });
         return;
       }
       setSources((rows) => rows.filter((r) => !ids.includes(r.id)));
@@ -208,7 +227,7 @@ export default function AiFiles({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; approved?: number; skipped?: string[]; error?: string };
       if (!res.ok || !json.ok) {
-        setNotice(json.error ?? "Could not approve.");
+        setNotice({ text: json.error ?? "Could not approve.", tone: "err" });
         return;
       }
       const skipped = new Set(json.skipped ?? []);
@@ -217,7 +236,7 @@ export default function AiFiles({
         rows.map((r) => (ids.includes(r.id) && !skipped.has(r.id) ? { ...r, status: "ready", approved_at: now } : r)),
       );
       setSelected(new Set());
-      if (skipped.size > 0) setNotice(`${skipped.size} not approved — review them first.`);
+      if (skipped.size > 0) setNotice({ text: `${skipped.size} not approved — review them first.`, tone: "err" });
     } finally {
       setBusy(false);
     }
@@ -367,8 +386,12 @@ export default function AiFiles({
         </div>
 
         {notice && (
-          <p className="empty" style={{ textAlign: "left", padding: "0 14px 10px", color: "var(--danger)" }}>
-            {notice}
+          <p
+            className="empty"
+            role="status"
+            style={{ textAlign: "left", padding: "0 14px 10px", color: notice.tone === "ok" ? "var(--success)" : "var(--danger)" }}
+          >
+            {notice.text}
           </p>
         )}
 
@@ -508,10 +531,14 @@ export default function AiFiles({
           folders={folders}
           docTypes={docTypes}
           onClose={() => setUploadOpen(false)}
-          onDone={(added, message) => {
+          onDone={(rows, message, allOk) => {
             setUploadOpen(false);
-            setNotice(message);
-            if (added > 0) router.refresh();
+            /* The rows the server wrote go straight into the table. The refresh
+               behind it re-counts the utility strip; the person is not made to
+               wait for it to see what they just added. */
+            if (rows.length > 0) setSources((prev) => [...rows, ...prev]);
+            setNotice({ text: message, tone: allOk ? "ok" : "err" });
+            if (rows.length > 0) router.refresh();
           }}
         />
       )}
@@ -581,7 +608,7 @@ function UploadModal({
   folders: FolderRow[];
   docTypes: { slug: string; label: string }[];
   onClose: () => void;
-  onDone: (added: number, message: string) => void;
+  onDone: (rows: SourceRow[], message: string, allOk: boolean) => void;
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [docType, setDocType] = useState(docTypes[0]?.slug ?? "");
@@ -613,20 +640,35 @@ function UploadModal({
     fd.set("permitted", permitted ? "1" : "0");
     try {
       const res = await fetch("/api/admin/ai-sources", { method: "POST", body: fd });
-      const json = (await res.json().catch(() => ({}))) as {
+      /* Read the body once as text, then try it as JSON: a crash on the server
+         or a proxy in the way answers with HTML or plain text, and the person
+         should see the status and the first line of it, not a shrug. */
+      const raw = await res.text().catch(() => "");
+      let json: {
         added?: number;
-        results?: { filename: string; ok: boolean; error?: string }[];
+        results?: { filename: string; ok: boolean; error?: string; row?: SourceRow }[];
         error?: string;
-      };
+      } = {};
+      try {
+        json = JSON.parse(raw) as typeof json;
+      } catch {
+        json = {};
+      }
       if (!res.ok) {
-        setError(json.error ?? "Upload failed.");
+        const firstLine = raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+        setError(json.error ?? `Upload failed (HTTP ${res.status})${firstLine ? `: ${firstLine}` : "."}`);
+        return;
+      }
+      if (!json.results && json.added === undefined) {
+        setError(`Upload failed: the server answered with something other than a result (HTTP ${res.status}). If you were signed out, sign in again and retry.`);
         return;
       }
       const failed = (json.results ?? []).filter((r) => !r.ok);
+      const rows = (json.results ?? []).flatMap((r) => (r.ok && r.row ? [r.row] : []));
       const msg =
         `${json.added ?? 0} added to the library, awaiting review.` +
         (failed.length ? ` Not added: ${failed.map((f) => `${f.filename} (${f.error})`).join("; ")}` : "");
-      onDone(json.added ?? 0, msg);
+      onDone(rows, msg, failed.length === 0);
     } catch {
       setError("Could not reach the server.");
     } finally {
