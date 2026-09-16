@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
 import { useRouter } from "next/navigation";
 import {
   JURISDICTIONS,
@@ -52,6 +53,32 @@ function statusPill(s: SourceRow): { cls: string; text: string } {
     : { cls: "status-review", text: "Needs Review" };
 }
 
+/* The same patterns the upload scan counts — UEN, NRIC/FIN, email, Singapore
+   phone — as one expression, so the viewer can mark them in the text. The scan
+   gives a reviewer a number; this shows them where. */
+const SENSITIVE =
+  /\b(?:\d{8,9}[A-Z]|[TSR]\d{2}[A-Z]{2}\d{4}[A-Z])\b|\b[STFGM]\d{7}[A-Z]\b|[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|(?:\+65[\s-]?)?\b[3689]\d{3}[\s-]?\d{4}\b/gi;
+
+/** The document's text, with anything the scan recognises wrapped in a mark. */
+function highlight(text: string): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  const re = new RegExp(SENSITIVE.source, "gi");
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m[0].length === 0) {
+      re.lastIndex++;
+      continue;
+    }
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(<mark key={key++}>{m[0]}</mark>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
 function privacyPill(p: SourcePrivacy): { cls: string; text: string } {
   switch (p) {
     case "clear": return { cls: "privacy-clear", text: "Clear" };
@@ -81,7 +108,8 @@ export default function AiFiles({
   const [notice, setNotice] = useState<string | null>(null);
 
   const [uploadOpen, setUploadOpen] = useState(false);
-  const [reviewing, setReviewing] = useState<SourceRow | null>(null);
+  /* The document window. Any row opens it; it reads and reviews in one place. */
+  const [viewing, setViewing] = useState<SourceRow | null>(null);
   const [deleting, setDeleting] = useState<string[] | null>(null);
   const [folderOpen, setFolderOpen] = useState(false);
 
@@ -391,8 +419,20 @@ export default function AiFiles({
                     ? s.doc_type_slug.toUpperCase()
                     : (docTypes.find((d) => d.slug === s.doc_type_slug)?.label ?? s.doc_type_slug);
                 return (
-                  <tr key={s.id} className={selected.has(s.id) ? "selected-row" : undefined}>
-                    <td className="select-col">
+                  <tr
+                    key={s.id}
+                    className={selected.has(s.id) ? "selected-row openable" : "openable"}
+                    tabIndex={0}
+                    title="Open to read and review"
+                    onClick={() => setViewing(s)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setViewing(s);
+                      }
+                    }}
+                  >
+                    <td className="select-col" onClick={(e) => e.stopPropagation()}>
                       <input
                         className="file-select row-select"
                         type="checkbox"
@@ -417,7 +457,7 @@ export default function AiFiles({
                     </td>
                     <td><span className={`status-pill ${st.cls}`}>{st.text}</span></td>
                     <td>{day(s.updated_at)}</td>
-                    <td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       <div className="inline-actions">
                         {s.status === "ready" ? (
                           <button className="approve-btn" data-action="ready" type="button" disabled>Ready</button>
@@ -439,7 +479,7 @@ export default function AiFiles({
                             data-action="review"
                             type="button"
                             disabled={busy}
-                            onClick={() => setReviewing(s)}
+                            onClick={() => setViewing(s)}
                           >
                             Review
                           </button>
@@ -476,13 +516,17 @@ export default function AiFiles({
         />
       )}
 
-      {reviewing && (
-        <ReviewModal
-          source={reviewing}
+      {viewing && (
+        <ViewModal
+          key={viewing.id}
+          source={viewing}
           busy={busy}
-          onClose={() => setReviewing(null)}
+          onClose={() => setViewing(null)}
           onSave={async (privacy, note) => {
-            if (await patch(reviewing.id, { action: "review", privacy, note })) setReviewing(null);
+            if (await patch(viewing.id, { action: "review", privacy, note })) setViewing(null);
+          }}
+          onApprove={async () => {
+            if (await patch(viewing.id, { action: "approve" })) setViewing(null);
           }}
         />
       )}
@@ -697,60 +741,134 @@ function UploadModal({
 }
 
 /* ── review ──────────────────────────────────────────────────────────────── */
-function ReviewModal({
+/**
+ * One document, open on the screen — the window a reviewer actually needs.
+ *
+ * The table row tells you a file exists; this tells you what is in it. The
+ * text shown is the text stored in the database, which is the text Gemini is
+ * given verbatim when it drafts, so what a reviewer reads here and what the
+ * model reads are the same thing by construction.
+ *
+ * Anything the upload scan recognised as personal or identifying — UENs,
+ * NRICs, emails, phone numbers — is marked in the text, so the eye goes
+ * straight to the parts that decide the privacy question instead of hunting
+ * for them in ten pages of boilerplate.
+ */
+function ViewModal({
   source,
   busy,
   onClose,
   onSave,
+  onApprove,
 }: {
   source: SourceRow;
   busy: boolean;
   onClose: () => void;
   onSave: (privacy: "clear" | "redacted" | "needs_redaction", note: string) => void;
+  onApprove: () => void;
 }) {
   const [privacy, setPrivacy] = useState<"clear" | "redacted" | "needs_redaction">(
     source.privacy === "redacted" || source.privacy === "needs_redaction" ? source.privacy : "clear",
   );
   const [note, setNote] = useState(source.note ?? "");
+  const [text, setText] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
   const flags = describeFlags(source.privacy_flags ?? {});
+
+  /* The text is fetched when the window opens, not with the table: a hundred
+     rows carrying their documents would make the tab slow for the ninety-nine
+     nobody opened. */
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/admin/ai-sources/${source.id}`)
+      .then(async (res) => {
+        const json = (await res.json().catch(() => ({}))) as { source?: { content?: string }; error?: string };
+        if (!live) return;
+        if (!res.ok) setFailed(json.error ?? "Could not open this document.");
+        else setText(json.source?.content ?? "");
+      })
+      .catch(() => live && setFailed("Could not reach the server."));
+    return () => {
+      live = false;
+    };
+  }, [source.id]);
+
+  /* Escape closes it, as it does every other window on this screen. */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !busy && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
+
+  const live = source.status === "ready";
 
   return (
     <div className="overlay show" onClick={(e) => e.target === e.currentTarget && !busy && onClose()}>
-      <div className="modal small">
+      <div className="modal wide" role="dialog" aria-modal="true" aria-label={source.title}>
         <div className="modal-head">
           <div>
-            <h3>Review source</h3>
-            <p>{source.title}</p>
+            <h3>{source.title}</h3>
+            <p>
+              {source.filename} · {source.jurisdiction}
+              {source.version ? ` · ${source.version}` : ""} · {statusPill(source).text}
+            </p>
           </div>
           <button className="close" type="button" onClick={onClose}>×</button>
         </div>
         <div className="modal-body">
-          {/* What the upload scan found. Counts, not a verdict — the person
-              reading the document decides. */}
-          <p className="queue-warning" style={{ marginTop: 0, marginBottom: 12 }}>
-            Scan on upload found: {flags}.
+          <p className="doc-caption">
+            This is the text FD AI reads when it drafts — exactly as stored, with anything the
+            upload scan recognised marked in yellow. Scan found: {flags}.
           </p>
-          <label className="field-label" htmlFor="reviewPrivacy">Privacy / confidentiality</label>
-          <select
-            id="reviewPrivacy"
-            style={{ width: "100%" }}
-            value={privacy}
-            onChange={(e) => setPrivacy(e.target.value as typeof privacy)}
-          >
-            <option value="clear">Clear — no sensitive data</option>
-            <option value="redacted">Redacted — sensitive data removed</option>
-            <option value="needs_redaction">Needs redaction</option>
-          </select>
-          <div style={{ marginTop: 12 }}>
-            <label className="field-label" htmlFor="reviewNote">Internal note</label>
-            <textarea id="reviewNote" placeholder="Optional note" value={note} onChange={(e) => setNote(e.target.value)} />
+
+          <div className="doc-view">
+            {failed ? (
+              <p className="doc-state">{failed}</p>
+            ) : text === null ? (
+              <p className="doc-state">Opening…</p>
+            ) : text.trim() === "" ? (
+              <p className="doc-state">This document has no stored text.</p>
+            ) : (
+              highlight(text)
+            )}
           </div>
+
+          <div className="doc-review">
+            <div>
+              <label className="field-label" htmlFor="reviewPrivacy">Privacy / confidentiality</label>
+              <select
+                id="reviewPrivacy"
+                style={{ width: "100%" }}
+                value={privacy}
+                onChange={(e) => setPrivacy(e.target.value as typeof privacy)}
+              >
+                <option value="clear">Clear — no sensitive data</option>
+                <option value="redacted">Redacted — sensitive data removed</option>
+                <option value="needs_redaction">Needs redaction</option>
+              </select>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="reviewNote">Internal note</label>
+              <textarea id="reviewNote" placeholder="Optional note" value={note} onChange={(e) => setNote(e.target.value)} />
+            </div>
+          </div>
+
+          {live && (
+            <p className="queue-warning" style={{ marginBottom: 0 }}>
+              This document is in use. Saving a new review takes it out of use until you approve it again.
+            </p>
+          )}
         </div>
         <div className="modal-foot">
-          <button className="btn" type="button" onClick={onClose} disabled={busy}>Cancel</button>
-          <button className="btn yellow" type="button" disabled={busy} onClick={() => onSave(privacy, note)}>
+          <button className="btn" type="button" onClick={onClose} disabled={busy}>Close</button>
+          <button className="btn" type="button" disabled={busy} onClick={() => onSave(privacy, note)}>
             {busy ? "Saving…" : "Save review"}
           </button>
+          {source.status === "reviewed" && (
+            <button className="btn yellow" type="button" disabled={busy} onClick={onApprove}>
+              Approve for AI
+            </button>
+          )}
         </div>
       </div>
     </div>

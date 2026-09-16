@@ -36,6 +36,34 @@ function explain(message: string): string {
   return "Could not save the change.";
 }
 
+/**
+ * Read one source, text and all.
+ *
+ * The table deliberately lists sources WITHOUT their text — the content column
+ * runs to tens of kilobytes a row and no column shows it. This is how the
+ * viewer gets the words, one document at a time, only when somebody opens it.
+ *
+ * The text returned here is exactly the text Gemini is given, which is the
+ * point: a reviewer deciding "clear" or "needs redaction" has to be looking at
+ * what the model will look at.
+ */
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  if (!isSupabaseConfigured()) return NextResponse.json({ error: "Not configured." }, { status: 503 });
+  if (!(await isAdmin())) return NextResponse.json({ error: "Not found." }, { status: 404 });
+
+  const { id } = await ctx.params;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("ai_sources")
+    .select("id,title,filename,content,bytes,privacy_flags")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) return NextResponse.json({ error: explain(error.message) }, { status: 400 });
+  if (!data) return NextResponse.json({ error: "No such source." }, { status: 404 });
+  return NextResponse.json({ ok: true, source: data });
+}
+
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   if (!isSupabaseConfigured()) return NextResponse.json({ error: "Not configured." }, { status: 503 });
   if (!(await isAdmin())) return NextResponse.json({ error: "Not found." }, { status: 404 });
