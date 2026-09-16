@@ -394,6 +394,9 @@ export default async function BillingPage({
                 </tbody>
               </table>
             </div>
+            <p style={{ marginTop: 14, fontSize: 12.5 }}>
+              <Link href="/billing/history">See every plan and payment &rsaquo;</Link>
+            </p>
           </div>
         </section>
       )}

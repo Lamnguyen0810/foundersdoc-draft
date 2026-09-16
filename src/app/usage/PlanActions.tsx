@@ -1,69 +1,68 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 /**
- * The two buttons on /usage that lead into Stripe.
+ * Cancelling, and updating a card.
  *
- * Neither of them decides anything. Both post the plan's lookup key to the
- * checkout route, which works out — on the server, where it cannot be edited —
- * whether that means "open the customer portal" or something else, and hands
- * back a URL. Cancellation itself happens in Stripe's portal, because that is
- * where the subscription lives and where a cancellation is a real thing rather
- * than a flag this app would then have to keep in step.
+ * Cancellation does NOT go through Stripe's customer portal any more. It used
+ * to, and when the portal was not switched on in the Stripe dashboard the
+ * request fell through to a Checkout page — a customer pressing "cancel" was
+ * shown a card form offering the same plan again. Now it posts to our own
+ * route, which can only end things, never charge.
  */
-async function openStripe(lookupKey: string): Promise<string> {
-  const res = await fetch("/api/billing/checkout", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ lookupKey }),
-  });
-  const json = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
-  if (!res.ok || !json.url) throw new Error(json.error ?? "Could not reach Stripe. Please try again.");
-  return json.url;
-}
 
-export function ManageBilling({ lookupKey, label = "Manage billing" }: { lookupKey: string; label?: string }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  return (
-    <>
-      <button
-        type="button"
-        className="u-btn billing-btn"
-        disabled={busy}
-        onClick={() => {
-          setBusy(true);
-          setError(null);
-          openStripe(lookupKey)
-            .then((url) => window.location.assign(url))
-            .catch((err: Error) => {
-              setError(err.message);
-              setBusy(false);
-            });
-        }}
-      >
-        {busy ? "Opening Stripe…" : label}
-      </button>
-      {error && <div className="cancelled-note">{error}</div>}
-    </>
-  );
-}
+const REASONS: { value: string; label: string }[] = [
+  { value: "too_expensive", label: "Too expensive for how much I use it" },
+  { value: "not_using", label: "I am not drafting enough to need a plan" },
+  { value: "missing_feature", label: "Something I need is missing" },
+  { value: "quality", label: "The drafts were not good enough" },
+  { value: "switching", label: "I am using something else" },
+  { value: "temporary", label: "Only pausing — I will be back" },
+  { value: "other", label: "Another reason" },
+];
 
 export function CancelPlan({
-  lookupKey,
   planLabel,
-  endsOn,
+  purchasedCredits,
 }: {
-  lookupKey: string;
   planLabel: string;
-  /** The date access runs to, already formatted, when it is known. */
-  endsOn: string | null;
+  /** Credits bought outright, which survive the cancellation. */
+  purchasedCredits: number;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function cancel() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/billing/cancel", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ reason: reason || "other", note }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        setError(json.error ?? "Could not cancel. Please try again.");
+        setBusy(false);
+        return;
+      }
+      /* Re-render from the server rather than patching state here: the
+         balance, the plan panel and the billing summary all move at once, and
+         all three should be read back rather than guessed at. */
+      router.replace("/usage?cancelled=1");
+      router.refresh();
+    } catch {
+      setError("Could not reach the server. Check your connection and try again.");
+      setBusy(false);
+    }
+  }
 
   return (
     <>
@@ -78,52 +77,114 @@ export function CancelPlan({
           aria-modal="true"
           aria-labelledby="fdu-cancel-title"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setOpen(false);
+            if (e.target === e.currentTarget && !busy) setOpen(false);
           }}
         >
           <div className="fdu-modal">
             <h3 id="fdu-cancel-title">Cancel your {planLabel}?</h3>
-            <p>Your plan stays active until the end of the period you have already paid for.</p>
+            <p>
+              Your plan ends straight away. The unused part of this month is refunded to your card.
+            </p>
+
             <div className="modal-note">
-              {endsOn ? (
+              <strong>You keep everything you have already drafted.</strong>
+              <br />
+              {purchasedCredits > 0 ? (
                 <>
-                  <strong>Access remains until {endsOn}.</strong>
-                  <br />
-                  You can keep using your credits until then.
+                  The {purchasedCredits} credit{purchasedCredits === 1 ? "" : "s"} you bought
+                  separately stay on your account and never expire — you can carry on drafting with
+                  those. This month&rsquo;s membership allowance ends today.
                 </>
               ) : (
-                <>You can keep using your credits until the current period ends.</>
+                <>
+                  This month&rsquo;s membership allowance ends today. Anything you buy afterwards
+                  never expires, and you can re-join any plan whenever you like.
+                </>
               )}
-              <br />
-              <br />
-              Cancelling finishes in Stripe, where your subscription is held.
             </div>
-            {error && <p style={{ color: "#8b5a56" }}>{error}</p>}
+
+            <div className="cancel-reason">
+              <label htmlFor="fdu-reason">Why are you leaving?</label>
+              <select
+                id="fdu-reason"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                disabled={busy}
+              >
+                <option value="">Prefer not to say</option>
+                {REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+              <textarea
+                id="fdu-note"
+                placeholder="Anything else you would like to tell us (optional)"
+                value={note}
+                maxLength={1000}
+                rows={3}
+                disabled={busy}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            </div>
+
+            {error && <p className="cancel-error">{error}</p>}
+
             <div className="modal-actions">
               <button type="button" className="u-btn" onClick={() => setOpen(false)} disabled={busy}>
                 Keep plan
               </button>
-              <button
-                type="button"
-                className="u-btn danger"
-                disabled={busy}
-                onClick={() => {
-                  setBusy(true);
-                  setError(null);
-                  openStripe(lookupKey)
-                    .then((url) => window.location.assign(url))
-                    .catch((err: Error) => {
-                      setError(err.message);
-                      setBusy(false);
-                    });
-                }}
-              >
-                {busy ? "Opening Stripe…" : "Continue in Stripe"}
+              <button type="button" className="u-btn danger" disabled={busy} onClick={() => void cancel()}>
+                {busy ? "Cancelling…" : "Cancel my plan"}
               </button>
             </div>
           </div>
         </div>
       )}
+    </>
+  );
+}
+
+/**
+ * Stripe's portal, for the one thing it is genuinely the right tool for:
+ * changing the card on file. Nothing here can cancel or buy.
+ */
+export function UpdateCard({ lookupKey }: { lookupKey: string }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <>
+      <button
+        type="button"
+        className="cancel-link card-link"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          setError(null);
+          fetch("/api/billing/checkout", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ lookupKey }),
+          })
+            .then((r) => r.json())
+            .then((json: { url?: string; error?: string }) => {
+              if (json.url) window.location.assign(json.url);
+              else {
+                setError(json.error ?? "Could not open Stripe.");
+                setBusy(false);
+              }
+            })
+            .catch(() => {
+              setError("Could not reach Stripe.");
+              setBusy(false);
+            });
+        }}
+      >
+        {busy ? "Opening Stripe…" : "Update card in Stripe"}
+      </button>
+      {error && <div className="cancelled-note">{error}</div>}
     </>
   );
 }
