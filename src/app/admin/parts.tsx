@@ -1,12 +1,5 @@
 /**
- * The pieces every tab is built from.
- *
- * Declared at module level rather than inside a page, because a component
- * created during render is a new component type on every render — React throws
- * away the DOM and rebuilds it each time.
- *
- * All of these are server components. Nothing on the admin console needs to be
- * interactive except the credits form, so nothing else ships JavaScript.
+ * Number and date formatting shared by the admin dashboard's tabs.
  */
 
 export function fmt(n: number | null | undefined): string {
@@ -40,6 +33,25 @@ export function when(iso: string | null | undefined): string {
   });
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "16 Sep" — the design's short date, in Singapore time. */
+export function day(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const parts = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "numeric", timeZone: "Asia/Singapore" }).formatToParts(d);
+  const dd = parts.find((x) => x.type === "day")?.value ?? "";
+  const mm = Number(parts.find((x) => x.type === "month")?.value ?? 1);
+  return `${dd} ${MONTHS[mm - 1]}`;
+}
+
+/** "16 Sep, 10:12" — the design's timestamp, in Singapore time. */
+export function stamp(iso: string): string {
+  const time = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Singapore" }).format(new Date(iso));
+  return `${day(iso)}, ${time}`;
+}
+
 export function ago(iso: string | null | undefined): string {
   if (!iso) return "never";
   const ms = Date.now() - new Date(iso).getTime();
@@ -52,127 +64,4 @@ export function ago(iso: string | null | undefined): string {
   const days = Math.floor(hrs / 24);
   if (days < 31) return `${days} day${days === 1 ? "" : "s"} ago`;
   return when(iso);
-}
-
-/**
- * One headline figure.
- *
- * `previous` is the same count over the immediately preceding window of equal
- * length. When it is absent the change line is simply not drawn — a percentage
- * against a period nobody measured is a made-up number, which is the whole
- * thing this page is being rebuilt to remove.
- */
-export function Kpi({
-  label,
-  value,
-  previous,
-  hint,
-  goodWhenUp = true,
-}: {
-  label: string;
-  value: number;
-  previous?: number | null;
-  hint?: string;
-  goodWhenUp?: boolean;
-}) {
-  let change: React.ReactNode = hint ?? null;
-
-  if (previous !== undefined && previous !== null) {
-    const diff = value - previous;
-    // No previous activity and none now is not "up 0%", it is nothing to say.
-    if (previous === 0 && value === 0) {
-      change = hint ?? "No activity in either period";
-    } else if (previous === 0) {
-      change = (
-        <>
-          <span className="delta good">+{fmt(value)}</span> — nothing in the period before
-        </>
-      );
-    } else {
-      const pct = Math.round((diff / previous) * 100);
-      const up = diff >= 0;
-      const good = up === goodWhenUp;
-      change = (
-        <>
-          <span className={`delta ${good ? "good" : "bad"}`}>
-            {up ? "+" : "−"}
-            {Math.abs(pct)}%
-          </span>{" "}
-          vs the period before ({fmt(previous)})
-        </>
-      );
-    }
-  }
-
-  return (
-    <div className="kpi">
-      <div className="kpi-label">{label}</div>
-      <div className="kpi-value">{fmt(value)}</div>
-      {change && <div className="kpi-change">{change}</div>}
-    </div>
-  );
-}
-
-/**
- * A ranked list with the bar drawn behind the row.
- *
- * `empty` is required, and it says what would have to happen for the list to
- * fill up. An empty panel that just says "No data" leaves the reader unable to
- * tell a quiet week from a broken counter.
- */
-export function BarList({
-  rows,
-  empty,
-  unit,
-}: {
-  rows: { label: string; value: number; note?: string }[];
-  empty: string;
-  unit?: string;
-}) {
-  if (!rows.length) return <p className="fda-empty">{empty}</p>;
-  const top = Math.max(...rows.map((r) => r.value), 1);
-
-  return (
-    <ul className="bar-list">
-      {rows.map((r) => (
-        <li key={r.label} className="bar-row">
-          <span className="bar" style={{ width: `${Math.max(3, (r.value / top) * 100)}%` }} />
-          <span className="name">
-            {r.label}
-            {r.note && <small>{r.note}</small>}
-          </span>
-          <span className="num">
-            {fmt(r.value)}
-            {unit && <small>{unit}</small>}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** A panel with a heading and a one-line explanation of what it counts. */
-export function Panel({
-  title,
-  sub,
-  aside,
-  children,
-}: {
-  title: string;
-  sub?: string;
-  aside?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="panel">
-      <div className="panel-head">
-        <div>
-          <h2>{title}</h2>
-          {sub && <p className="sub">{sub}</p>}
-        </div>
-        {aside}
-      </div>
-      {children}
-    </section>
-  );
 }
