@@ -1,9 +1,11 @@
+import type React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import CreditsPanel, { type Action } from "./CreditsPanel";
-import { BarList, Kpi, Panel, ago, fmt, money, when } from "./parts";
+import { ago, day, fmt, money, stamp } from "./parts";
+import FilterSelect from "./FilterSelect";
 import AiFiles from "./AiFiles";
 import Questions, { type FieldRow } from "./Questions";
 import PeriodSelect from "./PeriodSelect";
@@ -108,10 +110,83 @@ interface WaitRow {
   created_at: string;
 }
 
+interface EventRow {
+  created_at: string;
+  name: string;
+  email: string | null;
+  path: string | null;
+  props: Record<string, unknown> | null;
+}
+
+interface ApprovalRow {
+  title: string;
+  status: string;
+  approved_at: string | null;
+  reviewed_at: string | null;
+  uploaded_by_email: string | null;
+  created_at: string;
+}
+
+/** An event name, said the way the design says it. */
+function eventLabel(e: EventRow): string {
+  const doc = typeof e.props?.doc_type === "string" ? String(e.props.doc_type).toUpperCase() : "a document";
+  switch (e.name) {
+    case "draft_generated": return `User generated ${doc === "NDA" ? "an NDA" : doc}`;
+    case "draft_revised": return `User revised ${doc === "NDA" ? "an NDA" : doc}`;
+    case "draft_exported": return "Word document downloaded";
+    case "draft_failed": return `Generation failed (${doc})`;
+    case "draft_started": return `Started answering for ${doc}`;
+    case "doc_selected": return `Selected ${doc}`;
+    case "ai_opened": return "Opened the catalogue";
+    case "paywall_hit": return "Reached the paywall";
+    case "sign_in_ok": return "Signed in";
+    case "sign_in_failed": return "Sign-in failed";
+    case "sign_up_started": return "Started sign-up";
+    case "source_uploaded": return "Uploaded a source document";
+    case "draft_abandoned": return "Left a draft unfinished";
+    case "question_skipped": return "Skipped a question";
+    default: return e.name.replace(/_/g, " ");
+  }
+}
+
 interface Breakdown {
   label: string;
   people: number;
   hits: number;
+}
+
+/* The design's drafting funnel, in its order. Each step is an event the app
+   already records, so the count is a count of people who did it. */
+const FUNNEL_STEPS: { id: string; label: string }[] = [
+  { id: "ai_opened", label: "Opened catalogue" },
+  { id: "doc_selected", label: "Selected document" },
+  { id: "draft_generated", label: "Generated draft" },
+  { id: "draft_exported", label: "Downloaded Word" },
+];
+
+/** One line of the Logs table, whatever it was read from. */
+interface LogLine {
+  at: string;
+  kind: "Admin" | "System" | "Billing" | "Files";
+  text: string;
+  who: string | null;
+  status: "Success" | "Failed" | "Logged" | "Info";
+}
+
+/** The start of the selected period, as a timestamp. */
+function periodStart(days: number): number {
+  return Date.now() - days * 86_400_000;
+}
+
+/** The design's summary tile. */
+function SummaryCard({ label, value, note }: { label: string; value: string; note: React.ReactNode }) {
+  return (
+    <div className="summary-card">
+      <div className="summary-label">{label}</div>
+      <div className="summary-value">{value}</div>
+      <div className="summary-note">{note}</div>
+    </div>
+  );
 }
 
 interface FunnelRow {
@@ -146,7 +221,7 @@ function planLabel(row: AccountRow): { text: string; tone: string } {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; days?: string; q?: string }>;
+  searchParams: Promise<{ tab?: string; days?: string; q?: string; status?: string; kind?: string }>;
 }) {
   if (!isSupabaseConfigured()) redirect("/draft");
 
@@ -159,7 +234,8 @@ export default async function AdminPage({
   const tab: Tab = TABS.some((t) => t.id === asked) ? (asked as Tab) : "ai-files";
   const days = RANGES.some((r) => String(r.days) === sp.days) ? Number(sp.days) : 30;
   const q = (sp.q ?? "").trim().slice(0, 80);
-  const rangeLabel = RANGES.find((r) => r.days === days)?.label ?? "30 days";
+  const status = ["draft", "final", "failed"].includes(sp.status ?? "") ? (sp.status as string) : "";
+  const kind = ["Admin", "System", "Billing", "Files"].includes(sp.kind ?? "") ? (sp.kind as string) : "";
 
   const supabase = await createClient();
 
@@ -197,6 +273,15 @@ export default async function AdminPage({
 
   /* Each tab fetches only what it shows. The alternative — one query bundle for
      the whole console — makes every tab pay for the other two. */
+  /* Each tab fetches only what it shows. Overview draws on the document,
+     user and plan figures together, so it asks for all three. */
+  /* Document stats are read on every tab: the utility strip counts the
+     period's generation failures whichever panel is open. */
+  const wantDocs = true;
+  const wantUsers = tab === "users" || tab === "overview" || tab === "logs";
+  const wantPlans = tab === "credits" || tab === "overview" || tab === "logs";
+  const wantEvents = tab === "overview" || tab === "logs";
+
   const [
     docStats,
     docTypes,
@@ -210,36 +295,38 @@ export default async function AdminPage({
     planStats,
     accounts,
     creditLog,
+    eventsRes,
+    approvalsRes,
   ] = await Promise.all([
-      tab === "documents" ? supabase.rpc("admin_document_stats", { p_days: days }) : null,
-      tab === "documents" ? supabase.rpc("admin_doc_type_counts", { p_days: days }) : null,
-      tab === "documents"
-        ? supabase.rpc("admin_documents", { p_days: days, p_limit: 100, p_search: q || null })
-        : null,
-      tab === "users" ? supabase.rpc("admin_user_stats", { p_days: days }) : null,
-      tab === "users" ? supabase.rpc("admin_funnel", { p_days: days }) : null,
-      tab === "users"
-        ? supabase.rpc("admin_event_breakdown", { p_kind: "path", p_days: days, p_limit: 8 })
-        : null,
-      tab === "users"
-        ? supabase.rpc("admin_event_breakdown", { p_kind: "country", p_days: days, p_limit: 8 })
-        : null,
-      tab === "users"
-        ? supabase.rpc("admin_event_breakdown", { p_kind: "device", p_days: days, p_limit: 5 })
-        : null,
-      tab === "users"
-        ? supabase
-            .from("waitlist")
-            .select("email,name,company,note,status,created_at")
-            .order("created_at", { ascending: false })
-            .limit(200)
-        : null,
-      tab === "credits" ? supabase.rpc("admin_plan_stats", { p_days: days }) : null,
-      tab === "credits"
-        ? supabase.rpc("admin_accounts", { p_limit: 200, p_search: q || null })
-        : null,
-      tab === "credits" ? supabase.rpc("admin_recent_credit_actions", { p_limit: 15 }) : null,
-    ]);
+    wantDocs ? supabase.rpc("admin_document_stats", { p_days: days }) : null,
+    tab === "documents" ? supabase.rpc("admin_doc_type_counts", { p_days: days }) : null,
+    tab === "documents"
+      ? supabase.rpc("admin_documents", { p_days: days, p_limit: 100, p_search: q || null })
+      : null,
+    wantUsers ? supabase.rpc("admin_user_stats", { p_days: days }) : null,
+    tab === "users" || tab === "overview" ? supabase.rpc("admin_funnel", { p_days: days }) : null,
+    tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "path", p_days: days, p_limit: 8 }) : null,
+    tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "country", p_days: days, p_limit: 8 }) : null,
+    tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "device", p_days: days, p_limit: 5 }) : null,
+    tab === "users"
+      ? supabase
+          .from("waitlist")
+          .select("email,name,company,note,status,created_at")
+          .order("created_at", { ascending: false })
+          .limit(200)
+      : null,
+    wantPlans ? supabase.rpc("admin_plan_stats", { p_days: days }) : null,
+    tab === "credits" || tab === "logs" ? supabase.rpc("admin_accounts", { p_limit: 200, p_search: tab === "credits" && q ? q : null }) : null,
+    tab === "logs" ? supabase.rpc("admin_recent_credit_actions", { p_limit: 50 }) : null,
+    wantEvents ? supabase.rpc("admin_recent_events", { p_days: days, p_limit: tab === "logs" ? 100 : 8 }) : null,
+    wantEvents
+      ? supabase
+          .from("ai_sources")
+          .select("title,status,approved_at,reviewed_at,uploaded_by_email,created_at")
+          .order("updated_at", { ascending: false })
+          .limit(20)
+      : null,
+  ]);
 
   /* If a migration has not been run the page still opens and names the file to
      run, rather than throwing. An admin page that 500s tells nobody anything. */
@@ -252,6 +339,7 @@ export default async function AdminPage({
     [accounts, "supabase/011_admin_console.sql"],
     [funnelRes, "supabase/003_events.sql"],
     [waitRes, "supabase/005_waitlist.sql"],
+    [eventsRes, "supabase/015_admin_activity.sql"],
   ] as const) {
     if (res?.error && !problems.includes(hint)) problems.push(hint);
   }
@@ -268,11 +356,70 @@ export default async function AdminPage({
   const waitlist = (waitRes?.data as WaitRow[] | null) ?? [];
   const accountRows = (accounts?.data as AccountRow[] | null) ?? [];
   const creditActions = (creditLog?.data as Action[] | null) ?? [];
+  const events = (eventsRes?.data as EventRow[] | null) ?? [];
+  const approvals = (approvalsRes?.data as ApprovalRow[] | null) ?? [];
 
-  const strip =
-    awaitingReview && awaitingReview > 0
-      ? `${awaitingReview} AI file${awaitingReview === 1 ? "" : "s"} to review`
-      : "Nothing waiting for review";
+  /* The Documents table's status filter and the Waitlist search are applied
+     here; both lists are already bounded by the queries above. */
+  const docRowsShown = status ? docRows.filter((d) => d.status === status) : docRows;
+  const qLower = q.toLowerCase();
+  const waitlistShown = q
+    ? waitlist.filter((w) =>
+        [w.email, w.name, w.company, w.note].some((v) => (v ?? "").toLowerCase().includes(qLower)),
+      )
+    : waitlist;
+  const members = n(ps.members_basic) + n(ps.members_pro) + n(ps.members_unlimited);
+
+  /* The Logs table is four sources read side by side, newest first: the
+     events the app records (System), credit grants and revokes (Admin), AI
+     files reviewed or approved (Files) and memberships whose payment failed
+     (Billing). Nothing is invented for a quiet day. */
+  const since = periodStart(days);
+  const logRows: LogLine[] = [];
+  for (const e of events) {
+    logRows.push({
+      at: e.created_at,
+      kind: "System",
+      text: eventLabel(e),
+      who: e.email,
+      status: /failed/.test(e.name) ? "Failed" : "Success",
+    });
+  }
+  for (const a of creditActions) {
+    if (new Date(a.created_at).getTime() < since) continue;
+    logRows.push({
+      at: a.created_at,
+      kind: "Admin",
+      text: `${a.action === "grant" ? "Granted" : "Revoked"} ${fmt(n(a.credits))} credit${n(a.credits) === 1 ? "" : "s"}${a.subject_email ? ` — ${a.subject_email}` : ""}${a.reason ? ` (${a.reason})` : ""}`,
+      who: a.actor_email,
+      status: "Logged",
+    });
+  }
+  for (const f of approvals) {
+    const at = f.approved_at ?? f.reviewed_at ?? f.created_at;
+    if (new Date(at).getTime() < since) continue;
+    logRows.push({
+      at,
+      kind: "Files",
+      text: f.status === "ready" ? `${f.title} approved for AI` : f.status === "needs_review" ? `${f.title} uploaded` : `${f.title} reviewed`,
+      who: f.uploaded_by_email,
+      status: f.status === "ready" ? "Success" : "Logged",
+    });
+  }
+  if (tab === "logs") {
+    for (const a of accountRows) {
+      if (a.sub_status === "past_due") {
+        logRows.push({ at: a.period_end ?? a.joined_at, kind: "Billing", text: `Payment failed — ${a.tier ?? "membership"}`, who: a.email, status: "Failed" });
+      }
+    }
+  }
+  logRows.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+  const logShown = kind ? logRows.filter((l) => l.kind === kind) : logRows;
+
+  const stripParts: string[] = [];
+  if (n(ds.failed) > 0) stripParts.push(`${fmt(n(ds.failed))} generation failure${n(ds.failed) === 1 ? "" : "s"}`);
+  if (awaitingReview && awaitingReview > 0) stripParts.push(`${awaitingReview} AI file${awaitingReview === 1 ? "" : "s"} to review`);
+  const strip = stripParts.length > 0 ? stripParts.join(" · ") : "Nothing waiting for review";
 
   return (
     <main className="fdadmin">
@@ -323,16 +470,12 @@ export default async function AdminPage({
                   </Link>
                 ))}
               </nav>
-              <div className="side-card-foot">
-                <p className="side-mini">Signed in as {user.email}</p>
-              </div>
             </div>
           </aside>
 
           <div className="dashboard-content">
             {problems.length > 0 && (
-              <div className="fda-legacy fda">
-                <p className="fda-note warn">
+              <div className="setup-note">
                   <strong>Some tables or functions are missing.</strong> Run{" "}
                   {problems.map((p, i) => (
                     <span key={p}>
@@ -341,36 +484,386 @@ export default async function AdminPage({
                     </span>
                   ))}{" "}
                   in the Supabase SQL editor. Figures below are incomplete until you do.
-                </p>
               </div>
             )}
 
-            {(tab === "overview" || tab === "logs") && (
-              <div className="card">
-                <div className="card-head">
-                  <div>
-                    <h2>{tab === "overview" ? "Overview" : "Logs"}</h2>
-                    <p>Being built. Nothing is shown here until every figure on it is a real count.</p>
+            {/* ── OVERVIEW ──────────────────────────────────────────────── */}
+            {tab === "overview" && (
+              <>
+                <div className="summary">
+                  <SummaryCard label="Drafts" value={fmt(n(ds.period))} note="Selected period" />
+                  <SummaryCard label="Active users" value={fmt(n(us.active_period))} note="Drafted at least once" />
+                  <SummaryCard label="Credits used" value={fmt(n(ps.spent_period))} note="Selected period" />
+                  <SummaryCard label="AI cost" value={money(n(us.ai_cost_usd))} note="Actual spend" />
+                </div>
+                <div className="grid-2">
+                  <div className="card">
+                    <div className="card-head"><div><h2>Needs attention</h2></div></div>
+                    <div className="card-body">
+                      <div className="attention-list">
+                        <div className="attention-row">
+                          <span className={n(ds.failed) > 0 ? "dot err" : "dot"} />
+                          <span>{n(ds.failed) > 0 ? `${fmt(n(ds.failed))} generation failure${n(ds.failed) === 1 ? "" : "s"}` : "No generation failures"}</span>
+                          {n(ds.failed) > 0 ? <Link className="btn" href={tabHref("logs", days)}>Open</Link> : <span className="badge green">Healthy</span>}
+                        </div>
+                        <div className="attention-row">
+                          <span className={(awaitingReview ?? 0) > 0 ? "dot warn" : "dot"} />
+                          <span>{(awaitingReview ?? 0) > 0 ? `${awaitingReview} AI file${awaitingReview === 1 ? "" : "s"} need${awaitingReview === 1 ? "s" : ""} review` : "No AI files waiting"}</span>
+                          {(awaitingReview ?? 0) > 0 ? <Link className="btn" href={tabHref("ai-files", days)}>Review</Link> : <span className="badge green">Healthy</span>}
+                        </div>
+                        <div className="attention-row">
+                          <span className={n(ps.past_due) > 0 ? "dot err" : "dot"} />
+                          <span>{n(ps.past_due) > 0 ? `${fmt(n(ps.past_due))} failed payment${n(ps.past_due) === 1 ? "" : "s"}` : "No failed payments"}</span>
+                          {n(ps.past_due) > 0 ? <Link className="btn" href={tabHref("credits", days)}>Open</Link> : <span className="badge green">Healthy</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="card">
+                    <div className="card-head"><div><h2>Drafting funnel</h2></div></div>
+                    <div className="card-body">
+                      <div className="funnel">
+                        {FUNNEL_STEPS.map((step) => {
+                          const row = funnel.find((f) => f.step === step.id);
+                          return (
+                            <div className="funnel-step" key={step.id}>
+                              <b>{row ? fmt(n(row.people)) : "—"}</b>
+                              <span>{step.label}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="card-body">
-                  <div className="empty">
-                    {tab === "overview"
-                      ? "The drafting funnel needs events this app does not yet record. They are added in the next update, after which this panel fills from real data only."
-                      : "Generation errors, failed payments and credit changes will be listed here from the real event log in the next update."}
+                <div className="table-card">
+                  <div className="table-head">
+                    <div><h2>Recent activity</h2></div>
+                    <Link className="btn" href={tabHref("logs", days)}>View all logs</Link>
+                  </div>
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>Event</th><th>User</th><th>When</th></tr></thead>
+                      <tbody>
+                        {events.length === 0 && (
+                          <tr><td colSpan={3}><div className="empty">Nothing recorded in the selected period.</div></td></tr>
+                        )}
+                        {events.map((e, i) => (
+                          <tr key={`${e.created_at}-${i}`}>
+                            <td>{eventLabel(e)}</td>
+                            <td>{e.email ?? "—"}</td>
+                            <td>{ago(e.created_at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              </div>
+              </>
+            )}
+
+            {/* ── DOCUMENTS ─────────────────────────────────────────────── */}
+            {tab === "documents" && (
+              <>
+                <div className="summary">
+                  <SummaryCard label="Drafts" value={fmt(n(ds.period))} note={`${fmt(n(ds.total))} all time`} />
+                  <SummaryCard label="Revised drafts" value={fmt(n(ds.revisions))} note="Drafts revised at least once" />
+                  <SummaryCard label="Word downloads" value={fmt(n(ds.exported))} note="Selected period" />
+                  <SummaryCard
+                    label="Failures"
+                    value={fmt(n(ds.failed))}
+                    note={n(ds.failed) > 0 ? <span className="bad">Needs review</span> : <span className="good">None</span>}
+                  />
+                </div>
+                <div className="grid-2">
+                  <div className="card">
+                    <div className="card-head"><div><h2>Document types</h2></div></div>
+                    <div className="card-body">
+                      <div className="simple-list">
+                        {typeRows.length === 0 && <div className="empty">Nothing drafted in the selected period.</div>}
+                        {typeRows.map((t) => (
+                          <div className="simple-row" key={t.label}><span>{t.label}</span><strong>{fmt(n(t.drafts))}</strong></div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="card">
+                    <div className="card-head"><div><h2>Draft quality</h2></div></div>
+                    <div className="card-body">
+                      <div className="simple-list">
+                        <div className="simple-row"><span>Right first time</span><strong>{fmt(n(ds.untouched))}</strong></div>
+                        <div className="simple-row"><span>Revised at least once</span><strong>{fmt(n(ds.revisions))}</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="table-card">
+                  <div className="table-head">
+                    <div><h2>Documents</h2></div>
+                    <form className="toolbar" method="get" action="/admin">
+                      <input type="hidden" name="tab" value="documents" />
+                      <input type="hidden" name="days" value={days} />
+                      <input className="input" name="q" defaultValue={q} placeholder="Search documents" />
+                      <FilterSelect
+                        name="status"
+                        value={status}
+                        options={[["", "All statuses"], ["draft", "Draft"], ["final", "Final"], ["failed", "Failed"]]}
+                      />
+                    </form>
+                  </div>
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>Title</th><th>Type</th><th>User</th><th>Revisions</th><th>Status</th><th>Started</th><th>Updated</th></tr></thead>
+                      <tbody>
+                        {docRowsShown.length === 0 && (
+                          <tr><td colSpan={7}><div className="empty">{q ? `Nothing matches “${q}”.` : "No drafts in the selected period."}</div></td></tr>
+                        )}
+                        {docRowsShown.map((d) => (
+                          <tr key={d.draft_id}>
+                            <td><b>{d.title || "Untitled draft"}</b></td>
+                            <td>{d.doc_type.length <= 5 ? d.doc_type.toUpperCase() : d.doc_type}</td>
+                            <td>{d.owner_email ?? "—"}</td>
+                            <td>{Math.max(0, n(d.versions) - 1)}</td>
+                            <td>
+                              {d.status === "final" ? <span className="badge green">Final</span>
+                                : d.status === "failed" ? <span className="badge red">Failed</span>
+                                : <span className="badge">Draft</span>}
+                            </td>
+                            <td>{day(d.created_at)}</td>
+                            <td>{ago(d.updated_at)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── USERS ─────────────────────────────────────────────────── */}
+            {tab === "users" && (
+              <>
+                <div className="summary">
+                  <SummaryCard label="Accounts" value={fmt(n(us.accounts))} note={`${fmt(n(us.admins))} admin${n(us.admins) === 1 ? "" : "s"}`} />
+                  <SummaryCard label="Active users" value={fmt(n(us.active_period))} note="Selected period" />
+                  <SummaryCard label="Users who drafted" value={fmt(n(us.activated))} note="All time" />
+                  <SummaryCard label="Waitlist" value={fmt(n(us.waitlist_waiting))} note="Waiting" />
+                </div>
+                <div className="grid-2">
+                  <div className="card">
+                    <div className="card-head"><div><h2>Drafting journey</h2></div></div>
+                    <div className="card-body">
+                      <div className="journey">
+                        {(() => {
+                          const top = Math.max(1, ...FUNNEL_STEPS.map((st) => n(funnel.find((f) => f.step === st.id)?.people ?? 0)));
+                          return FUNNEL_STEPS.map((st, i) => {
+                            const people = n(funnel.find((f) => f.step === st.id)?.people ?? 0);
+                            const generated = n(funnel.find((f) => f.step === "draft_generated")?.people ?? 0);
+                            const last = i === FUNNEL_STEPS.length - 1;
+                            return (
+                              <div className="journey-row" key={st.id}>
+                                <div className="top"><span>{st.label}</span><b>{fmt(people)}</b></div>
+                                <div className="track"><span style={{ width: `${Math.round((people / top) * 100)}%` }} /></div>
+                                {last && generated > 0 && (
+                                  <div className="below">{Math.round((people / generated) * 100)}% of generated drafts</div>
+                                )}
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="card">
+                    <div className="card-head"><div><h2>AI usage</h2></div></div>
+                    <div className="card-body">
+                      <div className="simple-list">
+                        <div className="simple-row"><span>Model requests</span><strong>{fmt(n(us.ai_requests))}</strong></div>
+                        <div className="simple-row"><span>People who drafted</span><strong>{fmt(n(us.active_period))}</strong></div>
+                        <div className="simple-row"><span>Actual cost</span><strong>{money(n(us.ai_cost_usd))}</strong></div>
+                        <div className="simple-row"><span>Commercial equivalent</span><strong>{money(n(us.ai_benchmark_usd))}</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid-3">
+                  {([["Top pages", pageRows], ["Countries", countryRows], ["Devices", deviceRows]] as const).map(([title, rows]) => (
+                    <div className="card" key={title}>
+                      <div className="card-head"><div><h2>{title}</h2></div></div>
+                      <div className="card-body">
+                        <div className="simple-list">
+                          {rows.length === 0 && <div className="empty">Nothing recorded yet.</div>}
+                          {rows.map((r) => (
+                            <div className="simple-row" key={r.label}><span>{r.label}</span><strong>{fmt(n(r.hits))}</strong></div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="table-card">
+                  <div className="table-head">
+                    <div><h2>Waitlist</h2></div>
+                    <form method="get" action="/admin">
+                      <input type="hidden" name="tab" value="users" />
+                      <input type="hidden" name="days" value={days} />
+                      <input className="input" name="q" defaultValue={q} placeholder="Search waitlist" />
+                    </form>
+                  </div>
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>Email</th><th>Name</th><th>Company</th><th>Wants to draft</th><th>Joined</th><th>Status</th></tr></thead>
+                      <tbody>
+                        {waitlistShown.length === 0 && (
+                          <tr><td colSpan={6}><div className="empty">{q ? `Nobody on the waitlist matches “${q}”.` : "Nobody on the waitlist yet."}</div></td></tr>
+                        )}
+                        {waitlistShown.map((w) => (
+                          <tr key={w.email}>
+                            <td><b>{w.email}</b></td>
+                            <td>{w.name ?? "—"}</td>
+                            <td>{w.company ?? "—"}</td>
+                            <td>{w.note ?? "—"}</td>
+                            <td>{day(w.created_at)}</td>
+                            <td>{w.status === "invited" ? <span className="badge green">Invited</span> : <span className="badge">Waiting</span>}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── CREDITS & PLANS ───────────────────────────────────────── */}
+            {tab === "credits" && (
+              <>
+                <div className="summary">
+                  <SummaryCard
+                    label="Paying users"
+                    value={fmt(members)}
+                    note={members === 0 ? "No active plans" : `${fmt(n(ps.members_basic))} Basic · ${fmt(n(ps.members_pro))} Pro · ${fmt(n(ps.members_unlimited))} Unlimited`}
+                  />
+                  <SummaryCard label="Credits outstanding" value={fmt(n(ps.outstanding))} note="All accounts" />
+                  <SummaryCard label="Credits used" value={fmt(n(ps.spent_period))} note="Selected period" />
+                  <SummaryCard
+                    label="Failed payments"
+                    value={fmt(n(ps.past_due))}
+                    note={n(ps.past_due) > 0 ? <span className="bad">Needs attention</span> : <span className="good">None</span>}
+                  />
+                </div>
+                <div className="grid-2">
+                  <div className="card">
+                    <div className="card-head"><div><h2>Credit source</h2></div></div>
+                    <div className="card-body">
+                      <div className="simple-list">
+                        <div className="simple-row"><span>Bought</span><strong>{fmt(n(ps.bought_period))}</strong></div>
+                        <div className="simple-row"><span>Membership</span><strong>{fmt(n(ps.granted_period))}</strong></div>
+                        <div className="simple-row"><span>Admin-issued</span><strong>{fmt(n(ps.gifted_period))}</strong></div>
+                      </div>
+                    </div>
+                  </div>
+                  <CreditsPanel accounts={accountRows} />
+                </div>
+                <div className="table-card">
+                  <div className="table-head">
+                    <div><h2>Accounts</h2></div>
+                    <form method="get" action="/admin">
+                      <input type="hidden" name="tab" value="credits" />
+                      <input type="hidden" name="days" value={days} />
+                      <input className="input" name="q" defaultValue={q} placeholder="Search accounts" />
+                    </form>
+                  </div>
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>Account</th><th>Plan</th><th>Credits</th><th>Drafts 30d</th><th>Total drafts</th><th>Last active</th><th>Joined</th></tr></thead>
+                      <tbody>
+                        {accountRows.length === 0 && (
+                          <tr><td colSpan={7}><div className="empty">{q ? `No account matches “${q}”.` : "No accounts yet."}</div></td></tr>
+                        )}
+                        {accountRows.map((a) => {
+                          const plan = planLabel(a);
+                          return (
+                            <tr key={a.user_id}>
+                              <td>
+                                <b>{a.full_name || (a.email ?? "").split("@")[0] || "—"}</b>
+                                <br />
+                                <span style={{ color: "var(--muted)" }}>{a.email ?? "—"}</span>
+                              </td>
+                              <td>
+                                <span className={plan.tone === "error" ? "badge red" : plan.tone === "ready" ? "badge green" : plan.tone ? "badge" : "badge gray"}>
+                                  {plan.text}
+                                </span>
+                              </td>
+                              <td><b>{fmt(n(a.balance))}</b></td>
+                              <td>{fmt(n(a.drafts_30d))}</td>
+                              <td>{fmt(n(a.drafts_total))}</td>
+                              <td>{a.last_draft_at ? ago(a.last_draft_at) : "Never"}</td>
+                              <td>{day(a.joined_at)}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ── LOGS ──────────────────────────────────────────────────── */}
+            {tab === "logs" && (
+              <>
+                <div className="summary">
+                  <SummaryCard label="Generation errors" value={fmt(n(ds.failed))} note="Selected period" />
+                  <SummaryCard label="Failed payments" value={fmt(n(ps.past_due))} note={n(ps.past_due) > 0 ? <span className="bad">Needs attention</span> : <span className="good">None</span>} />
+                  <SummaryCard label="Credit changes" value={fmt(creditActions.length)} note="Manual" />
+                  <SummaryCard label="Open issues" value={fmt(n(ds.failed) + n(ps.past_due) + (awaitingReview ?? 0))} note={(n(ds.failed) + n(ps.past_due) + (awaitingReview ?? 0)) > 0 ? <span className="bad">See above</span> : <span className="good">Clear</span>} />
+                </div>
+                <div className="table-card">
+                  <div className="table-head">
+                    <div><h2>Logs</h2></div>
+                    <form method="get" action="/admin">
+                      <input type="hidden" name="tab" value="logs" />
+                      <input type="hidden" name="days" value={days} />
+                      <FilterSelect
+                        name="kind"
+                        value={kind}
+                        options={[["", "All logs"], ["Admin", "Admin"], ["System", "System"], ["Billing", "Billing"], ["Files", "Files"]]}
+                      />
+                    </form>
+                  </div>
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>Time</th><th>Type</th><th>Event</th><th>User / admin</th><th>Status</th></tr></thead>
+                      <tbody>
+                        {logShown.length === 0 && (
+                          <tr><td colSpan={5}><div className="empty">Nothing recorded in the selected period.</div></td></tr>
+                        )}
+                        {logShown.map((l, i) => (
+                          <tr key={i}>
+                            <td>{stamp(l.at)}</td>
+                            <td>{l.kind}</td>
+                            <td>{l.text}</td>
+                            <td>{l.who ?? "—"}</td>
+                            <td>
+                              <span className={l.status === "Success" ? "badge green" : l.status === "Failed" ? "badge red" : "badge gray"}>
+                                {l.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </>
             )}
 
             {tab === "ai-files" && (
               <>
                 {libraryMissing && (
-                  <div className="fda-legacy fda">
-                    <p className="fda-note warn">
-                      <strong>The AI library tables are missing.</strong> Run <code>supabase/014_ai_library.sql</code>{" "}
-                      in the Supabase SQL editor. Until then drafting uses the examples built into the code.
-                    </p>
+                  <div className="setup-note">
+                    <strong>The AI library tables are missing.</strong> Run <code>supabase/014_ai_library.sql</code>{" "}
+                    in the Supabase SQL editor. Until then drafting uses the examples built into the code.
                   </div>
                 )}
                 <AiFiles
@@ -382,453 +875,6 @@ export default async function AdminPage({
               </>
             )}
 
-            {(tab === "documents" || tab === "users" || tab === "credits") && (
-              <div className="fda-legacy fda">
-      {/* ── DOCUMENTS ────────────────────────────────────────────────────── */}
-      {tab === "documents" && (
-        <>
-          <section className="kpi-row" aria-label="Document figures">
-            <Kpi
-              label={`Drafts, last ${rangeLabel}`}
-              value={n(ds.period)}
-              previous={n(ds.previous)}
-            />
-            <Kpi label="Drafts, all time" value={n(ds.total)} hint="Every draft ever started" />
-            <Kpi
-              label="Revisions"
-              value={n(ds.revisions)}
-              hint={`${fmt(n(ds.untouched))} drafts needed none`}
-            />
-            <Kpi label="Marked final" value={n(ds.finalised)} hint={`In the last ${rangeLabel}`} />
-            <Kpi
-              label="Failed generations"
-              value={n(ds.failed)}
-              hint={`${fmt(n(ds.exported))} downloaded as Word`}
-              goodWhenUp={false}
-            />
-          </section>
-
-          <div className="fda-grid" style={{ marginTop: 14 }}>
-            <Panel
-              title="By document type"
-              sub={`Drafts started in the last ${rangeLabel}`}
-            >
-              <BarList
-                rows={typeRows.map((r) => ({ label: r.label, value: n(r.drafts) }))}
-                empty={`No drafts were started in the last ${rangeLabel}.`}
-              />
-            </Panel>
-
-            <Panel
-              title="How much work each draft took"
-              sub="Revisions are the honest measure of whether the first output was usable"
-            >
-              {/* Drafts and revisions are different units, so they are not put
-                  on one bar scale: 341 revisions beside 62 drafts would draw a
-                  comparison that does not mean anything. */}
-              <BarList
-                rows={[
-                  { label: "Right first time", value: n(ds.untouched), note: "no revisions" },
-                  {
-                    label: "Revised at least once",
-                    value: Math.max(0, n(ds.period) - n(ds.untouched)),
-                  },
-                ]}
-                empty={`Nothing was drafted in the last ${rangeLabel}.`}
-                unit="drafts"
-              />
-              <ul className="stat-list" style={{ marginTop: 14 }}>
-                <li>
-                  <span className="k">Revisions asked for in total</span>
-                  <span className="v">{fmt(n(ds.revisions))}</span>
-                </li>
-                <li>
-                  <span className="k">Drafts downloaded as Word</span>
-                  <span className="v">{fmt(n(ds.exported))}</span>
-                </li>
-              </ul>
-            </Panel>
-          </div>
-
-          <Panel
-            title="Recent documents"
-            sub={`Newest first. Metadata only — no draft content is shown here or readable from this page.`}
-            aside={
-              <form className="fda-search" method="get" action="/admin">
-                <input type="hidden" name="tab" value="documents" />
-                <input type="hidden" name="days" value={days} />
-                <input
-                  className="fda-input"
-                  type="search"
-                  name="q"
-                  defaultValue={q}
-                  placeholder="Email, title or type"
-                  aria-label="Search documents"
-                />
-                <button className="secondary" type="submit">
-                  Search
-                </button>
-              </form>
-            }
-          >
-            {docRows.length === 0 ? (
-              <p className="fda-empty">
-                {q
-                  ? `Nothing matches “${q}” in the last ${rangeLabel}.`
-                  : `No drafts were started in the last ${rangeLabel}. Documents appear here as soon as somebody drafts one.`}
-              </p>
-            ) : (
-              <div className="table-card table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th>Type</th>
-                      <th>Drafted by</th>
-                      <th className="num">Revisions</th>
-                      <th>Status</th>
-                      <th>Started</th>
-                      <th>Last touched</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {docRows.map((d) => (
-                      <tr key={d.draft_id}>
-                        <td className="name wrap-cell">{d.title || "Untitled"}</td>
-                        <td>
-                          <span className="meta-pill">{d.doc_type}</span>
-                        </td>
-                        <td className="muted wrap-cell">{d.owner_email ?? "—"}</td>
-                        <td className="num">{d.versions || "—"}</td>
-                        <td>
-                          <span
-                            className={`status-pill ${d.status === "final" ? "ready" : "review"}`}
-                          >
-                            {d.status === "final" ? "Final" : "Draft"}
-                          </span>
-                        </td>
-                        <td className="muted">{when(d.created_at)}</td>
-                        <td className="muted">{ago(d.updated_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Panel>
-        </>
-      )}
-
-      {/* ── USER STATISTICS ──────────────────────────────────────────────── */}
-      {tab === "users" && (
-        <>
-          <section className="kpi-row" aria-label="People figures">
-            <Kpi label="Accounts" value={n(us.accounts)} hint={`${fmt(n(us.admins))} administrators`} />
-            <Kpi
-              label={`New accounts, last ${rangeLabel}`}
-              value={n(us.accounts_new)}
-              previous={n(us.accounts_prev)}
-            />
-            <Kpi
-              label="Have drafted at least once"
-              value={n(us.activated)}
-              hint={
-                n(us.accounts)
-                  ? `${Math.round((n(us.activated) / n(us.accounts)) * 100)}% of all accounts`
-                  : undefined
-              }
-            />
-            <Kpi
-              label={`Active, last ${rangeLabel}`}
-              value={n(us.active_period)}
-              hint="Drafted something in this period"
-            />
-            <Kpi
-              label={`Waitlist joins, last ${rangeLabel}`}
-              value={n(us.waitlist_new)}
-              previous={n(us.waitlist_prev)}
-            />
-          </section>
-
-          <div className="fda-grid" style={{ marginTop: 14 }}>
-            <Panel
-              title="The drafting journey"
-              sub={`Distinct people who reached each step in the last ${rangeLabel}. It stops at the download because that is the last thing this application can see.`}
-            >
-              {funnel.length === 0 || funnel.every((f) => !n(f.people)) ? (
-                <p className="fda-empty">
-                  Nobody has opened the drafting flow in this period — or{" "}
-                  <code>supabase/003_events.sql</code> has not been run.
-                </p>
-              ) : (
-                <ol className="funnel">
-                  {funnel.map((f, i) => {
-                    const here = n(f.people);
-                    const prev = i ? n(funnel[i - 1].people) : here;
-                    /* A later step can come out bigger than an earlier one:
-                       events travel by sendBeacon, and one can be blocked or
-                       lost while the next arrives. The bar is clamped so that
-                       never renders as a 400%-wide stripe, and the note says
-                       plainly that the step before went unmeasured rather than
-                       reporting a percentage of nothing. */
-                    const share = prev > 0 ? Math.min(1, here / prev) : 0;
-                    return (
-                      <li key={f.step}>
-                        <div className="funnel-top">
-                          <span>{f.label}</span>
-                          <strong>{fmt(here)}</strong>
-                        </div>
-                        <div className="funnel-track">
-                          <div
-                            className="funnel-bar"
-                            style={{ width: `${Math.max(2, share * 100).toFixed(1)}%` }}
-                          />
-                        </div>
-                        <div className="funnel-note">
-                          {!i
-                            ? "Everyone who opened the catalogue"
-                            : prev === 0
-                              ? "The step before recorded nothing — some events do not arrive"
-                              : here > prev
-                                ? `More than the step before (${fmt(prev)}) — some events did not arrive`
-                                : `${Math.round(share * 100)}% of the step before`}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </Panel>
-
-            <Panel
-              title="AI usage and cost"
-              sub={`What the drafting actually cost over the last ${rangeLabel}`}
-            >
-              {/* A list, not bars: a request count and a head count are not the
-                  same unit, and drawing them to one scale invents a ratio. */}
-              <ul className="stat-list">
-                <li>
-                  <span className="k">Requests to the model</span>
-                  <span className="v">{fmt(n(us.ai_requests))}</span>
-                </li>
-                <li>
-                  <span className="k">People who drafted</span>
-                  <span className="v">{fmt(n(us.active_period))}</span>
-                </li>
-                <li>
-                  <span className="k">What it cost</span>
-                  <span className="v">{money(n(us.ai_cost_usd))}</span>
-                </li>
-                <li>
-                  <span className="k">The same work on a paid commercial model</span>
-                  <span className="v">{money(n(us.ai_benchmark_usd))}</span>
-                </li>
-              </ul>
-              {n(us.ai_requests) === 0 && (
-                <p className="sub" style={{ marginTop: 12 }}>
-                  Nothing was generated in the last {rangeLabel}.
-                </p>
-              )}
-            </Panel>
-          </div>
-
-          <div className="fda-grid" style={{ marginTop: 14 }}>
-            <Panel title="Most-opened pages" sub={`Page views, last ${rangeLabel}`}>
-              <BarList
-                rows={pageRows.map((r) => ({
-                  label: r.label,
-                  value: n(r.hits),
-                  note: `${fmt(n(r.people))} people`,
-                }))}
-                empty="No page views recorded yet. Recording began with this release, so this fills up from now on."
-              />
-            </Panel>
-
-            <Panel title="Countries" sub="By distinct visits">
-              <BarList
-                rows={countryRows.map((r) => ({ label: r.label, value: n(r.people) }))}
-                empty="No location data yet. It is read from the request on Vercel, so it only appears for visits to the deployed site."
-              />
-            </Panel>
-
-            <Panel title="Devices" sub="By distinct visits">
-              <BarList
-                rows={deviceRows.map((r) => ({
-                  label: r.label.charAt(0).toUpperCase() + r.label.slice(1),
-                  value: n(r.people),
-                }))}
-                empty="No device data yet."
-              />
-            </Panel>
-          </div>
-
-          <Panel
-            title="Waitlist"
-            sub={`${fmt(n(us.waitlist))} people in total — ${fmt(n(us.waitlist_waiting))} waiting, ${fmt(n(us.waitlist_invited))} invited. Newest first.`}
-          >
-            {waitlist.length === 0 ? (
-              <p className="fda-empty">
-                Nobody has joined the waitlist yet. Entries appear here the moment someone signs up.
-              </p>
-            ) : (
-              <div className="table-card table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Email</th>
-                      <th>Name</th>
-                      <th>Company</th>
-                      <th>Wants to draft</th>
-                      <th>Joined</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {waitlist.map((w) => (
-                      <tr key={w.email}>
-                        <td className="name wrap-cell">{w.email}</td>
-                        <td>{w.name || "—"}</td>
-                        <td>{w.company || "—"}</td>
-                        <td className="muted wrap-cell">{w.note || "—"}</td>
-                        <td className="muted">{when(w.created_at)}</td>
-                        <td>
-                          <span
-                            className={`status-pill ${w.status === "waiting" ? "review" : "ready"}`}
-                          >
-                            {w.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Panel>
-        </>
-      )}
-
-      {/* ── CREDITS & PLANS ──────────────────────────────────────────────── */}
-      {tab === "credits" && (
-        <>
-          <section className="kpi-row" aria-label="Billing figures">
-            <Kpi
-              label="Paying members"
-              value={n(ps.members_basic) + n(ps.members_pro) + n(ps.members_unlimited)}
-              hint={`${fmt(n(ps.members_basic))} Basic · ${fmt(n(ps.members_pro))} Pro · ${fmt(n(ps.members_unlimited))} Unlimited`}
-            />
-            <Kpi
-              label="Ending soon"
-              value={n(ps.cancelling)}
-              hint={`${fmt(n(ps.past_due))} with a failed payment`}
-              goodWhenUp={false}
-            />
-            <Kpi
-              label="Credits outstanding"
-              value={n(ps.outstanding)}
-              hint="Unspent and unexpired, across every account"
-            />
-            <Kpi
-              label={`Credits used, last ${rangeLabel}`}
-              value={n(ps.spent_period)}
-              hint={`${fmt(n(ps.spent_unmetered))} of them on Unlimited`}
-            />
-            <Kpi
-              label="Trials given"
-              value={n(ps.trials)}
-              hint={`Fair-use cap: ${n(ps.fair_use_cap) === 0 ? "none" : `${fmt(n(ps.fair_use_cap))} a month`}`}
-            />
-          </section>
-
-          <Panel
-            title="Where credits came from"
-            sub={`Credits added to accounts in the last ${rangeLabel}`}
-          >
-            <BarList
-              rows={[
-                { label: "Bought — bundles and top-ups", value: n(ps.bought_period) },
-                { label: "Included with a membership", value: n(ps.granted_period) },
-                { label: "Given by an administrator", value: n(ps.gifted_period) },
-              ]}
-              empty={`No credits were added in the last ${rangeLabel}.`}
-              unit="credits"
-            />
-          </Panel>
-
-          <CreditsPanel initialLog={creditActions} />
-
-          <Panel
-            title="Accounts"
-            sub="What each person pays, what they have left, and what they use it for."
-            aside={
-              <form className="fda-search" method="get" action="/admin">
-                <input type="hidden" name="tab" value="billing" />
-                <input type="hidden" name="days" value={days} />
-                <input
-                  className="fda-input"
-                  type="search"
-                  name="q"
-                  defaultValue={q}
-                  placeholder="Email or name"
-                  aria-label="Search accounts"
-                />
-                <button className="secondary" type="submit">
-                  Search
-                </button>
-              </form>
-            }
-          >
-            {accountRows.length === 0 ? (
-              <p className="fda-empty">
-                {q ? `No account matches “${q}”.` : "No accounts yet."}
-              </p>
-            ) : (
-              <div className="table-card table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Account</th>
-                      <th>Plan</th>
-                      <th>Renews</th>
-                      <th className="num">Credits</th>
-                      <th className="num">Drafts, 30 days</th>
-                      <th className="num">Drafts, total</th>
-                      <th>Last drafted</th>
-                      <th>Joined</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {accountRows.map((a) => {
-                      const plan = planLabel(a);
-                      return (
-                        <tr key={a.user_id}>
-                          <td className="wrap-cell">
-                            <div className="name">{a.full_name || a.email || "—"}</div>
-                            {a.full_name && a.email && (
-                              <div className="credit-sub">{a.email}</div>
-                            )}
-                          </td>
-                          <td>
-                            <span className={`status-pill ${plan.tone}`}>{plan.text}</span>
-                          </td>
-                          <td className="muted">{a.period_end ? when(a.period_end) : "—"}</td>
-                          <td className="num">{fmt(n(a.balance))}</td>
-                          <td className="num">{fmt(n(a.drafts_30d))}</td>
-                          <td className="num">{fmt(n(a.drafts_total))}</td>
-                          <td className="muted">{ago(a.last_draft_at)}</td>
-                          <td className="muted">{when(a.joined_at)}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Panel>
-        </>
-      )}
-              </div>
-            )}
           </div>
         </div>
       </div>

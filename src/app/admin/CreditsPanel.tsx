@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useState } from "react";
 
 /**
  * Giving credits back, and taking them away.
@@ -57,28 +57,29 @@ async function post<T>(payload: Record<string, unknown>): Promise<T> {
   return json as T;
 }
 
-export default function CreditsPanel({ initialLog }: { initialLog: Action[] }) {
+/** What the accounts list already knows about a person, for the meta boxes. */
+export interface AccountLite {
+  user_id: string;
+  tier: string | null;
+  drafts_total: number;
+  last_draft_at: string | null;
+}
+
+export default function CreditsPanel({
+  accounts,
+}: {
+  accounts: AccountLite[];
+}) {
   const [email, setEmail] = useState("");
-  const [amount, setAmount] = useState("10");
+  const [amount, setAmount] = useState("5");
+  const [action, setAction] = useState<"grant" | "revoke">("grant");
   const [reason, setReason] = useState("");
   const [found, setFound] = useState<Found | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [msg, setMsg] = useState<{ text: string; kind: "" | "ok" | "err" }>({ text: "", kind: "" });
 
-  /* The history arrives already rendered from the server, which has an admin
-     session of its own. Fetching it again on mount would show an empty table
-     for one frame and cost a round trip to learn what the page already knew. */
-  const [log, setLog] = useState<Action[]>(initialLog);
-
-  const loadLog = useCallback(async () => {
-    try {
-      const j = await post<{ actions: Action[] }>({ action: "recent" });
-      setLog(j.actions ?? []);
-    } catch {
-      /* Leave the last known history on screen. It is still true; it is just
-         not newer. Blanking it would lose information to report a hiccup. */
-    }
-  }, []);
+  const account = found ? accounts.find((a) => a.user_id === found.user_id) : undefined;
 
   async function lookup() {
     const value = email.trim();
@@ -100,30 +101,13 @@ export default function CreditsPanel({ initialLog }: { initialLog: Action[] }) {
     }
   }
 
-  async function change(action: "grant" | "revoke") {
-    if (!found) {
-      setMsg({ text: "Look up a user first.", kind: "err" });
-      return;
-    }
-    const credits = Number.parseInt(amount, 10);
-    if (!(credits >= 1 && credits <= 1000)) {
-      setMsg({ text: "Enter a whole number between 1 and 1000.", kind: "err" });
-      return;
-    }
+  const credits = Number.parseInt(amount, 10);
+  const amountOk = credits >= 1 && credits <= 1000;
 
-    /* Taking credits back cannot be undone by pressing the other button — the
-       credits come off grants that may already be part-spent. So it asks, by
-       name, before it happens. */
-    if (action === "revoke") {
-      const ok = window.confirm(
-        `Take ${credits} credit${credits === 1 ? "" : "s"} back from ${found.email}?\n\n` +
-          "This cannot be undone from here.",
-      );
-      if (!ok) return;
-    }
-
+  async function apply() {
+    if (!found || !amountOk) return;
     setBusy(true);
-    setMsg({ text: action === "grant" ? "Adding…" : "Removing…", kind: "" });
+    setConfirming(false);
     try {
       const j = await post<{ balance: number }>({
         action,
@@ -132,7 +116,6 @@ export default function CreditsPanel({ initialLog }: { initialLog: Action[] }) {
         reason: reason.trim() || undefined,
       });
       setFound({ ...found, balance: j.balance });
-      setReason("");
       setMsg({
         text:
           action === "grant"
@@ -140,162 +123,118 @@ export default function CreditsPanel({ initialLog }: { initialLog: Action[] }) {
             : `Removed. ${found.email} now has ${j.balance}.`,
         kind: "ok",
       });
-      void loadLog();
+      setReason("");
     } catch (e) {
-      setMsg({ text: e instanceof Error ? e.message : "The change failed.", kind: "err" });
+      setMsg({ text: e instanceof Error ? e.message : "The change could not be saved.", kind: "err" });
     } finally {
       setBusy(false);
     }
   }
 
+  const planText = account?.tier
+    ? account.tier.charAt(0).toUpperCase() + account.tier.slice(1)
+    : "No membership";
+
   return (
-    <section className="panel">
-      <div className="panel-head">
-        <div>
-          <h2>Give or take back credits</h2>
-          <p className="sub">
-            Look someone up by email, then add credits to their account or take them back. Credits
-            given here never expire, and every change is recorded below with who made it.
-          </p>
-        </div>
+    <div className="credit-box">
+      <h2>Adjust credits</h2>
+      <div className="toolbar">
+        <input
+          className="input"
+          placeholder="User email"
+          style={{ flex: 1, minWidth: 220 }}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && void lookup()}
+        />
+        <button className="btn dark" type="button" disabled={busy} onClick={() => void lookup()}>
+          Look up
+        </button>
       </div>
 
-      <div className="credit-find">
-        <label className="credit-label" htmlFor="creditEmail">
-          Email address
-        </label>
-        <div className="credit-row">
-          <input
-            id="creditEmail"
-            className="credit-input"
-            type="email"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="name@firm.com"
-            value={email}
-            disabled={busy}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void lookup();
-              }
-            }}
-          />
-          <button className="secondary" type="button" disabled={busy} onClick={() => void lookup()}>
-            Look up
-          </button>
-        </div>
-        <p className={`credit-msg ${msg.kind}`} role="status" aria-live="polite">
+      {msg.text && (
+        <p
+          className="empty"
+          role="status"
+          aria-live="polite"
+          style={{ textAlign: "left", padding: "10px 0 0", color: msg.kind === "err" ? "var(--danger)" : msg.kind === "ok" ? "var(--success)" : undefined }}
+        >
           {msg.text}
         </p>
-      </div>
+      )}
 
       {found && (
-        <div className="credit-found">
-          <div className="credit-who">
-            <span className="credit-name">{found.full_name || "(no name on file)"}</span>
-            <span className="credit-sub">{found.email}</span>
+        <div className="user-result show">
+          <b>{found.email}</b>
+          <div className="user-meta">
+            <div className="meta-box"><span>Plan</span><b>{planText}</b></div>
+            <div className="meta-box"><span>Credits</span><b>{found.balance}</b></div>
+            <div className="meta-box"><span>Drafts</span><b>{account ? account.drafts_total : "—"}</b></div>
+            <div className="meta-box"><span>Last active</span><b>{account?.last_draft_at ? ago(account.last_draft_at) : "—"}</b></div>
           </div>
-
-          <div className="credit-balance">
-            <span className="credit-num">{found.balance}</span>
-            <span className="credit-sub">credits left</span>
+          <div className="adjust-grid">
+            <div>
+              <label className="field-label">Action</label>
+              <select style={{ width: "100%" }} value={action} onChange={(e) => setAction(e.target.value as "grant" | "revoke")}>
+                <option value="grant">Add credits</option>
+                <option value="revoke">Remove credits</option>
+              </select>
+            </div>
+            <div>
+              <label className="field-label">Amount</label>
+              <input
+                className="input"
+                type="number"
+                min={1}
+                max={1000}
+                style={{ width: "100%" }}
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
           </div>
+          <div style={{ marginTop: 10 }}>
+            <label className="field-label">Reason</label>
+            <textarea placeholder="Reason for adjustment" value={reason} onChange={(e) => setReason(e.target.value)} />
+          </div>
+          <button
+            className="btn yellow"
+            type="button"
+            style={{ marginTop: 10 }}
+            disabled={busy || !amountOk}
+            onClick={() => setConfirming(true)}
+          >
+            Review adjustment
+          </button>
+        </div>
+      )}
 
-          <div className="credit-act">
-            <label className="credit-label" htmlFor="creditAmount">
-              How many
-            </label>
-            <input
-              id="creditAmount"
-              className="credit-input credit-num-input"
-              type="number"
-              min={1}
-              max={1000}
-              step={1}
-              value={amount}
-              disabled={busy}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-
-            <label className="credit-label" htmlFor="creditReason">
-              Why (optional)
-            </label>
-            <input
-              id="creditReason"
-              className="credit-input"
-              type="text"
-              maxLength={200}
-              placeholder="e.g. goodwill after a failed draft"
-              value={reason}
-              disabled={busy}
-              onChange={(e) => setReason(e.target.value)}
-            />
-
-            <div className="credit-row">
-              <button
-                className="primary"
-                type="button"
-                disabled={busy}
-                onClick={() => void change("grant")}
-              >
-                Add credits
-              </button>
-              <button
-                className="secondary credit-danger"
-                type="button"
-                disabled={busy}
-                onClick={() => void change("revoke")}
-              >
-                Take back
-              </button>
+      {confirming && found && (
+        <div className="overlay show" onClick={(e) => e.target === e.currentTarget && setConfirming(false)}>
+          <div className="modal small">
+            <div className="modal-head">
+              <div>
+                <h3>Confirm credit change</h3>
+                <p>Check before applying.</p>
+              </div>
+              <button className="close" type="button" onClick={() => setConfirming(false)}>×</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: 12, lineHeight: 1.55, margin: 0 }}>
+                {action === "grant" ? "Add" : "Remove"} <b>{credits}</b> credit{credits === 1 ? "" : "s"}{" "}
+                {action === "grant" ? "to" : "from"} <b>{found.email}</b>
+                {reason.trim() ? ` — “${reason.trim()}”` : ""}. Their balance goes from {found.balance} to{" "}
+                {action === "grant" ? found.balance + credits : Math.max(0, found.balance - credits)}.
+                {action === "revoke" ? " This cannot be undone from here." : ""}
+              </p>
+            </div>
+            <div className="modal-foot">
+              <button className="btn" type="button" onClick={() => setConfirming(false)}>Cancel</button>
+              <button className="btn yellow" type="button" onClick={() => void apply()}>Confirm</button>
             </div>
           </div>
         </div>
       )}
-
-      <div className="credit-log">
-        {log.length === 0 ? (
-          <p className="fda-empty">No credits have been given out or taken back yet.</p>
-        ) : (
-          <div className="table-card table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>When</th>
-                  <th>Who did it</th>
-                  <th>Account</th>
-                  <th>Change</th>
-                  <th className="num">Balance after</th>
-                  <th>Why</th>
-                </tr>
-              </thead>
-              <tbody>
-                {log.map((r) => (
-                  <tr key={r.id}>
-                    <td className="muted">
-                      <time dateTime={r.created_at} title={new Date(r.created_at).toLocaleString("en-GB")}>
-                        {ago(r.created_at)}
-                      </time>
-                    </td>
-                    <td className="muted wrap-cell">{r.actor_email || "—"}</td>
-                    <td className="name wrap-cell">{r.subject_email || "—"}</td>
-                    <td>
-                      <span className={`status-pill ${r.action === "grant" ? "ready" : "review"}`}>
-                        {r.action === "grant" ? "+" : "−"}
-                        {r.credits}
-                      </span>
-                    </td>
-                    <td className="num">{r.balance_after}</td>
-                    <td className="muted wrap-cell">{r.reason || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-    </section>
+    </div>
   );
 }
