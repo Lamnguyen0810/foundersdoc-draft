@@ -12,6 +12,7 @@ import {
   money as sgd,
 } from "@/lib/billing/plans";
 import { defaultCard } from "@/lib/billing/invoices";
+import { paymentHistory, type PaymentRow } from "@/lib/billing/history";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { CancelPlan, UpdateCard } from "./PlanActions";
@@ -181,6 +182,93 @@ function suggest(tier: string | null, usedThisMonth: number): Suggestion | null 
  * questions somebody opens /usage to ask: what am I on, and how much have I
  * got left. The cost tables below are interesting; this is the point.
  */
+interface MembershipRow {
+  id: string;
+  tier: string;
+  status: string;
+  current_period_end: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  cancel_note: string | null;
+}
+
+const REASON_LABEL: Record<string, string> = {
+  too_expensive: "Too expensive",
+  not_using: "Not drafting enough",
+  missing_feature: "Missing something needed",
+  quality: "Not happy with the drafts",
+  switching: "Using something else",
+  temporary: "Pausing for now",
+  other: "Another reason",
+};
+
+interface HistoryEntry {
+  key: string;
+  at: string | null;
+  title: string;
+  subtitle: string;
+  amount: string;
+  amountNote: string | null;
+  badge: { text: string; tone: string };
+  url: string | null;
+}
+
+function paymentBadge(p: PaymentRow): { text: string; tone: string } {
+  switch (p.status) {
+    case "paid":
+      return { text: "Paid", tone: "" };
+    case "refunded":
+      return { text: "Refunded", tone: "off" };
+    case "part_refunded":
+      return { text: "Part refunded", tone: "warn" };
+    case "failed":
+      return { text: "Failed", tone: "bad" };
+    default:
+      return { text: "Pending", tone: "warn" };
+  }
+}
+
+/**
+ * One row of the billing history.
+ *
+ * A single button, View, opening Stripe's own page for that payment in a new
+ * tab — the hosted invoice where there is one, the receipt where there is not.
+ * Both carry Download invoice and Download receipt, which is why there is no
+ * second button here: rendering our own copy of a record of money would give
+ * two answers to a question that must only ever have one.
+ */
+function HistoryRow({ entry, current = false }: { entry: HistoryEntry; current?: boolean }) {
+  const day = entry.at
+    ? new Date(entry.at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    : "—";
+  return (
+    <div className={current ? "billing-history-row current-billing-row" : "billing-history-row"}>
+      <div className="history-date">
+        <strong>{day}</strong>
+        <span>{entry.title}</span>
+      </div>
+      <div className="history-amount">
+        <strong>{entry.amount}</strong>
+        <span>{entry.amountNote ?? entry.subtitle}</span>
+      </div>
+      <div>
+        <span className={entry.badge.tone ? `paid-pill ${entry.badge.tone}` : "paid-pill"}>
+          {entry.badge.text}
+        </span>
+      </div>
+      <div className="history-actions">
+        {entry.url ? (
+          <a className="history-btn receipt" href={entry.url} target="_blank" rel="noopener noreferrer">
+            View
+          </a>
+        ) : (
+          <span style={{ fontSize: 9.5, color: "var(--u-muted)" }}>No document</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default async function UsagePage({
   searchParams,
 }: {
@@ -392,13 +480,61 @@ export default async function UsagePage({
 
   const suggestion = suggest(currentTier, drafts);
 
+  /* ── BILLING HISTORY, NOW ON THIS PAGE ────────────────────────────────────
+     Two sources, one list. Stripe knows what was charged; it does not know
+     that a membership was cancelled on the 16th because it was too expensive,
+     which lives in our own table. Both are rendered as the same row so the
+     list reads as one record rather than two tables stacked. */
+  const payments = await paymentHistory(stripeCustomerId);
+
+  let plans: MembershipRow[] = [];
+  try {
+    const { data } = await supabase.rpc("membership_history");
+    plans = (data ?? []) as MembershipRow[];
+  } catch {
+    // 013_cancellation.sql has not been run yet; payments still show.
+  }
+
+  const entries: HistoryEntry[] = [
+    ...payments.map((p) => ({
+      key: p.id,
+      at: p.paidAt,
+      title: p.description,
+      subtitle: p.subscriptionInvoice ? "Membership" : "One-off purchase",
+      amount: p.amount,
+      amountNote: card ? `Card •••• ${card.last4}` : null,
+      badge: paymentBadge(p),
+      url: p.url,
+    })),
+    /* Only memberships that have ENDED. A live one is the plan panel above,
+       and repeating it here would read as a charge that never happened. */
+    ...plans
+      .filter((m) => !["active", "trialing", "past_due"].includes(m.status))
+      .map((m) => {
+        const label = membershipByTier(m.tier)?.label ?? m.tier;
+        return {
+          key: `plan_${m.id}`,
+          at: m.cancelled_at ?? m.current_period_end,
+          title: `${label} membership ended`,
+          subtitle: m.cancel_reason
+            ? `Reason: ${REASON_LABEL[m.cancel_reason] ?? m.cancel_reason}${
+                m.cancel_note ? ` — “${m.cancel_note}”` : ""
+              }`
+            : "No longer active",
+          amount: "—",
+          amountNote: null,
+          badge: m.cancelled_at
+            ? { text: "Cancelled", tone: "off" }
+            : { text: "Ended", tone: "off" },
+          url: null,
+        };
+      }),
+  ].sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
+
+  const [latest, ...older] = entries;
+
   return (
     <main className="fdu">
-      <header className="page-head">
-        <h1>Plan &amp; Usage</h1>
-        <p>Everything important about your FD AI account, in one place.</p>
-      </header>
-
       {justCancelled && (
         <div className="fdu-banner">
           <strong>Your membership has ended.</strong> Anything you bought outright is still on your
@@ -406,6 +542,11 @@ export default async function UsagePage({
           again whenever you like.
         </div>
       )}
+
+      <header className="page-head">
+        <h1>Plan &amp; Usage</h1>
+        <p>Your plan, credits, billing and usage at a glance.</p>
+      </header>
 
       <section className="overview" aria-label="Account overview">
         {/* ── credits ────────────────────────────────────────────────────── */}
@@ -426,33 +567,34 @@ export default async function UsagePage({
         </article>
 
         {/* ── current plan ───────────────────────────────────────────────── */}
-        <article className="overview-section">
+        <article className="overview-section plan-section">
           <div className="section-label">Current plan</div>
-          <div className="plan-top">
-            <div className="plan-name">{planLabel}</div>
-            {plan ? (
-              <div className={cancelling ? "status ending" : "status"}>
-                <i />
-                {cancelling ? "Ending" : pastDue ? "Payment due" : "Active"}
-              </div>
-            ) : (
-              wallet.inTrial && (
-                <div className="status">
+          <div className="overview-summary plan-summary">
+            <div className="plan-top">
+              <div className="plan-name">{planLabel}</div>
+              {plan ? (
+                <div className={cancelling ? "status ending" : "status"}>
                   <i />
-                  Trial
+                  {cancelling ? "Ending" : pastDue ? "Payment due" : "Active"}
                 </div>
-              )
-            )}
-          </div>
-
-          <div className="price">
-            {plan ? (
-              <>
-                <strong>{sgd(plan.amountCents)}</strong> / month
-              </>
-            ) : (
-              <>Pay only for what you draft</>
-            )}
+              ) : (
+                wallet.inTrial && (
+                  <div className="status">
+                    <i />
+                    Trial
+                  </div>
+                )
+              )}
+            </div>
+            <div className="price">
+              {plan ? (
+                <>
+                  <strong>{sgd(plan.amountCents)}</strong> / month
+                </>
+              ) : (
+                <>Pay only for what you draft</>
+              )}
+            </div>
           </div>
 
           <div className="rule" />
@@ -477,44 +619,44 @@ export default async function UsagePage({
             </Link>
           </div>
 
-          {suggestion && <div className="cancelled-note">{suggestion.reason}</div>}
-
-          {plan && !cancelling && (
+          {plan && !cancelling ? (
             <CancelPlan planLabel={planLabel} purchasedCredits={purchasedCredits} />
-          )}
-          {cancelling && (
+          ) : cancelling ? (
             <div className="cancelled-note">
               Your plan ends on {whenShort(periodEnd) ?? "the end of this period"}. You can keep
               using it until then.
             </div>
-          )}
+          ) : null}
         </article>
 
         {/* ── billing summary ────────────────────────────────────────────── */}
-        <article className="overview-section">
+        <article className="overview-section billing-section">
           <div className="section-label">Billing summary</div>
-          <div className="billing-amount">{plan ? sgd(plan.amountCents) : "—"}</div>
-          <div className="billing-caption">
-            {plan
-              ? cancelling
-                ? "No further payments"
-                : `Next payment · ${whenShort(periodEnd) ?? "date to be set"}`
-              : "No subscription — you pay per document"}
+          <div className="overview-summary billing-summary">
+            <div className="billing-amount">{plan ? sgd(plan.amountCents) : "—"}</div>
+            <div className="billing-caption">
+              {plan
+                ? cancelling
+                  ? "No further payments"
+                  : `Next payment · ${whenShort(periodEnd) ?? "date to be set"}`
+                : "No subscription — you pay per document"}
+            </div>
           </div>
 
           <div className="rule" />
 
           <div className="simple-row">
             <span>Payment method</span>
-            <strong>
-              {card ? `${card.brand.toUpperCase()} •••• ${card.last4}` : "None on file"}
-            </strong>
+            <strong>{card ? `•••• ${card.last4}` : "None on file"}</strong>
           </div>
 
-          <Link className="u-btn billing-btn" href="/billing/history">
-            Billing history
-          </Link>
-          {plan && <UpdateCard lookupKey={plan.lookupKey} />}
+          {card ? (
+            <UpdateCard />
+          ) : (
+            <Link className="u-btn billing-btn" href="/billing">
+              {plan ? "View pricing" : "See plans"}
+            </Link>
+          )}
         </article>
       </section>
 
@@ -548,13 +690,53 @@ export default async function UsagePage({
         </div>
       </section>
 
+      {/* ── billing history ──────────────────────────────────────────────── */}
+      <section className="billing-history" id="billing-history" aria-labelledby="billingHistoryTitle">
+        <div className="billing-history-head">
+          <div>
+            <h2 id="billingHistoryTitle">Billing history</h2>
+            <p>View past payments, invoices and receipts.</p>
+          </div>
+          {card && <UpdateCard className="history-link" />}
+        </div>
+
+        {entries.length === 0 ? (
+          <div className="history-none">
+            Nothing yet. Payments and plan changes will be listed here.
+          </div>
+        ) : (
+          <div className="billing-history-list">
+            <HistoryRow entry={latest} current />
+            {older.length > 0 && (
+              <details className="history-dropdown">
+                <summary className="history-more-btn">
+                  <span className="history-more-label">
+                    View older invoices <span className="history-more-count">({older.length})</span>
+                  </span>
+                  <span className="chevron" aria-hidden="true">
+                    <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2.5 4.25 6 7.5l3.5-3.25" />
+                    </svg>
+                  </span>
+                </summary>
+                <div className="billing-history-more">
+                  {older.map((e) => (
+                    <HistoryRow key={e.key} entry={e} />
+                  ))}
+                </div>
+              </details>
+            )}
+            <div className="billing-history-foot" />
+          </div>
+        )}
+      </section>
+
       {error && <p className="note note-warn">Could not load usage. Has 001_schema.sql been run?</p>}
 
       {/* ── FD's own numbers ─────────────────────────────────────────────────
           Model costs, the paid-model benchmark and the margin working are
           commercially sensitive: they tell a customer what a draft costs us
-          and therefore what the mark-up is. They were visible to every signed
-          in account on this page. Now only an administrator sees them. */}
+          and therefore what the mark-up is. Only an administrator sees them. */}
       {admin && (
         <section style={{ marginTop: 34 }}>
           <p className="kicker" style={{ marginBottom: 12 }}>
@@ -591,11 +773,11 @@ export default async function UsagePage({
               ) : (
                 <>
                   A draft costs about <strong>{money(perDraft)}</strong> on a{" "}
-                  {PAID_BENCHMARK.label.toLowerCase()}. At $1–3 per draft, or inside a subscription,
-                  that is a gross margin of roughly{" "}
-                  <strong>{perDraft > 0 ? Math.round(1 / perDraft) : 0}×</strong> at $1 per draft.
-                  Take it as an order of magnitude, not a quotation — token counts vary with the
-                  length of the source document.
+                  {PAID_BENCHMARK.label.toLowerCase()}. At $1–3 per draft, or inside a
+                  subscription, that is a gross margin of roughly{" "}
+                  <strong>{perDraft > 0 ? Math.round(1 / perDraft) : 0}×</strong> at $1 per
+                  draft. Take it as an order of magnitude, not a quotation — token counts vary
+                  with the length of the source document.
                 </>
               )}
             </p>

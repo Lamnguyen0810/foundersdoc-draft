@@ -1,246 +1,358 @@
 /* ───────────────────────────────────────────────────────────────────────────
-   /usage, to FD's supplied design (fdai-usage-nav-light-dark.html).
+   /usage — FD's designer's file, fdai-usage-aligned-usage-reverted.html.
 
-   Everything is namespaced under `.fdu`, the wrapper the page renders, for the
-   same reason the pricing design is namespaced under `.fdp`: globals.css
-   already defines `.btn`, `.card`, `.status` and a heading font, and without a
-   prefix those would half-apply and the design would render as neither one
-   thing nor the other.
+   Namespaced under `.fdu`, the wrapper the page renders. globals.css already
+   defines `.btn`, `.card`, `.status` and a heading font, so without a prefix
+   those would half-apply and the page would render as neither one thing nor
+   the other. Two renames for the same reason: the design's `.btn` is `.u-btn`
+   here, and its modal classes are `.fdu-modal…`.
 
-   The design's own nav, theme toggle and account chip are NOT here. The app
-   already has all three in SiteChrome; duplicating them would put two navs on
-   the page. Only the page body — head, overview, usage strip, modal — is
-   taken from the file.
+   The design's own nav, theme toggle and account chip are NOT here — the app
+   has all three in SiteChrome already.
    ─────────────────────────────────────────────────────────────────────────── */
 
 .fdu {
   --u-yellow: #f4b752;
-  --u-yellow-hover: #efad38;
-  --u-yellow-soft: #fff4d8;
-  --u-yellow-pale: #fffbf2;
-  --u-ink: #151515;
-  --u-muted: #747474;
-  --u-line: #ebe8e1;
-  --u-line-strong: #ddd8ce;
+  --u-yellow-hover: #edaa37;
+  --u-yellow-soft: #fff5dc;
+  --u-yellow-pale: #fffaf0;
+  --u-ink: #191816;
+  --u-muted: #706d67;
+  --u-muted-2: #99958d;
+  --u-line: #ebe7df;
+  --u-line-strong: #dcd6cc;
   --u-surface: #faf9f6;
   --u-panel: #fff;
-  --u-green: #257a4b;
-  --u-green-soft: #edf8f1;
-  --u-red: #8b5a56;
+  --u-green: #377d58;
+  --u-green-soft: #edf7f1;
+  --u-red: #8b5d58;
   --u-display: "Geist", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --u-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --u-ease: cubic-bezier(.22, 1, .36, 1);
 
   max-width: 1120px;
   margin: 0 auto;
-  padding: 40px 28px 72px;
+  padding: 40px 28px 74px;
   color: var(--u-ink);
   font-family: var(--u-sans);
-  /* globals.css sets 15px/1.6 on the body; the design is drawn at the browser
-     default. Both are restated here so the panels are the designed height. */
-  font-size: 16px;
-  line-height: normal;
-  letter-spacing: -.005em;
+  /* globals.css puts 15px/1.6 on the body; the design is drawn at 14px/1.5. */
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 500;
+  letter-spacing: -.006em;
 }
 .fdu *, .fdu *::before, .fdu *::after { box-sizing: border-box }
+/* globals.css gives every h1/h2/h3 a line-height of 1.08. The design leaves
+   its headings on the body's 1.5 and sizes the panels around that, so the
+   inherited value is restored and only the headings the design sets
+   explicitly get their own. */
+.fdu h1, .fdu h2, .fdu h3 { line-height: inherit; font-weight: inherit }
 .fdu a { color: inherit; text-decoration: none }
+.fdu button { font: inherit; color: inherit }
 
 /* ── page head ───────────────────────────────────────────────────────────── */
 .fdu .page-head { margin-bottom: 22px }
 .fdu .page-head h1 {
-  margin: 0;
-  display: block;
-  font-family: var(--u-display);
-  font-size: clamp(34px, 4vw, 44px);
-  line-height: 1;
-  letter-spacing: -.055em;
-  font-weight: 700;
-  color: var(--u-ink);
+  display: block; margin: 0; font-family: var(--u-display);
+  font-size: clamp(34px, 4vw, 43px); line-height: 1.04;
+  letter-spacing: -.05em; font-weight: 600; color: var(--u-ink);
 }
-.fdu .page-head p { margin: 9px 0 0; color: var(--u-muted); font-size: 12.5px; line-height: 1.6 }
+.fdu .page-head p { margin: 9px 0 0; color: var(--u-muted); font-size: 12.5px; line-height: 1.6; font-weight: 500 }
 
-/* ── the three-panel overview ────────────────────────────────────────────── */
+/* ── overview ────────────────────────────────────────────────────────────── */
 .fdu .overview {
-  display: grid;
-  grid-template-columns: 1.05fr 1fr 1fr;
-  background: var(--u-panel);
-  border: 1px solid var(--u-line);
-  border-radius: 26px;
-  overflow: hidden;
-  box-shadow: 0 14px 36px rgba(29, 24, 15, .045);
+  display: grid; grid-template-columns: 1.05fr 1fr 1fr;
+  background: var(--u-panel); border: 1px solid var(--u-line);
+  border-radius: 24px; overflow: hidden; box-shadow: 0 12px 32px rgba(29, 24, 15, .04);
 }
-.fdu .overview-section { padding: 28px; min-width: 0 }
+.fdu .overview-section { padding: 28px 27px 26px; min-width: 0 }
 .fdu .overview-section + .overview-section { border-left: 1px solid var(--u-line) }
 .fdu .section-label {
-  font-size: 10px; letter-spacing: .11em; text-transform: uppercase;
-  font-weight: 800; color: #91846c;
+  font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  font-weight: 650; color: #8b8376;
 }
 
-/* ── credits, with the coin ──────────────────────────────────────────────── */
+/* ── credits ─────────────────────────────────────────────────────────────── */
 .fdu .credits-section {
-  position: relative;
-  display: flex; flex-direction: column; justify-content: flex-start;
+  position: relative; display: flex; flex-direction: column; justify-content: flex-start;
   background: linear-gradient(180deg, #fffefb 0%, var(--u-panel) 100%);
 }
 .fdu .credits-section::after {
-  content: ""; position: absolute; right: -58px; top: -64px; width: 180px; height: 180px;
+  content: ""; position: absolute; right: -60px; top: -66px; width: 180px; height: 180px;
   border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle, rgba(244, 183, 82, .08) 0%, rgba(244, 183, 82, .02) 50%, transparent 72%);
+  background: radial-gradient(circle, rgba(244, 183, 82, .07) 0%, rgba(244, 183, 82, .018) 52%, transparent 72%);
 }
 .fdu .credit-balance-row {
-  display: flex; align-items: center; gap: 22px; margin-top: 24px;
-  position: relative; z-index: 1;
+  display: flex; align-items: center; gap: 20px; margin-top: 23px; position: relative; z-index: 1;
 }
 .fdu .credit-coin {
-  width: 126px; height: 126px; flex: 0 0 126px; border-radius: 50%; position: relative;
-  display: grid; place-items: center;
-  background: rgba(255, 248, 231, .90);
+  width: 122px; height: 122px; flex: 0 0 122px; border-radius: 50%; position: relative;
+  display: grid; place-items: center; background: #fff5da;
   border: 1.5px solid rgba(244, 183, 82, .72);
-  box-shadow: 0 8px 20px rgba(49, 38, 16, .06), inset 0 0 0 1px rgba(255, 255, 255, .9);
+  box-shadow: 0 8px 20px rgba(49, 38, 16, .05), inset 0 0 0 1px rgba(255, 255, 255, .9);
 }
 .fdu .credit-coin::before {
   content: ""; position: absolute; inset: 8px; border-radius: 50%;
-  border: 1px solid rgba(244, 183, 82, .30);
-  background: rgba(255, 253, 247, .68);
+  border: 1px solid rgba(244, 183, 82, .27); background: #fffaf0;
 }
 .fdu .credit-coin::after {
-  content: ""; position: absolute; width: 38px; height: 14px; left: 22px; top: 19px;
-  border-radius: 50%; background: rgba(255, 255, 255, .66); filter: blur(5px); pointer-events: none;
+  content: ""; position: absolute; width: 34px; height: 11px; left: 23px; top: 20px;
+  border-radius: 50%; background: rgba(255, 255, 255, .78); filter: blur(4px); pointer-events: none;
 }
-.fdu .coin-inner {
-  position: relative; z-index: 1;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-}
+.fdu .coin-inner { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center }
 .fdu .coin-inner strong {
-  font-family: var(--u-display); font-size: 45px; line-height: .88;
-  letter-spacing: -.065em; color: #171612; font-weight: 650;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--u-display); font-size: 43px; line-height: .9; letter-spacing: -.06em;
+  color: #191816; font-weight: 600; font-variant-numeric: tabular-nums;
 }
 .fdu .coin-inner span {
-  margin-top: 7px; font-size: 9px; font-weight: 800; letter-spacing: .12em;
-  text-transform: uppercase; color: #8b7444;
+  margin-top: 7px; font-size: 9px; font-weight: 600; letter-spacing: .11em;
+  text-transform: uppercase; color: #806d48;
 }
 .fdu .credit-info { min-width: 0 }
 .fdu .credit-title {
-  font-family: var(--u-display); font-size: 22px; margin: 0;
-  font-weight: 650; letter-spacing: -.04em; line-height: 1.2; color: var(--u-ink);
+  margin: 0; font-family: var(--u-display); font-size: 21px; font-weight: 650;
+  letter-spacing: -.035em; color: var(--u-ink);
 }
-.fdu .credit-copy {
-  margin: 7px 0 0; max-width: 175px; font-size: 11.5px; line-height: 1.55; color: var(--u-muted);
-}
+.fdu .credit-copy { margin: 7px 0 0; max-width: 175px; color: var(--u-muted); font-size: 11.5px; line-height: 1.55; font-weight: 500 }
 
-/* ── current plan ────────────────────────────────────────────────────────── */
-.fdu .plan-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px }
-.fdu .plan-name { font-family: var(--u-display); font-size: 23px; font-weight: 700; letter-spacing: -.04em; line-height: 1.2 }
+/* ── plan and billing panels ─────────────────────────────────────────────── */
+.fdu .plan-section, .fdu .billing-section { display: flex; flex-direction: column }
+.fdu .overview-summary {
+  margin-top: 14px; min-height: 58px; display: flex; flex-direction: column; justify-content: flex-start;
+}
+.fdu .plan-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; min-height: 29px }
+.fdu .plan-name { font-family: var(--u-display); font-size: 22px; font-weight: 650; letter-spacing: -.035em }
 .fdu .status {
   display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border-radius: 999px;
-  background: var(--u-green-soft); color: var(--u-green); font-size: 10px; font-weight: 800;
-  line-height: 1.1; white-space: nowrap;
+  background: var(--u-green-soft); color: var(--u-green); font-size: 9.5px; font-weight: 600;
+  white-space: nowrap;
 }
-.fdu .status i { width: 6px; height: 6px; border-radius: 50%; background: currentColor }
+.fdu .status i { width: 5px; height: 5px; border-radius: 50%; background: currentColor }
 .fdu .status.ending { background: var(--u-yellow-pale); color: #8a6d28 }
-.fdu .price { margin-top: 6px; font-size: 11.5px; color: var(--u-muted) }
+.fdu .price { margin-top: 6px; font-size: 11.5px; font-weight: 500; color: var(--u-muted) }
 .fdu .price strong {
-  font-family: var(--u-display); font-size: 18px; color: var(--u-ink);
-  font-weight: 600; letter-spacing: -.03em;
+  font-family: var(--u-display); font-size: 18px; color: var(--u-ink); font-weight: 600; letter-spacing: -.025em;
 }
-.fdu .rule { height: 1px; background: var(--u-line); margin: 18px 0 15px }
+.fdu .rule { height: 1px; background: var(--u-line); margin: 14px 0 }
 .fdu .simple-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 14px;
-  font-size: 11px; margin-top: 9px;
+  min-height: 22px; display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; font-size: 11px; font-weight: 500; margin-top: 0;
 }
 .fdu .simple-row span { color: var(--u-muted) }
-.fdu .simple-row strong { font-size: 11.5px; font-weight: 700; color: #292929 }
-.fdu .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px }
+.fdu .simple-row strong { font-size: 11.5px; font-weight: 650; color: #2c2a27 }
+.fdu .action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px }
 
-/* `.btn` exists in globals.css, so every property the design relies on is set
-   explicitly here rather than inherited from whichever rule wins. */
+/* `.btn` exists in globals.css, so every property is set explicitly here. */
 .fdu .u-btn {
   min-height: 42px; padding: 0 14px; border-radius: 12px;
   border: 1px solid var(--u-line-strong); background: var(--u-panel); color: var(--u-ink);
   display: inline-flex; align-items: center; justify-content: center; text-align: center;
-  font-family: var(--u-sans); font-size: 11.5px; font-weight: 800; line-height: 1;
+  font-family: var(--u-sans); font-size: 11.5px; font-weight: 650; line-height: 1;
   cursor: pointer; transition: .2s var(--u-ease);
 }
 .fdu .u-btn::after { content: none }
 .fdu .u-btn:hover { transform: translateY(-1px); background: #fffdf8; border-color: #cfc7ba }
 .fdu .u-btn.primary { background: var(--u-yellow); border-color: var(--u-yellow); color: #171612 }
 .fdu .u-btn.primary:hover { background: var(--u-yellow-hover); border-color: var(--u-yellow-hover) }
-.fdu .u-btn.danger { background: #8d5550; color: #fff; border-color: #8d5550 }
 .fdu .u-btn[disabled] { opacity: .6; cursor: default; transform: none }
+.fdu .billing-btn { width: 100%; margin-top: 14px }
+.fdu .billing-amount {
+  font-family: var(--u-display); font-size: 23px; font-weight: 650;
+  letter-spacing: -.035em; margin: 0; line-height: 1.2;
+}
+.fdu .billing-caption { margin-top: 6px; color: var(--u-muted); font-size: 10.5px; font-weight: 500 }
 .fdu .cancel-link {
-  margin-top: 12px; padding: 0; border: 0; background: transparent;
-  color: var(--u-red); font-family: var(--u-sans); font-size: 10.5px; font-weight: 700; cursor: pointer;
+  margin-top: 11px; padding: 0; border: 0; background: transparent; align-self: flex-start;
+  color: var(--u-red); font-family: var(--u-sans); font-size: 10.5px; font-weight: 600; cursor: pointer;
 }
 .fdu .cancel-link:hover { text-decoration: underline }
 .fdu .cancelled-note {
-  margin-top: 12px; padding: 10px 11px; border-radius: 11px;
+  margin-top: 10px; padding: 10px 11px; border-radius: 11px;
   background: var(--u-yellow-pale); border: 1px solid #f0dfb0;
   color: #665326; font-size: 10.5px; line-height: 1.5;
 }
 
-/* ── billing summary ─────────────────────────────────────────────────────── */
-.fdu .billing-amount {
-  font-family: var(--u-display); font-size: 24px; font-weight: 700;
-  letter-spacing: -.04em; line-height: 1.15; margin-top: 14px;
-}
-.fdu .billing-caption { margin-top: 3px; color: var(--u-muted); font-size: 10.5px }
-.fdu .billing-btn { width: 100%; margin-top: 18px }
-
-/* ── usage this month ────────────────────────────────────────────────────── */
+/* ── usage ───────────────────────────────────────────────────────────────── */
 .fdu .usage {
   margin-top: 16px; background: var(--u-panel); border: 1px solid var(--u-line);
-  border-radius: 22px; padding: 22px 24px; box-shadow: 0 10px 28px rgba(29, 24, 15, .035);
+  border-radius: 20px; padding: 21px 23px; box-shadow: 0 9px 24px rgba(29, 24, 15, .03);
 }
 .fdu .usage-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap }
-.fdu .usage-head h2 {
-  margin: 0; font-family: var(--u-display); font-size: 15px; font-weight: 600; letter-spacing: -.025em;
-}
-.fdu .usage-head span { font-size: 10.5px; color: var(--u-muted) }
-.fdu .usage-main { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 20px; margin-top: 18px }
+.fdu .usage-head h2 { margin: 0; font-family: var(--u-display); font-size: 15px; font-weight: 500; letter-spacing: -.02em }
+.fdu .usage-head span { font-size: 10.5px; color: var(--u-muted); font-weight: 400 }
+.fdu .usage-main { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 20px; margin-top: 17px }
 .fdu .usage-count strong {
-  display: block; font-family: var(--u-display); font-size: 31px; line-height: .92; letter-spacing: -.05em;
-  font-variant-numeric: tabular-nums;
+  display: block; font-family: var(--u-display); font-size: 30px; line-height: .94;
+  letter-spacing: -.045em; font-weight: 600; font-variant-numeric: tabular-nums;
 }
-.fdu .usage-count span { display: block; margin-top: 5px; font-size: 10px; color: var(--u-muted) }
-.fdu .track { height: 8px; background: #f1f0ec; border-radius: 999px; overflow: hidden }
+.fdu .usage-count span { display: block; margin-top: 5px; font-size: 10px; color: var(--u-muted); font-weight: 400 }
+.fdu .track { height: 7px; background: #f1f0ec; border-radius: 999px; overflow: hidden }
 .fdu .track span { display: block; height: 100%; border-radius: inherit; background: var(--u-yellow) }
-.fdu .usage-bar small { display: block; margin-top: 7px; font-size: 9.5px; color: var(--u-muted) }
+.fdu .usage-bar small { display: block; margin-top: 7px; font-size: 9.5px; color: var(--u-muted); font-weight: 400 }
 .fdu .usage-percent { text-align: right }
-.fdu .usage-percent strong { font-family: var(--u-display); font-size: 21px; letter-spacing: -.04em }
-.fdu .usage-percent span { display: block; margin-top: 4px; font-size: 9.5px; color: var(--u-muted) }
+.fdu .usage-percent strong { font-family: var(--u-display); font-size: 20px; font-weight: 600; letter-spacing: -.035em }
+.fdu .usage-percent span { display: block; margin-top: 4px; font-size: 9.5px; color: var(--u-muted); font-weight: 400 }
+
+/* ── billing history ─────────────────────────────────────────────────────── */
+.fdu .billing-history {
+  margin-top: 16px; background: var(--u-panel); border: 1px solid var(--u-line);
+  border-radius: 20px; box-shadow: 0 9px 24px rgba(29, 24, 15, .03); overflow: hidden;
+}
+.fdu .billing-history-head {
+  padding: 20px 23px 18px; display: flex; align-items: center; justify-content: space-between;
+  gap: 18px; border-bottom: 1px solid var(--u-line);
+}
+.fdu .billing-history-head h2 { margin: 0; font-family: var(--u-display); font-size: 15px; font-weight: 600; letter-spacing: -.02em }
+.fdu .billing-history-head p { margin: 5px 0 0; color: var(--u-muted); font-size: 10.5px; font-weight: 500 }
+.fdu .history-link {
+  flex: 0 0 auto; padding: 0; border: 0; background: transparent;
+  color: #625e57; font-family: var(--u-sans); font-size: 10.5px; font-weight: 600; cursor: pointer;
+}
+.fdu .history-link:hover { text-decoration: underline }
+.fdu .history-link[disabled] { opacity: .6; cursor: default }
+.fdu .billing-history-list { display: grid }
+.fdu .billing-history-row {
+  display: grid; grid-template-columns: minmax(170px, 1.25fr) minmax(120px, .65fr) minmax(90px, .55fr) 156px;
+  align-items: center; gap: 18px; min-height: 66px; padding: 13px 23px;
+  border-bottom: 1px solid var(--u-line);
+}
+.fdu .history-date strong, .fdu .history-amount strong {
+  display: block; color: var(--u-ink); font-size: 11.5px; font-weight: 600;
+}
+.fdu .history-date span, .fdu .history-amount span {
+  display: block; margin-top: 2px; color: var(--u-muted); font-size: 9.5px; font-weight: 500;
+}
+.fdu .paid-pill {
+  display: inline-flex; align-items: center; gap: 6px; width: max-content;
+  padding: 5px 8px; border-radius: 999px;
+  background: var(--u-green-soft); color: var(--u-green); font-size: 9.5px; font-weight: 600;
+}
+.fdu .paid-pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor }
+.fdu .paid-pill.warn { background: var(--u-yellow-pale); color: #8a6d28 }
+.fdu .paid-pill.off { background: #f2f1ed; color: #6f6a61 }
+.fdu .paid-pill.bad { background: #fbeeed; color: #8b5d58 }
+.fdu .history-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; width: 156px }
+.fdu .history-btn {
+  min-height: 34px; padding: 0 14px; border: 1px solid var(--u-line-strong); border-radius: 10px;
+  background: var(--u-panel); color: #45413b;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: var(--u-sans); font-size: 10px; font-weight: 600; cursor: pointer; transition: .18s ease;
+}
+.fdu .history-btn svg { width: 13px; height: 13px }
+.fdu .history-btn:hover { background: #fffdf8; border-color: #cfc7ba; transform: translateY(-1px) }
+.fdu .history-btn.receipt { background: var(--u-yellow-pale); border-color: #efdfb8; color: #665326 }
+.fdu .history-btn.receipt:hover { background: var(--u-yellow-soft); border-color: #e7cf96 }
+.fdu .history-none { padding: 20px 23px; color: var(--u-muted); font-size: 11.5px }
+.fdu .current-billing-row { background: var(--u-panel) }
+.fdu .history-dropdown { border-top: 0; background: var(--u-panel) }
+.fdu .history-dropdown summary { list-style: none; cursor: pointer }
+.fdu .history-dropdown summary::-webkit-details-marker { display: none }
+.fdu .history-more-btn {
+  min-height: 52px; padding: 0 23px; display: flex; align-items: center; justify-content: center;
+  gap: 8px; color: #68635b; font-size: 10.5px; font-weight: 600; transition: .18s ease;
+}
+.fdu .history-more-btn:hover { background: #fffdf9; color: var(--u-ink) }
+.fdu .history-more-count { color: var(--u-muted-2); font-weight: 500 }
+.fdu .history-more-btn .chevron {
+  width: 21px; height: 21px; display: grid; place-items: center; border-radius: 999px;
+  color: #777168; transition: transform .22s var(--u-ease), background .18s ease;
+}
+.fdu .history-more-btn .chevron svg { width: 11px; height: 11px }
+.fdu .history-dropdown[open] .history-more-btn { border-bottom: 1px solid var(--u-line) }
+.fdu .history-dropdown[open] .history-more-btn .chevron { transform: rotate(180deg); background: var(--u-yellow-pale); color: #6f5928 }
+.fdu .billing-history-more { display: grid; background: var(--u-panel) }
+.fdu .billing-history-more .billing-history-row:last-child { border-bottom: 0 }
+.fdu .billing-history-foot { height: 5px }
+
+/* ── the notice after cancelling ─────────────────────────────────────────── */
+.fdu .fdu-banner {
+  margin: 0 0 16px; padding: 13px 15px; border-radius: 14px;
+  background: var(--u-yellow-pale); border: 1px solid #f0dfb0;
+  color: #665326; font-size: 12px; line-height: 1.55;
+}
+.fdu .fdu-banner strong { font-weight: 700 }
 
 /* ── the cancel dialog ───────────────────────────────────────────────────── */
 .fdu-modal-backdrop {
-  position: fixed; inset: 0; z-index: 100;
-  display: flex; align-items: center; justify-content: center; padding: 20px;
-  background: rgba(12, 13, 18, .42); backdrop-filter: blur(5px);
+  position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center;
+  padding: 20px; background: rgba(12, 13, 18, .42); backdrop-filter: blur(5px);
 }
 .fdu-modal {
-  width: min(420px, 100%); background: #fff; border: 1px solid #ebe8e1;
-  border-radius: 22px; box-shadow: 0 30px 85px rgba(15, 16, 20, .2); padding: 24px;
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #151515;
+  width: min(420px, 100%); background: #fff; border: 1px solid #ebe7df; border-radius: 20px;
+  box-shadow: 0 30px 85px rgba(15, 16, 20, .2); padding: 24px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #191816;
 }
-.fdu-modal h3 {
-  margin: 0; font-family: "Geist", Inter, sans-serif; font-size: 21px;
-  letter-spacing: -.03em; font-weight: 650;
-}
-.fdu-modal p { margin: 9px 0 0; color: #747474; font-size: 12px; line-height: 1.6 }
+.fdu-modal h3 { margin: 0; font-family: "Geist", Inter, sans-serif; font-size: 20px; font-weight: 600; letter-spacing: -.025em }
+.fdu-modal p { margin: 9px 0 0; color: #706d67; font-size: 12px; line-height: 1.6 }
 .fdu-modal .modal-note {
-  margin-top: 15px; padding: 12px 13px; border-radius: 12px;
-  background: #faf9f6; font-size: 11px; color: #5f6572; line-height: 1.55;
+  margin-top: 15px; padding: 12px 13px; border-radius: 12px; background: #faf9f6;
+  font-size: 11px; color: #5f6572; line-height: 1.55;
 }
+.fdu-modal .modal-note strong { font-weight: 600 }
 .fdu-modal .modal-actions { display: flex; gap: 10px; margin-top: 18px }
 .fdu-modal .modal-actions .u-btn { flex: 1 }
+.fdu-modal .u-btn {
+  min-height: 42px; padding: 0 14px; border-radius: 12px; border: 1px solid #dcd6cc;
+  background: #fff; color: #191816; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11.5px; font-weight: 650; line-height: 1; cursor: pointer; transition: .2s cubic-bezier(.22,1,.36,1);
+}
+.fdu-modal .u-btn:hover { transform: translateY(-1px); background: #fffdf8; border-color: #cfc7ba }
+.fdu-modal .u-btn.danger { background: #8d5550; color: #fff; border-color: #8d5550 }
+.fdu-modal .u-btn[disabled] { opacity: .6; cursor: default; transform: none }
+.fdu-modal .cancel-reason { margin-top: 16px; display: grid; gap: 8px }
+.fdu-modal .cancel-reason label {
+  font-size: 10px; letter-spacing: .09em; text-transform: uppercase; font-weight: 650; color: #8b8376;
+}
+.fdu-modal .cancel-reason select,
+.fdu-modal .cancel-reason textarea {
+  width: 100%; padding: 10px 11px; border-radius: 11px; border: 1px solid #dcd6cc;
+  background: #fff; color: #191816; font-family: inherit; font-size: 12px; line-height: 1.5;
+}
+.fdu-modal .cancel-reason textarea { resize: vertical; min-height: 66px }
+.fdu-modal .cancel-reason select:focus-visible,
+.fdu-modal .cancel-reason textarea:focus-visible { outline: 2px solid #f4b752; outline-offset: 1px }
+.fdu-modal .cancel-error { color: #8b5d58; font-size: 11.5px; margin-top: 12px }
+
+/* ── exact desktop alignment: plan and billing share one vertical grid ───── */
+@media (min-width: 901px) {
+  .fdu .plan-section, .fdu .billing-section {
+    display: grid !important;
+    grid-template-rows: 15px 74px 1px 24px 42px 18px;
+    row-gap: 12px;
+    align-content: start;
+  }
+  .fdu .plan-section > .section-label, .fdu .billing-section > .section-label { grid-row: 1; margin: 0; align-self: start }
+  .fdu .plan-section > .overview-summary, .fdu .billing-section > .overview-summary {
+    grid-row: 2; height: auto !important; min-height: 0 !important; margin: 0 !important; align-self: stretch;
+  }
+  .fdu .plan-section > .rule, .fdu .billing-section > .rule { grid-row: 3; margin: 0 !important; align-self: stretch }
+  .fdu .plan-section > .simple-row, .fdu .billing-section > .simple-row {
+    grid-row: 4; min-height: 0 !important; margin: 0 !important; align-self: center;
+  }
+  .fdu .plan-section > .action-row, .fdu .billing-section > .billing-btn,
+  .fdu .billing-section > .u-btn {
+    grid-row: 5; min-height: 42px; height: 42px; margin: 0 !important; align-self: stretch;
+  }
+  .fdu .plan-section > .cancel-link, .fdu .plan-section > .cancelled-note { grid-row: 6; margin: 0 !important; align-self: start }
+  .fdu .billing-section::after { content: ""; grid-row: 6; display: block; height: 18px }
+}
 
 /* ── narrower screens ────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
   .fdu .overview { grid-template-columns: 1fr 1fr }
   .fdu .credits-section { grid-column: 1 / -1 }
-  .fdu .credit-copy { max-width: 320px }
   .fdu .overview-section:nth-child(2) { border-left: 0; border-top: 1px solid var(--u-line) }
-  .fdu .overview-section:nth-child(3) { border-left: 1px solid var(--u-line); border-top: 1px solid var(--u-line) }
+  .fdu .overview-section:nth-child(3) { border-top: 1px solid var(--u-line) }
+  .fdu .credit-copy { max-width: 320px }
+}
+@media (max-width: 760px) {
+  .fdu .billing-history-head { align-items: flex-start }
+  .fdu .billing-history-row { grid-template-columns: 1fr auto; gap: 10px 14px; padding: 15px 18px }
+  .fdu .history-date { grid-column: 1 / 2 }
+  .fdu .history-amount { grid-column: 2 / 3; text-align: right }
+  .fdu .paid-pill { grid-column: 1 / 2 }
+  .fdu .history-actions { grid-column: 2 / 3 }
+  .fdu .history-more-btn { padding: 0 18px }
 }
 @media (max-width: 700px) {
   .fdu { padding: 28px 16px 58px }
@@ -251,13 +363,21 @@
   .fdu .usage-percent { text-align: left }
   .fdu .credit-balance-row { gap: 18px }
   .fdu .credit-coin { width: 112px; height: 112px; flex-basis: 112px }
-  .fdu .coin-inner strong { font-size: 40px }
+  .fdu .coin-inner strong { font-size: 39px }
 }
 @media (max-width: 520px) {
   .fdu .page-head h1 { font-size: 34px }
   .fdu .action-row { grid-template-columns: 1fr }
   .fdu-modal .modal-actions { flex-direction: column-reverse }
-  .fdu .credit-balance-row { gap: 13px; align-items: flex-start }
+}
+@media (max-width: 480px) {
+  .fdu .billing-history-head { padding: 18px; flex-direction: column; gap: 8px; align-items: flex-start }
+  .fdu .billing-history-row { grid-template-columns: 1fr }
+  .fdu .history-date, .fdu .history-amount, .fdu .paid-pill, .fdu .history-actions {
+    grid-column: 1; text-align: left; justify-content: flex-start; width: auto;
+  }
+  .fdu .history-actions { margin-top: 2px }
+  .fdu .credit-balance-row { align-items: flex-start }
   .fdu .credit-coin { width: 104px; height: 104px; flex-basis: 104px }
   .fdu .coin-inner strong { font-size: 36px }
   .fdu .credit-title { font-size: 20px }
@@ -265,126 +385,57 @@
 
 /* ── dark ────────────────────────────────────────────────────────────────── */
 html[data-theme="dark"] .fdu {
-  --u-yellow: #f4b752;
-  --u-yellow-hover: #f0b44b;
-  --u-yellow-soft: #3a311e;
-  --u-yellow-pale: #2f2819;
-  --u-ink: #f3f1ec;
-  --u-muted: #aaa7a0;
-  --u-line: #2e2d2a;
-  --u-line-strong: #44413b;
-  --u-surface: #1a1917;
-  --u-panel: #171715;
-  --u-green: #67b98b;
-  --u-green-soft: #163325;
-  --u-red: #d89089;
+  --u-yellow: #f4b752; --u-yellow-hover: #f0b44b; --u-yellow-soft: #3a311e; --u-yellow-pale: #2f2819;
+  --u-ink: #f2efe9; --u-muted: #aba79f; --u-muted-2: #85817a;
+  --u-line: #2e2d2a; --u-line-strong: #45413b; --u-surface: #1a1917; --u-panel: #171715;
+  --u-green: #68b98b; --u-green-soft: #163325; --u-red: #d89089;
 }
 html[data-theme="dark"] .fdu .overview,
-html[data-theme="dark"] .fdu .usage { box-shadow: 0 14px 36px rgba(0, 0, 0, .22) }
+html[data-theme="dark"] .fdu .usage,
+html[data-theme="dark"] .fdu .billing-history { box-shadow: 0 14px 36px rgba(0, 0, 0, .2) }
 html[data-theme="dark"] .fdu .credits-section { background: linear-gradient(180deg, #191815 0%, #171715 100%) }
 html[data-theme="dark"] .fdu .credits-section::after {
-  background: radial-gradient(circle, rgba(244, 183, 82, .07) 0%, rgba(244, 183, 82, .015) 50%, transparent 72%);
+  background: radial-gradient(circle, rgba(244, 183, 82, .06) 0%, rgba(244, 183, 82, .01) 52%, transparent 72%);
 }
-html[data-theme="dark"] .fdu .section-label { color: #a99b80 }
 html[data-theme="dark"] .fdu .credit-coin {
-  background: #282217; border-color: rgba(244, 183, 82, .58);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, .18), inset 0 0 0 1px rgba(255, 255, 255, .025);
+  background: #2a2418; border-color: rgba(244, 183, 82, .58);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .16), inset 0 0 0 1px rgba(255, 255, 255, .02);
 }
-html[data-theme="dark"] .fdu .credit-coin::before { border-color: rgba(244, 183, 82, .22); background: #211d15 }
-html[data-theme="dark"] .fdu .credit-coin::after { background: rgba(255, 255, 255, .09) }
-html[data-theme="dark"] .fdu .coin-inner span { color: #c6a96b }
-html[data-theme="dark"] .fdu .simple-row strong { color: #ece9e2 }
-html[data-theme="dark"] .fdu .u-btn { background: #1c1b18; border-color: #403d37; color: #eeeae2 }
-html[data-theme="dark"] .fdu .u-btn:hover { background: #25231f; border-color: #575249 }
+html[data-theme="dark"] .fdu .credit-coin::before { background: #211d15; border-color: rgba(244, 183, 82, .22) }
+html[data-theme="dark"] .fdu .credit-coin::after { background: rgba(255, 255, 255, .08) }
+html[data-theme="dark"] .fdu .coin-inner strong { color: #f4f1eb }
+html[data-theme="dark"] .fdu .coin-inner span { color: #c7aa6a }
+html[data-theme="dark"] .fdu .simple-row strong,
+html[data-theme="dark"] .fdu .price strong,
+html[data-theme="dark"] .fdu .history-date strong,
+html[data-theme="dark"] .fdu .history-amount strong { color: #efebe4 }
+html[data-theme="dark"] .fdu .u-btn,
+html[data-theme="dark"] .fdu .history-btn { background: #1c1b18; border-color: #403d37; color: #eeeae2 }
+html[data-theme="dark"] .fdu .u-btn:hover,
+html[data-theme="dark"] .fdu .history-btn:hover { background: #25231f; border-color: #575249 }
 html[data-theme="dark"] .fdu .u-btn.primary { background: var(--u-yellow); border-color: var(--u-yellow); color: #171612 }
 html[data-theme="dark"] .fdu .track { background: #292824 }
-html[data-theme="dark"] .fdu .cancelled-note { background: #2a2418; border-color: #4b3d1f; color: #d5c08e }
-html[data-theme="dark"] .fdu-modal { background: #171715; border-color: #2e2d2a; color: #f3f1ec }
-html[data-theme="dark"] .fdu-modal p { color: #aaa7a0 }
+html[data-theme="dark"] .fdu .cancelled-note,
+html[data-theme="dark"] .fdu .fdu-banner { background: #2a2418; border-color: #4b3d1f; color: #d5c08e }
+html[data-theme="dark"] .fdu .billing-history-head { border-bottom-color: var(--u-line) }
+html[data-theme="dark"] .fdu .history-link { color: #b9b4aa }
+html[data-theme="dark"] .fdu .billing-history-row { border-bottom-color: var(--u-line) }
+html[data-theme="dark"] .fdu .history-btn.receipt { background: #2b2519; border-color: #4b3e22; color: #e3c987 }
+html[data-theme="dark"] .fdu .history-btn.receipt:hover { background: #332b1c; border-color: #685429 }
+html[data-theme="dark"] .fdu .paid-pill.off { background: #23221f; color: #a9a49b }
+html[data-theme="dark"] .fdu .paid-pill.bad { background: #2b1f1e; color: #d89089 }
+html[data-theme="dark"] .fdu .current-billing-row,
+html[data-theme="dark"] .fdu .history-dropdown,
+html[data-theme="dark"] .fdu .billing-history-more { background: #171715 }
+html[data-theme="dark"] .fdu .history-more-btn { color: #b9b4aa }
+html[data-theme="dark"] .fdu .history-more-btn:hover { background: #1b1a18; color: #f0ede7 }
+html[data-theme="dark"] .fdu .history-dropdown[open] .history-more-btn { border-bottom-color: var(--u-line) }
+html[data-theme="dark"] .fdu .history-dropdown[open] .history-more-btn .chevron { background: #2b2519; color: #e3c987 }
+html[data-theme="dark"] .fdu-modal { background: #171715; border-color: #2e2d2a; color: #f2efe9 }
+html[data-theme="dark"] .fdu-modal p { color: #aba79f }
 html[data-theme="dark"] .fdu-modal .modal-note { background: #201f1c; color: #b5b2aa }
 html[data-theme="dark"] .fdu-modal .u-btn { background: #1c1b18; border-color: #403d37; color: #eeeae2 }
 html[data-theme="dark"] .fdu-modal .u-btn.danger { background: #8d5550; border-color: #8d5550; color: #fff }
-
-/* ── the cancel dialog's question ────────────────────────────────────────── */
-.fdu-modal .cancel-reason { margin-top: 16px; display: grid; gap: 8px }
-.fdu-modal .cancel-reason label {
-  font-size: 10px; letter-spacing: .11em; text-transform: uppercase;
-  font-weight: 800; color: #91846c;
-}
-.fdu-modal .cancel-reason select,
-.fdu-modal .cancel-reason textarea {
-  width: 100%; padding: 10px 11px; border-radius: 11px;
-  border: 1px solid #ddd8ce; background: #fff; color: #151515;
-  font-family: inherit; font-size: 12px; line-height: 1.5;
-}
-.fdu-modal .cancel-reason textarea { resize: vertical; min-height: 66px }
-.fdu-modal .cancel-reason select:focus-visible,
-.fdu-modal .cancel-reason textarea:focus-visible { outline: 2px solid #f4b752; outline-offset: 1px }
-.fdu-modal .cancel-error { color: #8b5a56; font-size: 11.5px; margin-top: 12px }
-.fdu .cancel-link.card-link { color: var(--u-muted); display: block }
 html[data-theme="dark"] .fdu-modal .cancel-reason select,
-html[data-theme="dark"] .fdu-modal .cancel-reason textarea {
-  background: #1c1b18; border-color: #403d37; color: #eeeae2;
-}
+html[data-theme="dark"] .fdu-modal .cancel-reason textarea { background: #1c1b18; border-color: #403d37; color: #eeeae2 }
 html[data-theme="dark"] .fdu-modal .cancel-reason label { color: #a99b80 }
-
-/* ── billing history ─────────────────────────────────────────────────────── */
-.fdu .hist {
-  margin-top: 16px; background: var(--u-panel); border: 1px solid var(--u-line);
-  border-radius: 22px; padding: 22px 24px; box-shadow: 0 10px 28px rgba(29, 24, 15, .035);
-}
-.fdu .hist h2 {
-  margin: 0 0 4px; font-family: var(--u-display); font-size: 15px;
-  font-weight: 600; letter-spacing: -.025em;
-}
-.fdu .hist > p { margin: 0 0 16px; color: var(--u-muted); font-size: 11.5px; line-height: 1.55 }
-.fdu .hist-scroll { overflow-x: auto }
-.fdu table.hist-table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 12px }
-.fdu .hist-table th {
-  text-align: left; padding: 0 12px 10px 0; white-space: nowrap;
-  font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
-  font-weight: 800; color: #91846c; border-bottom: 1px solid var(--u-line);
-}
-.fdu .hist-table td {
-  padding: 13px 12px 13px 0; border-bottom: 1px solid var(--u-line);
-  vertical-align: top; line-height: 1.45;
-}
-.fdu .hist-table tr:last-child td { border-bottom: 0 }
-.fdu .hist-table .num { white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 700 }
-.fdu .hist-table .when { white-space: nowrap; color: var(--u-muted) }
-.fdu .hist-what strong { display: block; font-weight: 700; font-size: 12.5px }
-.fdu .hist-what small { display: block; margin-top: 3px; color: var(--u-muted); font-size: 11px }
-.fdu .pill {
-  display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
-  padding: 5px 9px; border-radius: 999px; font-size: 9.5px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: .05em;
-}
-.fdu .pill i { width: 5px; height: 5px; border-radius: 50%; background: currentColor }
-.fdu .pill.ok { background: var(--u-green-soft); color: var(--u-green) }
-.fdu .pill.warn { background: var(--u-yellow-pale); color: #8a6d28 }
-.fdu .pill.off { background: #f2f1ed; color: #6f6a61 }
-.fdu .pill.bad { background: #fbeeed; color: #8b5a56 }
-.fdu .hist-view {
-  display: inline-flex; align-items: center; justify-content: center; white-space: nowrap;
-  padding: 8px 12px; border: 1px solid var(--u-line-strong); border-radius: 10px;
-  font-size: 11px; font-weight: 800; transition: .2s var(--u-ease);
-}
-.fdu .hist-view:hover { background: #fffdf8; border-color: #cfc7ba }
-.fdu .hist-none { color: var(--u-muted); font-size: 12px; padding: 8px 0 }
-.fdu .hist-back {
-  display: inline-block; margin-bottom: 14px; font-size: 11.5px;
-  font-weight: 700; color: var(--u-muted);
-}
-.fdu .hist-back:hover { color: var(--u-ink) }
-html[data-theme="dark"] .fdu .pill.off { background: #23221f; color: #a9a49b }
-html[data-theme="dark"] .fdu .pill.bad { background: #2b1f1e; color: #d89089 }
-html[data-theme="dark"] .fdu .hist-view:hover { background: #25231f; border-color: #575249 }
-
-/* ── the notice after cancelling ─────────────────────────────────────────── */
-.fdu .fdu-banner {
-  margin: 0 0 16px; padding: 13px 15px; border-radius: 14px;
-  background: var(--u-yellow-pale); border: 1px solid #f0dfb0;
-  color: #665326; font-size: 12px; line-height: 1.55;
-}
-.fdu .fdu-banner strong { font-weight: 800 }
-html[data-theme="dark"] .fdu .fdu-banner { background: #2a2418; border-color: #4b3d1f; color: #d5c08e }
