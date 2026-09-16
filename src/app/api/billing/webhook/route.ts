@@ -329,6 +329,26 @@ export async function POST(req: NextRequest) {
         const userId = charge.metadata?.supabase_user_id;
         if (!userId) return ok("refund without user metadata");
 
+        /* ── WHICH REFUND IS THIS ─────────────────────────────────────────
+           A charge that belongs to an INVOICE is a membership payment, and
+           the only refund we ever issue against one is the unused part of a
+           month when somebody cancels. Cancelling already withdrew that
+           month's allowance — `end_membership_credits` — so there is nothing
+           further to take.
+
+           Without this check the code below ran on a membership refund and
+           zeroed the customer's most recent BOUGHT pack instead: credits they
+           had paid for separately, deleted because they cancelled a
+           subscription. */
+        /* `invoice` left the Charge type in the 2025-08 API but is still on the
+           object the webhook receives, so it is read through a cast rather
+           than pretended not to exist. */
+        const chargeInvoice = (charge as unknown as { invoice?: string | { id: string } | null })
+          .invoice;
+        if (chargeInvoice) {
+          return ok("refund of a membership invoice: allowance already withdrawn");
+        }
+
         const { data: grants } = await db
           .from("credit_grants")
           .select("id,remaining")

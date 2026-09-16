@@ -14,7 +14,7 @@ import {
 import { defaultCard } from "@/lib/billing/invoices";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
-import { CancelPlan, ManageBilling } from "./PlanActions";
+import { CancelPlan, UpdateCard } from "./PlanActions";
 import "./usage.css";
 
 export const metadata = { title: "Usage — FDAI" };
@@ -181,7 +181,12 @@ function suggest(tier: string | null, usedThisMonth: number): Suggestion | null 
  * questions somebody opens /usage to ask: what am I on, and how much have I
  * got left. The cost tables below are interesting; this is the point.
  */
-export default async function UsagePage() {
+export default async function UsagePage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const justCancelled = "cancelled" in (await searchParams);
   if (!isSupabaseConfigured()) {
     return (
       <main className="wrap" style={{ paddingTop: 48 }}>
@@ -356,6 +361,24 @@ export default async function UsagePage() {
   }
   const card = await defaultCard(stripeCustomerId);
 
+  /* Credits bought outright. The cancel dialog names the figure, because
+     "you keep the 5 you paid for" is the sentence that stops somebody
+     believing a cancellation wipes what they own. */
+  let purchasedCredits = 0;
+  try {
+    const { data: bought } = await supabase
+      .from("credit_grants")
+      .select("remaining")
+      .in("source", ["purchase", "topup"])
+      .gt("remaining", 0);
+    purchasedCredits = (bought ?? []).reduce(
+      (a: number, g: { remaining: number }) => a + Number(g.remaining ?? 0),
+      0,
+    );
+  } catch {
+    // Shown as the general wording instead.
+  }
+
   const cancelling = statusFromSummary === "canceled" || statusFromSummary === "cancelling";
   const pastDue = statusFromSummary === "past_due";
 
@@ -375,6 +398,14 @@ export default async function UsagePage() {
         <h1>Plan &amp; Usage</h1>
         <p>Everything important about your FD AI account, in one place.</p>
       </header>
+
+      {justCancelled && (
+        <div className="fdu-banner">
+          <strong>Your membership has ended.</strong> Anything you bought outright is still on your
+          account, every draft you have made is still in your history, and you can join a plan
+          again whenever you like.
+        </div>
+      )}
 
       <section className="overview" aria-label="Account overview">
         {/* ── credits ────────────────────────────────────────────────────── */}
@@ -449,11 +480,7 @@ export default async function UsagePage() {
           {suggestion && <div className="cancelled-note">{suggestion.reason}</div>}
 
           {plan && !cancelling && (
-            <CancelPlan
-              lookupKey={plan.lookupKey}
-              planLabel={planLabel}
-              endsOn={whenShort(periodEnd)}
-            />
+            <CancelPlan planLabel={planLabel} purchasedCredits={purchasedCredits} />
           )}
           {cancelling && (
             <div className="cancelled-note">
@@ -484,13 +511,10 @@ export default async function UsagePage() {
             </strong>
           </div>
 
-          {plan ? (
-            <ManageBilling lookupKey={plan.lookupKey} />
-          ) : (
-            <Link className="u-btn billing-btn" href="/billing">
-              See plans
-            </Link>
-          )}
+          <Link className="u-btn billing-btn" href="/billing/history">
+            Billing history
+          </Link>
+          {plan && <UpdateCard lookupKey={plan.lookupKey} />}
         </article>
       </section>
 
