@@ -111,6 +111,10 @@ export async function POST(req: NextRequest) {
 
   let refunded: string | null = null;
   let stripeEnded = false;
+  /* True when our copy named a subscription Stripe does not have — the record
+     is cleared, but nothing was cancelled or refunded, because there was
+     nothing there. */
+  let orphaned = false;
 
   if (isStripeConfigured() && stripeSubscriptionId) {
     try {
@@ -175,15 +179,44 @@ export async function POST(req: NextRequest) {
         stripeEnded = true;
       }
     } catch (err) {
-      console.error("[cancel] Stripe would not cancel:", err);
-      return NextResponse.json(
-        {
-          error:
-            "We could not reach Stripe to end the subscription, so nothing has been changed. " +
-            "Please try again in a moment.",
-        },
-        { status: 502 },
+      /* ── "NO SUCH SUBSCRIPTION" IS NOT A FAILURE ──────────────────────────
+         It is the normal answer after switching Stripe accounts. The local
+         copy was written by sandbox webhooks and names a sub_… that only ever
+         existed there, so the live key cannot find it — and the account is
+         left claiming a membership nobody is paying for, still handing out an
+         allowance every month.
+
+         Treating that as an error was the bug FD hit: the button said "we
+         could not reach Stripe" and changed nothing, so the phantom
+         membership could never be cleared. There is nothing to cancel in
+         Stripe, which is exactly the state we are trying to reach, so carry
+         on and record it locally.
+
+         A real problem — a network failure, a bad key, a refusal — still
+         stops here, because then Stripe and our copy would genuinely
+         disagree. */
+      const code = (err as { code?: string; statusCode?: number; type?: string }) ?? {};
+      const missing =
+        code.code === "resource_missing" ||
+        (code.statusCode === 404 && code.type === "StripeInvalidRequestError");
+
+      if (!missing) {
+        console.error("[cancel] Stripe would not cancel:", err);
+        return NextResponse.json(
+          {
+            error:
+              "We could not reach Stripe to end the subscription, so nothing has been changed. " +
+              "Please try again in a moment.",
+          },
+          { status: 502 },
+        );
+      }
+
+      console.warn(
+        `[cancel] Stripe has no subscription ${stripeSubscriptionId} — ` +
+          "almost certainly a record left behind by the sandbox. Clearing it locally.",
       );
+      orphaned = true;
     }
   }
 
@@ -215,5 +248,7 @@ export async function POST(req: NextRequest) {
     ended: Number(row?.ended ?? 0),
     creditsRemoved: Number(row?.credits_removed ?? 0),
     refunded,
+    stripeEnded,
+    orphaned,
   });
 }
