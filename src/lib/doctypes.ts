@@ -42,11 +42,30 @@ export interface Example {
   text: string;
 }
 
+/**
+ * A step on the form: the group its questions share, and the words the user
+ * sees at the top of it. Stored on the document type in step order, so the
+ * order of steps is a fact the admin sets, not an accident of which question
+ * happened to come first.
+ */
+export interface Group {
+  /** Matches Field.group. */
+  name: string;
+  /** Short name in the progress list — "Who's involved". */
+  title: string;
+  /** What the assistant asks when the step opens. */
+  question: string;
+}
+
 export interface DocType {
   slug: string;
   label: string;
   description: string;
   fields: Field[];
+  /** Step order and wording. Absent on rows saved before it existed: then
+   *  the steps are the groups in order of first appearance, with the wording
+   *  in DEFAULT_GROUP_TEXT or, failing that, the group's own name. */
+  groups?: Group[];
   systemPrompt: string;
   /** Kept SEPARATE from the prompt text so that swapping in the firm's own
    *  examples changes nothing else. Never paste an example inline into a prompt. */
@@ -73,4 +92,72 @@ export const DOC_TYPES: DocType[] = (DOC_TYPE_DATA as RawDocType[]).map((d) => (
 
 export function getDocType(slug: string): DocType | undefined {
   return DOC_TYPES.find((d) => d.slug === slug);
+}
+
+/* The wording each step had before it was editable. Still the fallback for a
+   group with no stored title or question, so a new group named "Payment" reads
+   "Payment" until somebody writes something better. */
+export const DEFAULT_GROUP_TEXT: Record<string, { title: string; question: string }> = {
+  "The shape of it": {
+    title: "Direction",
+    question: "Which direction are we going — mutual, or one-way?",
+  },
+  Parties: {
+    title: "Who’s involved",
+    question: "Who are the parties? Just provide each person’s or organisation’s name.",
+  },
+  "The deal": {
+    title: "The deal",
+    question: "What’s the deal about, and what will be shared?",
+  },
+  Terms: {
+    title: "How long and how strict",
+    question:
+      "How long should confidentiality last, and how strict should it be? I’ve set sensible Singapore defaults — change only what you need.",
+  },
+  "Anything else": {
+    title: "Anything else",
+    question: "Anything else you’d like included?",
+  },
+};
+
+export interface Step {
+  group: Group;
+  fields: Field[];
+}
+
+/**
+ * The form's steps, in the order the user meets them. ONE function, used by
+ * the drafting screen and by the admin editor, so what the admin sees as
+ * step 3 is what the user gets as step 3 — that was not true when each
+ * side grouped the questions its own way.
+ *
+ * Stored groups set the order; a question whose group is not listed (an
+ * older row, a typo) still appears, in a step appended at the end, rather
+ * than vanishing from the form.
+ */
+export function stepsFor(docType: Pick<DocType, "fields" | "groups">): Step[] {
+  const byName = new Map<string, Field[]>();
+  const firstSeen: string[] = [];
+  for (const f of docType.fields) {
+    if (!byName.has(f.group)) {
+      byName.set(f.group, []);
+      firstSeen.push(f.group);
+    }
+    byName.get(f.group)!.push(f);
+  }
+  const listed = docType.groups ?? [];
+  const names = [...listed.map((g) => g.name), ...firstSeen.filter((n) => !listed.some((g) => g.name === n))];
+  return names.map((name) => {
+    const stored = listed.find((g) => g.name === name);
+    const fallback = DEFAULT_GROUP_TEXT[name] ?? { title: name, question: name };
+    return {
+      group: {
+        name,
+        title: stored?.title?.trim() || fallback.title,
+        question: stored?.question?.trim() || fallback.question,
+      },
+      fields: byName.get(name) ?? [],
+    };
+  });
 }

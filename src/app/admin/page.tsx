@@ -7,7 +7,7 @@ import CreditsPanel, { type Action } from "./CreditsPanel";
 import { ago, day, fmt, money, stamp } from "./parts";
 import FilterSelect from "./FilterSelect";
 import AiFiles from "./AiFiles";
-import Questions, { type FieldRow } from "./Questions";
+import Questions, { type DocTypeForEditor, type FieldRow, type GroupRow } from "./Questions";
 import PeriodSelect from "./PeriodSelect";
 import type { FolderRow, SourceRow } from "@/lib/ai-library";
 import "./dashboard.css";
@@ -244,25 +244,61 @@ export default async function AdminPage({
      kilobytes a row and the table shows none of it. */
   let sources: SourceRow[] = [];
   let folders: FolderRow[] = [];
-  let catalogue: { slug: string; label: string; fields: FieldRow[] }[] = [];
+  let catalogue: DocTypeForEditor[] = [];
   let libraryMissing = false;
+  let rankingMissing = false;
+  let stepsMissing = false;
   if (tab === "ai-files") {
-    const [srcRes, folRes, catRes] = await Promise.all([
-      supabase
-        .from("ai_sources")
-        .select(
-          "id,folder_id,doc_type_slug,title,filename,file_ext,jurisdiction,version,privacy,privacy_flags,status,permitted,note,bytes,uploaded_by_email,reviewed_at,approved_at,created_at,updated_at",
-        )
-        .order("updated_at", { ascending: false }),
-      supabase.from("ai_folders").select("id,name").order("name"),
-      supabase.from("doc_types").select("slug,label,fields").eq("is_active", true).order("label"),
-    ]);
+    const BASE_COLS =
+      "id,folder_id,doc_type_slug,title,filename,file_ext,jurisdiction,version,privacy,privacy_flags,status,permitted,note,bytes,uploaded_by_email,reviewed_at,approved_at,created_at,updated_at";
+    /* Rank and redaction columns arrive with 016. Until that has been run the
+       list is read without them, and the tab says which file to run rather
+       than showing an empty library. */
+    let srcRes: { data: unknown; error: { message: string } | null } = await supabase
+      .from("ai_sources")
+      .select(`${BASE_COLS},rank,redacted_at,redaction_count`)
+      .order("doc_type_slug")
+      .order("rank", { ascending: true, nullsFirst: false })
+      .order("updated_at", { ascending: false });
+    if (srcRes.error && /rank|redacted_at|redaction_count/.test(srcRes.error.message)) {
+      rankingMissing = true;
+      srcRes = await supabase.from("ai_sources").select(BASE_COLS).order("updated_at", { ascending: false });
+    }
+    /* The questions editor reads the live form and any saved draft. Before
+       017 the draft columns are not there; the editor then works as it did,
+       and says which file to run. */
+    let catRes: { data: unknown; error: { message: string } | null } = await supabase
+      .from("doc_types")
+      .select("slug,label,fields,groups,draft,draft_saved_at,published_at")
+      .eq("is_active", true)
+      .order("label");
+    if (catRes.error && /groups|draft|published_at/.test(catRes.error.message)) {
+      stepsMissing = true;
+      catRes = await supabase.from("doc_types").select("slug,label,fields").eq("is_active", true).order("label");
+    }
+    const folRes = await supabase.from("ai_folders").select("id,name").order("name");
     if (srcRes.error && /ai_sources/.test(srcRes.error.message)) libraryMissing = true;
-    sources = (srcRes.data as SourceRow[] | null) ?? [];
+    sources = ((srcRes.data as Partial<SourceRow>[] | null) ?? []).map((r) => ({
+      rank: null,
+      redacted_at: null,
+      redaction_count: 0,
+      ...r,
+    })) as SourceRow[];
     folders = (folRes.data as FolderRow[] | null) ?? [];
-    catalogue = ((catRes.data ?? []) as { slug: string; label: string; fields: FieldRow[] | null }[]).map(
-      (d) => ({ slug: d.slug, label: d.label, fields: d.fields ?? [] }),
-    );
+    catalogue = (
+      (catRes.data ?? []) as {
+        slug: string; label: string; fields: FieldRow[] | null; groups?: GroupRow[] | null;
+        draft?: { fields?: FieldRow[]; groups?: GroupRow[] } | null; draft_saved_at?: string | null; published_at?: string | null;
+      }[]
+    ).map((d) => ({
+      slug: d.slug,
+      label: d.label,
+      fields: d.fields ?? [],
+      groups: d.groups ?? null,
+      draft: d.draft && Array.isArray(d.draft.fields) ? { fields: d.draft.fields, groups: d.draft.groups ?? null } : null,
+      draftSavedAt: d.draft_saved_at ?? null,
+      publishedAt: d.published_at ?? null,
+    }));
   }
 
   /* The utility strip says what needs a person. Only what is counted. */
@@ -695,12 +731,14 @@ export default async function AdminPage({
                 <div className="grid-3">
                   {([["Top pages", pageRows], ["Countries", countryRows], ["Devices", deviceRows]] as const).map(([title, rows]) => (
                     <div className="card" key={title}>
-                      <div className="card-head"><div><h2>{title}</h2></div></div>
+                      <div className="card-head"><div><h2>{title}</h2><p>Visits, last {days === 1 ? "24 hours" : `${days} days`} · your team excluded</p></div></div>
                       <div className="card-body">
                         <div className="simple-list">
                           {rows.length === 0 && <div className="empty">Nothing recorded yet.</div>}
                           {rows.map((r) => (
-                            <div className="simple-row" key={r.label}><span>{r.label}</span><strong>{fmt(n(r.hits))}</strong></div>
+                            <div className="simple-row" key={r.label} title={`${fmt(n(r.hits))} page load${n(r.hits) === 1 ? "" : "s"}`}>
+                              <span>{r.label}</span><strong>{fmt(n(r.people))}</strong>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -872,12 +910,27 @@ export default async function AdminPage({
                     in the Supabase SQL editor. Until then drafting uses the examples built into the code.
                   </div>
                 )}
+                {rankingMissing && !libraryMissing && (
+                  <div className="setup-note">
+                    <strong>Ranking and redaction are not switched on yet.</strong> Run{" "}
+                    <code>supabase/016_rank_and_redaction.sql</code> in the Supabase SQL editor. Until then the
+                    library works as before, without the Rank column or the Redact button.
+                  </div>
+                )}
                 <AiFiles
                   sources={sources}
                   folders={folders}
                   docTypes={catalogue.map((d) => ({ slug: d.slug, label: d.label }))}
+                  ranking={!rankingMissing}
                 />
-                <Questions docTypes={catalogue} />
+                {stepsMissing && !libraryMissing && (
+                  <div className="setup-note">
+                    <strong>Save-as-draft and step order are not switched on yet.</strong> Run{" "}
+                    <code>supabase/017_question_steps.sql</code> in the Supabase SQL editor. Until then Publish
+                    still updates the form directly, as before.
+                  </div>
+                )}
+                <Questions docTypes={catalogue} versioning={!stepsMissing} />
               </>
             )}
 

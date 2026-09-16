@@ -77,8 +77,14 @@ async function handleUpload(req: NextRequest) {
 
   for (const file of files) {
     const e = ext(file.name);
+    if (e === "doc") {
+      /* The old Word format cannot be read here. It is said plainly, rather
+         than the reader's "not a Word document" — which it is, just an old one. */
+      results.push({ filename: file.name, ok: false, error: "This is the old Word format — open it in Word, save it as .docx, and upload that." });
+      continue;
+    }
     if (!e) {
-      results.push({ filename: file.name, ok: false, error: "Only PDF, Word and text files." });
+      results.push({ filename: file.name, ok: false, error: "Only PDF, Word (.docx) and text files." });
       continue;
     }
     if (file.size > MAX_UPLOAD_BYTES) {

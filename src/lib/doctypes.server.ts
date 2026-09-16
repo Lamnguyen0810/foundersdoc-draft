@@ -106,11 +106,22 @@ export async function loadDocTypes(): Promise<CatalogueResult> {
 
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase
+    /* `groups` — step order and wording — arrives with 017. Until that has
+       been run the catalogue is read without it and the steps fall back to
+       first-appearance order, exactly as before. */
+    let res: { data: DocTypeRow[] | null; error: { message: string } | null } = await supabase
       .from("doc_types")
-      .select("slug,label,description,fields,system_prompt,examples")
+      .select("slug,label,description,fields,groups,system_prompt,examples")
       .eq("is_active", true)
       .order("label");
+    if (res.error && /groups/.test(res.error.message)) {
+      res = await supabase
+        .from("doc_types")
+        .select("slug,label,description,fields,system_prompt,examples")
+        .eq("is_active", true)
+        .order("label");
+    }
+    const { data, error } = res;
 
     if (error || !data || data.length === 0) {
       if (error) console.error("[doctypes] falling back to built-in catalogue:", error.message);

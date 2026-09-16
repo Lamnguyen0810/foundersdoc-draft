@@ -16,6 +16,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { applyRedactions, scanPrivacy, type Redaction, type RedactionKind } from "@/lib/ai-library";
+
+const KINDS: RedactionKind[] = ["uen", "nric", "email", "phone", "company", "name", "address", "custom"];
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,7 +27,8 @@ type Body =
   | { action: "review"; privacy: "clear" | "redacted" | "needs_redaction"; note?: string }
   | { action: "approve" }
   | { action: "move"; folderId: string | null }
-  | { action: "permit"; permitted: boolean };
+  | { action: "permit"; permitted: boolean }
+  | { action: "redact"; items: Redaction[]; expectedLength: number };
 
 function explain(message: string): string {
   if (/ai_sources_ready_requires_review/.test(message)) {
@@ -75,6 +79,62 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const supabase = await createClient();
   const user = await getUser();
   const now = new Date().toISOString();
+
+  /* ── redaction ────────────────────────────────────────────────────────────
+     The list of strings to black out comes from the viewer — what the
+     detector proposed plus what the reviewer highlighted, minus what they
+     un-marked. It is applied HERE, to the text as stored, with the same
+     function the viewer used for its preview, so the preview and the result
+     are the same by construction. The redacted text replaces the original;
+     nothing keeps a copy. */
+  if (body.action === "redact") {
+    const items = Array.isArray(body.items)
+      ? body.items
+          .filter((r): r is Redaction => r && typeof r.text === "string" && KINDS.includes(r.kind))
+          .map((r) => ({ text: r.text.trim().slice(0, 300), kind: r.kind }))
+          .filter((r) => r.text.length >= 2)
+          .slice(0, 500)
+      : [];
+    if (items.length === 0) return NextResponse.json({ error: "Nothing was marked for redaction." }, { status: 400 });
+
+    const { data: row, error: readErr } = await supabase
+      .from("ai_sources")
+      .select("id,content,redaction_count")
+      .eq("id", id)
+      .maybeSingle();
+    if (readErr) return NextResponse.json({ error: explain(readErr.message) }, { status: 400 });
+    if (!row) return NextResponse.json({ error: "No such source." }, { status: 404 });
+
+    /* The viewer says how long the text was when it was read. If somebody
+       else changed the row in between, the strings may no longer line up;
+       better to stop than to black out the wrong words. */
+    const content = String(row.content ?? "");
+    if (typeof body.expectedLength === "number" && body.expectedLength !== content.length) {
+      return NextResponse.json({ error: "This document changed while you were reading it. Close it and open it again." }, { status: 409 });
+    }
+
+    const { text, count } = applyRedactions(content, items);
+    if (count === 0) return NextResponse.json({ error: "None of the marked text was found in the document." }, { status: 400 });
+
+    const { data, error } = await supabase
+      .from("ai_sources")
+      .update({
+        content: text,
+        bytes: Buffer.byteLength(text, "utf-8"),
+        privacy: "redacted",
+        privacy_flags: scanPrivacy(text),
+        status: "reviewed",
+        reviewed_by: user?.id ?? null,
+        reviewed_at: now,
+        redacted_at: now,
+        redaction_count: Number(row.redaction_count ?? 0) + count,
+      })
+      .eq("id", id)
+      .select("id,status,privacy,privacy_flags,permitted,folder_id,reviewed_at,approved_at,redacted_at,redaction_count,bytes")
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: explain(error.message) }, { status: 400 });
+    return NextResponse.json({ ok: true, source: data, replaced: count });
+  }
 
   let patch: Record<string, unknown>;
   switch (body.action) {
