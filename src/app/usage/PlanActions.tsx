@@ -149,22 +149,28 @@ export function CancelPlan({
 /**
  * "Update payment method".
  *
- * Posts to a route that can do nothing but open Stripe's card form for this
- * customer — no plan, no lookup key, no branch that could start a purchase.
- * The card is typed on stripe.com; this app never sees a card number.
+ * Always on the page, as the design draws it — but what it does depends on
+ * whether there is a card to update. With one, it opens Stripe's card form,
+ * and nothing it opens can cancel or buy. Without one there is nothing for
+ * Stripe to show, so rather than sending somebody to an empty portal and
+ * bringing them back confused, it says where a card actually comes from.
  *
- * It appears twice on the page — the button in the billing panel and the quiet
- * link in the billing history header — so the classes come in.
+ * It used to try Stripe either way, which is why a trial account pressing it
+ * got "Could not open Stripe just now" — an error message for something that
+ * was never an error.
  */
 export function UpdateCard({
+  hasCard,
   className = "u-btn billing-btn",
   label = "Update payment method",
 }: {
+  /** Whether Stripe holds a card for this account. */
+  hasCard: boolean;
   className?: string;
   label?: string;
 }) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   return (
     <>
@@ -173,26 +179,32 @@ export function UpdateCard({
         className={className}
         disabled={busy}
         onClick={() => {
+          if (!hasCard) {
+            setMessage(
+              "Start your first plan or buy credits, and your card is saved securely by Stripe at checkout. You can change it here afterwards.",
+            );
+            return;
+          }
           setBusy(true);
-          setError(null);
+          setMessage(null);
           fetch("/api/billing/payment-method", { method: "POST" })
             .then((r) => r.json())
             .then((json: { url?: string; error?: string }) => {
               if (json.url) window.location.assign(json.url);
               else {
-                setError(json.error ?? "Could not open Stripe.");
+                setMessage(json.error ?? "Could not open Stripe.");
                 setBusy(false);
               }
             })
             .catch(() => {
-              setError("Could not reach Stripe.");
+              setMessage("Could not reach Stripe.");
               setBusy(false);
             });
         }}
       >
         {busy ? "Opening Stripe…" : label}
       </button>
-      {error && <div className="cancelled-note">{error}</div>}
+      {message && <div className="cancelled-note">{message}</div>}
     </>
   );
 }
