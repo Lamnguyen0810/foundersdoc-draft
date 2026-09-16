@@ -578,7 +578,7 @@ export default async function UsagePage({
               whether or not a card exists — the route makes the Stripe
               customer if there is not one yet, so there is always somewhere
               to add a card rather than a button that refuses. */}
-          <UpdateCard />
+          <UpdateCard hasCard={Boolean(card)} />
         </article>
       </section>
 
@@ -619,12 +619,12 @@ export default async function UsagePage({
             <h2 id="billingHistoryTitle">Billing history</h2>
             <p>View past payments, invoices and receipts.</p>
           </div>
-          <UpdateCard className="history-link" />
         </div>
 
         {entries.length === 0 ? (
           <div className="history-none">
-            Nothing yet. Payments and plan changes will be listed here.
+            No payments yet. Your invoices and receipts will appear here after your first
+            purchase.
           </div>
         ) : (
           <div className="billing-history-list">
