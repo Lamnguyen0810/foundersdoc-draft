@@ -25,6 +25,10 @@ const PUBLIC_PATHS = [
   // authenticates with a signature instead, which the route verifies before it
   // reads a single byte — see the route's own notes.
   "/api/billing/webhook",
+  // Zapier has no browser session. The weekly analytics route authenticates
+  // independently with ANALYTICS_REPORT_SECRET and returns aggregate counts
+  // only; without this exception middleware would redirect Zapier to /login.
+  "/api/analytics/weekly",
 ];
 
 /** The static marketing pages, served from `public/` (see next.config.ts). */

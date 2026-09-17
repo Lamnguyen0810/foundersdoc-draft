@@ -10,6 +10,7 @@ import AiFiles from "./AiFiles";
 import Questions, { type DocTypeForEditor, type FieldRow, type GroupRow } from "./Questions";
 import PeriodSelect from "./PeriodSelect";
 import type { FolderRow, SourceRow } from "@/lib/ai-library";
+import { getWeeklyReport, type WeeklyReport } from "@/lib/weekly-report";
 import "./dashboard.css";
 import "./admin.css";
 
@@ -45,7 +46,7 @@ import "./admin.css";
 export const metadata = { title: "Admin — FDAI" };
 export const dynamic = "force-dynamic";
 
-type Tab = "overview" | "documents" | "users" | "credits" | "ai-files" | "logs";
+type Tab = "overview" | "weekly-report" | "documents" | "users" | "credits" | "ai-files" | "logs";
 
 /* The design's six sections, in its order. Overview and Logs are in the
    sidebar because the design has them there; their panels say plainly that
@@ -55,6 +56,7 @@ type Tab = "overview" | "documents" | "users" | "credits" | "ai-files" | "logs";
    shown. */
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Overview" },
+  { id: "weekly-report", label: "Weekly Report" },
   { id: "documents", label: "Documents" },
   { id: "users", label: "Users" },
   { id: "credits", label: "Credits & plans" },
@@ -366,6 +368,16 @@ export default async function AdminPage({
   const openDay = /^\d{4}-\d{2}-\d{2}$/.test(sp.day ?? "") ? (sp.day as string) : "";
 
   const supabase = await createClient();
+  let weeklyReport: WeeklyReport | null = null;
+  let weeklyReportError = false;
+  if (tab === "weekly-report") {
+    try {
+      weeklyReport = await getWeeklyReport(supabase);
+    } catch (error) {
+      weeklyReportError = true;
+      console.error("[admin] weekly report failed", error);
+    }
+  }
 
   /* ── AI files: the library and the catalogue's questions ──────────────
      Sources are listed WITHOUT their text: the content column can be tens of
@@ -712,7 +724,7 @@ export default async function AdminPage({
             <h1>Admin Dashboard</h1>
           </div>
           <div className="hero-actions">
-            <div className={tab === "ai-files" ? "period-group is-hidden" : "period-group"}>
+            <div className={tab === "ai-files" || tab === "weekly-report" ? "period-group is-hidden" : "period-group"}>
               <span className="period-label">Period</span>
               <PeriodSelect tab={tab} days={days} q={q} ranges={RANGES} />
               <Link className="btn refresh-btn" href={tabHref(tab, days, q)}>
@@ -830,6 +842,49 @@ export default async function AdminPage({
                     </table>
                   </div>
                 </div>
+              </>
+            )}
+
+            {/* ── WEEKLY REPORT ─────────────────────────────────────────── */}
+            {tab === "weekly-report" && (
+              <>
+                {weeklyReportError && (
+                  <div className="setup-note">
+                    <strong>The weekly report could not be prepared.</strong> Check the server logs and confirm the analytics tables are installed.
+                  </div>
+                )}
+                {weeklyReport && (
+                  <>
+                    <div className="card">
+                      <div className="card-head">
+                        <div>
+                          <h2>Weekly Report</h2>
+                          <p>
+                            {stamp(weeklyReport.period_start)} to {stamp(weeklyReport.period_end)}, Singapore time. These are the same numbers sent to Zapier.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="summary">
+                      <SummaryCard label="Drafts generated" value={fmt(weeklyReport.drafts_generated)} note="Successful generations" />
+                      <SummaryCard label="Documents uploaded" value={fmt(weeklyReport.documents_uploaded)} note="Files attached" />
+                      <SummaryCard label="Documents downloaded" value={fmt(weeklyReport.documents_downloaded)} note="Word exports" />
+                      <SummaryCard label="Page views" value={fmt(weeklyReport.page_views)} note="Admin traffic excluded" />
+                    </div>
+                    <div className="summary">
+                      <SummaryCard label="Accounts created" value={fmt(weeklyReport.accounts_created)} note="New FD AI accounts" />
+                      <SummaryCard label="Unique visitors" value={fmt(weeklyReport.unique_visitors)} note="Distinct visitors" />
+                      <SummaryCard label="Visits" value={fmt(weeklyReport.visits)} note="Distinct browsing sessions" />
+                      <SummaryCard label="Waitlist sign-ups" value={fmt(weeklyReport.waitlist_signups)} note="New waitlist entries" />
+                    </div>
+                    <div className="card">
+                      <div className="card-head"><div><h2>Zapier connection</h2></div></div>
+                      <div className="card-body">
+                        <p>POST <code>/api/analytics/weekly</code> with the header <code>Authorization: Bearer [ANALYTICS_REPORT_SECRET]</code>.</p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
 
