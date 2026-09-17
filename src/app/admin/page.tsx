@@ -178,6 +178,18 @@ function periodStart(days: number): number {
   return Date.now() - days * 86_400_000;
 }
 
+/** A breakdown row: visits in bold, page loads beside them in grey. */
+function BreakdownRow({ label, people, hits }: { label: string; people: number; hits: number }) {
+  return (
+    <div className="simple-row">
+      <span>{label}</span>
+      <strong>
+        {fmt(people)} <small title={`${fmt(hits)} page load${hits === 1 ? "" : "s"}`}>{fmt(hits)}</small>
+      </strong>
+    </div>
+  );
+}
+
 /** The design's summary tile. */
 function SummaryCard({ label, value, note }: { label: string; value: string; note: React.ReactNode }) {
   return (
@@ -342,8 +354,8 @@ export default async function AdminPage({
       : null,
     wantUsers ? supabase.rpc("admin_user_stats", { p_days: days }) : null,
     tab === "users" || tab === "overview" ? supabase.rpc("admin_funnel", { p_days: days }) : null,
-    tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "path", p_days: days, p_limit: 8 }) : null,
-    tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "country", p_days: days, p_limit: 8 }) : null,
+    tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "path", p_days: days, p_limit: 50 }) : null,
+    tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "country", p_days: days, p_limit: 50 }) : null,
     tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "device", p_days: days, p_limit: 5 }) : null,
     tab === "users" ? supabase.rpc("admin_visits", { p_days: days }) : null,
     tab === "users"
@@ -766,12 +778,19 @@ export default async function AdminPage({
                       <div className="card-body">
                         <div className="simple-list">
                           {rows.length === 0 && <div className="empty">Nothing recorded yet.</div>}
-                          {rows.map((r) => (
-                            <div className="simple-row" key={r.label} title={`${fmt(n(r.hits))} page load${n(r.hits) === 1 ? "" : "s"}`}>
-                              <span>{title === "Countries" ? countryName(r.label) : title === "Devices" ? r.label.charAt(0).toUpperCase() + r.label.slice(1) : r.label}</span><strong>{fmt(n(r.people))}</strong>
-                            </div>
+                          {rows.slice(0, 8).map((r) => (
+                            <BreakdownRow key={r.label} label={title === "Countries" ? countryName(r.label) : title === "Devices" ? r.label.charAt(0).toUpperCase() + r.label.slice(1) : r.label} people={n(r.people)} hits={n(r.hits)} />
                           ))}
+                          {rows.length > 8 && (
+                            <details className="more-rows">
+                              <summary>Show {rows.length - 8} more</summary>
+                              {rows.slice(8).map((r) => (
+                                <BreakdownRow key={r.label} label={title === "Countries" ? countryName(r.label) : r.label} people={n(r.people)} hits={n(r.hits)} />
+                              ))}
+                            </details>
+                          )}
                         </div>
+                        <p className="list-key"><b>Visits</b> · page loads in grey</p>
                       </div>
                     </div>
                   ))}
@@ -779,9 +798,12 @@ export default async function AdminPage({
                 <div className="table-card">
                   <div className="table-head">
                     <div><h2>Waitlist</h2></div>
-                    <form method="get" action="/admin">
+                    <form method="get" action="/admin" className="toolbar">
                       <input type="hidden" name="tab" value="users" />
                       <input type="hidden" name="days" value={days} />
+                      <span className="badge" title={`${fmt(n(us.waitlist_waiting))} waiting · ${fmt(n(us.waitlist_invited))} invited`}>
+                        {fmt(n(us.waitlist_waiting) + n(us.waitlist_invited))} joined
+                      </span>
                       <input className="input" name="q" defaultValue={q} placeholder="Search waitlist" />
                     </form>
                   </div>

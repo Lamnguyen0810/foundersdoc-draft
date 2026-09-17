@@ -144,3 +144,14 @@
 .fdadmin .visitors-meta { display: flex; gap: 24px; padding-bottom: 6px; }
 .fdadmin .visitors-meta b { display: block; font-size: 18px; font-weight: 600; color: var(--ink); }
 .fdadmin .visitors-meta span { display: block; margin-top: 4px; font-size: 11px; color: var(--muted); }
+
+/* Breakdown rows: visits, then page loads in grey. "Show N more" folds the
+   long tail so the three panels stay level. */
+.fdadmin .simple-row strong small { font-weight: 500; font-size: 11px; color: #9B9FA6; margin-left: 6px; }
+.fdadmin .list-key { margin: 10px 2px 0; font-size: 10.5px; color: #9B9FA6; }
+.fdadmin .list-key b { font-weight: 600; color: var(--ink); }
+.fdadmin .more-rows summary { cursor: pointer; padding: 10px 12px; font-size: 11.5px; color: var(--muted); list-style: none; }
+.fdadmin .more-rows summary::-webkit-details-marker { display: none; }
+.fdadmin .more-rows summary:hover { color: var(--ink); }
+.fdadmin .more-rows[open] summary { display: none; }
+.fdadmin .table-head form.toolbar { display: flex; align-items: center; gap: 10px; }
