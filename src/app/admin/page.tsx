@@ -65,11 +65,16 @@ const TABS: { id: Tab; label: string }[] = [
 /* Bookmarks from the three-tab console still land on the right panel. */
 const OLD_TABS: Record<string, Tab> = { people: "users", billing: "credits" };
 
+/* The periods every tab can be read over: a day, a week, a month, a quarter,
+   a year. `admin_window()` in the database refuses anything beyond 365 days,
+   so this list is also the outer limit of what any figure on the page can
+   cover. Bookmarks holding an older value fall back to 30 days. */
 const RANGES = [
   { days: 1, label: "24 hours" },
   { days: 7, label: "7 days" },
   { days: 30, label: "30 days" },
   { days: 90, label: "90 days" },
+  { days: 365, label: "12 months" },
 ];
 
 /* ── row shapes, as the database returns them ────────────────────────────── */
@@ -151,8 +156,12 @@ function eventLabel(e: EventRow): string {
 
 interface Breakdown {
   label: string;
-  people: number;
-  hits: number;
+  /** People, counted once a day (see supabase/022_unique_visitors.sql). */
+  visitors: number;
+  /** Browser tab sessions. */
+  visits: number;
+  /** Pages opened. */
+  views: number;
 }
 
 /* The design's drafting funnel, in its order. Each step is an event the app
@@ -178,15 +187,25 @@ function periodStart(days: number): number {
   return Date.now() - days * 86_400_000;
 }
 
-/** A breakdown row: visits in bold, page loads beside them in grey. */
-function BreakdownRow({ label, people, hits }: { label: string; people: number; hits: number }) {
+/** One line of a breakdown table: the name, then the three figures its
+ *  header names. Numbers are right-aligned and tabular so they line up. */
+function BreakdownRow({ label, row }: { label: string; row: Breakdown }) {
   return (
-    <div className="simple-row">
-      <span>{label}</span>
-      <strong>
-        {fmt(people)} <small title={`${fmt(hits)} page load${hits === 1 ? "" : "s"}`}>{fmt(hits)}</small>
-      </strong>
+    <div className="breakdown-row">
+      <span title={label}>{label}</span>
+      <b>{fmt(n(row.visitors))}</b>
+      <b className="quiet">{fmt(n(row.visits))}</b>
+      <b className="quiet">{fmt(n(row.views))}</b>
     </div>
+  );
+}
+
+/** What each column of a breakdown table means, said once under it. */
+function BreakdownKey() {
+  return (
+    <p className="list-key">
+      <b>Visitors</b>: people, once a day · <b>Visits</b>: sessions · <b>Views</b>: pages
+    </p>
   );
 }
 
@@ -389,7 +408,7 @@ export default async function AdminPage({
     [accounts, "supabase/011_admin_console.sql"],
     [funnelRes, "supabase/003_events.sql"],
     [waitRes, "supabase/005_waitlist.sql"],
-    [visitsRes, "supabase/020_admin_visits.sql"],
+    [visitsRes, "supabase/022_unique_visitors.sql"],
     [eventsRes, "supabase/015_admin_activity.sql"],
   ] as const) {
     if (res?.error && !problems.includes(hint)) problems.push(hint);
@@ -407,10 +426,30 @@ export default async function AdminPage({
   /* The visitor counter. Countries arrive as two-letter codes from Vercel's
      header; they are shown by name. */
   const visitsRow = (Array.isArray(visitsRes?.data) ? visitsRes.data[0] : visitsRes?.data) as
-    | { visits: number | string; page_loads: number | string; countries: number | string }
+    | {
+        visitors: number | string;
+        visits: number | string;
+        page_views: number | string;
+        countries: number | string;
+        first_day: string | null;
+        last_day: string | null;
+      }
     | null
     | undefined;
-  const visits = visitsRow ? { visits: n(visitsRow.visits), pageLoads: n(visitsRow.page_loads), countries: n(visitsRow.countries) } : null;
+  const visits = visitsRow
+    ? {
+        visitors: n(visitsRow.visitors),
+        visits: n(visitsRow.visits),
+        pageViews: n(visitsRow.page_views),
+        countries: n(visitsRow.countries),
+        firstDay: visitsRow.first_day,
+        lastDay: visitsRow.last_day,
+      }
+    : null;
+  /* Unique visitors need ANALYTICS_SALT set on the server: without it the site
+     records no visitor fingerprint and the figure would be a nought that means
+     "not switched on", not "nobody came". A dash says that honestly. */
+  const visitorsRecorded = Boolean(visits && visits.visitors > 0);
   const countryName = (() => {
     try {
       const names = new Intl.DisplayNames(["en"], { type: "region" });
@@ -426,7 +465,16 @@ export default async function AdminPage({
       return (code: string) => code;
     }
   })();
-  const periodLabel = days === 1 ? "the last 24 hours" : `the last ${days} days`;
+  /* Said the way the selector says it, so the two never disagree. */
+  const periodLabel = `the last ${RANGES.find((r) => r.days === days)?.label ?? `${days} days`}`;
+  /* The dates the figures actually cover: the first and last day on which
+     anything was recorded inside the window, not the window's own edges. */
+  const dateRange = (() => {
+    if (!visits?.firstDay || !visits.lastDay) return null;
+    const one = (iso: string) =>
+      new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+    return visits.firstDay === visits.lastDay ? one(visits.firstDay) : `${one(visits.firstDay)} – ${one(visits.lastDay)}`;
+  })();
   const waitlist = (waitRes?.data as WaitRow[] | null) ?? [];
   const accountRows = (accounts?.data as AccountRow[] | null) ?? [];
   const creditActions = (creditLog?.data as Action[] | null) ?? [];
@@ -754,48 +802,99 @@ export default async function AdminPage({
                   <div className="card-head">
                     <div>
                       <h2>Website visitors</h2>
-                      <p>Visits to foundersdoc.com in {periodLabel}, counted from page loads by the site’s own counter. Your team’s own visits are left out. A visit is one browser session, so the same person on another day, or in another tab, counts again — this is visits, not unique people.</p>
+                      <p>
+                        foundersdoc.com, {periodLabel}
+                        {dateRange ? ` — ${dateRange}` : ""}. Counted by the site’s own counter, with your team’s own visits left out.
+                      </p>
                     </div>
                   </div>
                   <div className="card-body">
-                    <div className="visitors-row">
-                      <div className="visitors-number">
-                        <strong>{visits ? fmt(visits.visits) : "—"}</strong>
-                        <span>website visits</span>
+                    <div className="figure-row">
+                      <div className="figure">
+                        <b>{visitorsRecorded ? fmt(visits!.visitors) : "—"}</b>
+                        <span>Unique visitors</span>
+                        <small>People, counted once a day. Somebody who comes back on another day counts again.</small>
                       </div>
-                      <div className="visitors-meta">
-                        <div><b>{visits ? fmt(visits.pageLoads) : "—"}</b><span>page loads</span></div>
-                        <div><b>{visits ? fmt(visits.countries) : "—"}</b><span>countries</span></div>
+                      <div className="figure">
+                        <b>{visits ? fmt(visits.visits) : "—"}</b>
+                        <span>Visits</span>
+                        <small>Browser sessions. A second tab, or another day, is another visit.</small>
+                      </div>
+                      <div className="figure">
+                        <b>{visits ? fmt(visits.pageViews) : "—"}</b>
+                        <span>Page views</span>
+                        <small>Pages opened in total, refreshes included.</small>
+                      </div>
+                      <div className="figure">
+                        <b>{visits ? fmt(visits.countries) : "—"}</b>
+                        <span>Countries</span>
+                        <small>Where the connections came from, by network.</small>
                       </div>
                     </div>
-                    {!visits && <div className="empty" style={{ textAlign: "left", padding: "10px 0 0" }}>Run supabase/020_admin_visits.sql to switch this counter on.</div>}
+                    {!visits && (
+                      <p className="setup-line">Run <code>supabase/022_unique_visitors.sql</code> to switch this counter on.</p>
+                    )}
+                    {visits && !visitorsRecorded && (
+                      <p className="setup-line">
+                        Unique visitors are blank until <code>ANALYTICS_SALT</code> is set in Vercel and the site is redeployed. Visits and page
+                        views above are counted either way, and nothing is guessed in the meantime.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="grid-3">
-                  {([["Top pages", pageRows], ["Countries", countryRows], ["Devices", deviceRows]] as const).map(([title, rows]) => (
-                    <div className="card" key={title}>
-                      <div className="card-head"><div><h2>{title}</h2><p>Visits, last {days === 1 ? "24 hours" : `${days} days`} · your team excluded</p></div></div>
-                      <div className="card-body">
-                        <div className="simple-list">
-                          {rows.length === 0 && <div className="empty">Nothing recorded yet.</div>}
-                          {rows.slice(0, 8).map((r) => (
-                            <BreakdownRow key={r.label} label={title === "Countries" ? countryName(r.label) : title === "Devices" ? r.label.charAt(0).toUpperCase() + r.label.slice(1) : r.label} people={n(r.people)} hits={n(r.hits)} />
-                          ))}
-                          {rows.length > 8 && (
-                            <details className="more-rows">
-                              <summary><span className="when-closed">Show all {rows.length}</span><span className="when-open">Show fewer</span></summary>
-                              <div className="more-body">
-                                {rows.slice(8).map((r) => (
-                                  <BreakdownRow key={r.label} label={title === "Countries" ? countryName(r.label) : r.label} people={n(r.people)} hits={n(r.hits)} />
-                                ))}
-                              </div>
-                            </details>
-                          )}
+                  {(
+                    [
+                      ["Top pages", "Page", pageRows],
+                      ["Countries", "Country", countryRows],
+                      ["Devices", "Device", deviceRows],
+                    ] as const
+                  ).map(([title, column, rows]) => {
+                    const name = (label: string) =>
+                      title === "Countries"
+                        ? countryName(label)
+                        : title === "Devices"
+                          ? label.charAt(0).toUpperCase() + label.slice(1)
+                          : label;
+                    return (
+                      <div className="card" key={title}>
+                        <div className="card-head">
+                          <div>
+                            <h2>{title}</h2>
+                            <p>{periodLabel.replace("the ", "The ")} · your team excluded</p>
+                          </div>
                         </div>
-                        <p className="list-key"><b>Visits</b> · page loads in grey</p>
+                        <div className="card-body">
+                          <div className="breakdown">
+                            <div className="breakdown-head">
+                              <span>{column}</span>
+                              <b title="People, counted once a day">Visitors</b>
+                              <b title="Browser sessions">Visits</b>
+                              <b title="Pages opened">Views</b>
+                            </div>
+                            {rows.length === 0 && <div className="empty">Nothing recorded yet.</div>}
+                            {rows.slice(0, 8).map((r) => (
+                              <BreakdownRow key={r.label} label={name(r.label)} row={r} />
+                            ))}
+                            {rows.length > 8 && (
+                              <details className="more-rows">
+                                <summary>
+                                  <span className="when-closed">Show all {rows.length}</span>
+                                  <span className="when-open">Show fewer</span>
+                                </summary>
+                                <div className="more-body">
+                                  {rows.slice(8).map((r) => (
+                                    <BreakdownRow key={r.label} label={name(r.label)} row={r} />
+                                  ))}
+                                </div>
+                              </details>
+                            )}
+                          </div>
+                          <BreakdownKey />
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div className="table-card">
                   <div className="table-head">
