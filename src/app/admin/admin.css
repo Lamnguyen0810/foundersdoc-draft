@@ -232,3 +232,14 @@ html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 .fdadmin .hour:hover .hour-bar i { background: var(--ink); }
 .fdadmin .hour:hover .hour-bar i.has-signup { background: var(--yellow, #F4B752); }
 .fdadmin .hour > span { text-align: center; font-size: 9.5px; color: #9B9FA6; min-height: 12px; font-variant-numeric: tabular-nums; }
+
+/* ── a day, opened ──────────────────────────────────────────────────────────
+   The rows of Day by day are links now; the one being read says so. */
+.fdadmin a.breakdown-row { color: inherit; text-decoration: none; cursor: pointer; }
+.fdadmin a.breakdown-row:hover { box-shadow: inset 0 0 0 1px var(--line-strong, #C9CDD3); }
+.fdadmin a.breakdown-row.open { box-shadow: inset 0 0 0 1.5px var(--ink); }
+.fdadmin .day-detail .card-head { align-items: center; }
+.fdadmin .sub-head { margin: 4px 0 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #9B9FA6; }
+.fdadmin .day-detail .sub-head + .breakdown { margin-bottom: 20px; }
+.fdadmin .day-detail .table-wrap { margin: 0 -18px -18px; }
+.fdadmin .muted-cell { color: var(--muted); }
