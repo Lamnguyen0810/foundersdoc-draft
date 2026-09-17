@@ -65,11 +65,16 @@ const TABS: { id: Tab; label: string }[] = [
 /* Bookmarks from the three-tab console still land on the right panel. */
 const OLD_TABS: Record<string, Tab> = { people: "users", billing: "credits" };
 
+/* The periods every tab can be read over: a day, a week, a month, a quarter,
+   a year. `admin_window()` in the database refuses anything beyond 365 days,
+   so this list is also the outer limit of what any figure on the page can
+   cover. Bookmarks holding an older value fall back to 30 days. */
 const RANGES = [
   { days: 1, label: "24 hours" },
   { days: 7, label: "7 days" },
   { days: 30, label: "30 days" },
   { days: 90, label: "90 days" },
+  { days: 365, label: "12 months" },
 ];
 
 /* ── row shapes, as the database returns them ────────────────────────────── */
@@ -460,7 +465,8 @@ export default async function AdminPage({
       return (code: string) => code;
     }
   })();
-  const periodLabel = days === 1 ? "the last 24 hours" : `the last ${days} days`;
+  /* Said the way the selector says it, so the two never disagree. */
+  const periodLabel = `the last ${RANGES.find((r) => r.days === days)?.label ?? `${days} days`}`;
   /* The dates the figures actually cover: the first and last day on which
      anything was recorded inside the window, not the window's own edges. */
   const dateRange = (() => {
