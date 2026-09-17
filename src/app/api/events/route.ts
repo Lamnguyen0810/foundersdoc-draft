@@ -15,7 +15,7 @@ import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib
  *   of being claimed by the caller.
  *
  * COUNTING PEOPLE WITHOUT FOLLOWING THEM
- *   `visitorHash` below turns the visitor's IP address and browser into a
+ *   `visitorCodes` below turns the visitor's IP address and browser into a
  *   fingerprint that is useless tomorrow: the secret it is hashed with
  *   contains today's date, so the same person browsing again next week
  *   produces a completely different value. The address itself is never
@@ -89,16 +89,36 @@ function cleanPath(path: unknown): string | null {
  * recipe could hash the whole IPv4 space and read the addresses back out;
  * a number that costs that is not worth having.
  */
-function visitorHash(req: NextRequest): string | null {
+function visitorCodes(req: NextRequest): { hash: string | null; id: string | null } {
   const salt = process.env.ANALYTICS_SALT?.trim();
-  if (!salt) return null;
+  if (!salt) return { hash: null, id: null };
 
   const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || req.headers.get("x-real-ip") || "";
-  if (!ip) return null;
+  if (!ip) return { hash: null, id: null };
 
-  const day = new Date().toISOString().slice(0, 10); // UTC, as the reports group by
   const ua = req.headers.get("user-agent") ?? "";
-  return createHash("sha256").update(`${salt}|${day}|${ip}|${ua}`).digest("hex").slice(0, 32);
+  const day = new Date().toISOString().slice(0, 10); // UTC, as the reports group by
+  const code = (material: string) => createHash("sha256").update(material).digest("hex").slice(0, 32);
+
+  /* ── THE LASTING CODE, AND WHY IT IS OFF BY DEFAULT ─────────────────────
+     Without the date, the same person is one visitor however many days they
+     come, and it can be said whether they had been before. That is what the
+     firm asked for — and it is also a stable pseudonym, which is personal
+     data under the PDPA and the GDPR even though it is one-way and the
+     address is still never stored.
+
+     So it is sent only when ANALYTICS_STABLE is set, which the firm sets
+     once its privacy notice says this is happening. Until then the column
+     stays empty and the daily code does the counting exactly as before.
+     Nothing here decides that question; it only refuses to decide it
+     quietly. */
+  const stable = (process.env.ANALYTICS_STABLE ?? "").trim().toLowerCase();
+  const lasting = stable !== "" && stable !== "0" && stable !== "off" && stable !== "false";
+
+  return {
+    hash: code(`${salt}|${day}|${ip}|${ua}`),
+    id: lasting ? code(`${salt}|visitor|${ip}|${ua}`) : null,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -121,6 +141,8 @@ export async function POST(req: NextRequest) {
   const country = req.headers.get("x-vercel-ip-country");
   const device = deviceOf(req.headers.get("user-agent") ?? "");
 
+  const codes = visitorCodes(req);
+
   const supabase = createServerClient(supabaseUrl()!, supabasePublishableKey()!, {
     cookies: {
       getAll() {
@@ -139,7 +161,8 @@ export async function POST(req: NextRequest) {
     p_country: country,
     p_device: device,
     p_props: cleanProps(payload.props),
-    p_visitor_hash: visitorHash(req),
+    p_visitor_hash: codes.hash,
+    p_visitor_id: codes.id,
   });
 
   if (error) {

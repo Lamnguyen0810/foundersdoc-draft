@@ -158,6 +158,7 @@ function eventLabel(e: EventRow): string {
 interface DailyRow {
   day: string;
   visitors: number;
+  returning_v: number;
   visits: number;
   page_views: number;
   signups: number;
@@ -218,10 +219,14 @@ function periodStart(days: number): number {
 /** One line of a breakdown table: the name, then the three figures its
  *  header names. Numbers are right-aligned and tabular so they line up. */
 function BreakdownRow({ label, row }: { label: string; row: Breakdown }) {
+  /* Visits with no fingerprint behind them are from before unique visitors
+     were switched on. A nought there would read as "nobody"; a dash reads as
+     "not recorded", which is what it is. */
+  const visitors = n(row.visitors) === 0 && n(row.visits) > 0 ? "—" : fmt(n(row.visitors));
   return (
     <div className="breakdown-row">
       <span title={label}>{label}</span>
-      <b>{fmt(n(row.visitors))}</b>
+      <b>{visitors}</b>
       <b className="quiet">{fmt(n(row.visits))}</b>
       <b className="quiet">{fmt(n(row.views))}</b>
     </div>
@@ -256,6 +261,7 @@ function DayRow({
     >
       <span>{label}</span>
       <b>{visitors}</b>
+      <b className="quiet">{visitors === "—" ? "—" : fmt(n(row.returning_v))}</b>
       <b className="quiet">{fmt(n(row.visits))}</b>
       <b className="quiet">{fmt(n(row.page_views))}</b>
       <b className={n(row.signups) > 0 ? "lit" : "quiet"}>{fmt(n(row.signups))}</b>
@@ -290,7 +296,7 @@ function dayEventLabel(kind: string): string {
 function BreakdownKey() {
   return (
     <p className="list-key">
-      <b>Visitors</b>: people, once a day · <b>Visits</b>: sessions · <b>Views</b>: pages
+      <b>Visitors</b>: different people · <b>Visits</b>: separate sittings · <b>Views</b>: pages opened
     </p>
   );
 }
@@ -566,22 +572,28 @@ export default async function AdminPage({
   const visitsRow = (Array.isArray(visitsRes?.data) ? visitsRes.data[0] : visitsRes?.data) as
     | {
         visitors: number | string;
+        returning_v: number | string;
+        new_v: number | string;
         visits: number | string;
         page_views: number | string;
         countries: number | string;
         first_day: string | null;
         last_day: string | null;
+        visitors_from: string | null;
       }
     | null
     | undefined;
   const visits = visitsRow
     ? {
         visitors: n(visitsRow.visitors),
+        returning: n(visitsRow.returning_v),
+        newcomers: n(visitsRow.new_v),
         visits: n(visitsRow.visits),
         pageViews: n(visitsRow.page_views),
         countries: n(visitsRow.countries),
         firstDay: visitsRow.first_day,
         lastDay: visitsRow.last_day,
+        visitorsFrom: visitsRow.visitors_from,
       }
     : null;
   /* Unique visitors need ANALYTICS_SALT set on the server: without it the site
@@ -605,6 +617,16 @@ export default async function AdminPage({
   })();
   /* Said the way the selector says it, so the two never disagree. */
   const periodLabel = `the last ${RANGES.find((r) => r.days === days)?.label ?? `${days} days`}`;
+  /* When unique visitors started being counted, if that is later than the
+     period itself — the reason the two figures do not match. */
+  const visitorsFromLabel = (() => {
+    if (!visits?.visitorsFrom || !visits.firstDay) return null;
+    if (visits.visitorsFrom <= visits.firstDay) return null;
+    return new Date(`${visits.visitorsFrom}T00:00:00Z`).toLocaleDateString("en-GB", {
+      day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+    });
+  })();
+
   /* The dates the figures actually cover: the first and last day on which
      anything was recorded inside the window, not the window's own edges. */
   const dateRange = (() => {
@@ -1005,24 +1027,40 @@ export default async function AdminPage({
                       <div className="figure">
                         <b>{visitorsRecorded ? fmt(visits!.visitors) : "—"}</b>
                         <span>Unique visitors</span>
-                        <small>People, counted once a day. Somebody who comes back on another day counts again.</small>
+                        <small>
+                          How many different people, each counted once however often they came.
+                          {visitorsFromLabel ? ` Counted from ${visitorsFromLabel}, when this was switched on — which is why it is smaller than visits.` : ""}
+                        </small>
+                      </div>
+                      <div className="figure">
+                        <b>{visitorsRecorded ? fmt(visits!.returning) : "—"}</b>
+                        <span>Returning</span>
+                        <small>
+                          How many of those people had been here before — the rest ({visitorsRecorded ? fmt(visits!.newcomers) : "—"}) found you
+                          for the first time in this period.
+                        </small>
                       </div>
                       <div className="figure">
                         <b>{visits ? fmt(visits.visits) : "—"}</b>
                         <span>Visits</span>
-                        <small>Browser sessions. A second tab, or another day, is another visit.</small>
+                        <small>How many separate sittings. One person who comes back in the evening makes a second visit.</small>
                       </div>
                       <div className="figure">
                         <b>{visits ? fmt(visits.pageViews) : "—"}</b>
                         <span>Page views</span>
-                        <small>Pages opened in total, refreshes included.</small>
+                        <small>How many pages were opened altogether, refreshes included.</small>
                       </div>
                       <div className="figure">
                         <b>{visits ? fmt(visits.countries) : "—"}</b>
                         <span>Countries</span>
-                        <small>Where the connections came from, by network.</small>
+                        <small>How many countries those connections came from.</small>
                       </div>
                     </div>
+                    <p className="worked-example">
+                      <b>How they differ:</b> one person opens four pages this morning, then comes back tonight and opens four more.
+                      That is <b>1 unique visitor</b>, <b>2 visits</b> and <b>8 page views</b> — and if they had been here last week too,
+                      <b>1 returning</b> rather than new.
+                    </p>
                     {!visits && (
                       <p className="setup-line">Run <code>supabase/022_unique_visitors.sql</code> to switch this counter on.</p>
                     )}
@@ -1102,7 +1140,8 @@ export default async function AdminPage({
                     <div className="breakdown">
                       <div className="breakdown-head daily">
                         <span>Day</span>
-                        <b title="People, counted once a day">Visitors</b>
+                        <b title="Different people">Visitors</b>
+                        <b title="Of those, how many had been here on an earlier day">Back</b>
                         <b title="Browser sessions">Visits</b>
                         <b title="Pages opened">Views</b>
                         <b title="Waitlist signups">Signups</b>

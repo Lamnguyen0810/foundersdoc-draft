@@ -159,7 +159,10 @@
 .fdadmin .more-rows summary:hover { color: var(--ink); text-decoration: underline; }
 .fdadmin .more-rows .when-open, .fdadmin .more-rows[open] .when-closed { display: none; }
 .fdadmin .more-rows[open] .when-open { display: inline; }
-.fdadmin .more-body { display: grid; gap: 8px; max-height: 392px; overflow-y: auto; scrollbar-width: thin; }
+/* No inner scrollbar: a panel with its own scroll inside a page that also
+   scrolls is a nuisance, and the cards sit at their own heights anyway
+   (see .grid-3 below), so an open list simply makes its card taller. */
+.fdadmin .more-body { display: grid; gap: 8px; }
 .fdadmin .table-head form.toolbar { display: flex; align-items: center; gap: 10px; }
 
 /* ── the analytics breakdown tables ─────────────────────────────────────────
@@ -181,7 +184,9 @@
 /* ── the headline figures ───────────────────────────────────────────────────
    Four of them, each with its own one-line definition, because "visits" and
    "unique visitors" are different questions and the difference matters. */
-.fdadmin .figure-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+/* Four figures or five, depending on whether returning visitors are being
+   counted; the row fits what it is given rather than being told a number. */
+.fdadmin .figure-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 12px; }
 .fdadmin .figure { padding: 14px 14px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--soft); }
 .fdadmin .figure b { display: block; font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .fdadmin .figure span { display: block; margin: 5px 0 4px; font-size: 11.5px; font-weight: 600; color: var(--ink); }
@@ -215,7 +220,7 @@
 .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 .fdadmin .breakdown-head.daily,
-.fdadmin .breakdown-row.daily { grid-template-columns: minmax(0, 1fr) 54px 42px 42px 48px 42px; }
+.fdadmin .breakdown-row.daily { grid-template-columns: minmax(0, 1fr) 54px 40px 42px 42px 48px 42px; }
 .fdadmin .breakdown-row.daily { background-repeat: no-repeat; }
 .fdadmin .breakdown-row b.lit { color: var(--ink); font-weight: 600; }
 
@@ -243,3 +248,16 @@ html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 .fdadmin .day-detail .sub-head + .breakdown { margin-bottom: 20px; }
 .fdadmin .day-detail .table-wrap { margin: 0 -18px -18px; }
 .fdadmin .muted-cell { color: var(--muted); }
+
+
+/* ── each card at its own height ────────────────────────────────────────────
+   A CSS grid stretches every cell to the tallest by default, which left the
+   Devices card as a tall box holding three rows and a lot of nothing, and
+   forced the open Countries list to scroll inside itself. Each card now ends
+   where its content ends. */
+.fdadmin .grid-3, .fdadmin .grid-2 { align-items: start; }
+
+/* The worked example under the four figures: the shortest way to say what
+   the difference between a visitor and a visit actually is. */
+.fdadmin .worked-example { margin: 14px 0 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--soft); font-size: 11.5px; line-height: 1.65; color: var(--muted); }
+.fdadmin .worked-example b { color: var(--ink); font-weight: 600; }
