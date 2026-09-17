@@ -327,6 +327,7 @@ export default async function AdminPage({
     pages,
     countries,
     devices,
+    visitsRes,
     waitRes,
     planStats,
     accounts,
@@ -344,6 +345,7 @@ export default async function AdminPage({
     tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "path", p_days: days, p_limit: 8 }) : null,
     tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "country", p_days: days, p_limit: 8 }) : null,
     tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "device", p_days: days, p_limit: 5 }) : null,
+    tab === "users" ? supabase.rpc("admin_visits", { p_days: days }) : null,
     tab === "users"
       ? supabase
           .from("waitlist")
@@ -375,6 +377,7 @@ export default async function AdminPage({
     [accounts, "supabase/011_admin_console.sql"],
     [funnelRes, "supabase/003_events.sql"],
     [waitRes, "supabase/005_waitlist.sql"],
+    [visitsRes, "supabase/020_admin_visits.sql"],
     [eventsRes, "supabase/015_admin_activity.sql"],
   ] as const) {
     if (res?.error && !problems.includes(hint)) problems.push(hint);
@@ -389,6 +392,29 @@ export default async function AdminPage({
   const pageRows = (pages?.data as Breakdown[] | null) ?? [];
   const countryRows = (countries?.data as Breakdown[] | null) ?? [];
   const deviceRows = (devices?.data as Breakdown[] | null) ?? [];
+  /* The visitor counter. Countries arrive as two-letter codes from Vercel's
+     header; they are shown by name. */
+  const visitsRow = (Array.isArray(visitsRes?.data) ? visitsRes.data[0] : visitsRes?.data) as
+    | { visits: number | string; page_loads: number | string; countries: number | string }
+    | null
+    | undefined;
+  const visits = visitsRow ? { visits: n(visitsRow.visits), pageLoads: n(visitsRow.page_loads), countries: n(visitsRow.countries) } : null;
+  const countryName = (() => {
+    try {
+      const names = new Intl.DisplayNames(["en"], { type: "region" });
+      return (code: string) => {
+        if (!/^[A-Z]{2}$/.test(code)) return code;
+        try {
+          return names.of(code) ?? code;
+        } catch {
+          return code;
+        }
+      };
+    } catch {
+      return (code: string) => code;
+    }
+  })();
+  const periodLabel = days === 1 ? "the last 24 hours" : `the last ${days} days`;
   const waitlist = (waitRes?.data as WaitRow[] | null) ?? [];
   const accountRows = (accounts?.data as AccountRow[] | null) ?? [];
   const creditActions = (creditLog?.data as Action[] | null) ?? [];
@@ -712,6 +738,27 @@ export default async function AdminPage({
                     </div>
                   </div>
                 </div>
+                <div className="card visitors-card">
+                  <div className="card-head">
+                    <div>
+                      <h2>Website visitors</h2>
+                      <p>Visits to foundersdoc.com in {periodLabel}, counted from page loads by the site’s own counter. Your team’s own visits are left out. A visit is one browser session, so the same person on another day, or in another tab, counts again — this is visits, not unique people.</p>
+                    </div>
+                  </div>
+                  <div className="card-body">
+                    <div className="visitors-row">
+                      <div className="visitors-number">
+                        <strong>{visits ? fmt(visits.visits) : "—"}</strong>
+                        <span>website visits</span>
+                      </div>
+                      <div className="visitors-meta">
+                        <div><b>{visits ? fmt(visits.pageLoads) : "—"}</b><span>page loads</span></div>
+                        <div><b>{visits ? fmt(visits.countries) : "—"}</b><span>countries</span></div>
+                      </div>
+                    </div>
+                    {!visits && <div className="empty" style={{ textAlign: "left", padding: "10px 0 0" }}>Run supabase/020_admin_visits.sql to switch this counter on.</div>}
+                  </div>
+                </div>
                 <div className="grid-3">
                   {([["Top pages", pageRows], ["Countries", countryRows], ["Devices", deviceRows]] as const).map(([title, rows]) => (
                     <div className="card" key={title}>
@@ -721,7 +768,7 @@ export default async function AdminPage({
                           {rows.length === 0 && <div className="empty">Nothing recorded yet.</div>}
                           {rows.map((r) => (
                             <div className="simple-row" key={r.label} title={`${fmt(n(r.hits))} page load${n(r.hits) === 1 ? "" : "s"}`}>
-                              <span>{r.label}</span><strong>{fmt(n(r.people))}</strong>
+                              <span>{title === "Countries" ? countryName(r.label) : title === "Devices" ? r.label.charAt(0).toUpperCase() + r.label.slice(1) : r.label}</span><strong>{fmt(n(r.people))}</strong>
                             </div>
                           ))}
                         </div>
