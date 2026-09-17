@@ -783,10 +783,12 @@ export default async function AdminPage({
                           ))}
                           {rows.length > 8 && (
                             <details className="more-rows">
-                              <summary>Show {rows.length - 8} more</summary>
-                              {rows.slice(8).map((r) => (
-                                <BreakdownRow key={r.label} label={title === "Countries" ? countryName(r.label) : r.label} people={n(r.people)} hits={n(r.hits)} />
-                              ))}
+                              <summary><span className="when-closed">Show all {rows.length}</span><span className="when-open">Show fewer</span></summary>
+                              <div className="more-body">
+                                {rows.slice(8).map((r) => (
+                                  <BreakdownRow key={r.label} label={title === "Countries" ? countryName(r.label) : r.label} people={n(r.people)} hits={n(r.hits)} />
+                                ))}
+                              </div>
                             </details>
                           )}
                         </div>

@@ -150,8 +150,14 @@
 .fdadmin .simple-row strong small { font-weight: 500; font-size: 11px; color: #9B9FA6; margin-left: 6px; }
 .fdadmin .list-key { margin: 10px 2px 0; font-size: 10.5px; color: #9B9FA6; }
 .fdadmin .list-key b { font-weight: 600; color: var(--ink); }
-.fdadmin .more-rows summary { cursor: pointer; padding: 10px 12px; font-size: 11.5px; color: var(--muted); list-style: none; }
+/* The fold under the first eight rows. Open, the extra rows keep the list's
+   8px gap, scroll inside the card past eight of them rather than stretching
+   the whole row of cards, and the link stays put — now reading "Show fewer". */
+.fdadmin .more-rows { display: grid; gap: 8px; }
+.fdadmin .more-rows summary { order: 1; cursor: pointer; padding: 6px 12px; font-size: 11.5px; color: var(--muted); list-style: none; }
 .fdadmin .more-rows summary::-webkit-details-marker { display: none; }
-.fdadmin .more-rows summary:hover { color: var(--ink); }
-.fdadmin .more-rows[open] summary { display: none; }
+.fdadmin .more-rows summary:hover { color: var(--ink); text-decoration: underline; }
+.fdadmin .more-rows .when-open, .fdadmin .more-rows[open] .when-closed { display: none; }
+.fdadmin .more-rows[open] .when-open { display: inline; }
+.fdadmin .more-body { display: grid; gap: 8px; max-height: 392px; overflow-y: auto; scrollbar-width: thin; }
 .fdadmin .table-head form.toolbar { display: flex; align-items: center; gap: 10px; }

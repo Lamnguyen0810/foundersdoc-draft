@@ -24,6 +24,16 @@ export const dynamic = "force-dynamic";
 
 const OK = { ok: true } as const;
 
+/** What join_waitlist said — see the note above the webhook call. */
+function readAnswer(answer: unknown): { isNew: boolean; total: number | null } {
+  if (answer && typeof answer === "object") {
+    const a = answer as { new?: unknown; total?: unknown };
+    const total = typeof a.total === "number" && Number.isFinite(a.total) ? a.total : null;
+    return { isNew: a.new !== false, total };
+  }
+  return { isNew: answer !== false, total: null };
+}
+
 export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured()) {
     return NextResponse.json({ error: "Not available yet." }, { status: 503 });
@@ -51,7 +61,7 @@ export async function POST(req: NextRequest) {
   const company = str(body.company, 160);
   const note = str(body.note, 1000);
   const source = str(body.source, 80) ?? "signup_modal";
-  const { data: joined, error } = await supabase.rpc("join_waitlist", {
+  const { data: answer, error } = await supabase.rpc("join_waitlist", {
     p_email: email,
     p_name: name,
     p_company: company,
@@ -76,13 +86,17 @@ export async function POST(req: NextRequest) {
      src/lib/email/waitlist-welcome.ts should it ever come back. */
 
   /* ── THE FIRM'S AUTOMATION ────────────────────────────────────────────────
-     A new person is announced to WAITLIST_WEBHOOK_URL (Zapier), once. Since
-     019_waitlist_new_flag.sql the function says whether the row was new;
-     before it, it says true for everyone, and a repeat signup would be
-     announced again — run the file and it stops. The visitor's reply is the
-     same either way. */
-  if (joined !== false) {
-    await notifyWaitlistWebhook({ email, name, company, note, source });
+     A new person is announced to WAITLIST_WEBHOOK_URL (Zapier), once, with
+     how many people are on the list at that moment. What the function
+     answers depends on which SQL files have been run:
+       021_waitlist_total.sql   {new, total}   — the total is real
+       019_waitlist_new_flag.sql  true/false   — no total; sent blank
+       before 019                 nothing      — everyone announced, no total
+     The total is never guessed: when the database has not said, the field
+     is empty. The visitor's reply is the same in every case. */
+  const { isNew, total } = readAnswer(answer);
+  if (isNew) {
+    await notifyWaitlistWebhook({ email, name, company, note, source, total });
   }
 
   return NextResponse.json(OK);
