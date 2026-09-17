@@ -1085,7 +1085,7 @@ function Chat({
       form.append("file", file);
       const res = await fetch("/api/extract", { method: "POST", body: form });
       const j = (await res.json().catch(() => null)) as
-        | { text?: string; error?: string }
+        | { text?: string; error?: string; kind?: string }
         | null;
       if (!res.ok || !j?.text) {
         setError(j?.error ?? "Could not read that file.");
@@ -1093,8 +1093,14 @@ function Chat({
       }
       setSourceText(j.text);
       /* The file NAME is never recorded — "Project Dragonfly NDA.docx" names a
-         matter. Only that an upload happened, and roughly how much text. */
-      track("source_uploaded", { doc_type: docType.slug, words: j.text.trim().split(/\s+/).length });
+         matter. Only that an upload happened, roughly how much text, and which
+         format it was, which is what tells the firm whether people are sending
+         Word or PDF. */
+      track("source_uploaded", {
+        doc_type: docType.slug,
+        words: j.text.trim().split(/\s+/).length,
+        ...(j.kind ? { format: j.kind } : {}),
+      });
       setAttachments((a) => [...a, file.name]);
       setToast(`Attached ${file.name}`);
       if (step?.kind === "source") commit(false);

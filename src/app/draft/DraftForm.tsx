@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { stepsFor, type DocType, type Field } from "@/lib/doctypes";
 import { splitNotes } from "@/lib/prompt";
+import { track } from "@/lib/track";
 
 interface DoneInfo {
   provider: string;
@@ -129,6 +130,14 @@ function SourceUpload({
         setError(json.error ?? "That file could not be read.");
         return;
       }
+      /* Recorded the same way the first drafting screen records it, so the
+         dashboard's upload count covers both. The file's name and its text
+         are never sent — only that an upload happened, its rough length and
+         its format. */
+      track("source_uploaded", {
+        words: String(json.text ?? "").trim().split(/\s+/).filter(Boolean).length,
+        ...(json.kind ? { format: String(json.kind) } : {}),
+      });
       onExtracted(json.text ?? "", {
         filename: json.filename,
         chars: json.chars,
