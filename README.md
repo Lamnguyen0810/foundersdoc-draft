@@ -110,6 +110,11 @@ build that can fail.
 
 ## 🚀 Deploying to Vercel
 
+The weekly Zapier analytics report also requires a server-only
+`ANALYTICS_REPORT_SECRET`. Generate a long random value, add it to Vercel, and
+send the same value from Zapier as `Authorization: Bearer <value>` when posting
+to `/api/analytics/weekly`. Never prefix this variable with `NEXT_PUBLIC_`.
+
 The AI app lives in **its own Vercel project**, separate from the marketing site, so an AI experiment can never break foundersdoc.com.
 
 ```bash
