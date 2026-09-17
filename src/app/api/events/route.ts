@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cleanProps, isEventName } from "@/lib/events";
@@ -13,12 +14,23 @@ import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib
  *   is stored, and the signed-in user is taken from the session cookie instead
  *   of being claimed by the caller.
  *
+ * COUNTING PEOPLE WITHOUT FOLLOWING THEM
+ *   `visitorHash` below turns the visitor's IP address and browser into a
+ *   fingerprint that is useless tomorrow: the secret it is hashed with
+ *   contains today's date, so the same person browsing again next week
+ *   produces a completely different value. The address itself is never
+ *   stored, never logged, and never leaves this function. That is what lets
+ *   the dashboard say "unique visitors, counted once a day" without a
+ *   consent banner and without holding anyone's personal data.
+ *
  * WHY IT NEVER RETURNS AN ERROR TO THE PAGE
  *   Analytics is the least important thing happening on any screen it runs on.
  *   A failed insert must never colour a button red or block a draft, so every
  *   outcome is 204. Problems go to the server log, where they belong.
  */
 export const dynamic = "force-dynamic";
+// node:crypto, and the real client IP, both need the Node runtime.
+export const runtime = "nodejs";
 
 const NO_CONTENT = new NextResponse(null, { status: 204 });
 
@@ -64,6 +76,31 @@ function cleanPath(path: unknown): string | null {
   );
 }
 
+/**
+ * A visitor fingerprint that expires at midnight UTC.
+ *
+ * sha256(secret + today's date + IP + user-agent). One way: the hash cannot
+ * be turned back into an address, and because the date is inside it, two
+ * visits on two days by the same person never produce the same value — so
+ * this cannot be used to build a history of anybody.
+ *
+ * Returns null when ANALYTICS_SALT is not set, and the dashboard then shows
+ * a dash instead of a visitor count. Without a secret, anyone who knew the
+ * recipe could hash the whole IPv4 space and read the addresses back out;
+ * a number that costs that is not worth having.
+ */
+function visitorHash(req: NextRequest): string | null {
+  const salt = process.env.ANALYTICS_SALT?.trim();
+  if (!salt) return null;
+
+  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || req.headers.get("x-real-ip") || "";
+  if (!ip) return null;
+
+  const day = new Date().toISOString().slice(0, 10); // UTC, as the reports group by
+  const ua = req.headers.get("user-agent") ?? "";
+  return createHash("sha256").update(`${salt}|${day}|${ip}|${ua}`).digest("hex").slice(0, 32);
+}
+
 export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured()) return NO_CONTENT;
 
@@ -102,6 +139,7 @@ export async function POST(req: NextRequest) {
     p_country: country,
     p_device: device,
     p_props: cleanProps(payload.props),
+    p_visitor_hash: visitorHash(req),
   });
 
   if (error) {

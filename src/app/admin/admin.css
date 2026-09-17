@@ -148,7 +148,7 @@
 /* Breakdown rows: visits, then page loads in grey. "Show N more" folds the
    long tail so the three panels stay level. */
 .fdadmin .simple-row strong small { font-weight: 500; font-size: 11px; color: #9B9FA6; margin-left: 6px; }
-.fdadmin .list-key { margin: 10px 2px 0; font-size: 10.5px; color: #9B9FA6; }
+.fdadmin .list-key { margin: 10px 2px 0; font-size: 10px; line-height: 1.6; color: #9B9FA6; }
 .fdadmin .list-key b { font-weight: 600; color: var(--ink); }
 /* The fold under the first eight rows. Open, the extra rows keep the list's
    8px gap, scroll inside the card past eight of them rather than stretching
@@ -161,3 +161,34 @@
 .fdadmin .more-rows[open] .when-open { display: inline; }
 .fdadmin .more-body { display: grid; gap: 8px; max-height: 392px; overflow-y: auto; scrollbar-width: thin; }
 .fdadmin .table-head form.toolbar { display: flex; align-items: center; gap: 10px; }
+
+/* ── the analytics breakdown tables ─────────────────────────────────────────
+   Three figures per line, each under a header that names it. The old layout
+   put visits and page loads side by side in one cell with the second in
+   grey, which told nobody which was which. Columns and a header row do.
+   The number columns are fixed so the three cards line up with each other. */
+.fdadmin .breakdown { display: grid; gap: 4px; }
+.fdadmin .breakdown-head,
+.fdadmin .breakdown-row { display: grid; grid-template-columns: minmax(0,1fr) 54px 42px 42px; gap: 6px; align-items: center; }
+.fdadmin .breakdown-head { padding: 0 12px 7px; font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: #9B9FA6; border-bottom: 1px solid var(--line); margin-bottom: 2px; }
+.fdadmin .breakdown-row { min-height: 38px; padding: 0 12px; border-radius: 10px; background: var(--soft); font-size: 12px; }
+.fdadmin .breakdown-head b, .fdadmin .breakdown-row b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fdadmin .breakdown-row b.quiet { font-weight: 500; color: #9B9FA6; }
+.fdadmin .breakdown-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fdadmin .breakdown .empty { padding: 14px 0; }
+.fdadmin .breakdown .more-rows, .fdadmin .breakdown .more-body { gap: 4px; }
+
+/* ── the headline figures ───────────────────────────────────────────────────
+   Four of them, each with its own one-line definition, because "visits" and
+   "unique visitors" are different questions and the difference matters. */
+.fdadmin .figure-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.fdadmin .figure { padding: 14px 14px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--soft); }
+.fdadmin .figure b { display: block; font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.fdadmin .figure span { display: block; margin: 5px 0 4px; font-size: 11.5px; font-weight: 600; color: var(--ink); }
+.fdadmin .figure small { display: block; font-size: 10.5px; line-height: 1.5; color: var(--muted); }
+.fdadmin .setup-line { margin: 12px 0 0; font-size: 11px; line-height: 1.6; color: var(--muted); }
+.fdadmin .setup-line code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; background: var(--soft); padding: 1px 5px; border-radius: 5px; }
+
+@media (max-width: 900px) {
+  .fdadmin .figure-row { grid-template-columns: repeat(2, 1fr); }
+}
