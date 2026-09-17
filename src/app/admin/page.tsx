@@ -252,7 +252,7 @@ function planLabel(row: AccountRow): { text: string; tone: string } {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; days?: string; q?: string; status?: string; kind?: string }>;
+  searchParams: Promise<{ tab?: string; days?: string; q?: string; status?: string; kind?: string; wl?: string }>;
 }) {
   if (!isSupabaseConfigured()) redirect("/draft");
 
@@ -267,6 +267,11 @@ export default async function AdminPage({
   const q = (sp.q ?? "").trim().slice(0, 80);
   const status = ["draft", "final", "failed"].includes(sp.status ?? "") ? (sp.status as string) : "";
   const kind = ["Admin", "System", "Billing", "Files"].includes(sp.kind ?? "") ? (sp.kind as string) : "";
+  /* Which signups the waitlist table lists: everyone (the default — nobody
+     should vanish from a list of people waiting), or only those who joined
+     inside the selected period. The figures above it follow the period
+     either way. */
+  const waitScope: "all" | "period" = sp.wl === "period" ? "period" : "all";
 
   const supabase = await createClient();
 
@@ -485,11 +490,13 @@ export default async function AdminPage({
      here; both lists are already bounded by the queries above. */
   const docRowsShown = status ? docRows.filter((d) => d.status === status) : docRows;
   const qLower = q.toLowerCase();
+  const waitlistInScope =
+    waitScope === "period" ? waitlist.filter((w) => new Date(w.created_at).getTime() >= periodStart(days)) : waitlist;
   const waitlistShown = q
-    ? waitlist.filter((w) =>
+    ? waitlistInScope.filter((w) =>
         [w.email, w.name, w.company, w.note].some((v) => (v ?? "").toLowerCase().includes(qLower)),
       )
-    : waitlist;
+    : waitlistInScope;
   /* The money meter only has something to say when the model has actually been
      called: the figure is a sum of per-request costs, so with no requests there
      is no figure — and a zero would read as "we spent nothing", which is a
@@ -502,6 +509,13 @@ export default async function AdminPage({
      events the app records (System), credit grants and revokes (Admin), AI
      files reviewed or approved (Files) and memberships whose payment failed
      (Billing). Nothing is invented for a quiet day. */
+  /* Everyone on the list, all time: the same definition the site sends to the
+     firm's Zap as `total`, so the two never disagree. */
+  const onList = n(us.waitlist_waiting) + n(us.waitlist_invited);
+  /* The equal period before this one, for an honest comparison rather than a
+     number floating on its own. admin_user_stats counts it; where it does not
+     (an older database), the line says nothing instead of guessing. */
+  const joinedBefore = us.waitlist_prev === undefined || us.waitlist_prev === null ? null : n(us.waitlist_prev);
   const since = periodStart(days);
   const logRows: LogLine[] = [];
   for (const e of events) {
@@ -898,22 +912,81 @@ export default async function AdminPage({
                 </div>
                 <div className="table-card">
                   <div className="table-head">
-                    <div><h2>Waitlist</h2></div>
+                    <div className="head-text">
+                      <h2>Waitlist</h2>
+                      <p>
+                        The figures follow the period above; the list below shows{" "}
+                        {waitScope === "period" ? `only people who joined in ${periodLabel}` : "everybody on the list"}.
+                      </p>
+                    </div>
                     <form method="get" action="/admin" className="toolbar">
                       <input type="hidden" name="tab" value="users" />
                       <input type="hidden" name="days" value={days} />
+                      <input type="hidden" name="wl" value={waitScope} />
                       <span className="badge" title={`${fmt(n(us.waitlist_waiting))} waiting · ${fmt(n(us.waitlist_invited))} invited`}>
-                        {fmt(n(us.waitlist_waiting) + n(us.waitlist_invited))} joined
+                        {waitlistShown.length === onList
+                          ? `${fmt(onList)} joined`
+                          : `${fmt(waitlistShown.length)} of ${fmt(onList)} joined`}
                       </span>
                       <input className="input" name="q" defaultValue={q} placeholder="Search waitlist" />
                     </form>
+                  </div>
+                  <div className="figure-row in-table">
+                    <div className="figure">
+                      <b>{fmt(n(us.waitlist_new))}</b>
+                      <span>Joined in {periodLabel}</span>
+                      <small>
+                        {joinedBefore === null
+                          ? "Signups dated inside the selected period."
+                          : `${fmt(joinedBefore)} in the ${RANGES.find((r) => r.days === days)?.label ?? `${days} days`} before that.`}
+                      </small>
+                    </div>
+                    <div className="figure">
+                      <b>{fmt(onList)}</b>
+                      <span>On the list</span>
+                      <small>Everyone waiting or invited, all time — the number the site sends to your Zap.</small>
+                    </div>
+                    <div className="figure">
+                      <b>{fmt(n(us.waitlist_waiting))}</b>
+                      <span>Waiting</span>
+                      <small>Signed up, not yet invited in.</small>
+                    </div>
+                    <div className="figure">
+                      <b>{fmt(n(us.waitlist_invited))}</b>
+                      <span>Invited</span>
+                      <small>Given access to FD AI.</small>
+                    </div>
+                  </div>
+                  <div className="scope-toggle" role="group" aria-label="Which signups to list">
+                    <Link
+                      href={`/admin?tab=users&days=${days}&wl=all${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+                      className={waitScope === "all" ? "on" : ""}
+                    >
+                      Everybody
+                    </Link>
+                    <Link
+                      href={`/admin?tab=users&days=${days}&wl=period${q ? `&q=${encodeURIComponent(q)}` : ""}`}
+                      className={waitScope === "period" ? "on" : ""}
+                    >
+                      {(RANGES.find((r) => r.days === days)?.label ?? `${days} days`).replace(/^(\d)/, "Last $1")}
+                    </Link>
                   </div>
                   <div className="table-wrap">
                     <table>
                       <thead><tr><th>Email</th><th>Name</th><th>Company</th><th>Wants to draft</th><th>Joined</th><th>Status</th></tr></thead>
                       <tbody>
                         {waitlistShown.length === 0 && (
-                          <tr><td colSpan={6}><div className="empty">{q ? `Nobody on the waitlist matches “${q}”.` : "Nobody on the waitlist yet."}</div></td></tr>
+                          <tr>
+                            <td colSpan={6}>
+                              <div className="empty">
+                                {q
+                                  ? `Nobody on the waitlist matches “${q}”.`
+                                  : waitScope === "period"
+                                    ? `Nobody joined in ${periodLabel}. Choose “Everybody” to see the whole list.`
+                                    : "Nobody on the waitlist yet."}
+                              </div>
+                            </td>
+                          </tr>
                         )}
                         {waitlistShown.map((w) => (
                           <tr key={w.email}>
