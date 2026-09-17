@@ -157,11 +157,13 @@ function eventLabel(e: EventRow): string {
 /** One day, in Singapore time (see supabase/024_daily_and_hourly.sql). */
 interface DailyRow {
   day: string;
+  /** People. One person is one visitor, however often they came. */
   visitors: number;
-  returning_v: number;
+  /** Of those, the ones who came more than three times in the period. */
+  frequent: number;
+  signups: number;
   visits: number;
   page_views: number;
-  signups: number;
   drafts: number;
 }
 
@@ -261,10 +263,10 @@ function DayRow({
     >
       <span>{label}</span>
       <b>{visitors}</b>
-      <b className="quiet">{visitors === "—" ? "—" : fmt(n(row.returning_v))}</b>
+      <b className="quiet">{visitors === "—" ? "—" : fmt(n(row.frequent))}</b>
+      <b className={n(row.signups) > 0 ? "lit" : "quiet"}>{fmt(n(row.signups))}</b>
       <b className="quiet">{fmt(n(row.visits))}</b>
       <b className="quiet">{fmt(n(row.page_views))}</b>
-      <b className={n(row.signups) > 0 ? "lit" : "quiet"}>{fmt(n(row.signups))}</b>
       <b className="quiet">{fmt(n(row.drafts))}</b>
     </Link>
   );
@@ -572,8 +574,7 @@ export default async function AdminPage({
   const visitsRow = (Array.isArray(visitsRes?.data) ? visitsRes.data[0] : visitsRes?.data) as
     | {
         visitors: number | string;
-        returning_v: number | string;
-        new_v: number | string;
+        frequent: number | string;
         visits: number | string;
         page_views: number | string;
         countries: number | string;
@@ -586,8 +587,7 @@ export default async function AdminPage({
   const visits = visitsRow
     ? {
         visitors: n(visitsRow.visitors),
-        returning: n(visitsRow.returning_v),
-        newcomers: n(visitsRow.new_v),
+        frequent: n(visitsRow.frequent),
         visits: n(visitsRow.visits),
         pageViews: n(visitsRow.page_views),
         countries: n(visitsRow.countries),
@@ -1026,29 +1026,29 @@ export default async function AdminPage({
                     <div className="figure-row">
                       <div className="figure">
                         <b>{visitorsRecorded ? fmt(visits!.visitors) : "—"}</b>
-                        <span>Unique visitors</span>
+                        <span>Visitors</span>
                         <small>
-                          How many different people, each counted once however often they came.
-                          {visitorsFromLabel ? ` Counted from ${visitorsFromLabel}, when this was switched on — which is why it is smaller than visits.` : ""}
+                          People who came. One person is one visitor however often they came back.
+                          {visitorsFromLabel ? ` Counted from ${visitorsFromLabel}, when this was switched on.` : ""}
                         </small>
                       </div>
                       <div className="figure">
-                        <b>{visitorsRecorded ? fmt(visits!.returning) : "—"}</b>
-                        <span>Returning</span>
+                        <b>{visitorsRecorded ? fmt(visits!.frequent) : "—"}</b>
+                        <span>Unique visitors</span>
                         <small>
-                          How many of those people had been here before — the rest ({visitorsRecorded ? fmt(visits!.newcomers) : "—"}) found you
-                          for the first time in this period.
+                          Of those visitors, the ones who came more than three times — four sittings or more. They are counted in
+                          Visitors as well.
                         </small>
                       </div>
                       <div className="figure">
                         <b>{visits ? fmt(visits.visits) : "—"}</b>
                         <span>Visits</span>
-                        <small>How many separate sittings. One person who comes back in the evening makes a second visit.</small>
+                        <small>Sittings. One person who comes back in the evening makes a second visit.</small>
                       </div>
                       <div className="figure">
                         <b>{visits ? fmt(visits.pageViews) : "—"}</b>
-                        <span>Page views</span>
-                        <small>How many pages were opened altogether, refreshes included.</small>
+                        <span>Views</span>
+                        <small>Pages opened altogether, refreshes included.</small>
                       </div>
                       <div className="figure">
                         <b>{visits ? fmt(visits.countries) : "—"}</b>
@@ -1058,8 +1058,8 @@ export default async function AdminPage({
                     </div>
                     <p className="worked-example">
                       <b>How they differ:</b> one person opens four pages this morning, then comes back tonight and opens four more.
-                      That is <b>1 unique visitor</b>, <b>2 visits</b> and <b>8 page views</b> — and if they had been here last week too,
-                      <b>1 returning</b> rather than new.
+                      That is <b>1 visitor</b>, <b>2 visits</b> and <b>8 views</b>. Come back twice more this month and that same person
+                      is also <b>1 unique visitor</b> — still one visitor, not two.
                     </p>
                     {!visits && (
                       <p className="setup-line">Run <code>supabase/022_unique_visitors.sql</code> to switch this counter on.</p>
@@ -1140,11 +1140,11 @@ export default async function AdminPage({
                     <div className="breakdown">
                       <div className="breakdown-head daily">
                         <span>Day</span>
-                        <b title="Different people">Visitors</b>
-                        <b title="Of those, how many had been here on an earlier day">Back</b>
-                        <b title="Browser sessions">Visits</b>
-                        <b title="Pages opened">Views</b>
+                        <b title="People who came that day">Visitors</b>
+                        <b title="Of them, the ones who came more than three times in the period">Unique</b>
                         <b title="Waitlist signups">Signups</b>
+                        <b title="Sittings">Visits</b>
+                        <b title="Pages opened">Views</b>
                         <b title="Drafts started">Drafts</b>
                       </div>
                       {dailyRows.length === 0 && <div className="empty">Nothing recorded yet.</div>}
