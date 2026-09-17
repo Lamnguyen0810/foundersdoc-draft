@@ -164,12 +164,22 @@ interface DailyRow {
   drafts: number;
 }
 
-/** One hour of the day, 0–23, in Singapore time. */
+/** One hour of an opened day, 0–23, in Singapore time. */
 interface HourRow {
   hour: number;
   visits: number;
   page_views: number;
   signups: number;
+}
+
+/** One thing that happened on an opened day. */
+interface DayEvent {
+  at: string;
+  kind: string;
+  who: string | null;
+  detail: string | null;
+  country: string | null;
+  device: string | null;
 }
 
 interface Breakdown {
@@ -220,21 +230,60 @@ function BreakdownRow({ label, row }: { label: string; row: Breakdown }) {
 
 /** One day. The bar behind it is that day's visits against the busiest day
  *  in view, so a quiet week is not drawn as a busy one. */
-function DayRow({ label, row, busiest }: { label: string; row: DailyRow; busiest: number }) {
+function DayRow({
+  label,
+  row,
+  busiest,
+  href,
+  open,
+}: {
+  label: string;
+  row: DailyRow;
+  busiest: number;
+  href: string;
+  open: boolean;
+}) {
   const share = Math.round((n(row.visits) / busiest) * 100);
+  /* A day with visits but no fingerprints is a day from before unique
+     visitors were switched on. Nought would read as "nobody came", which is
+     false; a dash reads as "not recorded", which is true. */
+  const visitors = n(row.visitors) === 0 && n(row.visits) > 0 ? "—" : fmt(n(row.visitors));
   return (
-    <div
-      className="breakdown-row daily"
+    <Link
+      className={`breakdown-row daily${open ? " open" : ""}`}
+      href={href}
       style={{ backgroundImage: `linear-gradient(to right, var(--day-bar) ${share}%, transparent ${share}%)` }}
     >
       <span>{label}</span>
-      <b>{fmt(n(row.visitors))}</b>
+      <b>{visitors}</b>
       <b className="quiet">{fmt(n(row.visits))}</b>
       <b className="quiet">{fmt(n(row.page_views))}</b>
       <b className={n(row.signups) > 0 ? "lit" : "quiet"}>{fmt(n(row.signups))}</b>
       <b className="quiet">{fmt(n(row.drafts))}</b>
-    </div>
+    </Link>
   );
+}
+
+/** An event name from admin_day_events, in the firm's words. */
+function dayEventLabel(kind: string): string {
+  switch (kind) {
+    case "signup": return "Joined the waitlist";
+    case "draft": return "Started a draft";
+    case "draft_generated": return "Draft generated";
+    case "draft_revised": return "Draft revised";
+    case "draft_exported": return "Downloaded Word";
+    case "draft_failed": return "Generation failed";
+    case "draft_abandoned": return "Left a draft unfinished";
+    case "source_uploaded": return "Uploaded a document";
+    case "paywall_hit": return "Ran out of credits";
+    case "sign_up_started": return "Created an account";
+    case "sign_in_ok": return "Signed in";
+    case "sign_in_failed": return "Sign-in failed";
+    case "contact_submit": return "Sent the enquiry form";
+    case "consult_click": return "Pressed Book a consultation";
+    case "launch_fdai_click": return "Pressed Launch FD AI";
+    default: return kind.replace(/_/g, " ");
+  }
 }
 
 /** What each column of a breakdown table means, said once under it. */
@@ -289,7 +338,7 @@ function planLabel(row: AccountRow): { text: string; tone: string } {
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; days?: string; q?: string; status?: string; kind?: string; wl?: string }>;
+  searchParams: Promise<{ tab?: string; days?: string; q?: string; status?: string; kind?: string; wl?: string; day?: string }>;
 }) {
   if (!isSupabaseConfigured()) redirect("/draft");
 
@@ -309,6 +358,9 @@ export default async function AdminPage({
      inside the selected period. The figures above it follow the period
      either way. */
   const waitScope: "all" | "period" = sp.wl === "period" ? "period" : "all";
+  /* A day opened from the Day by day list, as YYYY-MM-DD in Singapore time.
+     Anything else is ignored rather than passed to the database. */
+  const openDay = /^\d{4}-\d{2}-\d{2}$/.test(sp.day ?? "") ? (sp.day as string) : "";
 
   const supabase = await createClient();
 
@@ -403,7 +455,8 @@ export default async function AdminPage({
     devices,
     visitsRes,
     dailyRes,
-    hourlyRes,
+    dayHoursRes,
+    dayEventsRes,
     waitRes,
     planStats,
     accounts,
@@ -424,7 +477,8 @@ export default async function AdminPage({
     tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "device", p_days: days, p_limit: 5 }) : null,
     tab === "users" ? supabase.rpc("admin_visits", { p_days: days }) : null,
     tab === "users" ? supabase.rpc("admin_daily", { p_days: days }) : null,
-    tab === "users" ? supabase.rpc("admin_hourly", { p_days: days }) : null,
+    tab === "users" && openDay ? supabase.rpc("admin_day_hours", { p_day: openDay }) : null,
+    tab === "users" && openDay ? supabase.rpc("admin_day_events", { p_day: openDay, p_limit: 200 }) : null,
     tab === "users"
       ? supabase
           .from("waitlist")
@@ -458,7 +512,8 @@ export default async function AdminPage({
     [waitRes, "supabase/005_waitlist.sql"],
     [visitsRes, "supabase/022_unique_visitors.sql"],
     [dailyRes, "supabase/024_daily_and_hourly.sql"],
-    [hourlyRes, "supabase/024_daily_and_hourly.sql"],
+    [dayHoursRes, "supabase/025_day_detail.sql"],
+    [dayEventsRes, "supabase/025_day_detail.sql"],
     [uploadFormats, "supabase/023_upload_stats.sql"],
     [eventsRes, "supabase/015_admin_activity.sql"],
   ] as const) {
@@ -470,15 +525,27 @@ export default async function AdminPage({
   const ps = (planStats?.data ?? {}) as Record<string, unknown>;
   const docRows = (docs?.data as DocRow[] | null) ?? [];
   const dailyRows = (dailyRes?.data as DailyRow[] | null) ?? [];
-  const hourRows = (hourlyRes?.data as HourRow[] | null) ?? [];
-  /* The busiest day and the busiest hour set the scale of the bars, so a
-     quiet week does not draw itself as a busy one. */
+  const dayHours = (dayHoursRes?.data as HourRow[] | null) ?? [];
+  const dayEvents = (dayEventsRes?.data as DayEvent[] | null) ?? [];
+  /* The busiest day sets the scale of the bars, so a quiet week does not
+     draw itself as a busy one. */
   const busiestDay = Math.max(1, ...dailyRows.map((d) => n(d.visits)));
-  const busiestHour = Math.max(1, ...hourRows.map((h) => n(h.visits)));
-  const hoursRecorded = hourRows.some((h) => n(h.visits) > 0 || n(h.signups) > 0);
+  const busiestDayHour = Math.max(1, ...dayHours.map((h) => n(h.page_views)));
   /* "Tue 17 Sep". The date arrives as a plain YYYY-MM-DD that the database has
      already worked out in Singapore time, so it is read back as UTC to keep it
      exactly that day rather than shifting it again. */
+  const dayHref = (iso: string) =>
+    iso === openDay
+      ? `/admin?tab=users&days=${days}${waitScope === "period" ? "&wl=period" : ""}`
+      : `/admin?tab=users&days=${days}${waitScope === "period" ? "&wl=period" : ""}&day=${iso}#day`;
+  /* "Thursday 17 September 2026", for the heading of an opened day. */
+  const dayTitle = (iso: string) =>
+    new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
+      weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC",
+    });
+  /* A timestamp as the clock read in Singapore. */
+  const clock = (iso: string) =>
+    new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Singapore" });
   const dayLabel = (iso: string) =>
     new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
       weekday: "short", day: "numeric", month: "short", timeZone: "UTC",
@@ -1043,7 +1110,7 @@ export default async function AdminPage({
                       </div>
                       {dailyRows.length === 0 && <div className="empty">Nothing recorded yet.</div>}
                       {dailyRows.slice(0, 14).map((d) => (
-                        <DayRow key={d.day} label={dayLabel(d.day)} row={d} busiest={busiestDay} />
+                        <DayRow key={d.day} label={dayLabel(d.day)} row={d} busiest={busiestDay} href={dayHref(d.day)} open={d.day === openDay} />
                       ))}
                       {dailyRows.length > 14 && (
                         <details className="more-rows">
@@ -1053,7 +1120,7 @@ export default async function AdminPage({
                           </summary>
                           <div className="more-body">
                             {dailyRows.slice(14).map((d) => (
-                              <DayRow key={d.day} label={dayLabel(d.day)} row={d} busiest={busiestDay} />
+                              <DayRow key={d.day} label={dayLabel(d.day)} row={d} busiest={busiestDay} href={dayHref(d.day)} open={d.day === openDay} />
                             ))}
                           </div>
                         </details>
@@ -1066,42 +1133,77 @@ export default async function AdminPage({
                     </p>
                   </div>
                 </div>
-                <div className="card">
-                  <div className="card-head">
-                    <div>
-                      <h2>What time of day</h2>
-                      <p>Visits by hour, Singapore time, across {periodLabel} — when people are actually on the site.</p>
+                {openDay && (
+                  <div className="card day-detail">
+                    <div className="card-head">
+                      <div>
+                        <h2>{dayTitle(openDay)}</h2>
+                        <p>Everything recorded that day, Singapore time. Page views are the hours below, not a list — a list of every page one anonymous visitor opened is a browsing history, which is not something to keep on a dashboard.</p>
+                      </div>
+                      <Link className="btn" href={`/admin?tab=users&days=${days}${waitScope === "period" ? "&wl=period" : ""}`}>
+                        Close
+                      </Link>
                     </div>
-                  </div>
-                  <div className="card-body">
-                    {!hoursRecorded && <div className="empty">Nothing recorded yet.</div>}
-                    {hoursRecorded && (
-                      <>
-                        <div className="hours">
-                          {hourRows.map((h) => {
-                            const v = n(h.visits);
-                            const pct = Math.round((v / busiestHour) * 100);
+                    <div className="card-body">
+                      <h3 className="sub-head">By hour</h3>
+                      {dayHours.length === 0 && <div className="empty">No visits recorded that day.</div>}
+                      {dayHours.length > 0 && (
+                        <div className="breakdown">
+                          <div className="breakdown-head">
+                            <span>Hour</span>
+                            <b>Visits</b>
+                            <b>Views</b>
+                            <b>Signups</b>
+                          </div>
+                          {dayHours.map((h) => {
+                            const share = Math.round((n(h.page_views) / busiestDayHour) * 100);
                             return (
                               <div
-                                className="hour"
+                                className="breakdown-row"
                                 key={h.hour}
-                                title={`${String(h.hour).padStart(2, "0")}:00 — ${fmt(v)} visit${v === 1 ? "" : "s"}, ${fmt(n(h.page_views))} page views${n(h.signups) > 0 ? `, ${fmt(n(h.signups))} signup${n(h.signups) === 1 ? "" : "s"}` : ""}`}
+                                style={{ backgroundImage: `linear-gradient(to right, var(--day-bar) ${share}%, transparent ${share}%)` }}
                               >
-                                <div className="hour-bar">
-                                  <i style={{ height: `${Math.max(v > 0 ? 3 : 0, pct)}%` }} className={n(h.signups) > 0 ? "has-signup" : undefined} />
-                                </div>
-                                <span>{h.hour % 6 === 0 ? String(h.hour).padStart(2, "0") : ""}</span>
+                                <span>
+                                  {String(h.hour).padStart(2, "0")}:00 – {String(h.hour).padStart(2, "0")}:59
+                                </span>
+                                <b>{fmt(n(h.visits))}</b>
+                                <b className="quiet">{fmt(n(h.page_views))}</b>
+                                <b className={n(h.signups) > 0 ? "lit" : "quiet"}>{fmt(n(h.signups))}</b>
                               </div>
                             );
                           })}
                         </div>
-                        <p className="list-key">
-                          Hover a bar for that hour’s figures. A gold bar is an hour in which somebody joined the waitlist.
-                        </p>
-                      </>
-                    )}
+                      )}
+                      <h3 className="sub-head">What happened</h3>
+                      {dayEvents.length === 0 && (
+                        <div className="empty">Nothing beyond page views was recorded that day.</div>
+                      )}
+                      {dayEvents.length > 0 && (
+                        <div className="table-wrap">
+                          <table>
+                            <thead>
+                              <tr><th>Time</th><th>What</th><th>Who</th><th>Detail</th><th>Where</th></tr>
+                            </thead>
+                            <tbody>
+                              {dayEvents.map((e, i) => (
+                                <tr key={`${e.at}-${e.kind}-${i}`}>
+                                  <td><b>{clock(e.at)}</b></td>
+                                  <td>{dayEventLabel(e.kind)}</td>
+                                  <td>{e.who ?? <span className="muted-cell">anonymous</span>}</td>
+                                  <td>{e.detail ? e.detail.toUpperCase().length <= 4 ? e.detail.toUpperCase() : e.detail : "—"}</td>
+                                  <td>
+                                    {e.country ? countryName(e.country) : "—"}
+                                    {e.device ? ` · ${e.device}` : ""}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
                 <div className="table-card">
                   <div className="table-head">
                     <div className="head-text">
