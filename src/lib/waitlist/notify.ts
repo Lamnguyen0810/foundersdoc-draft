@@ -7,7 +7,8 @@ import "server-only";
  * that accepts a JSON POST). When it is not set, nothing is sent and nothing
  * is logged — the site works exactly as before. When it is set, each NEW
  * signup is posted once, as one flat JSON object, so every field can be
- * picked in Zapier by name.
+ * picked in Zapier by name — including `total`, how many people are on the
+ * list now, for the running count in the Slack message.
  *
  * Awaited with a ceiling, for the same reason the welcome email is: on Vercel
  * a function is frozen the moment it answers, so a request left running is a
@@ -20,6 +21,8 @@ export interface WaitlistSignup {
   company: string | null;
   note: string | null;
   source: string | null;
+  /** People on the list after this signup, from the database; null when it has not said. */
+  total: number | null;
 }
 
 export async function notifyWaitlistWebhook(signup: WaitlistSignup): Promise<boolean> {
@@ -39,6 +42,8 @@ export async function notifyWaitlistWebhook(signup: WaitlistSignup): Promise<boo
         company: signup.company ?? "",
         note: signup.note ?? "",
         source: signup.source ?? "",
+        // Blank, not a number, when the database has not reported one.
+        total: signup.total ?? "",
         joined_at: new Date().toISOString(),
       }),
       signal: controller.signal,
