@@ -357,6 +357,7 @@ export default async function AdminPage({
   const [
     docStats,
     docTypes,
+    uploadFormats,
     docs,
     userStats,
     funnelRes,
@@ -373,6 +374,7 @@ export default async function AdminPage({
   ] = await Promise.all([
     wantDocs ? supabase.rpc("admin_document_stats", { p_days: days }) : null,
     tab === "documents" ? supabase.rpc("admin_doc_type_counts", { p_days: days }) : null,
+    tab === "documents" ? supabase.rpc("admin_upload_formats", { p_days: days }) : null,
     tab === "documents"
       ? supabase.rpc("admin_documents", { p_days: days, p_limit: 100, p_search: q || null })
       : null,
@@ -414,6 +416,7 @@ export default async function AdminPage({
     [funnelRes, "supabase/003_events.sql"],
     [waitRes, "supabase/005_waitlist.sql"],
     [visitsRes, "supabase/022_unique_visitors.sql"],
+    [uploadFormats, "supabase/023_upload_stats.sql"],
     [eventsRes, "supabase/015_admin_activity.sql"],
   ] as const) {
     if (res?.error && !problems.includes(hint)) problems.push(hint);
@@ -423,6 +426,11 @@ export default async function AdminPage({
   const us = (userStats?.data ?? {}) as Record<string, unknown>;
   const ps = (planStats?.data ?? {}) as Record<string, unknown>;
   const docRows = (docs?.data as DocRow[] | null) ?? [];
+  /* Which file formats people attached while drafting. Only events that
+     carry a format appear — the ones recorded before the drafting screen
+     started sending it are counted in the tile above, not guessed at here. */
+  const formatRows = (uploadFormats?.data as { label: string; uploads: number }[] | null) ?? [];
+  const formatsCounted = formatRows.reduce((a, r) => a + n(r.uploads), 0);
   const typeRows = (docTypes?.data as { label: string; drafts: number }[] | null) ?? [];
   const funnel = (funnelRes?.data as FunnelRow[] | null) ?? [];
   const pageRows = (pages?.data as Breakdown[] | null) ?? [];
@@ -693,8 +701,12 @@ export default async function AdminPage({
               <>
                 <div className="summary">
                   <SummaryCard label="Drafts" value={fmt(n(ds.period))} note={`${fmt(n(ds.total))} all time`} />
-                  <SummaryCard label="Revisions" value={fmt(n(ds.revisions))} note="Selected period" />
                   <SummaryCard label="Word downloads" value={fmt(n(ds.exported))} note="Selected period" />
+                  <SummaryCard
+                    label="Documents uploaded"
+                    value={fmt(n(ds.uploaded))}
+                    note={`Selected period · ${fmt(n(ds.uploaded_total))} all time, by ${fmt(n(ds.uploaders))} ${n(ds.uploaders) === 1 ? "person" : "people"}`}
+                  />
                   <SummaryCard
                     label="Failures"
                     value={fmt(n(ds.failed))}
@@ -719,7 +731,40 @@ export default async function AdminPage({
                       <div className="simple-list">
                         <div className="simple-row"><span>Right first time</span><strong>{fmt(n(ds.untouched))}</strong></div>
                         <div className="simple-row"><span>Revised at least once</span><strong>{fmt(n(ds.revisions))}</strong></div>
+                        <div className="simple-row"><span>Started from an uploaded document</span><strong>{fmt(n(ds.uploaded))}</strong></div>
                       </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid-2">
+                  <div className="card">
+                    <div className="card-head">
+                      <div>
+                        <h2>Uploaded file formats</h2>
+                        <p>What people attached while drafting, {periodLabel}. File names and their contents are never recorded.</p>
+                      </div>
+                    </div>
+                    <div className="card-body">
+                      <div className="simple-list">
+                        {formatRows.length === 0 && (
+                          <div className="empty">
+                            {n(ds.uploaded) > 0
+                              ? "These uploads were recorded before the format was tracked."
+                              : "Nothing uploaded in the selected period."}
+                          </div>
+                        )}
+                        {formatRows.map((f) => (
+                          <div className="simple-row" key={f.label}>
+                            <span>{f.label === "docx" ? "Word (.docx)" : f.label === "pdf" ? "PDF" : f.label.toUpperCase()}</span>
+                            <strong>{fmt(n(f.uploads))}</strong>
+                          </div>
+                        ))}
+                      </div>
+                      {formatRows.length > 0 && n(ds.uploaded) > formatsCounted && (
+                        <p className="list-key">
+                          {fmt(n(ds.uploaded) - formatsCounted)} more were uploaded before the format was recorded.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
