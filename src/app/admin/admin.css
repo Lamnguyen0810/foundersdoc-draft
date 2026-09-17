@@ -184,7 +184,9 @@
 /* ── the headline figures ───────────────────────────────────────────────────
    Four of them, each with its own one-line definition, because "visits" and
    "unique visitors" are different questions and the difference matters. */
-.fdadmin .figure-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+/* Four figures or five, depending on whether returning visitors are being
+   counted; the row fits what it is given rather than being told a number. */
+.fdadmin .figure-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(205px, 1fr)); gap: 12px; }
 .fdadmin .figure { padding: 14px 14px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--soft); }
 .fdadmin .figure b { display: block; font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .fdadmin .figure span { display: block; margin: 5px 0 4px; font-size: 11.5px; font-weight: 600; color: var(--ink); }
@@ -218,7 +220,7 @@
 .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 .fdadmin .breakdown-head.daily,
-.fdadmin .breakdown-row.daily { grid-template-columns: minmax(0, 1fr) 54px 42px 42px 48px 42px; }
+.fdadmin .breakdown-row.daily { grid-template-columns: minmax(0, 1fr) 54px 40px 42px 42px 48px 42px; }
 .fdadmin .breakdown-row.daily { background-repeat: no-repeat; }
 .fdadmin .breakdown-row b.lit { color: var(--ink); font-weight: 600; }
 

@@ -158,6 +158,7 @@ function eventLabel(e: EventRow): string {
 interface DailyRow {
   day: string;
   visitors: number;
+  returning_v: number;
   visits: number;
   page_views: number;
   signups: number;
@@ -260,6 +261,7 @@ function DayRow({
     >
       <span>{label}</span>
       <b>{visitors}</b>
+      <b className="quiet">{visitors === "—" ? "—" : fmt(n(row.returning_v))}</b>
       <b className="quiet">{fmt(n(row.visits))}</b>
       <b className="quiet">{fmt(n(row.page_views))}</b>
       <b className={n(row.signups) > 0 ? "lit" : "quiet"}>{fmt(n(row.signups))}</b>
@@ -570,6 +572,8 @@ export default async function AdminPage({
   const visitsRow = (Array.isArray(visitsRes?.data) ? visitsRes.data[0] : visitsRes?.data) as
     | {
         visitors: number | string;
+        returning_v: number | string;
+        new_v: number | string;
         visits: number | string;
         page_views: number | string;
         countries: number | string;
@@ -582,6 +586,8 @@ export default async function AdminPage({
   const visits = visitsRow
     ? {
         visitors: n(visitsRow.visitors),
+        returning: n(visitsRow.returning_v),
+        newcomers: n(visitsRow.new_v),
         visits: n(visitsRow.visits),
         pageViews: n(visitsRow.page_views),
         countries: n(visitsRow.countries),
@@ -1022,8 +1028,16 @@ export default async function AdminPage({
                         <b>{visitorsRecorded ? fmt(visits!.visitors) : "—"}</b>
                         <span>Unique visitors</span>
                         <small>
-                          How many different people. The same person counts once a day, however much they read.
+                          How many different people, each counted once however often they came.
                           {visitorsFromLabel ? ` Counted from ${visitorsFromLabel}, when this was switched on — which is why it is smaller than visits.` : ""}
+                        </small>
+                      </div>
+                      <div className="figure">
+                        <b>{visitorsRecorded ? fmt(visits!.returning) : "—"}</b>
+                        <span>Returning</span>
+                        <small>
+                          How many of those people had been here before — the rest ({visitorsRecorded ? fmt(visits!.newcomers) : "—"}) found you
+                          for the first time in this period.
                         </small>
                       </div>
                       <div className="figure">
@@ -1044,7 +1058,8 @@ export default async function AdminPage({
                     </div>
                     <p className="worked-example">
                       <b>How they differ:</b> one person opens four pages this morning, then comes back tonight and opens four more.
-                      That is <b>1 unique visitor</b>, <b>2 visits</b> and <b>8 page views</b>.
+                      That is <b>1 unique visitor</b>, <b>2 visits</b> and <b>8 page views</b> — and if they had been here last week too,
+                      <b>1 returning</b> rather than new.
                     </p>
                     {!visits && (
                       <p className="setup-line">Run <code>supabase/022_unique_visitors.sql</code> to switch this counter on.</p>
@@ -1125,7 +1140,8 @@ export default async function AdminPage({
                     <div className="breakdown">
                       <div className="breakdown-head daily">
                         <span>Day</span>
-                        <b title="People, counted once a day">Visitors</b>
+                        <b title="Different people">Visitors</b>
+                        <b title="Of those, how many had been here on an earlier day">Back</b>
                         <b title="Browser sessions">Visits</b>
                         <b title="Pages opened">Views</b>
                         <b title="Waitlist signups">Signups</b>
