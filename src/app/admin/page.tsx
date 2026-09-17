@@ -251,10 +251,10 @@ function DayRow({
   open: boolean;
 }) {
   const share = Math.round((n(row.visits) / busiest) * 100);
-  /* A day with visits but no fingerprints is a day from before unique
-     visitors were switched on. Nought would read as "nobody came", which is
-     false; a dash reads as "not recorded", which is true. */
-  const visitors = n(row.visitors) === 0 && n(row.visits) > 0 ? "—" : fmt(n(row.visitors));
+  /* A day with arrivals but no lasting visitor code is a day from before
+     unique visitors were switched on. Nought would read as "nobody came
+     often", which is not what it means; a dash reads as "not recorded". */
+  const unique = n(row.visitors) === 0 && n(row.visits) > 0 ? "—" : fmt(n(row.frequent));
   return (
     <Link
       className={`breakdown-row daily${open ? " open" : ""}`}
@@ -262,10 +262,9 @@ function DayRow({
       style={{ backgroundImage: `linear-gradient(to right, var(--day-bar) ${share}%, transparent ${share}%)` }}
     >
       <span>{label}</span>
-      <b>{visitors}</b>
-      <b className="quiet">{visitors === "—" ? "—" : fmt(n(row.frequent))}</b>
+      <b>{fmt(n(row.visits))}</b>
+      <b className="quiet">{unique}</b>
       <b className={n(row.signups) > 0 ? "lit" : "quiet"}>{fmt(n(row.signups))}</b>
-      <b className="quiet">{fmt(n(row.visits))}</b>
       <b className="quiet">{fmt(n(row.page_views))}</b>
       <b className="quiet">{fmt(n(row.drafts))}</b>
     </Link>
@@ -1025,25 +1024,24 @@ export default async function AdminPage({
                   <div className="card-body">
                     <div className="figure-row">
                       <div className="figure">
-                        <b>{visitorsRecorded ? fmt(visits!.visitors) : "—"}</b>
+                        <b>{visits ? fmt(visits.visits) : "—"}</b>
                         <span>Visitors</span>
                         <small>
-                          People who came. One person is one visitor however often they came back.
-                          {visitorsFromLabel ? ` Counted from ${visitorsFromLabel}, when this was switched on.` : ""}
+                          People arriving at the site. One sitting counts once — reloading or reading four pages is still one
+                          visitor; coming back this evening is another.
                         </small>
                       </div>
                       <div className="figure">
                         <b>{visitorsRecorded ? fmt(visits!.frequent) : "—"}</b>
                         <span>Unique visitors</span>
                         <small>
-                          Of those visitors, the ones who came more than three times — four sittings or more. They are counted in
-                          Visitors as well.
+                          Of those, the ones who came more than three separate times. They are counted in Visitors as well.
+                          {visitorsRecorded
+                            ? visitorsFromLabel
+                              ? ` Counted from ${visitorsFromLabel}, when this was switched on.`
+                              : ""
+                            : " Blank until ANALYTICS_STABLE is set in Vercel — the same person cannot be recognised across days without it."}
                         </small>
-                      </div>
-                      <div className="figure">
-                        <b>{visits ? fmt(visits.visits) : "—"}</b>
-                        <span>Visits</span>
-                        <small>Sittings. One person who comes back in the evening makes a second visit.</small>
                       </div>
                       <div className="figure">
                         <b>{visits ? fmt(visits.pageViews) : "—"}</b>
@@ -1057,9 +1055,9 @@ export default async function AdminPage({
                       </div>
                     </div>
                     <p className="worked-example">
-                      <b>How they differ:</b> one person opens four pages this morning, then comes back tonight and opens four more.
-                      That is <b>1 visitor</b>, <b>2 visits</b> and <b>8 views</b>. Come back twice more this month and that same person
-                      is also <b>1 unique visitor</b> — still one visitor, not two.
+                      <b>How they differ:</b> somebody opens four pages this morning, then comes back tonight and opens four more.
+                      That is <b>2 visitors</b> and <b>8 views</b>. If they come twice more this month — four separate times in all —
+                      they are also <b>1 unique visitor</b>.
                     </p>
                     {!visits && (
                       <p className="setup-line">Run <code>supabase/022_unique_visitors.sql</code> to switch this counter on.</p>
@@ -1140,10 +1138,9 @@ export default async function AdminPage({
                     <div className="breakdown">
                       <div className="breakdown-head daily">
                         <span>Day</span>
-                        <b title="People who came that day">Visitors</b>
-                        <b title="Of them, the ones who came more than three times in the period">Unique</b>
+                        <b title="People arriving; one sitting counts once">Visitors</b>
+                        <b title="Of them, the ones who came more than three separate times in the period">Unique</b>
                         <b title="Waitlist signups">Signups</b>
-                        <b title="Sittings">Visits</b>
                         <b title="Pages opened">Views</b>
                         <b title="Drafts started">Drafts</b>
                       </div>
