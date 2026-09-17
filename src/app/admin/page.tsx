@@ -618,7 +618,7 @@ export default async function AdminPage({
               <>
                 <div className="summary">
                   <SummaryCard label="Drafts" value={fmt(n(ds.period))} note="Selected period" />
-                  <SummaryCard label="Active users" value={fmt(n(us.active_period))} note="Drafted at least once" />
+                  <SummaryCard label="Active users" value={fmt(n(us.active_period))} note="Drafted in the selected period" />
                   <SummaryCard label="Credits used" value={fmt(n(ps.spent_period))} note="Selected period" />
                   <SummaryCard label="AI cost" value={aiRecorded ? money(n(us.ai_cost_usd)) : "—"} note={aiRecorded ? "Actual spend" : "Nothing recorded yet"} />
                 </div>
@@ -693,7 +693,7 @@ export default async function AdminPage({
               <>
                 <div className="summary">
                   <SummaryCard label="Drafts" value={fmt(n(ds.period))} note={`${fmt(n(ds.total))} all time`} />
-                  <SummaryCard label="Revised drafts" value={fmt(n(ds.revisions))} note="Drafts revised at least once" />
+                  <SummaryCard label="Revisions" value={fmt(n(ds.revisions))} note="Selected period" />
                   <SummaryCard label="Word downloads" value={fmt(n(ds.exported))} note="Selected period" />
                   <SummaryCard
                     label="Failures"
@@ -770,10 +770,18 @@ export default async function AdminPage({
             {tab === "users" && (
               <>
                 <div className="summary">
-                  <SummaryCard label="Accounts" value={fmt(n(us.accounts))} note={`${fmt(n(us.admins))} admin${n(us.admins) === 1 ? "" : "s"}`} />
-                  <SummaryCard label="Active users" value={fmt(n(us.active_period))} note="Selected period" />
+                  <SummaryCard
+                    label="New accounts"
+                    value={fmt(n(us.accounts_new))}
+                    note={`Selected period · ${fmt(n(us.accounts))} in total, ${fmt(n(us.admins))} admin${n(us.admins) === 1 ? "" : "s"}`}
+                  />
+                  <SummaryCard label="Active users" value={fmt(n(us.active_period))} note="Drafted in the selected period" />
                   <SummaryCard label="Users who drafted" value={fmt(n(us.activated))} note="All time" />
-                  <SummaryCard label="Waitlist" value={fmt(n(us.waitlist_waiting))} note="Waiting" />
+                  <SummaryCard
+                    label="Joined waitlist"
+                    value={fmt(n(us.waitlist_new))}
+                    note={`Selected period · ${fmt(onList)} on the list, ${fmt(n(us.waitlist_waiting))} waiting`}
+                  />
                 </div>
                 <div className="grid-2">
                   <div className="card">
