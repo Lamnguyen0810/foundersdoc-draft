@@ -187,10 +187,10 @@ interface DayEvent {
 
 interface Breakdown {
   label: string;
-  /** People, counted once a day (see supabase/022_unique_visitors.sql). */
+  /** Arrivals. Four pages in one sitting is one visitor. */
   visitors: number;
-  /** Browser tab sessions. */
-  visits: number;
+  /** Of those, the ones who came more than three separate times. */
+  frequent: number;
   /** Pages opened. */
   views: number;
 }
@@ -220,16 +220,12 @@ function periodStart(days: number): number {
 
 /** One line of a breakdown table: the name, then the three figures its
  *  header names. Numbers are right-aligned and tabular so they line up. */
-function BreakdownRow({ label, row }: { label: string; row: Breakdown }) {
-  /* Visits with no fingerprint behind them are from before unique visitors
-     were switched on. A nought there would read as "nobody"; a dash reads as
-     "not recorded", which is what it is. */
-  const visitors = n(row.visitors) === 0 && n(row.visits) > 0 ? "—" : fmt(n(row.visitors));
+function BreakdownRow({ label, row, uniqueKnown }: { label: string; row: Breakdown; uniqueKnown: boolean }) {
   return (
     <div className="breakdown-row">
       <span title={label}>{label}</span>
-      <b>{visitors}</b>
-      <b className="quiet">{fmt(n(row.visits))}</b>
+      <b>{fmt(n(row.visitors))}</b>
+      <b className="quiet">{uniqueKnown ? fmt(n(row.frequent)) : "—"}</b>
       <b className="quiet">{fmt(n(row.views))}</b>
     </div>
   );
@@ -297,7 +293,7 @@ function dayEventLabel(kind: string): string {
 function BreakdownKey() {
   return (
     <p className="list-key">
-      <b>Visitors</b>: different people · <b>Visits</b>: separate sittings · <b>Views</b>: pages opened
+      <b>Visitors</b>: arrivals · <b>Unique</b>: came more than three times · <b>Views</b>: pages opened
     </p>
   );
 }
@@ -522,6 +518,7 @@ export default async function AdminPage({
     [dayHoursRes, "supabase/025_day_detail.sql"],
     [dayEventsRes, "supabase/025_day_detail.sql"],
     [uploadFormats, "supabase/023_upload_stats.sql"],
+    [pages, "supabase/029_breakdown_in_step.sql"],
     [eventsRes, "supabase/015_admin_activity.sql"],
   ] as const) {
     if (res?.error && !problems.includes(hint)) problems.push(hint);
@@ -1096,13 +1093,13 @@ export default async function AdminPage({
                           <div className="breakdown">
                             <div className="breakdown-head">
                               <span>{column}</span>
-                              <b title="People, counted once a day">Visitors</b>
-                              <b title="Browser sessions">Visits</b>
+                              <b title="Arrivals; four pages in one sitting is one visitor">Visitors</b>
+                              <b title="Of those, the ones who came more than three separate times">Unique</b>
                               <b title="Pages opened">Views</b>
                             </div>
                             {rows.length === 0 && <div className="empty">Nothing recorded yet.</div>}
                             {rows.slice(0, 8).map((r) => (
-                              <BreakdownRow key={r.label} label={name(r.label)} row={r} />
+                              <BreakdownRow key={r.label} label={name(r.label)} row={r} uniqueKnown={visitorsRecorded} />
                             ))}
                             {rows.length > 8 && (
                               <details className="more-rows">
@@ -1112,7 +1109,7 @@ export default async function AdminPage({
                                 </summary>
                                 <div className="more-body">
                                   {rows.slice(8).map((r) => (
-                                    <BreakdownRow key={r.label} label={name(r.label)} row={r} />
+                                    <BreakdownRow key={r.label} label={name(r.label)} row={r} uniqueKnown={visitorsRecorded} />
                                   ))}
                                 </div>
                               </details>
@@ -1129,8 +1126,8 @@ export default async function AdminPage({
                     <div>
                       <h2>Day by day</h2>
                       <p>
-                        Each day of {periodLabel}, Singapore time, newest first. The bar behind each row is that day’s visits
-                        against the busiest day. Your team’s own visits are left out of the first three columns.
+                        Each day of {periodLabel}, Singapore time, newest first. The bar behind each row is that day’s visitors
+                        against the busiest day. Your team’s own visits are left out throughout.
                       </p>
                     </div>
                   </div>
