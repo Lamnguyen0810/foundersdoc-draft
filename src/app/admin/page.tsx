@@ -154,6 +154,24 @@ function eventLabel(e: EventRow): string {
   }
 }
 
+/** One day, in Singapore time (see supabase/024_daily_and_hourly.sql). */
+interface DailyRow {
+  day: string;
+  visitors: number;
+  visits: number;
+  page_views: number;
+  signups: number;
+  drafts: number;
+}
+
+/** One hour of the day, 0–23, in Singapore time. */
+interface HourRow {
+  hour: number;
+  visits: number;
+  page_views: number;
+  signups: number;
+}
+
 interface Breakdown {
   label: string;
   /** People, counted once a day (see supabase/022_unique_visitors.sql). */
@@ -196,6 +214,25 @@ function BreakdownRow({ label, row }: { label: string; row: Breakdown }) {
       <b>{fmt(n(row.visitors))}</b>
       <b className="quiet">{fmt(n(row.visits))}</b>
       <b className="quiet">{fmt(n(row.views))}</b>
+    </div>
+  );
+}
+
+/** One day. The bar behind it is that day's visits against the busiest day
+ *  in view, so a quiet week is not drawn as a busy one. */
+function DayRow({ label, row, busiest }: { label: string; row: DailyRow; busiest: number }) {
+  const share = Math.round((n(row.visits) / busiest) * 100);
+  return (
+    <div
+      className="breakdown-row daily"
+      style={{ backgroundImage: `linear-gradient(to right, var(--day-bar) ${share}%, transparent ${share}%)` }}
+    >
+      <span>{label}</span>
+      <b>{fmt(n(row.visitors))}</b>
+      <b className="quiet">{fmt(n(row.visits))}</b>
+      <b className="quiet">{fmt(n(row.page_views))}</b>
+      <b className={n(row.signups) > 0 ? "lit" : "quiet"}>{fmt(n(row.signups))}</b>
+      <b className="quiet">{fmt(n(row.drafts))}</b>
     </div>
   );
 }
@@ -365,6 +402,8 @@ export default async function AdminPage({
     countries,
     devices,
     visitsRes,
+    dailyRes,
+    hourlyRes,
     waitRes,
     planStats,
     accounts,
@@ -384,6 +423,8 @@ export default async function AdminPage({
     tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "country", p_days: days, p_limit: 50 }) : null,
     tab === "users" ? supabase.rpc("admin_event_breakdown", { p_kind: "device", p_days: days, p_limit: 5 }) : null,
     tab === "users" ? supabase.rpc("admin_visits", { p_days: days }) : null,
+    tab === "users" ? supabase.rpc("admin_daily", { p_days: days }) : null,
+    tab === "users" ? supabase.rpc("admin_hourly", { p_days: days }) : null,
     tab === "users"
       ? supabase
           .from("waitlist")
@@ -416,6 +457,8 @@ export default async function AdminPage({
     [funnelRes, "supabase/003_events.sql"],
     [waitRes, "supabase/005_waitlist.sql"],
     [visitsRes, "supabase/022_unique_visitors.sql"],
+    [dailyRes, "supabase/024_daily_and_hourly.sql"],
+    [hourlyRes, "supabase/024_daily_and_hourly.sql"],
     [uploadFormats, "supabase/023_upload_stats.sql"],
     [eventsRes, "supabase/015_admin_activity.sql"],
   ] as const) {
@@ -426,6 +469,21 @@ export default async function AdminPage({
   const us = (userStats?.data ?? {}) as Record<string, unknown>;
   const ps = (planStats?.data ?? {}) as Record<string, unknown>;
   const docRows = (docs?.data as DocRow[] | null) ?? [];
+  const dailyRows = (dailyRes?.data as DailyRow[] | null) ?? [];
+  const hourRows = (hourlyRes?.data as HourRow[] | null) ?? [];
+  /* The busiest day and the busiest hour set the scale of the bars, so a
+     quiet week does not draw itself as a busy one. */
+  const busiestDay = Math.max(1, ...dailyRows.map((d) => n(d.visits)));
+  const busiestHour = Math.max(1, ...hourRows.map((h) => n(h.visits)));
+  const hoursRecorded = hourRows.some((h) => n(h.visits) > 0 || n(h.signups) > 0);
+  /* "Tue 17 Sep". The date arrives as a plain YYYY-MM-DD that the database has
+     already worked out in Singapore time, so it is read back as UTC to keep it
+     exactly that day rather than shifting it again. */
+  const dayLabel = (iso: string) =>
+    new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", {
+      weekday: "short", day: "numeric", month: "short", timeZone: "UTC",
+    });
+
   /* Which file formats people attached while drafting. Only events that
      carry a format appear — the ones recorded before the drafting screen
      started sending it are counted in the tile above, not guessed at here. */
@@ -962,6 +1020,87 @@ export default async function AdminPage({
                       </div>
                     );
                   })}
+                </div>
+                <div className="card">
+                  <div className="card-head">
+                    <div>
+                      <h2>Day by day</h2>
+                      <p>
+                        Each day of {periodLabel}, Singapore time, newest first. The bar behind each row is that day’s visits
+                        against the busiest day. Your team’s own visits are left out of the first three columns.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="card-body">
+                    <div className="breakdown">
+                      <div className="breakdown-head daily">
+                        <span>Day</span>
+                        <b title="People, counted once a day">Visitors</b>
+                        <b title="Browser sessions">Visits</b>
+                        <b title="Pages opened">Views</b>
+                        <b title="Waitlist signups">Signups</b>
+                        <b title="Drafts started">Drafts</b>
+                      </div>
+                      {dailyRows.length === 0 && <div className="empty">Nothing recorded yet.</div>}
+                      {dailyRows.slice(0, 14).map((d) => (
+                        <DayRow key={d.day} label={dayLabel(d.day)} row={d} busiest={busiestDay} />
+                      ))}
+                      {dailyRows.length > 14 && (
+                        <details className="more-rows">
+                          <summary>
+                            <span className="when-closed">Show all {dailyRows.length} days</span>
+                            <span className="when-open">Show fewer</span>
+                          </summary>
+                          <div className="more-body">
+                            {dailyRows.slice(14).map((d) => (
+                              <DayRow key={d.day} label={dayLabel(d.day)} row={d} busiest={busiestDay} />
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                    <p className="list-key">
+                      A day runs midnight to midnight in Singapore. The visitor fingerprint changes at 8am Singapore time, so
+                      somebody browsing both before and after 8am counts twice in <b>Visitors</b> that day; visits, views and
+                      signups are exact.
+                    </p>
+                  </div>
+                </div>
+                <div className="card">
+                  <div className="card-head">
+                    <div>
+                      <h2>What time of day</h2>
+                      <p>Visits by hour, Singapore time, across {periodLabel} — when people are actually on the site.</p>
+                    </div>
+                  </div>
+                  <div className="card-body">
+                    {!hoursRecorded && <div className="empty">Nothing recorded yet.</div>}
+                    {hoursRecorded && (
+                      <>
+                        <div className="hours">
+                          {hourRows.map((h) => {
+                            const v = n(h.visits);
+                            const pct = Math.round((v / busiestHour) * 100);
+                            return (
+                              <div
+                                className="hour"
+                                key={h.hour}
+                                title={`${String(h.hour).padStart(2, "0")}:00 — ${fmt(v)} visit${v === 1 ? "" : "s"}, ${fmt(n(h.page_views))} page views${n(h.signups) > 0 ? `, ${fmt(n(h.signups))} signup${n(h.signups) === 1 ? "" : "s"}` : ""}`}
+                              >
+                                <div className="hour-bar">
+                                  <i style={{ height: `${Math.max(v > 0 ? 3 : 0, pct)}%` }} className={n(h.signups) > 0 ? "has-signup" : undefined} />
+                                </div>
+                                <span>{h.hour % 6 === 0 ? String(h.hour).padStart(2, "0") : ""}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <p className="list-key">
+                          Hover a bar for that hour’s figures. A gold bar is an hour in which somebody joined the waitlist.
+                        </p>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="table-card">
                   <div className="table-head">
