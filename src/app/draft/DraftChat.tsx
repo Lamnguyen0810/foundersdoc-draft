@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { stepsFor, type DocType, type Field } from "@/lib/doctypes";
 import { track } from "@/lib/track";
+import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
 import DraftReady from "./DraftReady";
 import { SKIPPED } from "@/lib/prompt";
@@ -86,18 +87,8 @@ const CATALOGUE: CatFolder[] = [
  *  adding a field, or a whole group, cannot silently shift every question by
  *  one. An unlisted group falls back to its own name, which reads acceptably. */
 
-/** The five comprehensiveness steps, in order. One list, used by the slider, the
- *  echoed summary and the progress pane — three places that used to drift apart.
- *  The NUMBER is what reaches the prompt; these words are only how it reads. */
-const DETAIL_LABELS = ["Minimal", "Basic", "Standard", "Detailed", "Comprehensive"] as const;
-
-const DETAIL_LENGTHS = [
-  "about 500–800 words",
-  "about 750–1,050 words",
-  "about 1,000–1,400 words",
-  "about 1,250–1,750 words",
-  "about 1,500–2,200 words",
-] as const;
+/* The five comprehensiveness steps live in DetailSlider now — one list, shared
+   with the card beside the finished document, which used to use another. */
 
 const SOURCE_STEP = {
   id: "__source__",
@@ -178,6 +169,110 @@ interface Msg {
   text: string;
   label?: string;
   skipped?: boolean;
+}
+
+/** A turn after the first draft: what was asked for, and what came back. */
+export interface FollowTurn {
+  who: "me" | "fd";
+  text: string;
+  version?: number;
+  fileName?: string;
+  documentText?: string;
+  detailLevel?: number;
+}
+
+/** One version of the document, as the screen holds it. */
+export interface DocVersion {
+  documentText: string;
+  version: number;
+  detailLevel: number;
+  fileName: string;
+}
+
+/* ── coming back to a draft in progress ───────────────────────────────────
+   Leaving the drafting screen for Credits or Usage and pressing Back used to
+   land on the empty catalogue: the conversation only ever existed in the
+   browser's memory, and a page navigation throws that away. So the session is
+   written to this tab's own storage as it goes, and read back when the screen
+   opens again.
+
+   Session storage, not local: it belongs to this tab and this sitting. Close
+   the tab and it is gone, which is the right lifetime for a half-finished
+   draft — and it never leaves the browser. */
+const STASH_KEY = "fdai.draft-in-progress";
+/** Bumped when the shape below changes, so an old one is ignored rather than
+ *  half-read into a new screen. */
+const STASH_VERSION = 2;
+/** Older than this and it is not "where I was", it is archaeology. */
+const STASH_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+export interface DraftStash {
+  v: number;
+  at: number;
+  slug: string;
+  answers: Record<string, string>;
+  status: Status[];
+  i: number;
+  msgs: Msg[];
+  name: string;
+  sourceText: string;
+  attachments: string[];
+  output: string;
+  draftId: string | null;
+  view: "chat" | "draft";
+  docOpen: boolean;
+  follow: FollowTurn[];
+  versions: DocVersion[];
+  version: number;
+  detail: number;
+  skipped: string[];
+}
+
+/* Read once per page load and held, so the value cannot change underneath a
+   render. The screen decides what to show from it exactly once; everything
+   after that is ordinary state. */
+let stashOnce: DraftStash | null = null;
+let stashRead = false;
+
+function readStash(): DraftStash | null {
+  if (stashRead) return stashOnce;
+  stashRead = true;
+  try {
+    const raw = window.sessionStorage.getItem(STASH_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DraftStash;
+    if (parsed?.v !== STASH_VERSION) return null;
+    if (!parsed.slug || Date.now() - (parsed.at ?? 0) > STASH_MAX_AGE_MS) return null;
+    stashOnce = parsed;
+  } catch {
+    // Unreadable, or storage refused. Start fresh rather than guess.
+    stashOnce = null;
+  }
+  return stashOnce;
+}
+
+/** Nothing subscribes: the stash is read once, at the moment the screen opens. */
+function watchStash(): () => void {
+  return () => {};
+}
+
+function writeStash(stash: DraftStash): void {
+  try {
+    window.sessionStorage.setItem(STASH_KEY, JSON.stringify(stash));
+  } catch {
+    /* Storage full or turned off. The draft on screen is unaffected; only
+       coming back to it is, and that is not worth an error message. */
+  }
+}
+
+export function clearStash(): void {
+  try {
+    window.sessionStorage.removeItem(STASH_KEY);
+  } catch {
+    /* nothing to forget */
+  }
+  stashOnce = null;
+  stashRead = true;
 }
 
 export interface RecentDraft {
@@ -281,16 +376,7 @@ export function replayConversation(
  * not a follow-up. Everything after it was a request the person typed and a
  * document that came back, and both halves are on the row.
  */
-export function replayRevisions(
-  versions: ResumeDraft["versions"],
-): {
-  who: "me" | "fd";
-  text: string;
-  version?: number;
-  fileName?: string;
-  documentText?: string;
-  detailLevel?: number;
-}[] {
+export function replayRevisions(versions: ResumeDraft["versions"]): FollowTurn[] {
   const out: ReturnType<typeof replayRevisions> = [];
   for (const v of versions) {
     if (v.version <= 1) continue;
@@ -396,12 +482,28 @@ export default function DraftChat({
   /* A reopened draft goes straight to its conversation: the catalogue is for
      choosing what to draft, and that choice was made weeks ago. */
   const resumeType = resume ? (docTypes.find((d) => d.slug === resume.docTypeSlug) ?? null) : null;
-  const [screen, setScreen] = useState<"select" | "chat">(
-    resumeType || presetSlug ? "chat" : "select",
+
+  /* A draft this tab was in the middle of. Read once, so that going to Credits
+     and coming back lands where the person left off instead of on the empty
+     catalogue. A reopened draft wins: it was asked for by name in the URL. */
+  const stash = useSyncExternalStore(watchStash, readStash, () => null);
+  const stashType =
+    !resume && stash ? (docTypes.find((d) => d.slug === stash.slug) ?? null) : null;
+
+  /* Which document is open is DERIVED until the person chooses one themselves.
+     It cannot be ordinary state seeded once, because the stash is not readable
+     on the server and so arrives a render after the first one — state seeded
+     from it would always be seeded with nothing, and the draft they were in
+     the middle of would never come back. */
+  const [picked, setPicked] = useState<{ screen: "select" | "chat"; type: DocType | null } | null>(
+    null,
   );
-  const [chosen, setChosen] = useState<DocType | null>(
-    resumeType ?? (presetSlug ? (docTypes.find((d) => d.slug === presetSlug) ?? null) : null),
-  );
+  const opened =
+    resumeType ??
+    stashType ??
+    (presetSlug ? (docTypes.find((d) => d.slug === presetSlug) ?? null) : null);
+  const screen: "select" | "chat" = picked ? picked.screen : opened ? "chat" : "select";
+  const chosen = picked ? picked.type : opened;
 
   // Belt and braces: "chat" with nothing chosen would render an empty page, and
   // a blank screen is the one failure a user cannot report usefully. Fall back
@@ -437,23 +539,33 @@ export default function DraftChat({
             onPick={(slug) => {
               const d = docTypes.find((x) => x.slug === slug);
               if (!d) return;
+              clearStash();
               track("doc_selected", { doc_type: d.slug });
-              setChosen(d);
-              setScreen("chat");
+              setPicked({ screen: "chat", type: d });
             }}
           />
         )}
         {view === "chat" && chosen && (
           <Chat
-            key={resume ? resume.id : chosen.slug}
+            /* The key carries whether there is a draft to restore, so the one
+               render where the stash has not been read yet is replaced rather
+               than kept. */
+            key={resume ? resume.id : `${chosen.slug}:${stashType === chosen ? "restored" : "new"}`}
             docType={chosen}
             userEmail={userEmail ?? null}
             recent={recent ?? []}
             wallet={live}
             prefill={prefill ?? null}
             resume={resumeType && resume ? resume : null}
+            restore={stashType && stashType.slug === chosen.slug ? stash : null}
             onCreditSpent={spendCredit}
-            onChangeDocument={() => setScreen("select")}
+            onChangeDocument={() => {
+              /* Choosing a different document abandons this one — leaving the
+                 old conversation stashed would bring it back on the next
+                 visit, over the top of whatever they choose now. */
+              clearStash();
+              setPicked({ screen: "select", type: null });
+            }}
           />
         )}
       </div>
@@ -1022,6 +1134,7 @@ function Chat({
   wallet,
   prefill,
   resume,
+  restore,
   onCreditSpent,
   onChangeDocument,
 }: {
@@ -1031,6 +1144,8 @@ function Chat({
   wallet: WalletView | null;
   prefill: Prefill | null;
   resume: ResumeDraft | null;
+  /** A draft this tab was part-way through when it navigated away. */
+  restore: DraftStash | null;
   onCreditSpent: (creditsLeft: number | null) => void;
   onChangeDocument: () => void;
 }) {
@@ -1056,29 +1171,42 @@ function Chat({
   );
 
   const [answers, setAnswers] = useState<Record<string, string>>(() =>
-    resume ? { ...initialAnswers(docType, null), ...resume.answers } : initialAnswers(docType, prefill),
+    resume
+      ? { ...initialAnswers(docType, null), ...resume.answers }
+      : restore
+        ? { ...initialAnswers(docType, null), ...restore.answers }
+        : initialAnswers(docType, prefill),
   );
   const [msgs, setMsgs] = useState<Msg[]>(() =>
     replayed
       ? replayed.msgs
-      : [
-          {
-            who: "fd",
-            text: `Let’s build your ${docType.label}. I’ll ask ${steps.length} focused questions and carry your answers forward as we go. Skip anything you’re unsure about — you can return to it later.`,
-          },
-        ],
+      : restore
+        ? restore.msgs
+        : [
+            {
+              who: "fd",
+              text: `Let’s build your ${docType.label}. I’ll ask ${steps.length} focused questions and carry your answers forward as we go. Skip anything you’re unsure about — you can return to it later.`,
+            },
+          ],
   );
-  const [i, setI] = useState(resume ? steps.length : 0);
-  const [status, setStatus] = useState<Status[]>(() => replayed?.status ?? steps.map(() => undefined));
+  const [i, setI] = useState(resume ? steps.length : (restore?.i ?? 0));
+  const [status, setStatus] = useState<Status[]>(
+    () =>
+      replayed?.status ??
+      /* Only if it still describes this document type's steps — a published
+         change to the questions makes an older list meaningless. */
+      (restore && restore.status.length === steps.length ? restore.status : null) ??
+      steps.map(() => undefined),
+  );
   const [typedAnswer, setTypedAnswer] = useState("");
 
   // source document
-  const [sourceText, setSourceText] = useState(resume?.sourceText ?? "");
+  const [sourceText, setSourceText] = useState(resume?.sourceText ?? restore?.sourceText ?? "");
   /* The file's NAME was never recorded — naming a file names a matter, and the
      rule at the top of lib/events.ts says we do not keep that. So a reopened
      draft can say that something was worked from, but not what it was called. */
   const [attachments, setAttachments] = useState<string[]>(
-    resume?.sourceText ? ["the document you attached"] : [],
+    resume?.sourceText ? ["the document you attached"] : (restore?.attachments ?? []),
   );
   const [uploading, setUploading] = useState(false);
 
@@ -1086,8 +1214,10 @@ function Chat({
   /* A reopened draft opens on its document, because that is what the person
      came back for. The conversation is right there beside it, and the back
      button returns to the questions. */
-  const [view, setView] = useState<"chat" | "draft">(resume?.output ? "draft" : "chat");
-  const [output, setOutput] = useState(resume?.output ?? "");
+  const [view, setView] = useState<"chat" | "draft">(
+    resume?.output ? "draft" : (restore?.view ?? "chat"),
+  );
+  const [output, setOutput] = useState(resume?.output ?? restore?.output ?? "");
   const editorExportRef = useRef<{ html: string; plain: string } | null>(null);
   const captureEditorContent = useCallback((html: string, plain: string) => {
     editorExportRef.current = { html, plain };
@@ -1104,11 +1234,11 @@ function Chat({
      until the generate endpoint reports it — and it stays null when Supabase
      is not configured, in which case the Save button simply does nothing
      rather than pretending. */
-  const [draftId, setDraftId] = useState<string | null>(resume?.id ?? null);
+  const [draftId, setDraftId] = useState<string | null>(resume?.id ?? restore?.draftId ?? null);
   const [savedHtml, setSavedHtml] = useState<string | null>(resume?.outputHtml ?? null);
   /* The draft's name, live on screen: written by FD AI when the draft is made,
      and changeable by the person at any time after. */
-  const [name, setName] = useState<string>(resume?.title ?? "");
+  const [name, setName] = useState<string>(resume?.title ?? restore?.name ?? "");
   /* The rail's list, held here rather than read straight from the prop, because
      renaming one has to show on the spot rather than on the next page load. */
   const [pastDrafts, setPastDrafts] = useState<RecentDraft[]>(recent);
@@ -1124,7 +1254,7 @@ function Chat({
      just answered six questions and deserves to be told what was done with
      them before being handed a wall of contract. The document opens beside the
      chat when they ask for it — and closing it leaves the chat untouched. */
-  const [docOpen, setDocOpen] = useState(false);
+  const [docOpen, setDocOpen] = useState(restore?.docOpen ?? false);
   const [follow, setFollow] = useState<{
     who: "me" | "fd";
     text: string;
@@ -1132,7 +1262,7 @@ function Chat({
     fileName?: string;
     documentText?: string;
     detailLevel?: number;
-  }[]>(() => replayRevisions(resume?.versions ?? []));
+  }[]>(() => (restore ? restore.follow : replayRevisions(resume?.versions ?? [])));
   const [revising, setRevising] = useState(false);
   /** State disables the controls; the ref also closes the same-tick double-click window. */
   const revisingRef = useRef(false);
@@ -1152,16 +1282,17 @@ function Chat({
   );
   const latestSaved = savedVersions[savedVersions.length - 1];
 
-  const [ndaDetailLevel, setNdaDetailLevel] = useState(latestSaved?.detailLevel ?? 3);
-  const [documentVersion, setDocumentVersion] = useState(latestSaved?.version ?? 1);
-  const versionCounterRef = useRef(latestSaved?.version ?? 1);
-  const [documentVersions, setDocumentVersions] = useState<{
-    documentText: string;
-    version: number;
-    detailLevel: number;
-    fileName: string;
-  }[]>(savedVersions);
-  const [skippedLabels, setSkippedLabels] = useState<string[]>([]);
+  const [ndaDetailLevel, setNdaDetailLevel] = useState(
+    latestSaved?.detailLevel ?? restore?.detail ?? 3,
+  );
+  const [documentVersion, setDocumentVersion] = useState(
+    latestSaved?.version ?? restore?.version ?? 1,
+  );
+  const versionCounterRef = useRef(latestSaved?.version ?? restore?.version ?? 1);
+  const [documentVersions, setDocumentVersions] = useState<DocVersion[]>(
+    restore && savedVersions.length === 0 ? restore.versions : savedVersions,
+  );
+  const [skippedLabels, setSkippedLabels] = useState<string[]>(restore?.skipped ?? []);
   const [toast, setToast] = useState<string | null>(null);
   const [acctOpen, setAcctOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -1213,6 +1344,61 @@ function Chat({
     const t = setTimeout(() => setToast(null), 1800);
     return () => clearTimeout(t);
   }, [toast]);
+
+  /* ── keeping the way back ────────────────────────────────────────────────
+     Written as the conversation goes, so that Credits, Usage or Past drafts
+     and then Back returns to this screen rather than the empty catalogue.
+     Nothing is written for a draft opened from the list: that one has a URL of
+     its own, and stashing it would bring it back over the top of a new draft.
+
+     Debounced, because `answers` changes on every keystroke and there is no
+     sense serialising the whole conversation forty times a second. */
+  useEffect(() => {
+    if (resume) return;
+    const write = setTimeout(() => {
+      writeStash({
+        v: STASH_VERSION,
+        at: Date.now(),
+        slug: docType.slug,
+        answers,
+        status,
+        i,
+        msgs,
+        name,
+        sourceText,
+        attachments,
+        output,
+        draftId,
+        view,
+        docOpen,
+        follow,
+        versions: documentVersions,
+        version: documentVersion,
+        detail: ndaDetailLevel,
+        skipped: skippedLabels,
+      });
+    }, 400);
+    return () => clearTimeout(write);
+  }, [
+    resume,
+    docType.slug,
+    answers,
+    status,
+    i,
+    msgs,
+    name,
+    sourceText,
+    attachments,
+    output,
+    draftId,
+    view,
+    docOpen,
+    follow,
+    documentVersions,
+    documentVersion,
+    ndaDetailLevel,
+    skippedLabels,
+  ]);
 
   /* ── where people give up ─────────────────────────────────────────────────
      The most useful number in the whole system is the question people stop at,
@@ -1967,63 +2153,13 @@ function Chat({
 
   function stepAnswerUI(s: Step) {
     if (s.kind === "detail") {
-      const level = Math.min(5, Math.max(1, Number(answers._nda_detail_level) || 3));
-      const labels = DETAIL_LABELS;
+      const level = toLevel(answers._nda_detail_level);
       return (
         <>
-          <div className="gd">
-            <div className="gd-head">
-              <span className="gd-title">
-                Comprehensiveness
-                <i
-                  className="gd-info"
-                  title={`Level ${level} of 5 — ${labels[level - 1]}. ${DETAIL_LENGTHS[level - 1]}. Changes drafting detail, never the commercial position.`}
-                  aria-hidden="true"
-                >
-                  i
-                </i>
-              </span>
-              <span className="gd-readout">
-                <b>{level} / 5</b>
-                <em>{labels[level - 1]}</em>
-              </span>
-            </div>
-
-            <div className="gd-track">
-              <span className="gd-rail" aria-hidden="true">
-                <span className="gd-fill" style={{ width: `${((level - 1) / 4) * 100}%` }} />
-              </span>
-              <span className="gd-dots" aria-hidden="true">
-                {[1, 2, 3, 4, 5].map((mark) => (
-                  <span
-                    key={mark}
-                    className={`gd-dot${mark <= level ? " on" : ""}${mark === level ? " now" : ""}`}
-                  />
-                ))}
-              </span>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                step={1}
-                value={level}
-                aria-label="Initial NDA comprehensiveness"
-                aria-valuetext={`Level ${level}: ${labels[level - 1]}`}
-                onChange={(event) => setAnswer("_nda_detail_level", event.target.value)}
-              />
-            </div>
-
-            <div className="gd-scale" aria-hidden="true">
-              {[1, 2, 3, 4, 5].map((mark) => (
-                <span key={mark} className={mark === level ? "on" : ""}>
-                  <b>{mark}</b>
-                  <em>{labels[mark - 1]}</em>
-                </span>
-              ))}
-            </div>
-
-            <p className="gd-length">{DETAIL_LENGTHS[level - 1]}</p>
-          </div>
+          <DetailSlider
+            value={level}
+            onChange={(next) => setAnswer("_nda_detail_level", String(next))}
+          />
           <div className="chips">
             <button type="button" className="go" onClick={() => commit(false)}>
               Use this level →
@@ -2534,7 +2670,9 @@ function Chat({
         {wallet && (
           <div className="rail-credits">
             <span>
-              <b>{wallet.credits}</b> {wallet.credits === 1 ? "document" : "documents"} left
+              {/* Credits, not documents: a revision costs one too, so counting
+                  them in documents promises more than the number can pay for. */}
+              <b>{wallet.credits}</b> {wallet.credits === 1 ? "credit" : "credits"} left
             </span>
             {wallet.inTrial ? (
               <small>Free week · trial credits expire</small>
