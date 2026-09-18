@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import DetailSlider, { type DetailLevel } from "./DetailSlider";
 
 /**
  * "Your draft is ready" — the conversation beside the document.
@@ -121,14 +122,11 @@ export default function DraftReady({
   follow,
 }: DraftReadyProps) {
   const [text, setText] = useState("");
-  const detailLabels = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"] as const;
-  const detailLengths = [
-    "about 500–800 words",
-    "about 750–1,050 words",
-    "about 1,000–1,400 words",
-    "about 1,250–1,750 words",
-    "about 1,500–2,200 words",
-  ] as const;
+  /* The names of the five levels come from DetailSlider, which is also what
+     draws the card on the question. This screen used to keep its own list —
+     "Concise, Standard, Detailed, Thorough, Maximum" against the question's
+     "Minimal, Basic, Standard, Detailed, Comprehensive" — so the summary and
+     the slider directly beneath it called the same level different things. */
   const [sliderValue, setSliderValue] = useState(ndaDetailLevel);
   const sliderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -150,7 +148,7 @@ export default function DraftReady({
     return () => cancelAnimationFrame(frame);
   }, [conversation, follow, busy, error, paywalled]);
 
-  function chooseDetailLevel(level: 1 | 2 | 3 | 4 | 5) {
+  function chooseDetailLevel(level: DetailLevel) {
     setSliderValue(level);
     if (sliderTimer.current) clearTimeout(sliderTimer.current);
     sliderTimer.current = setTimeout(() => {
@@ -350,31 +348,12 @@ export default function DraftReady({
 
         {ready && /non-disclosure/i.test(docLabel) && (
           <div className="gen-depth-row">
-            <div className="gen-depth">
-              <div className="gen-depth-head">
-                <p className="gen-section-label">Comprehensiveness</p>
-                <b>{sliderValue}/5 · {detailLabels[sliderValue - 1]}</b>
-              </div>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                step={1}
-                value={sliderValue}
-                disabled={busy}
-                aria-label="NDA comprehensiveness"
-                aria-valuetext={`Level ${sliderValue}: ${detailLabels[sliderValue - 1]}`}
-                onChange={(event) =>
-                  chooseDetailLevel(Number(event.target.value) as 1 | 2 | 3 | 4 | 5)
-                }
-              />
-              <div className="gen-depth-scale" aria-hidden="true">
-                {[1, 2, 3, 4, 5].map((level) => (
-                  <span key={level} className={sliderValue === level ? "on" : ""}>{level}</span>
-                ))}
-              </div>
-              <p className="gen-depth-length">{detailLengths[sliderValue - 1]}</p>
-            </div>
+            <DetailSlider
+              value={sliderValue}
+              disabled={busy}
+              label="Comprehensiveness of this draft"
+              onChange={chooseDetailLevel}
+            />
           </div>
         )}
 

@@ -3258,3 +3258,48 @@ html[data-theme=dark]{
   font:500 13px/1 var(--sans);
   outline:none;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   VERSION 48 — the small things that read as broken
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. The account chip at the foot of the rail ─────────────────────────
+   Its padding was left over from when it was not a button: 4px at the sides
+   and 10px over 6px top to bottom. So the highlight that appears on hover sat
+   hard against the avatar on one side, hung past the text on the other, and
+   was not centred on anything. Even padding, and a divider above it that the
+   highlight cannot collide with. */
+.rail .rail-bottom{border-top:1px solid rgba(255,255,255,.08);padding-top:10px}
+.rail button.acct{padding:8px 10px;margin-top:0;border-top:0;align-items:center}
+.rail button.acct .caret{padding-left:6px}
+
+/* ── 2. The revision box ─────────────────────────────────────────────────
+   The line of text sat above the middle of the round buttons beside it,
+   because the box aligns its three columns to the bottom and the text sat at
+   the top of a taller field. And the note underneath lined up with nothing at
+   all — 12px in from the box, where neither the box's edge nor its text is.
+   It now starts under the first letter of the placeholder. */
+.gen-compose textarea{min-height:36px;padding:8px 0}
+.gen-compose .hint{
+  /* the box's own left padding, the + button, and the gap after it */
+  padding-left:calc(9px + 36px + 8px);
+  padding-right:44px;
+}
+
+/* ── 3. The comprehensiveness card beside the document ───────────────────
+   It is the same card as the one on the question now, and it belongs in the
+   same column as the document it describes — under FD AI's message, not out
+   in the margin to the left of it. 28px of avatar and the 10px beside it. */
+.gen-depth-row,
+.gen-quick{padding-left:38px}
+#scr-chat.is-draft .gen-thread>.gen-depth-row{
+  width:100%;
+  max-width:720px;
+  margin-inline:auto;
+}
+.gen-depth-row .gd{width:min(100%,430px);margin:2px 0 0}
+/* The old compact slider is gone; these rules described it. */
+#scr-chat.is-draft .gen-thread>.gen-depth{margin-inline:0}
+@media(max-width:620px){
+  .gen-depth-row,.gen-quick{padding-left:0}
+}
