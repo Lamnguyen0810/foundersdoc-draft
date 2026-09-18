@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
@@ -124,6 +124,8 @@ export default function SettingsShell({
   draftCount,
   deleted,
   lastSignInAt,
+  avatarUrl: initialAvatar,
+  userId,
   billing,
   supabase,
   passwordForm,
@@ -138,6 +140,9 @@ export default function SettingsShell({
   draftCount: number;
   deleted: DeletedRow[];
   lastSignInAt: string | null;
+  avatarUrl: string | null;
+  /** Whose folder a photo goes into, and what the storage policy checks. */
+  userId: string;
   billing: BillingView;
   supabase: { url: string; key: string };
   passwordForm: ReactNode;
@@ -185,6 +190,122 @@ export default function SettingsShell({
       router.refresh();
     } finally {
       setNameBusy(false);
+    }
+  }
+
+  /* ── the photo ──────────────────────────────────────────────────────────
+     Uploaded straight from the browser to storage, which is what storage is
+     for: the file never passes through this application, and a 2 MB ceiling
+     and the three image types are enforced by the bucket rather than by the
+     checks below. Those are here to fail fast and say something useful, not
+     because they are what is keeping anything out.
+
+     The path is the person's own user id, then a timestamp: a new photo gets a
+     new name so that no browser, proxy or CDN can go on showing the old one. */
+  const [avatar, setAvatar] = useState<string | null>(initialAvatar);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const photoInput = useRef<HTMLInputElement>(null);
+
+  async function choosePhoto(file: File, userId: string) {
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+      return say("Photos must be a PNG, JPG or WEBP.");
+    }
+    if (file.size > 2 * 1024 * 1024) return say("That photo is over 2 MB. Try a smaller one.");
+
+    setPhotoBusy(true);
+    try {
+      const client = createBrowserClient(supabase.url, supabase.key);
+      const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+      const path = `${userId}/${Date.now()}.${ext}`;
+      const { error: upload } = await client.storage
+        .from("avatars")
+        .upload(path, file, { cacheControl: "31536000", upsert: false });
+      if (upload) {
+        return say(
+          /bucket/i.test(upload.message)
+            ? "Photo storage is not set up yet — run supabase/033_photo_and_closing_an_account.sql."
+            : "Could not upload that photo.",
+        );
+      }
+      const { data } = client.storage.from("avatars").getPublicUrl(path);
+      const res = await fetch("/api/settings/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ avatar_url: data.publicUrl }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) return say(json.error ?? "Could not save that photo.");
+      setAvatar(data.publicUrl);
+      say("Photo updated");
+      router.refresh();
+    } finally {
+      setPhotoBusy(false);
+      if (photoInput.current) photoInput.current.value = "";
+    }
+  }
+
+  async function removePhoto() {
+    setPhotoBusy(true);
+    try {
+      const res = await fetch("/api/settings/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ avatar_url: null }),
+      });
+      if (!res.ok) return say("Could not remove that photo.");
+      setAvatar(null);
+      say("Photo removed");
+      router.refresh();
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  /* ── closing the account ─────────────────────────────────────────────────
+     The subscription is cancelled first, through the route that already knows
+     how to refund the unused part of the month; only then is the door shut.
+     The order matters: a closed account cannot cancel anything afterwards. */
+  const [closing, setClosing] = useState<"deactivate" | "delete" | null>(null);
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [closeBusy, setCloseBusy] = useState(false);
+
+  async function closeAccount(action: "deactivate" | "delete") {
+    setCloseBusy(true);
+    try {
+      if (billing.status && ["active", "trialing", "past_due"].includes(billing.status)) {
+        await fetch("/api/billing/cancel", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            reason: "other",
+            note: action === "delete" ? "Account deleted by the customer" : "Account deactivated by the customer",
+          }),
+        }).catch(() => null);
+      }
+
+      const res = await fetch("/api/account", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action, confirm: confirmEmail }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        setCloseBusy(false);
+        return say(json.error ?? "Could not close the account.");
+      }
+
+      /* Every session, not just this one — including the phone in a pocket. */
+      const client = createBrowserClient(supabase.url, supabase.key);
+      await client.auth.signOut({ scope: "global" }).catch(() => null);
+      /* A full page load, not the router: the session has just been destroyed,
+         and a client-side navigation can serve a payload rendered a moment ago
+         for somebody who was still signed in. The same reasoning as the
+         sign-in form, for the same reason, in the opposite direction. */
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign(`/login?closed=${action}`);
+    } catch {
+      setCloseBusy(false);
+      say("Could not close the account.");
     }
   }
 
@@ -352,13 +473,42 @@ export default function SettingsShell({
                   </div>
                 </div>
                 <div className="profile-row">
-                  <div className="avatar-large">{av}</div>
+                  <div className="avatar-large">
+                    {avatar ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={avatar} alt="" width={64} height={64} />
+                    ) : (
+                      av
+                    )}
+                  </div>
                   <div style={{ flex: 1 }}>
                     <strong>Profile photo</strong>
-                    <span>PNG, JPG or WEBP · max 5 MB</span>
+                    <span>PNG, JPG or WEBP · max 2 MB</span>
                   </div>
                   <div className="inline-actions">
-                    <SoonButton feature="Profile photo" />
+                    <input
+                      ref={photoInput}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      hidden
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file && userId) void choosePhoto(file, userId);
+                      }}
+                    />
+                    <button
+                      className="btn"
+                      type="button"
+                      disabled={photoBusy || !userId}
+                      onClick={() => photoInput.current?.click()}
+                    >
+                      {photoBusy ? "Working…" : avatar ? "Change" : "Upload"}
+                    </button>
+                    {avatar && (
+                      <button className="btn" type="button" disabled={photoBusy} onClick={() => void removePhoto()}>
+                        Remove
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="fields">
@@ -411,10 +561,77 @@ export default function SettingsShell({
                     <p>Deactivate your account temporarily or permanently delete it.</p>
                   </div>
                 </div>
-                <div className="inline-actions">
-                  <SoonButton feature="Deactivate account" />
-                  <SoonButton feature="Delete account" className="btn danger" />
-                </div>
+                {closing === null && (
+                  <div className="inline-actions">
+                    <button className="btn" type="button" onClick={() => setClosing("deactivate")}>
+                      Deactivate account
+                    </button>
+                    <button className="btn danger" type="button" onClick={() => { setConfirmEmail(""); setClosing("delete"); }}>
+                      Delete account
+                    </button>
+                  </div>
+                )}
+
+                {closing === "deactivate" && (
+                  <div className="close-confirm">
+                    <strong>Deactivate this account?</strong>
+                    <p>
+                      You will be signed out everywhere and cannot sign in again. Nothing is
+                      deleted — your documents stay exactly as they are.
+                      {billing.status && ["active", "trialing", "past_due"].includes(billing.status)
+                        ? " Your membership is cancelled and the unused part of the month refunded."
+                        : ""}{" "}
+                      To open the account again, contact FoundersDoc.
+                    </p>
+                    <div className="inline-actions">
+                      <button className="btn" type="button" disabled={closeBusy} onClick={() => setClosing(null)}>
+                        Keep my account
+                      </button>
+                      <button className="btn danger" type="button" disabled={closeBusy} onClick={() => void closeAccount("deactivate")}>
+                        {closeBusy ? "Closing…" : "Yes, deactivate"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {closing === "delete" && (
+                  <div className="close-confirm danger">
+                    <strong>Delete this account and everything in it?</strong>
+                    <p>
+                      You will be signed out everywhere and cannot sign in again. Your documents,
+                      their versions and your answers are kept for <b>30 days</b> and then destroyed
+                      for good.
+                      {billing.status && ["active", "trialing", "past_due"].includes(billing.status)
+                        ? " Your membership is cancelled and the unused part of the month refunded."
+                        : ""}{" "}
+                      Those 30 days are so FoundersDoc can undo a mistake if you ask — you will not
+                      be able to sign in and undo it yourself. Download anything you need first.
+                    </p>
+                    <label className="close-confirm-field">
+                      <span>Type <b>{email}</b> to confirm</span>
+                      <input
+                        value={confirmEmail}
+                        onChange={(e) => setConfirmEmail(e.target.value)}
+                        placeholder={email}
+                        autoComplete="off"
+                        spellCheck={false}
+                      />
+                    </label>
+                    <div className="inline-actions">
+                      <button className="btn" type="button" disabled={closeBusy} onClick={() => setClosing(null)}>
+                        Keep my account
+                      </button>
+                      <button
+                        className="btn danger"
+                        type="button"
+                        disabled={closeBusy || confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase()}
+                        onClick={() => void closeAccount("delete")}
+                      >
+                        {closeBusy ? "Closing…" : "Delete my account"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
 
