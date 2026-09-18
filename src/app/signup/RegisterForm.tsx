@@ -208,9 +208,19 @@ export default function RegisterForm({
           onChange={(e) => setAccepted(e.target.checked)}
           style={{ marginTop: 3 }}
         />
+        {/* ── WHO THIS IS FOR ──────────────────────────────────────────────
+            This said "drafts for a lawyer to review", which is wrong about the
+            product: FD AI is for whoever needs a document, and most of them are
+            founders rather than solicitors. Read on the way in, it told the
+            person that what they were about to make would not be usable until
+            somebody else had looked at it — which is not the offer.
+
+            What it does NOT drop is "not legal advice". That sentence is the
+            one doing the work on a law firm's sign-up screen, and it is
+            accurate however competent the draft is. */}
         <span>
-          I understand FD AI produces drafts for a lawyer to review, not legal advice, and I
-          accept the <a href="https://foundersdoc.com/terms-of-service">terms of service</a>.
+          I understand FD AI produces document drafts, not legal advice, and I accept the{" "}
+          <a href="https://foundersdoc.com/terms-of-service">terms of service</a>.
         </span>
       </label>
 
