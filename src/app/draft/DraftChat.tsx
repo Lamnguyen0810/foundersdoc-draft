@@ -105,7 +105,7 @@ const SOURCE_STEP = {
   question: "Do you have an existing NDA or term sheet I should work from?",
 };
 
-interface Step {
+export interface Step {
   id: string;
   name: string;
   question: string;
@@ -115,7 +115,7 @@ interface Step {
   kind: "chips" | "card" | "detail" | "source";
 }
 
-function buildSteps(docType: DocType): Step[] {
+export function buildSteps(docType: DocType): Step[] {
   /* The steps come from stepsFor — the same list the admin editor shows — so
      the order and wording here are the ones the admin published. */
   const steps: Step[] = stepsFor(docType).map(({ group, fields }) => {
@@ -148,6 +148,31 @@ function buildSteps(docType: DocType): Step[] {
 
 type Status = "done" | "skp" | undefined;
 
+/**
+ * What the person said on a step, in the words the chat echoes back.
+ *
+ * Module-level and pure, because it is needed twice: live, as each question is
+ * answered, and again when a saved draft is reopened months later. A copy of
+ * this logic in each place would drift, and the drift would show as a reopened
+ * conversation that does not match the one the person remembers having.
+ */
+export function describeStep(s: Step, src: Record<string, string>, attachments: string[]): string {
+  if (s.kind === "source") {
+    return attachments.length ? `Attached: ${attachments.join(", ")}` : "No — start fresh";
+  }
+  if (s.kind === "detail") {
+    const level = Math.min(5, Math.max(1, Number(src._nda_detail_level) || 3));
+    return `${level}/5 · ${DETAIL_LABELS[level - 1]} · ${DETAIL_LENGTHS[level - 1]}`;
+  }
+  const parts: string[] = [];
+  for (const f of s.fields) {
+    const v = (src[f.key] ?? "").trim();
+    if (!v || v === SKIPPED) continue;
+    parts.push(s.kind === "chips" ? v : `${f.label}: ${v}`);
+  }
+  return parts.length ? parts.join(" · ") : "—";
+}
+
 interface Msg {
   who: "fd" | "me";
   text: string;
@@ -159,6 +184,127 @@ export interface RecentDraft {
   id: string;
   title: string;
   when: string;
+  /** Which document it is — so a list of six tells you six different things. */
+  docLabel?: string;
+}
+
+/**
+ * A draft that already exists, opened again.
+ *
+ * The conversation was never stored as a transcript, and it does not need to
+ * be: the questions come from the document type, the answers come from the
+ * draft, and the revisions come from draft_versions. Everything the person
+ * said is on the row already, so reopening replays their conversation rather
+ * than recording a second copy of it.
+ */
+export interface ResumeDraft {
+  id: string;
+  title: string;
+  docTypeSlug: string;
+  answers: Record<string, string>;
+  sourceText: string | null;
+  output: string;
+  outputHtml: string | null;
+  createdAt: string;
+  /** Every version made, oldest first. Version 1 is the original draft. */
+  versions: {
+    version: number;
+    detailLevel: number;
+    fileName: string;
+    instruction: string | null;
+    output: string;
+  }[];
+}
+
+/**
+ * Rebuild the conversation from a saved draft.
+ *
+ * A step counts as answered when any of its fields carries an answer, as
+ * skipped when every one of them carries the skip marker, and as never reached
+ * when it carries neither — which is exactly what "Draft with what I have"
+ * leaves behind, and it should read that way on the way back in.
+ */
+export function replayConversation(
+  docType: DocType,
+  steps: Step[],
+  answers: Record<string, string>,
+  attachments: string[],
+  createdAt: string,
+): { msgs: Msg[]; status: Status[] } {
+  const opened = new Date(createdAt).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const msgs: Msg[] = [
+    {
+      who: "fd",
+      text: `This is the ${docType.label} you started on ${opened}. Here is what you told me, and the document it produced — ask me for a change and I will pick up where we left off.`,
+    },
+  ];
+  const status: Status[] = steps.map(() => undefined);
+
+  steps.forEach((step, k) => {
+    if (step.kind === "source") {
+      // Only worth replaying when something really was attached.
+      if (!attachments.length) return;
+      status[k] = "done";
+      msgs.push(
+        { who: "fd", text: step.question },
+        { who: "me", label: step.name, text: describeStep(step, answers, attachments) },
+      );
+      return;
+    }
+    const values = step.fields.map((f) => (answers[f.key] ?? "").trim());
+    const real = values.filter((v) => v && v !== SKIPPED);
+    const skippedAll = values.length > 0 && values.every((v) => v === SKIPPED);
+    if (real.length === 0 && !skippedAll) return; // never asked
+    status[k] = real.length > 0 ? "done" : "skp";
+    msgs.push(
+      { who: "fd", text: step.question },
+      {
+        who: "me",
+        label: step.name,
+        text: real.length > 0 ? describeStep(step, answers, attachments) : "Skipped for now",
+        skipped: real.length === 0,
+      },
+    );
+  });
+
+  return { msgs, status };
+}
+
+/**
+ * The follow-up turns, rebuilt from the versions that were saved.
+ *
+ * Version 1 is the draft itself and is announced by the ready card, so it is
+ * not a follow-up. Everything after it was a request the person typed and a
+ * document that came back, and both halves are on the row.
+ */
+export function replayRevisions(
+  versions: ResumeDraft["versions"],
+): {
+  who: "me" | "fd";
+  text: string;
+  version?: number;
+  fileName?: string;
+  documentText?: string;
+  detailLevel?: number;
+}[] {
+  const out: ReturnType<typeof replayRevisions> = [];
+  for (const v of versions) {
+    if (v.version <= 1) continue;
+    if (v.instruction) out.push({ who: "me", text: v.instruction });
+    out.push({
+      who: "fd",
+      text: `Version ${v.version} is ready.`,
+      version: v.version,
+      fileName: v.fileName,
+      documentText: v.output,
+      detailLevel: v.detailLevel,
+    });
+  }
+  return out;
 }
 
 function initialAnswers(docType: DocType, prefill?: Prefill | null): Record<string, string> {
@@ -211,6 +357,7 @@ export default function DraftChat({
   wallet,
   isAdmin = false,
   prefill,
+  resume = null,
 }: {
   docTypes: DocType[];
   presetSlug?: string;
@@ -219,6 +366,8 @@ export default function DraftChat({
   wallet?: WalletView | null;
   isAdmin?: boolean;
   prefill?: Prefill | null;
+  /** Set when an existing draft was opened from the list. */
+  resume?: ResumeDraft | null;
 }) {
   const liveSlugs = useMemo(() => new Set(docTypes.map((d) => d.slug)), [docTypes]);
 
@@ -244,9 +393,14 @@ export default function DraftChat({
     track("ai_opened");
   }, []);
 
-  const [screen, setScreen] = useState<"select" | "chat">(presetSlug ? "chat" : "select");
+  /* A reopened draft goes straight to its conversation: the catalogue is for
+     choosing what to draft, and that choice was made weeks ago. */
+  const resumeType = resume ? (docTypes.find((d) => d.slug === resume.docTypeSlug) ?? null) : null;
+  const [screen, setScreen] = useState<"select" | "chat">(
+    resumeType || presetSlug ? "chat" : "select",
+  );
   const [chosen, setChosen] = useState<DocType | null>(
-    presetSlug ? (docTypes.find((d) => d.slug === presetSlug) ?? null) : null,
+    resumeType ?? (presetSlug ? (docTypes.find((d) => d.slug === presetSlug) ?? null) : null),
   );
 
   // Belt and braces: "chat" with nothing chosen would render an empty page, and
@@ -291,12 +445,13 @@ export default function DraftChat({
         )}
         {view === "chat" && chosen && (
           <Chat
-            key={chosen.slug}
+            key={resume ? resume.id : chosen.slug}
             docType={chosen}
             userEmail={userEmail ?? null}
             recent={recent ?? []}
             wallet={live}
             prefill={prefill ?? null}
+            resume={resumeType && resume ? resume : null}
             onCreditSpent={spendCredit}
             onChangeDocument={() => setScreen("select")}
           />
@@ -734,6 +889,90 @@ function Catalogue({
   );
 }
 
+/**
+ * The draft's name, in the strip, editable in place.
+ *
+ * Before the draft exists there is nothing to name and nothing to save it to,
+ * so it shows what is being made and is not clickable. Once FD AI has named
+ * it, one click turns it into a text box — Enter or clicking away keeps the
+ * change, Escape abandons it.
+ */
+function DraftName({
+  name,
+  canRename,
+  onRename,
+  placeholder,
+}: {
+  name: string;
+  canRename: boolean;
+  onRename: (next: string) => void;
+  placeholder: string;
+}) {
+  /* The box holds its own text only while it is open, and is filled from the
+     current name at the moment it opens. Keeping the two in step with an
+     effect instead would overwrite what the person is typing the moment the
+     name changed underneath them. */
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(name);
+  /* Escape unmounts the input, which fires blur on the way out. Without this
+     the abandoned text would be saved by the blur handler — the one outcome
+     the Escape key must never have. */
+  const abandoned = useRef(false);
+
+  if (!canRename || !name) {
+    return (
+      <span className="dname dname-waiting" title="FD AI names your draft once it is written">
+        {name || placeholder}
+      </span>
+    );
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        className="dname"
+        title="Rename this draft"
+        onClick={() => {
+          abandoned.current = false;
+          setText(name);
+          setEditing(true);
+        }}
+      >
+        {name}
+      </button>
+    );
+  }
+
+  const finish = () => {
+    setEditing(false);
+    if (abandoned.current) return;
+    onRename(text);
+  };
+
+  return (
+    <input
+      className="dname-input"
+      value={text}
+      maxLength={80}
+      autoFocus
+      aria-label="Draft name"
+      onChange={(e) => setText(e.target.value)}
+      onBlur={finish}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          e.currentTarget.blur();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          abandoned.current = true;
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 /* ════════════════════════════════════════════════════════════════ chat */
 
 function Chat({
@@ -742,6 +981,7 @@ function Chat({
   recent,
   wallet,
   prefill,
+  resume,
   onCreditSpent,
   onChangeDocument,
 }: {
@@ -750,30 +990,64 @@ function Chat({
   recent: RecentDraft[];
   wallet: WalletView | null;
   prefill: Prefill | null;
+  resume: ResumeDraft | null;
   onCreditSpent: (creditsLeft: number | null) => void;
   onChangeDocument: () => void;
 }) {
   const steps = useMemo(() => buildSteps(docType), [docType]);
 
-  const [answers, setAnswers] = useState<Record<string, string>>(() => initialAnswers(docType, prefill));
-  const [msgs, setMsgs] = useState<Msg[]>(() => [
-    {
-      who: "fd",
-      text: `Let’s build your ${docType.label}. I’ll ask ${steps.length} focused questions and carry your answers forward as we go. Skip anything you’re unsure about — you can return to it later.`,
-    },
-  ]);
-  const [i, setI] = useState(0);
-  const [status, setStatus] = useState<Status[]>(() => steps.map(() => undefined));
+  /* Everything below is seeded from the saved draft when one was opened, and
+     from a blank form otherwise. It is done in the initialisers rather than in
+     an effect so a reopened draft renders complete on its first paint — an
+     effect would show an empty conversation for a frame first, which reads as
+     the draft having been lost. */
+  const replayed = useMemo(
+    () =>
+      resume
+        ? replayConversation(
+            docType,
+            steps,
+            resume.answers,
+            resume.sourceText ? ["the document you attached"] : [],
+            resume.createdAt,
+          )
+        : null,
+    [resume, docType, steps],
+  );
+
+  const [answers, setAnswers] = useState<Record<string, string>>(() =>
+    resume ? { ...initialAnswers(docType, null), ...resume.answers } : initialAnswers(docType, prefill),
+  );
+  const [msgs, setMsgs] = useState<Msg[]>(() =>
+    replayed
+      ? replayed.msgs
+      : [
+          {
+            who: "fd",
+            text: `Let’s build your ${docType.label}. I’ll ask ${steps.length} focused questions and carry your answers forward as we go. Skip anything you’re unsure about — you can return to it later.`,
+          },
+        ],
+  );
+  const [i, setI] = useState(resume ? steps.length : 0);
+  const [status, setStatus] = useState<Status[]>(() => replayed?.status ?? steps.map(() => undefined));
   const [typedAnswer, setTypedAnswer] = useState("");
 
   // source document
-  const [sourceText, setSourceText] = useState("");
-  const [attachments, setAttachments] = useState<string[]>([]);
+  const [sourceText, setSourceText] = useState(resume?.sourceText ?? "");
+  /* The file's NAME was never recorded — naming a file names a matter, and the
+     rule at the top of lib/events.ts says we do not keep that. So a reopened
+     draft can say that something was worked from, but not what it was called. */
+  const [attachments, setAttachments] = useState<string[]>(
+    resume?.sourceText ? ["the document you attached"] : [],
+  );
   const [uploading, setUploading] = useState(false);
 
   // draft
-  const [view, setView] = useState<"chat" | "draft">("chat");
-  const [output, setOutput] = useState("");
+  /* A reopened draft opens on its document, because that is what the person
+     came back for. The conversation is right there beside it, and the back
+     button returns to the questions. */
+  const [view, setView] = useState<"chat" | "draft">(resume?.output ? "draft" : "chat");
+  const [output, setOutput] = useState(resume?.output ?? "");
   const editorExportRef = useRef<{ html: string; plain: string } | null>(null);
   const captureEditorContent = useCallback((html: string, plain: string) => {
     editorExportRef.current = { html, plain };
@@ -790,8 +1064,11 @@ function Chat({
      until the generate endpoint reports it — and it stays null when Supabase
      is not configured, in which case the Save button simply does nothing
      rather than pretending. */
-  const [draftId, setDraftId] = useState<string | null>(null);
-  const [savedHtml, setSavedHtml] = useState<string | null>(null);
+  const [draftId, setDraftId] = useState<string | null>(resume?.id ?? null);
+  const [savedHtml, setSavedHtml] = useState<string | null>(resume?.outputHtml ?? null);
+  /* The draft's name, live on screen: written by FD AI when the draft is made,
+     and changeable by the person at any time after. */
+  const [name, setName] = useState<string>(resume?.title ?? "");
   /* Generating lands in the conversation, not in the document: the person has
      just answered six questions and deserves to be told what was done with
      them before being handed a wall of contract. The document opens beside the
@@ -804,19 +1081,35 @@ function Chat({
     fileName?: string;
     documentText?: string;
     detailLevel?: number;
-  }[]>([]);
+  }[]>(() => replayRevisions(resume?.versions ?? []));
   const [revising, setRevising] = useState(false);
   /** State disables the controls; the ref also closes the same-tick double-click window. */
   const revisingRef = useRef(false);
-  const [ndaDetailLevel, setNdaDetailLevel] = useState(3);
-  const [documentVersion, setDocumentVersion] = useState(1);
-  const versionCounterRef = useRef(1);
+
+  /* Every version this draft has had, oldest first — read back from the
+     database so reopening a draft that was revised four times shows four
+     versions, not one. */
+  const savedVersions = useMemo(
+    () =>
+      (resume?.versions ?? []).map((v) => ({
+        documentText: v.output,
+        version: v.version,
+        detailLevel: v.detailLevel,
+        fileName: v.fileName,
+      })),
+    [resume],
+  );
+  const latestSaved = savedVersions[savedVersions.length - 1];
+
+  const [ndaDetailLevel, setNdaDetailLevel] = useState(latestSaved?.detailLevel ?? 3);
+  const [documentVersion, setDocumentVersion] = useState(latestSaved?.version ?? 1);
+  const versionCounterRef = useRef(latestSaved?.version ?? 1);
   const [documentVersions, setDocumentVersions] = useState<{
     documentText: string;
     version: number;
     detailLevel: number;
     fileName: string;
-  }[]>([]);
+  }[]>(savedVersions);
   const [skippedLabels, setSkippedLabels] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [acctOpen, setAcctOpen] = useState(false);
@@ -944,22 +1237,7 @@ function Chat({
    *  timer, so without it the echo is built from the previous render's answers
    *  and reads "—". */
   function summarise(s: Step, override?: Record<string, string>): string {
-    if (s.kind === "source") {
-      return attachments.length ? `Attached: ${attachments.join(", ")}` : "No — start fresh";
-    }
-    const src = { ...answers, ...(override ?? {}) };
-    if (s.kind === "detail") {
-      const level = Math.min(5, Math.max(1, Number(src._nda_detail_level) || 3));
-      const label = DETAIL_LABELS[level - 1];
-      return `${level}/5 · ${label} · ${DETAIL_LENGTHS[level - 1]}`;
-    }
-    const parts: string[] = [];
-    for (const f of s.fields) {
-      const v = (src[f.key] ?? "").trim();
-      if (!v || v === SKIPPED) continue;
-      parts.push(s.kind === "chips" ? v : `${f.label}: ${v}`);
-    }
-    return parts.length ? parts.join(" · ") : "—";
+    return describeStep(s, { ...answers, ...(override ?? {}) }, attachments);
   }
 
   /** Move on. `skipped` marks every field on this step with the SKIPPED marker
@@ -1214,6 +1492,7 @@ function Chat({
             creditsLeft?: number | null;
             draftId?: string | null;
             partial?: boolean;
+            title?: string;
           };
           try {
             msg = JSON.parse(raw);
@@ -1240,6 +1519,9 @@ function Chat({
           } else if (msg.t === "done") {
             setSkippedLabels(msg.skipped ?? []);
             setDraftId(msg.draftId ?? null);
+            /* The name FD AI gave it, on screen the moment the draft exists —
+               not on the next page load. */
+            if (msg.title) setName(msg.title);
             setSavedHtml(null); // a fresh generation replaces any saved edits
             if (!msg.partial && acc.trim()) {
               setDocumentVersions([{
@@ -1539,6 +1821,38 @@ function Chat({
     }
   }
 
+  /**
+   * Rename the draft.
+   *
+   * The screen changes first and the database catches up, because a name is
+   * the person's own word for their work and it should not flicker while a
+   * request is in flight. If the write fails they are told — a rename that
+   * silently did not happen is discovered weeks later, in a list that has
+   * gone back to saying something else.
+   */
+  const rename = useCallback(
+    async (next: string) => {
+      const tidy = next.replace(/\s+/g, " ").trim().slice(0, 80);
+      if (!tidy || tidy === name) return;
+      const previous = name;
+      setName(tidy);
+      if (!draftId) return;
+      try {
+        const res = await fetch(`/api/drafts/${draftId}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ title: tidy }),
+        });
+        if (!res.ok) throw new Error("rename failed");
+        setToast("Renamed");
+      } catch {
+        setName(previous);
+        setToast("Could not save that name");
+      }
+    },
+    [draftId, name],
+  );
+
   const answered = status.filter((s) => s === "done").length;
   const skippedCount = status.filter((s) => s === "skp").length;
   const settled = answered + skippedCount;
@@ -1763,18 +2077,23 @@ function Chat({
         view === "draft" && docOpen ? " doc-open" : ""
       }`}
     >
-      {/* ── the strip ── */}
+      {/* ── the strip ──
+          The draft's name, left, where a name belongs. It used to read
+          "Non-Disclosure Agreement · Singapore precedent · Focused setup",
+          which said three things nobody needed twice — the document type is
+          already the whole screen — and left no room for the one thing that
+          tells six saved drafts apart. */}
       <div className="strip">
         <span className="dot" />
-        <span>
-          <b>{docType.label}</b> · Singapore precedent
-        </span>
-        <span>
-          Focused setup{" "}
-          <button type="button" className="chg" onClick={onChangeDocument}>
-            Change document
-          </button>
-        </span>
+        <DraftName
+          name={name}
+          canRename={Boolean(draftId)}
+          onRename={rename}
+          placeholder={`New ${docType.label.toLowerCase()}`}
+        />
+        <button type="button" className="chg" onClick={onChangeDocument}>
+          Change document
+        </button>
       </div>
 
       {/* ── the conversation ── */}
@@ -2074,8 +2393,17 @@ function Chat({
             </p>
             <div className="hist">
               {recent.map((r) => (
-                <a key={r.id} href={`/draft/${r.id}`}>
+                <a
+                  key={r.id}
+                  href={`/draft/${r.id}`}
+                  className={draftId === r.id ? "on" : undefined}
+                  aria-current={draftId === r.id ? "page" : undefined}
+                  title={r.docLabel ? `${r.title} — ${r.docLabel}` : r.title}
+                >
                   {r.title}
+                  {/* The date stays on its own, as the design has it; the
+                      document type rides in the tooltip rather than squeezing
+                      the name out of a row that is one line tall. */}
                   <small>{r.when}</small>
                 </a>
               ))}

@@ -13,6 +13,7 @@ import type { FolderRow, SourceRow } from "@/lib/ai-library";
 import { getWeeklyReport, type WeeklyReport } from "@/lib/weekly-report";
 import "./dashboard.css";
 import "./admin.css";
+import { nameFallback } from "@/lib/draft-name";
 
 /**
  * The admin console.
@@ -987,7 +988,7 @@ export default async function AdminPage({
                         )}
                         {docRowsShown.map((d) => (
                           <tr key={d.draft_id}>
-                            <td><b>{d.title || "Untitled draft"}</b></td>
+                            <td><b>{d.title?.trim() || nameFallback(d.doc_type, d.created_at)}</b></td>
                             <td>{d.doc_type.length <= 5 ? d.doc_type.toUpperCase() : d.doc_type}</td>
                             <td>{d.owner_email ?? "—"}</td>
                             <td>{Math.max(0, n(d.versions) - 1)}</td>

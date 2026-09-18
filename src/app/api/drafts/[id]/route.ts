@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { tidyTypedName } from "@/lib/draft-name";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     outputHtml?: string;
     answers?: Record<string, string>;
     status?: string;
+    title?: string;
   };
   try {
     body = await req.json();
@@ -41,6 +43,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (typeof body.outputHtml === "string") patch.outputHtml = body.outputHtml;
   if (body.answers && typeof body.answers === "object") patch.answers = body.answers;
   if (body.status === "final" || body.status === "draft") patch.status = body.status;
+
+  /* Renaming. An empty name is not a name, so it is refused rather than stored:
+     a person who clears the box and clicks away keeps the name they had, which
+     is better than being handed "Untitled draft" for their trouble. */
+  if (typeof body.title === "string") {
+    const name = tidyTypedName(body.title);
+    if (name) patch.title = name;
+  }
 
   if (Object.keys(patch).length === 0) {
     return Response.json({ error: "Nothing to save." }, { status: 400 });

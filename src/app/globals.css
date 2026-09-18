@@ -1158,8 +1158,16 @@ html[data-theme=dark] .sh-face{fill:#e9e6df}html[data-theme=dark] .sh-fold{fill:
 .strip{grid-column:2;display:flex;align-items:center;gap:14px;padding:10px 32px;border-bottom:1px solid var(--rule);background:var(--bg-2);font-size:12.5px;color:var(--tx-3);flex-wrap:wrap}
 .strip .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px rgba(243,191,75,.6)}
 .strip b{color:var(--tx);font-weight:500}
-.strip .chg{all:unset;cursor:pointer;color:var(--tx-2);text-decoration:underline;text-underline-offset:3px;margin-left:2px}
+.strip .chg{all:unset;cursor:pointer;color:var(--tx-2);text-decoration:underline;text-underline-offset:3px;margin-left:auto}
 .strip .chg:hover{color:var(--tx)}
+/* The draft's name, left, where the document type and the words "Focused
+   setup" used to sit. It is the only thing in the strip that differs between
+   one draft and the next, so it gets the weight the rest has given up. */
+.strip .dname{all:unset;cursor:pointer;color:var(--tx);font-weight:500;font-size:13px;max-width:min(52vw,520px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:2px 6px;margin-left:-6px;border-radius:6px}
+.strip .dname:hover{background:var(--bg-3,rgba(128,128,128,.12))}
+.strip .dname-waiting{cursor:default;color:var(--tx-3);font-weight:400}
+.strip .dname-waiting:hover{background:none}
+.strip .dname-input{font:inherit;font-weight:500;color:var(--tx);background:var(--bg);border:1px solid var(--gold);border-radius:6px;padding:2px 6px;margin-left:-7px;width:min(52vw,520px);outline:none}
 .convo{grid-column:2;grid-row:2;display:grid;grid-template-rows:minmax(0,1fr) auto;overflow:hidden;min-height:0}
 .chat{overflow-y:auto;overscroll-behavior:contain;scroll-behavior:smooth;scrollbar-width:thin;padding:22px 32px 10px}
 .chat-in{width:min(100%,780px);display:grid;gap:22px}

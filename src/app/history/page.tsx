@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { nameFallback } from "@/lib/draft-name";
 
 export const metadata = { title: "Past drafts" };
 export const dynamic = "force-dynamic";
@@ -114,7 +115,7 @@ export default async function HistoryPage({
                 }}
               >
                 <span style={{ fontSize: 15, fontWeight: 500 }}>
-                  {r.title || "Untitled draft"}
+                  {r.title?.trim() || nameFallback(r.doc_types?.label, r.created_at)}
                 </span>
                 <span style={{ fontSize: 12, color: "var(--grey-5)" }}>
                   {r.doc_types?.label ? `${r.doc_types.label} · ` : ""}
