@@ -3,22 +3,26 @@ import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { isThrowaway } from "./disposable";
 
 /**
- * Turning a waitlist address into an account.
+ * Inviting a waitlist address, by hand, from the admin console.
  *
- * ── WHY THIS USES THE ADMIN KEY, WHICH NOTHING ELSE MAY ─────────────────────
- * Supabase's own sign-up is switched OFF, and it stays off. That is what makes
- * the waitlist a real gate rather than a label: with public sign-up on, anyone
- * could create an account by talking to Supabase directly and the list would
- * guard nothing.
+ * ── THIS IS NOT THE MAIN DOOR ANY MORE ──────────────────────────────────────
+ * People who sign up choose a password on the page they are already looking
+ * at — see RegisterForm — and that path uses Supabase's ordinary sign-up with
+ * no admin key anywhere near it. What stops a stranger there is a trigger in
+ * the database: an account may be created only for an address on the waitlist,
+ * whichever provider asks. See 035_only_the_waitlist_may_register.sql.
  *
- * With it off, there is exactly one way to create an account — the admin API —
- * and exactly one place that may do it: here. Every caller has already checked
- * that the address is on the list, and this checks again, because the check
- * belongs where the account is made and not where the button is drawn.
+ * This remains for the case that path cannot cover: somebody already on the
+ * list, from before any of it existed, whom FD wants to reach out to. It
+ * creates the account and emails them an invitation, which is a thing only the
+ * admin API can do.
  *
- * This is the second home for SUPABASE_SECRET_KEY, after the Stripe webhook.
- * It is not a convenience: there is no policy that can express "create a user",
- * because the user does not exist yet to have permissions.
+ * ── SO THE ADMIN KEY IS STILL HERE, AND STILL DELIBERATE ────────────────────
+ * Second home for SUPABASE_SECRET_KEY after the Stripe webhook. The route that
+ * calls it checks isAdmin() first, and this checks the waitlist again, because
+ * a check belongs where the account is made rather than where the button is
+ * drawn. An invited row is also the one case the trigger waves through —
+ * GoTrue sets invited_at — so the two agree by construction.
  *
  * ── THE CREDITS ARE NOT GRANTED HERE ────────────────────────────────────────
  * Three credits, fourteen days, by the trigger on auth.users from
@@ -141,7 +145,13 @@ export async function createAccountFor(
   return "created";
 }
 
-/** Does joining the waitlist create the account at once? A row, not a constant. */
+/**
+ * Does joining the waitlist lead straight to a password? A row, not a constant.
+ *
+ * The same row the database trigger reads, which is what makes it a real
+ * switch: turning it off does not merely hide a form, it makes the database
+ * refuse the account the form would have asked for.
+ */
 export async function autoAccountOn(): Promise<boolean> {
   if (!isAdminClientConfigured()) return false;
   try {

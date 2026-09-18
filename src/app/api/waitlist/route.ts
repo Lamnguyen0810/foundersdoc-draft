@@ -2,11 +2,11 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { notifyWaitlistWebhook } from "@/lib/waitlist/notify";
-import { autoAccountOn, createAccountFor } from "@/lib/waitlist/account";
+import { autoAccountOn } from "@/lib/waitlist/account";
 import { isThrowaway } from "@/lib/waitlist/disposable";
 
 /**
- * Joining the waitlist — which now also means getting an account.
+ * Joining the waitlist — which is now step one of signing up.
  *
  * Open to anyone — it has to be, nobody has an account yet. Four things keep
  * that from being a liability:
@@ -14,25 +14,26 @@ import { isThrowaway } from "@/lib/waitlist/disposable";
  *   The database function is the only way in, and it decides what a row may
  *   contain. This route cannot write an arbitrary record even if it wanted to.
  *
- *   The reply is identical whether the address was new or already on the list.
- *   Otherwise this becomes a way to check, one address at a time, who has shown
- *   interest in a law firm's product. It stays identical now that an account is
- *   created too, which matters MORE than it did: the reply would otherwise
- *   answer "does this person already use FD AI".
+ *   The reply is identical whether the address was new or already on the list,
+ *   and says nothing about whether it already has an account. Otherwise this
+ *   becomes a way to check, one address at a time, who has shown interest in a
+ *   law firm's product — and, worse, who is already using it.
  *
  *   The welcome email is sent by the firm's Zap, which receives every new
  *   signup from this route (see the end). Nothing here waits on a mail
  *   provider: being on the list is what the person came for.
  *
- *   Whether an account is made at all is a row in signup_config, not a
+ *   Whether registration follows at all is a row in signup_config, not a
  *   constant here. If the free credits are being farmed, FD closes it with one
- *   UPDATE and no deploy.
+ *   UPDATE and no deploy — and the same row is read by the database trigger
+ *   that actually refuses the account, so closing it is not a matter of the
+ *   browser agreeing to hide a button.
  *
  * ── THE ORDER MATTERS ───────────────────────────────────────────────────────
- * The waitlist row is written FIRST and the account second, because
- * createAccountFor refuses any address that is not already on the list. That
- * ordering is also what makes a retry safe: the row is there, the account
- * either exists or does not, and neither step can produce a second of anything.
+ * The waitlist row is written FIRST and the password chosen second, because
+ * the trigger in 035 refuses to create an account for an address that is not
+ * already on the list. That ordering is also what makes a retry safe: joining
+ * twice changes nothing, and registering twice is refused by Supabase.
  */
 export const dynamic = "force-dynamic";
 
@@ -131,41 +132,27 @@ export async function POST(req: NextRequest) {
     await notifyWaitlistWebhook({ email, name, company, note, source, total });
   }
 
-  /* ── AND THE ACCOUNT ──────────────────────────────────────────────────────
-     Attempted for a repeat submission as well as a new one, on purpose:
-     somebody who joined the list last month, before any of this existed,
-     should get an account the next time they ask rather than being told they
-     are already on a list that now means something different.
+  /* ── MAY THEY GO STRAIGHT ON AND REGISTER? ────────────────────────────────
+     The row now exists, so the database will let this address create an
+     account — and the browser is told to show the password field.
 
-     createAccountFor answers with what happened. None of it is returned to the
-     browser — the reply below is the same three characters whatever occurred —
-     because the difference between "created" and "already" is the answer to
-     "does this person have an FD AI account", and that is not a question a
-     stranger with a form gets to ask. */
-  let outcome: Awaited<ReturnType<typeof createAccountFor>> | "off" = "off";
-  if (await autoAccountOn()) {
-    outcome = await createAccountFor(email, { name, origin: req.nextUrl.origin });
-  }
+     Note what is NOT said: nothing about whether an account already exists.
+     That is the answer to "does this person use FD AI", and this form is open
+     to the whole internet. The second step is therefore offered to everybody,
+     and Supabase — which answers a repeat sign-up with a lookalike success on
+     purpose — is the one that decides.
 
-  /* One line in the server log per sign-up, so a launch morning where nobody
-     can get in is diagnosable without a debugger: it will say rate_limited, or
-     not_configured, on every row. */
-  console.log(`[waitlist] ${isNew ? "new" : "repeat"} · account: ${outcome}`);
+     No account is created here and no invitation is sent. The person is about
+     to choose their own password on the page they are already looking at, and
+     an account made now would be an account they cannot then sign up for.
 
-  /* The one case the person must be told about, because it is the one where
-     doing nothing leaves them waiting for an email that is never coming.
-     It says nothing about whether they have an account. */
-  if (outcome === "rate_limited") {
-    return NextResponse.json(
-      {
-        ok: true,
-        note:
-          "You are on the list. Our email service is busy, so the link to sign in may take " +
-          "a little longer to arrive than usual.",
-      },
-      { status: 200 },
-    );
-  }
+     Read from the database rather than taken from the page, because the switch
+     can have moved since the page was rendered. */
+  const canRegister = await autoAccountOn();
 
-  return NextResponse.json(OK);
+  /* One line per sign-up. A launch morning where nobody can get in should be
+     diagnosable from the log rather than from a debugger. */
+  console.log(`[waitlist] ${isNew ? "new" : "repeat"} · register: ${canRegister ? "open" : "closed"}`);
+
+  return NextResponse.json({ ...OK, canRegister });
 }

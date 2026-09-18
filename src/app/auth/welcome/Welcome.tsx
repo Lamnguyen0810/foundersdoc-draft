@@ -53,10 +53,20 @@ export default function Welcome({
 
     const leave = (to: string) => window.location.replace(to);
 
-    /* An expired or already-used link. Supabase says so in the hash rather
-       than by failing, and the sign-in screen already knows this word. */
-    if (params.get("error") || params.get("error_code")) {
-      leave("/login?error=link-expired");
+    /* Something went wrong, and Supabase says so in the hash rather than by
+       failing. Two cases are worth telling apart, because the answers are
+       opposite: "open the link again" and "you are not on the list". */
+    const errorCode = params.get("error_code") ?? "";
+    const errorText = params.get("error_description") ?? params.get("error") ?? "";
+    if (errorCode || errorText) {
+      /* The gate refused. This is the Google path: the trigger raised, GoTrue
+         turned it into a database error, and the person is standing on the
+         first screen of the product with no idea why. */
+      const refused =
+        /not_on_waitlist|registration_closed|database error|saving new user/i.test(
+          `${errorCode} ${errorText}`,
+        );
+      leave(refused ? "/login?error=not-on-waitlist" : "/login?error=link-expired");
       return;
     }
 
