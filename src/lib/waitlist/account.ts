@@ -80,15 +80,26 @@ export async function createAccountFor(
   if (onList !== true) return "not_on_list";
 
   /* ── WHERE THE INVITATION LANDS ────────────────────────────────────────
-     /auth/confirm exchanges the token for a session on the server, so they
-     arrive at the drafting page already signed in, with three credits.
+     /auth/welcome, not /auth/confirm, and the difference is the difference
+     between working and not.
+
+     Supabase's DEFAULT invite email — the one every project has until custom
+     SMTP is configured, because templates cannot be edited before that —
+     sends the person to Supabase, which verifies the token itself and then
+     redirects here with the session in the URL's HASH. A hash never reaches a
+     server, so /auth/confirm, which reads query parameters, sees an empty
+     request and says "bad link". /auth/welcome reads it in the browser.
+
+     A project that HAS edited the template to use {{ .TokenHash }} sends
+     people to /auth/confirm instead, which still works and is the better of
+     the two. Both are live; neither has to be chosen in advance.
 
      They have no password yet, and that is survivable: "Forgot your password?"
-     on the sign-in screen sets one, and the welcome email says so. Sending
-     them to /settings to choose one first would be tidier and would also be
-     the first thing FD AI ever asked of somebody who came to try it. */
+     on the sign-in screen sets one, and the confirmation on the form says so.
+     Sending them to /settings to choose one first would be tidier, and would
+     also be the first thing FD AI ever asked of somebody who came to try it. */
   const { error } = await db.auth.admin.inviteUserByEmail(address, {
-    redirectTo: `${options.origin}/auth/confirm?next=%2Fdraft`,
+    redirectTo: `${options.origin}/auth/welcome?next=%2Fdraft`,
     data: options.name ? { full_name: options.name } : undefined,
   });
 
