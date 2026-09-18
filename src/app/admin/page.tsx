@@ -9,6 +9,7 @@ import FilterSelect from "./FilterSelect";
 import AiFiles from "./AiFiles";
 import Questions, { type DocTypeForEditor, type FieldRow, type GroupRow } from "./Questions";
 import PeriodSelect from "./PeriodSelect";
+import InviteButton from "./InviteButton";
 import type { FolderRow, SourceRow } from "@/lib/ai-library";
 import { getWeeklyReport, type WeeklyReport } from "@/lib/weekly-report";
 import "./dashboard.css";
@@ -116,6 +117,8 @@ interface WaitRow {
   note: string | null;
   status: string;
   created_at: string;
+  /** When an account was made for this address. Null until one is. */
+  account_at?: string | null;
 }
 
 interface EventRow {
@@ -498,7 +501,13 @@ export default async function AdminPage({
     tab === "users"
       ? supabase
           .from("waitlist")
-          .select("email,name,company,note,status,created_at")
+          /* `*` rather than a column list, deliberately. `account_at` arrives
+             with 034, and naming it here would make this whole table go blank
+             on a database where 034 has not been run yet — while blaming 005,
+             which is the file the error hint below is attached to. With `*` the
+             page works before and after, and the column is simply absent until
+             the migration adds it. */
+          .select("*")
           .order("created_at", { ascending: false })
           .limit(200)
       : null,
@@ -1353,7 +1362,7 @@ export default async function AdminPage({
                   </div>
                   <div className="table-wrap">
                     <table>
-                      <thead><tr><th>Email</th><th>Name</th><th>Company</th><th>Wants to draft</th><th>Joined</th><th>Status</th></tr></thead>
+                      <thead><tr><th>Email</th><th>Name</th><th>Company</th><th>Wants to draft</th><th>Joined</th><th>Account</th></tr></thead>
                       <tbody>
                         {waitlistShown.length === 0 && (
                           <tr>
@@ -1375,7 +1384,10 @@ export default async function AdminPage({
                             <td>{w.company ?? "—"}</td>
                             <td>{w.note ?? "—"}</td>
                             <td>{day(w.created_at)}</td>
-                            <td>{w.status === "invited" ? <span className="badge green">Invited</span> : <span className="badge">Waiting</span>}</td>
+                            {/* Either they have an account, or here is the button
+                                that gives them one — the same account, credits and
+                                invitation a self-serve sign-up produces. */}
+                            <td><InviteButton email={w.email} invited={Boolean(w.account_at)} /></td>
                           </tr>
                         ))}
                       </tbody>
