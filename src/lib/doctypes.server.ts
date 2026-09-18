@@ -1,5 +1,5 @@
 import "server-only";
-import { DOC_TYPES, EXAMPLES_BY_SLUG, type DocType, type Field } from "./doctypes";
+import { DOC_TYPES, EXAMPLES_BY_SLUG, type DocType, type Field, type Group } from "./doctypes";
 import { isSupabaseConfigured } from "./supabase/config";
 import { createClient } from "./supabase/server";
 
@@ -20,6 +20,8 @@ interface DocTypeRow {
   label: string;
   description: string | null;
   fields: Field[] | null;
+  /** The steps, in the order the admin console published them. */
+  groups: Group[] | null;
   system_prompt: string;
   examples: { title: string; text: string }[] | null;
 }
@@ -84,11 +86,30 @@ function fromRow(row: DocTypeRow): DocType {
         `Re-run supabase/002_seed_doctypes.sql to remove them from the database.`,
     );
   }
+  /* ── THE STEPS, AND WHY THIS LINE MATTERS ──────────────────────────────
+     `groups` holds the order of the steps and their wording, as published
+     from the admin console. The query below has always asked for it; this
+     function used to build the DocType without it, so every read handed the
+     drafting screen a catalogue with no step order at all. stepsFor() then
+     fell back to the order the questions happen to appear in `fields`, which
+     is why reordering steps in the console changed nothing for the user: the
+     database was right, and the answer was being thrown away on the way out.
+
+     Only well-formed entries are kept. A half-written row cannot take the
+     form down; anything unreadable simply falls back to first-appearance
+     order, exactly as before. */
+  const groups = Array.isArray(row.groups)
+    ? row.groups.filter(
+        (g): g is Group => Boolean(g) && typeof g.name === "string" && g.name.trim().length > 0,
+      )
+    : [];
+
   return {
     slug: row.slug,
     label: row.label,
     description: row.description ?? "",
     fields,
+    groups: groups.length > 0 ? groups : undefined,
     systemPrompt,
     examples: rowExamples.length > 0 ? rowExamples : (EXAMPLES_BY_SLUG[row.slug] ?? []),
   };
@@ -115,11 +136,16 @@ export async function loadDocTypes(): Promise<CatalogueResult> {
       .eq("is_active", true)
       .order("label");
     if (res.error && /groups/.test(res.error.message)) {
-      res = await supabase
+      const bare = await supabase
         .from("doc_types")
         .select("slug,label,description,fields,system_prompt,examples")
         .eq("is_active", true)
         .order("label");
+      /* Without 017 there is no step order to read; first appearance it is. */
+      res = {
+        data: bare.data ? (bare.data as Omit<DocTypeRow, "groups">[]).map((r) => ({ ...r, groups: null })) : null,
+        error: bare.error,
+      };
     }
     const { data, error } = res;
 
