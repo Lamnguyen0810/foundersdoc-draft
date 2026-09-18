@@ -43,12 +43,21 @@ export default async function SettingsPage() {
 
   const supabase = await createClient();
 
-  const [{ data: profile }, { settings, tableMissing }, wallet] = await Promise.all([
-    supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
-    loadSettings(),
-    getWallet(),
-  ]);
-  const fullName = (profile?.full_name as string | null) ?? "";
+  const [{ data: profile, error: profileError }, { settings, tableMissing }, wallet] =
+    await Promise.all([
+      supabase.from("profiles").select("full_name,avatar_url").eq("id", user.id).maybeSingle(),
+      loadSettings(),
+      getWallet(),
+    ]);
+
+  /* 033 may not have been run, in which case there is no avatar_url column and
+     the query above fails whole — taking the name with it. Ask again for the
+     column that has always been there rather than showing an empty name field. */
+  const fallbackProfile = profileError
+    ? (await supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle()).data
+    : null;
+  const fullName =
+    ((profile?.full_name ?? fallbackProfile?.full_name) as string | null) ?? "";
 
   /* ── documents ── */
   const monthStart = new Date();
@@ -180,6 +189,8 @@ export default async function SettingsPage() {
       draftCount={draftCount ?? drafts.length}
       deleted={deleted}
       lastSignInAt={user.last_sign_in_at ?? null}
+      avatarUrl={(profile?.avatar_url as string | null) ?? null}
+      userId={user.id}
       billing={billing}
       supabase={{ url, key }}
       passwordForm={<SettingsForm supabaseUrl={url} supabaseKey={key} email={user.email} minLength={MIN_PASSWORD_LENGTH} />}

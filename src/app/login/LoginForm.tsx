@@ -94,6 +94,16 @@ export default function LoginForm({
     "not-configured": "Sign-in is not configured on this site yet.",
   };
 
+  /* Where closing an account lands. Not an error — they asked for this — so it
+     is worded as a confirmation rather than a refusal. */
+  const CLOSED: Record<string, string> = {
+    deactivate:
+      "Your account is deactivated and you have been signed out everywhere. Contact FoundersDoc when you want it opened again.",
+    delete:
+      "Your account is closed. Your documents will be deleted in 30 days. If this was a mistake, contact FoundersDoc before then.",
+  };
+  const closedNote = CLOSED[params.get("closed") ?? ""] ?? null;
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -117,6 +127,35 @@ export default function LoginForm({
         setError(signInMessage(error));
         return;
       }
+      /* ── A CLOSED ACCOUNT DOES NOT COME BACK IN ────────────────────────
+         Deactivating or deleting an account signs every session out, but
+         nothing stops the same person signing in again a minute later — the
+         password still works, because closing an account is our idea, not the
+         sign-in service's. So the first thing a new session does is ask, and a
+         closed account is signed straight back out.
+
+         Asked here rather than in the middleware on purpose: this is once a
+         day at sign-in, and the middleware runs on every request in the
+         application. */
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: closed } = await supabase.rpc("account_closed", { p_user_id: user.id });
+          if (closed) {
+            await supabase.auth.signOut({ scope: "global" });
+            setError(
+              closed === "deleted"
+                ? "This account has been closed and its documents are being deleted. If that was a mistake, contact FoundersDoc within 30 days."
+                : "This account is deactivated. Contact FoundersDoc to open it again.",
+            );
+            return;
+          }
+        }
+      } catch {
+        /* 033 not run yet, or the check could not be made. A sign-in that
+           works is better than one that fails for a reason nobody can see. */
+      }
+
       track("sign_in_ok");
       /* A FULL page load, not router.push().
        *
@@ -247,6 +286,7 @@ export default function LoginForm({
         />
       </label>
 
+      {closedNote && !error && <p className="note note-ok">{closedNote}</p>}
       {error && <p className="note note-warn">{error}</p>}
 
       <button type="submit" disabled={busy} className="btn btn-gold" style={{ width: "100%" }}>
