@@ -3092,3 +3092,55 @@ html[data-theme=dark]{
   .gd-scale em{font-size:10px}
   .gd-readout b{font-size:14px}
 }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   VERSION 47 — the draft's name, and the document bar
+   Appended rather than edited into the design layer above, exactly as the
+   note there asks: the next revision of the design can replace that layer
+   wholesale without losing any of this.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. The name belongs at the top, in both states ──────────────────────
+   In the generated state #scr-chat.is-draft declares ONE row. The strip asks
+   for column 2 and says nothing about rows, so the grid put it in an implicit
+   row after everything else — which is why the draft's name was rendering as
+   a bar across the bottom of the window, under the chat and the document.
+   Give the grid its second row, put the strip in the first, and let the rail
+   and the progress pane span both. */
+#scr-chat.is-draft{grid-template-rows:auto minmax(0,1fr)}
+#scr-chat.is-draft .strip{grid-column:2;grid-row:1}
+#scr-chat.is-draft .rail{grid-row:1/-1}
+#scr-chat.is-draft .pane{grid-row:1/-1}
+#scr-chat.is-draft .dview{grid-row:2}
+
+/* The same at the widths where the rail and the pane drop away, so the name
+   stays over the workspace rather than over nothing. */
+@media(max-width:1200px){
+  #scr-chat.is-draft .strip{grid-column:1;grid-row:1}
+  #scr-chat.is-draft .pane{grid-row:1/-1}
+  #scr-chat.is-draft .dview{grid-row:2}
+}
+@media(max-width:900px){
+  #scr-chat.is-draft .strip{grid-column:1;grid-row:1}
+  #scr-chat.is-draft .dview{grid-row:2}
+}
+
+/* ── 2. Closing the document ─────────────────────────────────────────────
+   Square, centred, and drawn at the same weight as the toolbar's own icons,
+   with a little air between it and Download Word so the two do not read as
+   one control. */
+.dbtn.d-close{
+  width:32px;padding:0;margin-left:6px;
+  display:inline-grid;place-items:center;
+  color:var(--tx-3);
+}
+.dbtn.d-close svg{width:15px;height:15px}
+.dbtn.d-close:hover{color:var(--tx);border-color:var(--rule-2)}
+
+/* ── 3. The document bar on a narrow pane ────────────────────────────────
+   Cutting "7 to confirm" to "7 to co" tells nobody anything. When the pane is
+   too narrow for the line and the buttons together, the buttons drop to their
+   own row instead — still hard right — and the line is left whole. */
+.dbar{flex-wrap:wrap;row-gap:8px}
+.dbar .dstat{flex:0 0 auto;white-space:nowrap}
+.dbar .dacts{margin-left:auto;flex-wrap:wrap;justify-content:flex-end}

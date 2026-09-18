@@ -2273,13 +2273,23 @@ function Chat({
         {docOpen && output && !busy && (
         <section className="gen-right">
         <div className="dbar">
+          {/* What this line says has to be worth the width it takes. The
+              character count went: the bar directly underneath already gives
+              the words and the pages, which is what anyone actually reads a
+              length in. Comprehensiveness is an NDA setting, so it is shown
+              only where it exists rather than reporting a level for a document
+              type that was never asked the question. */}
           <span className="dstat">
             <i />
             {busy
               ? "Drafting…"
-              : `${output.length.toLocaleString()} characters · Version ${documentVersion} · Detail ${ndaDetailLevel}/5${
-                  skippedLabels.length ? ` · ${skippedLabels.length} to confirm` : ""
-                }`}
+              : [
+                  `Version ${documentVersion}`,
+                  docType.slug === "nda" ? `Detail ${ndaDetailLevel}/5` : "",
+                  skippedLabels.length ? `${skippedLabels.length} to confirm` : "",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
           </span>
           <div className="dacts">
             <button type="button" className="dbtn" onClick={() => setView("chat")}>
@@ -2309,6 +2319,9 @@ function Chat({
             >
               {exporting ? "Preparing…" : "Download Word"}
             </button>
+            {/* A drawn cross, not the multiplication sign: the glyph sat high
+                and small in a button the same size as the lettered ones beside
+                it, which read as an empty box rather than a way to close. */}
             <button
               type="button"
               className="dbtn d-close"
@@ -2316,7 +2329,16 @@ function Chat({
               title="Close document"
               onClick={() => setDocOpen(false)}
             >
-              ×
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.8}
+                strokeLinecap="round"
+                aria-hidden="true"
+              >
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
             </button>
           </div>
         </div>

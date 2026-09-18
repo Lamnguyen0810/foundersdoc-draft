@@ -415,10 +415,10 @@ export default function DocumentEditor({
       <div className="gen-tools fd-tb">
         <div className="gen-tools-left" role="toolbar" aria-label="Edit document">
           <Btn cmd="undo" tip="Undo  Ctrl+Z" onRun={exec} disabled={!canUndo}>
-            <Ico d="M9 14 4 9l5-5" /><Ico d="M4 9h11a5 5 0 0 1 0 10h-4" join />
+            <Ico d={["M9 14 4 9l5-5", "M4 9h11a5 5 0 0 1 0 10h-4"]} />
           </Btn>
           <Btn cmd="redo" tip="Redo  Ctrl+Y" onRun={exec} disabled={!canRedo}>
-            <Ico d="m15 14 5-5-5-5" /><Ico d="M20 9H9a5 5 0 0 0 0 10h4" join />
+            <Ico d={["m15 14 5-5-5-5", "M20 9H9a5 5 0 0 0 0 10h4"]} />
           </Btn>
           <span className="sep" />
           <Btn cmd="bold" tip="Bold  Ctrl+B" onRun={exec}><b>B</b></Btn>
@@ -469,7 +469,17 @@ export default function DocumentEditor({
 
 /* ── small presentational helpers ───────────────────────────────────────── */
 
-function Ico({ d, join }: { d: string; join?: boolean }) {
+/**
+ * One icon, however many strokes it takes to draw.
+ *
+ * `d` used to be a single path, so an icon made of two strokes — the undo
+ * arrow is an arc plus an arrowhead — was written as two <Ico> elements and
+ * came out as TWO 16px pictures side by side in one button: a stray chevron
+ * next to a stray arc, twice, at the left of the toolbar. Several paths in one
+ * svg is what draws one arrow.
+ */
+function Ico({ d }: { d: string | string[] }) {
+  const paths = Array.isArray(d) ? d : [d];
   return (
     <svg
       viewBox="0 0 24 24"
@@ -477,10 +487,12 @@ function Ico({ d, join }: { d: string; join?: boolean }) {
       stroke="currentColor"
       strokeWidth={1.7}
       strokeLinecap="round"
-      strokeLinejoin={join ? "round" : "round"}
+      strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d={d} />
+      {paths.map((one, k) => (
+        <path key={k} d={one} />
+      ))}
     </svg>
   );
 }
