@@ -50,6 +50,7 @@ export default async function HistoryPage({
   const { data, error, count } = await supabase
     .from("drafts")
     .select("id,title,status,output,created_at,doc_types(label)", { count: "exact" })
+    .is("deleted_at", null)
     .order("created_at", { ascending: false })
     .range(from, from + PAGE_SIZE - 1);
 

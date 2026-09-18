@@ -54,6 +54,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
     .from("drafts")
     .select("id,answers,source_text,output,output_html,status,title,created_at,doc_types(slug)")
     .eq("id", id)
+    /* A deleted draft is not found, even during its thirty days: it is in the
+       wastebasket on the settings page, and that is the only way back to it. */
+    .is("deleted_at", null)
     .maybeSingle();
 
   // RLS means another user's draft simply returns nothing — which is exactly the

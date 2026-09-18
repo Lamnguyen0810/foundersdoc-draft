@@ -19,6 +19,7 @@ import {
 } from "@/lib/prompt";
 import { generateDraftStream } from "@/lib/ai/provider";
 import { nameDraft } from "@/lib/draft-name";
+import { loadSettings, loadStyleReference } from "@/lib/settings.server";
 import {
   ModelNotFoundError,
   OverloadedError,
@@ -190,8 +191,15 @@ export async function POST(req: NextRequest) {
     Number(body.detailLevel) >= 1 && Number(body.detailLevel) <= 5
       ? (Number(body.detailLevel) as 1 | 2 | 3 | 4 | 5)
       : 3;
-  const system = buildSystem(docType);
-  const baseUserMessage = buildUser(docType, answers, body.sourceText);
+  /* The person's own drafting preferences, read on the server so the browser
+     cannot ask for a style it was not given. Both are cheap reads and neither
+     is allowed to stop a draft: the settings fall back to the defaults, and a
+     style reference that cannot be loaded is simply absent. */
+  const { settings } = await loadSettings();
+  const styleReference = await loadStyleReference(docType.slug);
+
+  const system = buildSystem(docType, settings.ai.style);
+  const baseUserMessage = buildUser(docType, answers, body.sourceText, styleReference);
   const user_message = docType.slug === "nda"
     ? [
         baseUserMessage,
