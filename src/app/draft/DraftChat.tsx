@@ -198,17 +198,45 @@ export interface DocVersion {
 
    Session storage, not local: it belongs to this tab and this sitting. Close
    the tab and it is gone, which is the right lifetime for a half-finished
-   draft — and it never leaves the browser. */
+   draft — and it never leaves the browser.
+
+   ── IT BELONGS TO A PERSON, NOT TO A TAB ───────────────────────────────────
+   A tab is not an account. Signing out and signing in as somebody else does
+   not close the tab, so a stash written by one person was read straight back
+   by the next — which is how a brand-new account opened onto the previous
+   account's conversation. On a shared machine that is not an oddity, it is
+   one client's draft shown to another.
+
+   So the stash carries whose it is, and a stash that is not yours is not
+   yours: it is ignored, and cleared out of storage rather than left sitting
+   there. The address is the account's own, already on this screen; nothing
+   secret is added to storage that was not there before. */
 const STASH_KEY = "fdai.draft-in-progress";
 /** Bumped when the shape below changes, so an old one is ignored rather than
- *  half-read into a new screen. */
-const STASH_VERSION = 2;
+ *  half-read into a new screen. Version 3 added `who`; a version-2 stash has
+ *  no owner recorded and so cannot be proved to be yours — it is dropped. */
+const STASH_VERSION = 3;
 /** Older than this and it is not "where I was", it is archaeology. */
 const STASH_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * Whose stash is this?
+ *
+ * The signed-in address, lower-cased. "anon" when nobody is signed in, which
+ * happens when the app runs without Supabase configured — a sentinel rather
+ * than an empty string, so that case keeps its own stash and works like any
+ * other instead of silently losing the way back. It cannot collide with a real
+ * account: every email has an @ in it and this does not.
+ */
+export function stashOwner(email: string | null | undefined): string {
+  return (email ?? "").trim().toLowerCase() || "anon";
+}
 
 export interface DraftStash {
   v: number;
   at: number;
+  /** The account that wrote it. See the note above. */
+  who: string;
   slug: string;
   answers: Record<string, string>;
   status: Status[];
@@ -243,6 +271,10 @@ function readStash(): DraftStash | null {
     const parsed = JSON.parse(raw) as DraftStash;
     if (parsed?.v !== STASH_VERSION) return null;
     if (!parsed.slug || Date.now() - (parsed.at ?? 0) > STASH_MAX_AGE_MS) return null;
+    /* Whose it is is checked by the screen, which knows who is signed in. This
+       only refuses one that does not say — there is no honest way to treat an
+       unowned conversation as belonging to whoever opened the tab next. */
+    if (typeof parsed.who !== "string" || !parsed.who) return null;
     stashOnce = parsed;
   } catch {
     // Unreadable, or storage refused. Start fresh rather than guess.
@@ -511,7 +543,23 @@ export default function DraftChat({
   /* A draft this tab was in the middle of. Read once, so that going to Credits
      and coming back lands where the person left off instead of on the empty
      catalogue. A reopened draft wins: it was asked for by name in the URL. */
-  const stash = useSyncExternalStore(watchStash, readStash, () => null);
+  const found = useSyncExternalStore(watchStash, readStash, () => null);
+
+  /* ── AND IT HAS TO BE YOURS ────────────────────────────────────────────
+     Derived rather than filtered inside readStash, because who is signed in
+     is a prop of this screen and not something module-level storage code can
+     know. A stash belonging to somebody else is treated exactly as no stash:
+     the catalogue, as a new account should see it. */
+  const stash = found && found.who === stashOwner(userEmail) ? found : null;
+  const notMine = Boolean(found) && !stash;
+
+  /* Somebody else's conversation, still sitting in this tab's storage. It is
+     already not being shown; this takes it out of the browser as well, so it
+     cannot come back and is not there to be found. */
+  useEffect(() => {
+    if (notMine) clearStash();
+  }, [notMine]);
+
   const stashType =
     !resume && stash ? (docTypes.find((d) => d.slug === stash.slug) ?? null) : null;
 
@@ -1384,6 +1432,7 @@ function Chat({
       writeStash({
         v: STASH_VERSION,
         at: Date.now(),
+        who: stashOwner(userEmail),
         slug: docType.slug,
         answers,
         status,
@@ -1406,6 +1455,7 @@ function Chat({
     return () => clearTimeout(write);
   }, [
     resume,
+    userEmail,
     docType.slug,
     answers,
     status,
