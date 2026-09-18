@@ -32,6 +32,32 @@ export interface DocumentEditorProps {
   onContentChange?: (html: string, plain: string) => void;
 }
 
+/**
+ * The typefaces offered, and what each one really resolves to.
+ *
+ * Every one of these is on Windows and on a Mac without anybody installing
+ * anything, and each carries its own fallbacks — a document that opens in Word
+ * on one machine and in a browser on another must not change shape between
+ * them. Aptos is Word's own default and falls back to Calibri where it is not
+ * installed, which is what Word itself does.
+ */
+const FONTS: { label: string; css: string }[] = [
+  { label: "Aptos", css: '"Aptos","Calibri","Segoe UI",Arial,sans-serif' },
+  { label: "Calibri", css: '"Calibri","Segoe UI",Arial,sans-serif' },
+  { label: "Arial", css: 'Arial,Helvetica,sans-serif' },
+  { label: "Verdana", css: 'Verdana,Geneva,sans-serif' },
+  { label: "Times New Roman", css: '"Times New Roman",Times,serif' },
+  { label: "Cambria", css: 'Cambria,Georgia,"Times New Roman",serif' },
+  { label: "Georgia", css: 'Georgia,"Times New Roman",serif' },
+];
+
+/** Points, because that is what a document is set in and what Word will show. */
+const SIZES = ["9pt", "10pt", "10.5pt", "11pt", "11.5pt", "12pt", "13pt", "14pt"];
+
+/** What the page is set in before anybody changes anything. */
+const DEFAULT_FONT = FONTS[0].label;
+const DEFAULT_SIZE = "11pt";
+
 const A4_RATIO = 297 / 210;
 /** Keep a heading with the paragraph beneath it rather than orphaning it. */
 const KEEP_WITH_NEXT = /doc-section|doc-label|doc-notes-title/;
@@ -53,6 +79,10 @@ export default function DocumentEditor({
   const [saving, setSaving] = useState(false);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  /* What the two dropdowns show. Read back from the document at the caret, so
+     they describe what is actually there rather than what was last clicked. */
+  const [fontNow, setFontNow] = useState(DEFAULT_FONT);
+  const [sizeNow, setSizeNow] = useState(DEFAULT_SIZE);
 
   // History and the last-saved snapshot live in refs: changing them must not
   // re-render, or every keystroke would rebuild the toolbar.
@@ -404,6 +434,83 @@ export default function DocumentEditor({
     [undo, redo, pushHist, markDirty],
   );
 
+  /* ── typeface and size ───────────────────────────────────────────────────
+     Two rules, and they are the ones a word processor follows:
+
+       · with text selected, the change applies to that text and nothing else;
+       · with nothing selected, it applies to the whole document.
+
+     The selection case goes through execCommand, which is the only thing that
+     correctly splits a selection running across several paragraphs. Size has
+     to be laundered: execCommand only speaks the seven legacy sizes, so the
+     largest is applied as a marker and then rewritten to the real point size.
+
+     The whole-document case sets the style on each paragraph itself — and has
+     to say !important, because the stylesheet that makes the page look like
+     Word declares the family and the size that way. Doing it on the elements
+     rather than on their container is what makes the choice survive a save:
+     the paragraphs are what gets stored. */
+  const applyType = useCallback(
+    (prop: "font-family" | "font-size", value: string) => {
+      const pages = pagesRef.current;
+      if (!pages) return;
+      const sel = window.getSelection();
+      const onSelection =
+        !!sel && sel.rangeCount > 0 && !sel.isCollapsed && pages.contains(sel.anchorNode);
+
+      if (onSelection) {
+        document.execCommand("styleWithCSS", false, "true");
+        if (prop === "font-family") {
+          document.execCommand("fontName", false, value);
+        } else {
+          document.execCommand("fontSize", false, "7");
+          pages
+            .querySelectorAll<HTMLElement>('[style*="xxx-large"]')
+            .forEach((el) => (el.style.fontSize = value));
+        }
+      } else {
+        for (const el of flowItems()) el.style.setProperty(prop, value, "important");
+      }
+      pushHist();
+      markDirty();
+    },
+    [flowItems, pushHist, markDirty],
+  );
+
+  /* What is set where the caret is.
+     Read from the inline styles we ourselves write, never from the computed
+     style: the pages are scaled with `zoom` to fit the pane, and a computed
+     font-size read through a zoom reports the wrong number. */
+  useEffect(() => {
+    const read = () => {
+      const pages = pagesRef.current;
+      const sel = window.getSelection();
+      if (!pages || !sel || !sel.rangeCount || !pages.contains(sel.anchorNode)) return;
+      const node = sel.anchorNode;
+      const start = (node?.nodeType === 3 ? node.parentElement : (node as HTMLElement | null)) ?? null;
+
+      const near = (want: string): string | null => {
+        let el: HTMLElement | null = start;
+        while (el && pages.contains(el)) {
+          const v = el.style.getPropertyValue(want);
+          if (v) return v;
+          el = el.parentElement;
+        }
+        return null;
+      };
+
+      const family = near("font-family");
+      const first = (v: string) => v.replace(/["']/g, "").split(",")[0].trim().toLowerCase();
+      const hit = family ? FONTS.find((f) => first(f.css) === first(family)) : null;
+      setFontNow(hit ? hit.label : DEFAULT_FONT);
+
+      const size = near("font-size");
+      setSizeNow(size && SIZES.includes(size.trim()) ? size.trim() : DEFAULT_SIZE);
+    };
+    document.addEventListener("selectionchange", read);
+    return () => document.removeEventListener("selectionchange", read);
+  }, []);
+
   const stateLabel = dirty
     ? "Unsaved changes"
     : savedAt
@@ -420,6 +527,44 @@ export default function DocumentEditor({
           <Btn cmd="redo" tip="Redo  Ctrl+Y" onRun={exec} disabled={!canRedo}>
             <Ico d={["m15 14 5-5-5-5", "M20 9H9a5 5 0 0 0 0 10h4"]} />
           </Btn>
+          <span className="sep" />
+          {/* Typeface and size, where a word processor puts them: before the
+              bold and italic, after undo. Changing either with text selected
+              changes that text; with nothing selected it changes the document. */}
+          <select
+            className="fd-tb-sel fd-tb-font"
+            aria-label="Typeface"
+            title="Typeface — applies to the selected text, or to the whole document"
+            value={fontNow}
+            onChange={(e) => {
+              const pick = FONTS.find((f) => f.label === e.target.value);
+              if (!pick) return;
+              setFontNow(pick.label);
+              applyType("font-family", pick.css);
+            }}
+          >
+            {FONTS.map((f) => (
+              <option key={f.label} value={f.label} style={{ fontFamily: f.css }}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="fd-tb-sel fd-tb-size"
+            aria-label="Font size"
+            title="Size in points — applies to the selected text, or to the whole document"
+            value={sizeNow}
+            onChange={(e) => {
+              setSizeNow(e.target.value);
+              applyType("font-size", e.target.value);
+            }}
+          >
+            {SIZES.map((sz) => (
+              <option key={sz} value={sz}>
+                {sz.replace("pt", "")}
+              </option>
+            ))}
+          </select>
           <span className="sep" />
           <Btn cmd="bold" tip="Bold  Ctrl+B" onRun={exec}><b>B</b></Btn>
           <Btn cmd="italic" tip="Italic  Ctrl+I" onRun={exec}><i>I</i></Btn>

@@ -20,7 +20,7 @@
  *      for an uploaded source, /api/export for the Word file.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { stepsFor, type DocType, type Field } from "@/lib/doctypes";
 import { track } from "@/lib/track";
 import DocumentEditor from "./DocumentEditor";
@@ -889,6 +889,46 @@ function Catalogue({
   );
 }
 
+/** How narrow and how wide the rail may be dragged. Narrower than this and the
+ *  names are unreadable; wider and the document loses the room it needs. */
+const RAIL_MIN = 200;
+const RAIL_MAX = 420;
+const RAIL_KEY = "fdai.rail-width";
+
+/* The width lives in this browser, not in the database: it is a preference
+   about one screen on one machine, and the firm has no use for it. Reading it
+   through useSyncExternalStore rather than in an effect is what keeps the
+   server's first render and the browser's agreeing — the server has no
+   localStorage, so it starts from the design's own width and this arrives
+   without a flash of the wrong one. */
+function readRailWidth(): number | null {
+  try {
+    const v = Number(window.localStorage.getItem(RAIL_KEY));
+    return Number.isFinite(v) && v >= RAIL_MIN && v <= RAIL_MAX ? v : null;
+  } catch {
+    // Private browsing, or storage turned off. The default width is fine.
+    return null;
+  }
+}
+
+function watchRailWidth(onChange: () => void): () => void {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+}
+
+/** Remember it — or forget it, when the person resets the width. */
+function saveRailWidth(width: number | null): void {
+  try {
+    if (width === null) window.localStorage.removeItem(RAIL_KEY);
+    else window.localStorage.setItem(RAIL_KEY, String(width));
+    /* A tab does not hear its own storage events, and this is the same tab
+       that has to redraw. */
+    window.dispatchEvent(new StorageEvent("storage", { key: RAIL_KEY }));
+  } catch {
+    // Not being able to remember it is no reason to refuse to do it.
+  }
+}
+
 /**
  * The draft's name, in the strip, editable in place.
  *
@@ -1069,6 +1109,17 @@ function Chat({
   /* The draft's name, live on screen: written by FD AI when the draft is made,
      and changeable by the person at any time after. */
   const [name, setName] = useState<string>(resume?.title ?? "");
+  /* The rail's list, held here rather than read straight from the prop, because
+     renaming one has to show on the spot rather than on the next page load. */
+  const [pastDrafts, setPastDrafts] = useState<RecentDraft[]>(recent);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+
+  /* How wide the rail is. Null means the width the design ships with; a number
+     is the person's own choice. The dragged value leads while the pointer is
+     down, and what is stored takes over once it is let go. */
+  const storedRailWidth = useSyncExternalStore(watchRailWidth, readRailWidth, () => null);
+  const [draggedRailWidth, setDraggedRailWidth] = useState<number | null>(null);
+  const railWidth = draggedRailWidth ?? storedRailWidth;
   /* Generating lands in the conversation, not in the document: the person has
      just answered six questions and deserves to be told what was done with
      them before being handed a wall of contract. The document opens beside the
@@ -1822,23 +1873,27 @@ function Chat({
   }
 
   /**
-   * Rename the draft.
+   * Rename a draft — this one from the strip, or any of them from the rail.
    *
    * The screen changes first and the database catches up, because a name is
    * the person's own word for their work and it should not flicker while a
-   * request is in flight. If the write fails they are told — a rename that
-   * silently did not happen is discovered weeks later, in a list that has
-   * gone back to saying something else.
+   * request is in flight. If the write fails, the old name comes back and they
+   * are told: a rename that silently did not happen is discovered weeks later,
+   * in a list that has gone back to saying something else.
+   *
+   * One function for both places, so renaming the draft you are looking at
+   * changes the rail too, and renaming it in the rail changes the strip.
    */
-  const rename = useCallback(
-    async (next: string) => {
+  const renameDraft = useCallback(
+    async (id: string, next: string) => {
       const tidy = next.replace(/\s+/g, " ").trim().slice(0, 80);
-      if (!tidy || tidy === name) return;
-      const previous = name;
-      setName(tidy);
-      if (!draftId) return;
+      if (!tidy || !id) return;
+      const wasNamed = name;
+      const wasList = pastDrafts;
+      setPastDrafts((list) => list.map((d) => (d.id === id ? { ...d, title: tidy } : d)));
+      if (id === draftId) setName(tidy);
       try {
-        const res = await fetch(`/api/drafts/${draftId}`, {
+        const res = await fetch(`/api/drafts/${id}`, {
           method: "PATCH",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ title: tidy }),
@@ -1846,11 +1901,61 @@ function Chat({
         if (!res.ok) throw new Error("rename failed");
         setToast("Renamed");
       } catch {
-        setName(previous);
+        setPastDrafts(wasList);
+        if (id === draftId) setName(wasNamed);
         setToast("Could not save that name");
       }
     },
-    [draftId, name],
+    [draftId, name, pastDrafts],
+  );
+
+  /** The strip's own rename, for the draft on screen. */
+  const rename = useCallback(
+    (next: string) => {
+      if (!draftId || next.trim() === name) return;
+      void renameDraft(draftId, next);
+    },
+    [draftId, name, renameDraft],
+  );
+
+  const dragRail = useCallback((startEvent: React.PointerEvent<HTMLDivElement>) => {
+    startEvent.preventDefault();
+    const handle = startEvent.currentTarget;
+    /* Measured from the rail's own left edge, not the window's: the workspace
+       is not always flush with the left of the screen. */
+    const left = (handle.offsetParent as HTMLElement | null)?.getBoundingClientRect().left ?? 0;
+    handle.setPointerCapture(startEvent.pointerId);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const move = (e: PointerEvent) => {
+      const next = Math.round(Math.min(RAIL_MAX, Math.max(RAIL_MIN, e.clientX - left)));
+      setDraggedRailWidth(next);
+    };
+    const stop = (e: PointerEvent) => {
+      handle.releasePointerCapture(e.pointerId);
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", stop);
+      handle.removeEventListener("pointercancel", stop);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      const settled = Math.round(Math.min(RAIL_MAX, Math.max(RAIL_MIN, e.clientX - left)));
+      setDraggedRailWidth(settled);
+      saveRailWidth(settled);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", stop);
+    handle.addEventListener("pointercancel", stop);
+  }, []);
+
+  /** The same thing from the keyboard, for anyone not using a mouse. */
+  const nudgeRail = useCallback(
+    (by: number) => {
+      const next = Math.round(Math.min(RAIL_MAX, Math.max(RAIL_MIN, (railWidth ?? 260) + by)));
+      setDraggedRailWidth(next);
+      saveRailWidth(next);
+    },
+    [railWidth],
   );
 
   const answered = status.filter((s) => s === "done").length;
@@ -2076,7 +2181,39 @@ function Chat({
       className={`scr on fade-in${view === "draft" ? " is-draft" : ""}${
         view === "draft" && docOpen ? " doc-open" : ""
       }`}
+      /* Only set once the person has chosen a width of their own; until then
+         the grid keeps the width the design ships with, which differs between
+         the questions and the document. */
+      style={railWidth ? ({ "--rail-w": `${railWidth}px` } as React.CSSProperties) : undefined}
     >
+      {/* The drag handle, over the seam between the rail and the workspace.
+          A separator rather than a button: it has a value, a range, and the
+          arrow keys move it, which is what a screen reader announces. */}
+      <div
+        className="rail-grip"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Width of the sidebar"
+        aria-valuenow={railWidth ?? 260}
+        aria-valuemin={RAIL_MIN}
+        aria-valuemax={RAIL_MAX}
+        tabIndex={0}
+        onPointerDown={dragRail}
+        onDoubleClick={() => {
+          setDraggedRailWidth(null);
+          saveRailWidth(null);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") {
+            e.preventDefault();
+            nudgeRail(e.shiftKey ? -40 : -12);
+          } else if (e.key === "ArrowRight") {
+            e.preventDefault();
+            nudgeRail(e.shiftKey ? 40 : 12);
+          }
+        }}
+        title="Drag to resize · double-click to reset"
+      />
       {/* ── the strip ──
           The draft's name, left, where a name belongs. It used to read
           "Non-Disclosure Agreement · Singapore precedent · Focused setup",
@@ -2408,27 +2545,82 @@ function Chat({
             )}
           </div>
         )}
-        {recent.length > 0 && (
+        {pastDrafts.length > 0 && (
           <>
             <p className="k" style={{ paddingTop: 12 }}>
               Past drafts
             </p>
             <div className="hist">
-              {recent.map((r) => (
-                <a
-                  key={r.id}
-                  href={`/draft/${r.id}`}
-                  className={draftId === r.id ? "on" : undefined}
-                  aria-current={draftId === r.id ? "page" : undefined}
-                  title={r.docLabel ? `${r.title} — ${r.docLabel}` : r.title}
-                >
-                  {r.title}
-                  {/* The date stays on its own, as the design has it; the
-                      document type rides in the tooltip rather than squeezing
-                      the name out of a row that is one line tall. */}
-                  <small>{r.when}</small>
-                </a>
-              ))}
+              {pastDrafts.map((r) =>
+                renamingId === r.id ? (
+                  /* Renaming in place. Enter or clicking away keeps it,
+                     Escape abandons it — the same three keys as the strip. */
+                  <input
+                    key={r.id}
+                    className="hist-input"
+                    defaultValue={r.title}
+                    maxLength={80}
+                    autoFocus
+                    aria-label={`Rename ${r.title}`}
+                    onBlur={(e) => {
+                      const v = e.currentTarget.value;
+                      setRenamingId(null);
+                      if (v.trim() && v.trim() !== r.title) void renameDraft(r.id, v);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      } else if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.currentTarget.value = r.title;
+                        e.currentTarget.blur();
+                      }
+                    }}
+                  />
+                ) : (
+                  <div
+                    key={r.id}
+                    className={`hist-row${draftId === r.id ? " on" : ""}`}
+                  >
+                    <a
+                      href={`/draft/${r.id}`}
+                      className={draftId === r.id ? "on" : undefined}
+                      aria-current={draftId === r.id ? "page" : undefined}
+                      title={r.docLabel ? `${r.title} — ${r.docLabel}` : r.title}
+                    >
+                      {/* The name in a box of its own so it can be cut with an
+                          ellipsis. A bare text node in a flex row cannot be —
+                          it simply ran past the edge of the rail, taking the
+                          date and the rename button with it. */}
+                      <span className="hist-name">{r.title}</span>
+                      {/* The date stays on its own, as the design has it; the
+                          document type rides in the tooltip rather than
+                          squeezing the name out of a one-line row. */}
+                      <small>{r.when}</small>
+                    </a>
+                    <button
+                      type="button"
+                      className="hist-rename"
+                      aria-label={`Rename ${r.title}`}
+                      title="Rename"
+                      onClick={() => setRenamingId(r.id)}
+                    >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.7}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <path d="M4 20h4l10-10-4-4L4 16zM14 6l4 4" />
+                      </svg>
+                    </button>
+                  </div>
+                ),
+              )}
             </div>
           </>
         )}

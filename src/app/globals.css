@@ -3141,6 +3141,120 @@ html[data-theme=dark]{
    Cutting "7 to confirm" to "7 to co" tells nobody anything. When the pane is
    too narrow for the line and the buttons together, the buttons drop to their
    own row instead — still hard right — and the line is left whole. */
+/* Both bars run the full width of the document pane, with the same air on
+   each side. They were capped at 900px in a pane of 945: nothing at all on the
+   left, so the status dot sat against the edge, and forty-five pixels of dead
+   space on the right, past the close button. The two bars still line up with
+   each other, which is what the cap was for. */
+.dview .dbar,
+.dview .gen-tools.fd-tb{width:auto}
+.dbar{padding:11px 14px 11px 16px}
+.dview .gen-tools.fd-tb{padding-left:12px!important;padding-right:14px!important}
+
 .dbar{flex-wrap:wrap;row-gap:8px}
 .dbar .dstat{flex:0 0 auto;white-space:nowrap}
 .dbar .dacts{margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+
+
+/* ── 4. Typeface and size (v47) ──────────────────────────────────────────
+   Two dropdowns that have to sit in a bar of 30px icon buttons without
+   looking like a form. Same height, same radius, same hover as the buttons
+   beside them; the arrow is drawn rather than left to the operating system,
+   which renders it differently on every platform. */
+.fd-tb-sel{
+  height:30px;
+  border:1px solid transparent;border-radius:8px;
+  background:transparent;color:var(--tx-2);
+  font:500 12px/1 var(--sans);
+  padding:0 20px 0 8px;
+  cursor:pointer;
+  appearance:none;-webkit-appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:calc(100% - 11px) 13px,calc(100% - 7px) 13px;
+  background-size:4px 4px,4px 4px;
+  background-repeat:no-repeat;
+  transition:background-color .15s,color .15s,border-color .15s;
+}
+.fd-tb-sel:hover{background-color:var(--bg-2);color:var(--tx)}
+.fd-tb-sel:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.fd-tb-font{width:124px;text-overflow:ellipsis}
+.fd-tb-size{width:56px}
+.fd-tb-sel option{background:var(--bg);color:var(--tx);font-size:13px}
+
+/* On a narrow pane the typeface goes before the size does: the size is the
+   one people reach for, and "11" fits where "Times New Roman" does not. */
+@media(max-width:1280px){
+  .fd-tb-font{width:96px}
+}
+@media(max-width:1100px){
+  .fd-tb-font{display:none}
+  .fd-tb-font+.fd-tb-size{margin-left:0}
+}
+
+/* ── 5. A rail the person can size (v47) ─────────────────────────────────
+   The names of past drafts are the one thing in this application whose length
+   nobody can predict, so the column that holds them is the one thing worth
+   letting people size. The width is a CSS variable with the design's own
+   figure as its default, so a person who never touches it sees exactly what
+   was designed — and the variable is only set at all once they have. */
+@media(min-width:1101px){
+  #scr-chat{grid-template-columns:var(--rail-w,260px) minmax(0,1fr) 300px}
+}
+@media(min-width:1201px){
+  #scr-chat.is-draft{grid-template-columns:var(--rail-w,225px) minmax(0,1fr) 300px}
+}
+@media(min-width:1201px) and (max-width:1450px){
+  #scr-chat.is-draft{grid-template-columns:var(--rail-w,210px) minmax(0,1fr) 270px}
+}
+
+/* The handle sits over the seam, not beside it, so neither column loses a
+   pixel to it. Invisible until it is wanted. */
+.rail-grip{
+  position:absolute;top:0;bottom:0;
+  left:calc(var(--rail-w,260px) - 3px);
+  width:7px;z-index:6;
+  cursor:col-resize;
+  background:transparent;
+  transition:background .15s;
+}
+#scr-chat.is-draft .rail-grip{left:calc(var(--rail-w,225px) - 3px)}
+@media(min-width:1201px) and (max-width:1450px){
+  #scr-chat.is-draft .rail-grip{left:calc(var(--rail-w,210px) - 3px)}
+}
+.rail-grip:hover,.rail-grip:focus-visible{background:var(--gold);outline:none}
+/* Below these widths the rail is not on screen, so there is nothing to size. */
+@media(max-width:1100px){.rail-grip{display:none}}
+@media(max-width:1200px){#scr-chat.is-draft .rail-grip{display:none}}
+
+/* ── 6. Renaming a past draft where it is listed ─────────────────────────
+   The pencil appears on hover and on keyboard focus, and takes no room when
+   it is not there: the name gets the width, which is the point of the list. */
+/* A grid item is allowed to be as wide as its content unless it is told
+   otherwise, which is why the names ran off the edge of the rail — taking the
+   date and the rename button with them — instead of ending in an ellipsis. */
+.rail .hist{grid-template-columns:minmax(0,1fr)}
+.rail .hist-row{display:flex;align-items:center;border-radius:8px;min-width:0}
+.rail .hist-row:hover{background:rgba(255,255,255,.05)}
+.rail .hist-row>a{flex:1 1 auto;min-width:0}
+.rail .hist-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rail .hist-row>a small{flex:none;margin-left:8px}
+.rail .hist-row>a:hover{background:transparent}
+.rail .hist-rename{
+  flex:none;width:24px;height:24px;margin-right:4px;
+  display:grid;place-items:center;
+  border:0;border-radius:6px;background:transparent;
+  color:rgba(255,255,255,.5);cursor:pointer;
+  opacity:0;transition:opacity .12s,color .12s,background .12s;
+}
+.rail .hist-rename svg{width:13px;height:13px}
+.rail .hist-row:hover .hist-rename,
+.rail .hist-rename:focus-visible{opacity:1}
+.rail .hist-rename:hover{background:rgba(255,255,255,.1);color:#fff}
+.rail .hist-rename:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.rail .hist-input{
+  width:100%;height:30px;padding:0 8px;
+  border:1px solid var(--gold);border-radius:8px;
+  background:rgba(255,255,255,.06);color:#fff;
+  font:500 13px/1 var(--sans);
+  outline:none;
+}
