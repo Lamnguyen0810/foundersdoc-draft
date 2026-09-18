@@ -349,6 +349,7 @@ export default function DraftReady({
         {ready && /non-disclosure/i.test(docLabel) && (
           <div className="gen-depth-row">
             <DetailSlider
+              flat
               value={sliderValue}
               disabled={busy}
               label="Comprehensiveness of this draft"
