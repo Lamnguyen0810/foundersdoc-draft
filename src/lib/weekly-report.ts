@@ -5,6 +5,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const SINGAPORE_OFFSET_MS = 8 * 60 * 60 * 1000;
 
+/* "More than three times" — four separate sittings or more. The same rule the
+   dashboard uses (supabase/028_frequent_visitors.sql); change it in both or
+   the weekly email and the screen will disagree with each other. */
+const FREQUENT_VISITS = 4;
+
 export interface WeeklyReport {
   period_start: string;
   period_end: string;
@@ -13,7 +18,11 @@ export interface WeeklyReport {
   documents_downloaded: number;
   page_views: number;
   accounts_created: number;
+  /** People who came more than three separate times. Counted in `visitors` too. */
   unique_visitors: number;
+  /** Arrivals. Four pages in one sitting is one visitor. */
+  visitors: number;
+  /** The same figure as `visitors`, kept so an existing Zap does not break. */
   visits: number;
   waitlist_signups: number;
 }
@@ -52,7 +61,11 @@ async function countRows(
   return count ?? 0;
 }
 
-type PageView = { user_id: string | null; visitor_hash: string | null; anon_id: string | null };
+/* visitor_id is the lasting code — the one that recognises the same person on
+   Monday and again on Friday. visitor_hash carries the date inside it, so it
+   changes every midnight; counting distinct hashes over a week would report
+   one regular reader as five different people, which is what this used to do. */
+type PageView = { user_id: string | null; visitor_id: string | null; anon_id: string | null };
 
 async function pageViews(
   client: SupabaseClient,
@@ -66,7 +79,7 @@ async function pageViews(
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await client
       .from("events")
-      .select("user_id,visitor_hash,anon_id")
+      .select("user_id,visitor_id,anon_id")
       .eq("name", "page_view")
       .gte("created_at", start)
       .lt("created_at", end)
@@ -103,6 +116,23 @@ export async function getWeeklyReport(
     pageViews(client, from, to, adminIds),
   ]);
 
+  /* How many sittings each person had this week, so "more than three times"
+     can be answered. Somebody with no lasting code — a visit recorded before
+     ANALYTICS_STABLE was set — cannot be counted here and is left out rather
+     than guessed at. */
+  const sittingsPerPerson = new Map<string, Set<string>>();
+  for (const row of views) {
+    if (!row.visitor_id || !row.anon_id) continue;
+    const seen = sittingsPerPerson.get(row.visitor_id) ?? new Set<string>();
+    seen.add(row.anon_id);
+    sittingsPerPerson.set(row.visitor_id, seen);
+  }
+  let frequent = 0;
+  for (const sittings of sittingsPerPerson.values()) {
+    if (sittings.size >= FREQUENT_VISITS) frequent += 1;
+  }
+  const arrivals = new Set(views.map((row) => row.anon_id).filter(Boolean)).size;
+
   return {
     period_start: from,
     period_end: to,
@@ -111,8 +141,9 @@ export async function getWeeklyReport(
     documents_downloaded: downloads,
     page_views: views.length,
     accounts_created: accounts,
-    unique_visitors: new Set(views.map((row) => row.visitor_hash).filter(Boolean)).size,
-    visits: new Set(views.map((row) => row.anon_id).filter(Boolean)).size,
+    unique_visitors: frequent,
+    visitors: arrivals,
+    visits: arrivals,
     waitlist_signups: waitlist,
   };
 }

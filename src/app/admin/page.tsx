@@ -873,8 +873,12 @@ export default async function AdminPage({
                     </div>
                     <div className="summary">
                       <SummaryCard label="Accounts created" value={fmt(weeklyReport.accounts_created)} note="New FD AI accounts" />
-                      <SummaryCard label="Unique visitors" value={fmt(weeklyReport.unique_visitors)} note="Distinct visitors" />
-                      <SummaryCard label="Visits" value={fmt(weeklyReport.visits)} note="Distinct browsing sessions" />
+                      <SummaryCard label="Visitors" value={fmt(weeklyReport.visitors)} note="Arrivals; one sitting counts once" />
+                      <SummaryCard
+                        label="Unique visitors"
+                        value={fmt(weeklyReport.unique_visitors)}
+                        note="Came more than three times; counted in Visitors too"
+                      />
                       <SummaryCard label="Waitlist sign-ups" value={fmt(weeklyReport.waitlist_signups)} note="New waitlist entries" />
                     </div>
                     <div className="card">
