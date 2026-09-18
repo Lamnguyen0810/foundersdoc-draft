@@ -18,6 +18,7 @@ import {
   type Answers,
 } from "@/lib/prompt";
 import { generateDraftStream } from "@/lib/ai/provider";
+import { nameDraft } from "@/lib/draft-name";
 import {
   ModelNotFoundError,
   OverloadedError,
@@ -97,16 +98,6 @@ function friendly(err: unknown): string {
     return `The drafting service returned an error. Details are in the server logs. (${err.name})`;
   }
   return "An unexpected error occurred while drafting.";
-}
-
-/** Short human label for the history list, so a draft is findable later. */
-function titleFor(answers: Answers): string {
-  const clean = (v: string | undefined) =>
-    (v ?? "") === SKIPPED ? "" : (v ?? "").split("(")[0].trim();
-  const a = clean(answers.party_a);
-  const b = clean(answers.party_b);
-  if (a && b) return `${a} / ${b}`;
-  return a || b || "Untitled draft";
 }
 
 function versionFileName(answers: Answers, version: number, detailLevel: number): string {
@@ -215,6 +206,8 @@ export async function POST(req: NextRequest) {
   let timedOut = false;
   let firstChunkAt = 0;
 
+
+
   /* ── THE DEADLINE ──────────────────────────────────────────────────────
      The watchdog further down can only run between chunks, so it is blind to
      everything that happens BEFORE the first chunk: connecting, queuing,
@@ -229,6 +222,15 @@ export async function POST(req: NextRequest) {
     timedOut = true;
     deadline.abort(new Error("generate_budget_exhausted"));
   }, BUDGET_MS);
+
+  /* ── THE NAME ──────────────────────────────────────────────────────────
+     Started here, at the same moment as the draft itself, and not awaited
+     until the draft is saved. Naming takes about a second and drafting takes
+     tens of them, so by the time this is read it has long since settled: the
+     person waits no longer for a named draft than for an unnamed one. It
+     resolves whatever happens — see nameDraft — so there is nothing to catch,
+     and no draft can fail to be named. */
+  const naming = nameDraft(docType, answers, { signal: deadline.signal });
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -284,8 +286,16 @@ export async function POST(req: NextRequest) {
               accumulated += event.value;
               controller.enqueue(line({ t: "text", v: event.value }));
             } else if (event.type === "done") {
-              const { provider, model, inputTokens, outputTokens } =
-                event.usage;
+              const { provider, model } = event.usage;
+
+              /* The name was being written while the document was. Awaiting it
+                 here costs nothing — it settled long ago — and it cannot reject.
+                 Its tokens are added to the draft's own so the cost meter counts
+                 everything this request actually bought, naming included. */
+              const named = await naming;
+              const inputTokens = event.usage.inputTokens + named.inputTokens;
+              const outputTokens = event.usage.outputTokens + named.outputTokens;
+
               const actual = costUsd(
                 priceFor(model),
                 inputTokens,
@@ -302,7 +312,7 @@ export async function POST(req: NextRequest) {
                 draftId = await persist({
                   userId: user.id,
                   slug: docType.slug,
-                  title: titleFor(answers),
+                  title: named.title,
                   answers,
                   sourceText: body.sourceText ?? null,
                   output: accumulated,
@@ -342,6 +352,9 @@ export async function POST(req: NextRequest) {
                   paidBenchmarkUsd: benchmark,
                   draftId,
                   saved: Boolean(draftId),
+                  /* So the screen can show the draft's name the moment it is
+                     made, rather than on the next page load. */
+                  title: named.title,
                 }),
               );
             } else {

@@ -12,6 +12,7 @@ import SettingsShell, { type BillingView, type DraftRow } from "./SettingsShell"
 import "../usage/usage.css";
 import "./settings.css";
 import "./settings-app.css";
+import { nameFallback } from "@/lib/draft-name";
 
 export const metadata = { title: "Settings — FD AI" };
 export const dynamic = "force-dynamic";
@@ -65,7 +66,15 @@ export default async function SettingsPage() {
     id: string; title: string | null; status: string; updated_at: string; doc_types: { label: string } | { label: string }[] | null;
   }[]).map((d) => {
     const dt = Array.isArray(d.doc_types) ? d.doc_types[0] : d.doc_types;
-    return { id: d.id, title: d.title || "Untitled draft", status: d.status, updatedAt: d.updated_at, type: dt?.label ?? "Document" };
+    return {
+      id: d.id,
+      // Named by FD AI when it was drafted; the document type and the day for
+      // the handful saved before naming existed.
+      title: d.title?.trim() || nameFallback(dt?.label, d.updated_at),
+      status: d.status,
+      updatedAt: d.updated_at,
+      type: dt?.label ?? "Document",
+    };
   });
 
   /* ── plan, credits, card, payments — the usage page's own sources ── */
