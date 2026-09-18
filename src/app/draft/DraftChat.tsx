@@ -281,6 +281,31 @@ export interface RecentDraft {
   when: string;
   /** Which document it is — so a list of six tells you six different things. */
   docLabel?: string;
+  /** Kept at the top of the list, above the dated groups. */
+  pinned?: boolean;
+  /** "Pinned", "Today", "Previous 7 days", "August 2026" — worked out on the
+   *  server, in Singapore time, so the two renders agree. */
+  heading?: string;
+}
+
+/**
+ * The list, cut into the sections the rail shows.
+ *
+ * The rows arrive in the right order already — pinned first, then newest
+ * first — so this only has to notice where the heading changes. Pinning a
+ * draft in the browser moves it without asking the server again, which is why
+ * the sort is repeated here rather than trusted.
+ */
+export function groupDrafts(list: RecentDraft[]): { heading: string; items: RecentDraft[] }[] {
+  const ordered = [...list].sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)));
+  const out: { heading: string; items: RecentDraft[] }[] = [];
+  for (const row of ordered) {
+    const head = row.pinned ? "Pinned" : (row.heading ?? "Earlier");
+    const last = out[out.length - 1];
+    if (last && last.heading === head) last.items.push(row);
+    else out.push({ heading: head, items: [row] });
+  }
+  return out;
 }
 
 /**
@@ -2095,6 +2120,34 @@ function Chat({
     [draftId, name, pastDrafts],
   );
 
+  /**
+   * Pin a draft to the top of the list, or let it go back to its date.
+   *
+   * Written to the database rather than to this browser: it is a fact about
+   * the draft, and something pinned on the laptop should be pinned on the
+   * desktop too. The row moves at once and the write catches up; if the write
+   * fails the row moves back and says so.
+   */
+  const togglePin = useCallback(
+    async (id: string, next: boolean) => {
+      const wasList = pastDrafts;
+      setPastDrafts((list) => list.map((d) => (d.id === id ? { ...d, pinned: next } : d)));
+      try {
+        const res = await fetch(`/api/drafts/${id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ pinned: next }),
+        });
+        if (!res.ok) throw new Error("pin failed");
+        setToast(next ? "Pinned" : "Unpinned");
+      } catch {
+        setPastDrafts(wasList);
+        setToast("Could not save that");
+      }
+    },
+    [pastDrafts],
+  );
+
   /** The strip's own rename, for the draft on screen. */
   const rename = useCallback(
     (next: string) => {
@@ -2684,83 +2737,102 @@ function Chat({
           </div>
         )}
         {pastDrafts.length > 0 && (
-          <>
-            <p className="k" style={{ paddingTop: 12 }}>
-              Past drafts
-            </p>
-            <div className="hist">
-              {pastDrafts.map((r) =>
-                renamingId === r.id ? (
-                  /* Renaming in place. Enter or clicking away keeps it,
-                     Escape abandons it — the same three keys as the strip. */
-                  <input
-                    key={r.id}
-                    className="hist-input"
-                    defaultValue={r.title}
-                    maxLength={80}
-                    autoFocus
-                    aria-label={`Rename ${r.title}`}
-                    onBlur={(e) => {
-                      const v = e.currentTarget.value;
-                      setRenamingId(null);
-                      if (v.trim() && v.trim() !== r.title) void renameDraft(r.id, v);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        e.currentTarget.blur();
-                      } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        e.currentTarget.value = r.title;
-                        e.currentTarget.blur();
-                      }
-                    }}
-                  />
-                ) : (
-                  <div
-                    key={r.id}
-                    className={`hist-row${draftId === r.id ? " on" : ""}`}
-                  >
-                    <a
-                      href={`/draft/${r.id}`}
-                      className={draftId === r.id ? "on" : undefined}
-                      aria-current={draftId === r.id ? "page" : undefined}
-                      title={r.docLabel ? `${r.title} — ${r.docLabel}` : r.title}
-                    >
-                      {/* The name in a box of its own so it can be cut with an
-                          ellipsis. A bare text node in a flex row cannot be —
-                          it simply ran past the edge of the rail, taking the
-                          date and the rename button with it. */}
-                      <span className="hist-name">{r.title}</span>
-                      {/* The date stays on its own, as the design has it; the
-                          document type rides in the tooltip rather than
-                          squeezing the name out of a one-line row. */}
-                      <small>{r.when}</small>
-                    </a>
-                    <button
-                      type="button"
-                      className="hist-rename"
-                      aria-label={`Rename ${r.title}`}
-                      title="Rename"
-                      onClick={() => setRenamingId(r.id)}
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth={1.7}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden="true"
+          <div className="hist-groups">
+            {groupDrafts(pastDrafts).map((group) => (
+              <section key={group.heading}>
+                <p className="k">{group.heading}</p>
+                <div className="hist">
+                  {group.items.map((r) =>
+                    renamingId === r.id ? (
+                      /* Renaming in place. Enter or clicking away keeps it,
+                         Escape abandons it — the same three keys as the strip. */
+                      <input
+                        key={r.id}
+                        className="hist-input"
+                        defaultValue={r.title}
+                        maxLength={80}
+                        autoFocus
+                        aria-label={`Rename ${r.title}`}
+                        onBlur={(e) => {
+                          const v = e.currentTarget.value;
+                          setRenamingId(null);
+                          if (v.trim() && v.trim() !== r.title) void renameDraft(r.id, v);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            e.currentTarget.value = r.title;
+                            e.currentTarget.blur();
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div
+                        key={r.id}
+                        className={`hist-row${draftId === r.id ? " on" : ""}${
+                          r.pinned ? " is-pinned" : ""
+                        }`}
                       >
-                        <path d="M4 20h4l10-10-4-4L4 16zM14 6l4 4" />
-                      </svg>
-                    </button>
-                  </div>
-                ),
-              )}
-            </div>
-          </>
+                        <a
+                          href={`/draft/${r.id}`}
+                          className={draftId === r.id ? "on" : undefined}
+                          aria-current={draftId === r.id ? "page" : undefined}
+                          title={r.docLabel ? `${r.title} — ${r.docLabel}` : r.title}
+                        >
+                          {/* The name in a box of its own so it can be cut with
+                              an ellipsis. A bare text node in a flex row cannot
+                              be — it simply ran past the edge of the rail. */}
+                          <span className="hist-name">{r.title}</span>
+                          <small>{r.when}</small>
+                        </a>
+                        <button
+                          type="button"
+                          className="hist-pin"
+                          aria-label={r.pinned ? `Unpin ${r.title}` : `Pin ${r.title}`}
+                          aria-pressed={Boolean(r.pinned)}
+                          title={r.pinned ? "Unpin" : "Pin to the top"}
+                          onClick={() => void togglePin(r.id, !r.pinned)}
+                        >
+                          <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path
+                              d="M14.5 3.5 20.5 9.5M16 4l-1.2 4.2-5 2.2-1.6 1.6 5.8 5.8 1.6-1.6 2.2-5L22 10M9 15l-4.5 4.5"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={1.7}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className="hist-rename"
+                          aria-label={`Rename ${r.title}`}
+                          title="Rename"
+                          onClick={() => setRenamingId(r.id)}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={1.7}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M4 20h4l10-10-4-4L4 16zM14 6l4 4" />
+                          </svg>
+                        </button>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </section>
+            ))}
+          </div>
         )}
         <div className="rail-bottom">
           {/* The same account menu as the one in the nav. Two places show who

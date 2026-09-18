@@ -25,6 +25,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     answers?: Record<string, string>;
     status?: string;
     title?: string;
+    pinned?: boolean;
   };
   try {
     body = await req.json();
@@ -51,6 +52,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const name = tidyTypedName(body.title);
     if (name) patch.title = name;
   }
+
+  /* Pinning. A fact about the draft rather than about this browser, so that
+     something pinned on the laptop is pinned on the desktop too. */
+  if (typeof body.pinned === "boolean") patch.pinned = body.pinned;
 
   if (Object.keys(patch).length === 0) {
     return Response.json({ error: "Nothing to save." }, { status: 400 });

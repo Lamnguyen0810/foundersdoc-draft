@@ -39,6 +39,7 @@ export default function DetailSlider({
   onChange,
   disabled = false,
   label = "Initial NDA comprehensiveness",
+  flat = false,
 }: {
   value: number;
   onChange: (level: DetailLevel) => void;
@@ -46,11 +47,20 @@ export default function DetailSlider({
   /** What a screen reader calls it; the two uses are asking the same thing at
    *  different moments, so they are worth naming differently. */
   label?: string;
+  /**
+   * Wider and shorter, for beside the finished document.
+   *
+   * On the question this card is what the person is being asked, and it has
+   * the room to say so. Beside the document it is a control they may never
+   * touch, so it lies flat: the word count moves up beside the title instead
+   * of taking a row of its own, and everything tightens.
+   */
+  flat?: boolean;
 }) {
   const level = toLevel(value);
 
   return (
-    <div className="gd">
+    <div className={`gd${flat ? " gd-flat" : ""}`}>
       <div className="gd-head">
         <span className="gd-title">
           Comprehensiveness
@@ -63,6 +73,7 @@ export default function DetailSlider({
           >
             i
           </i>
+          {flat && <span className="gd-len-inline">{DETAIL_LENGTHS[level - 1]}</span>}
         </span>
         <span className="gd-readout">
           <b>{level} / 5</b>
@@ -104,7 +115,7 @@ export default function DetailSlider({
         ))}
       </div>
 
-      <p className="gd-length">{DETAIL_LENGTHS[level - 1]}</p>
+      {!flat && <p className="gd-length">{DETAIL_LENGTHS[level - 1]}</p>}
     </div>
   );
 }

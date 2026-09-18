@@ -3303,3 +3303,63 @@ html[data-theme=dark]{
 @media(max-width:620px){
   .gen-depth-row,.gen-quick{padding-left:0}
 }
+
+/* ── the flat comprehensiveness card (v48) ───────────────────────────────
+   Beside the document the card is a control, not a question: wider, and
+   shorter by a whole row, because the word count moves up beside the title.
+   The card on the question is untouched. */
+.gd.gd-flat{
+  width:min(100%,560px);
+  padding:11px 16px 9px;
+  margin:2px 0 0;
+}
+.gd.gd-flat .gd-head{align-items:center}
+.gd.gd-flat .gd-title{flex-wrap:wrap}
+.gd-len-inline{
+  font-size:11px;letter-spacing:0;text-transform:none;font-weight:500;
+  color:var(--tx-3);
+  padding-left:9px;margin-left:3px;
+  border-left:1px solid var(--rule);
+}
+.gd.gd-flat .gd-readout{display:flex;align-items:baseline;gap:8px}
+.gd.gd-flat .gd-readout b{font-size:13.5px}
+.gd.gd-flat .gd-readout em{font-size:12px}
+.gd.gd-flat .gd-track{height:22px;margin-top:9px}
+.gd.gd-flat .gd-dot{width:18px;height:18px}
+.gd.gd-flat .gd-scale{margin-top:5px}
+.gd.gd-flat .gd-scale b{font-size:12.5px}
+.gd.gd-flat .gd-scale em{font-size:10.5px}
+@media(max-width:560px){
+  .gd-len-inline{border-left:0;padding-left:0;margin-left:0;flex-basis:100%}
+}
+
+/* ── past drafts, in groups, with a pin (v48) ────────────────────────────
+   The same shape as a chat sidebar: what is pinned, then Today, Yesterday,
+   the last week, the last month, then by month. The headings reuse the rail's
+   own label style, tightened, so they read as dividers rather than as four
+   more navigation items. */
+.rail .hist-groups{display:grid;gap:2px}
+.rail .hist-groups section{display:grid}
+.rail .hist-groups .k{
+  padding:12px 12px 5px;
+  font-size:10px;letter-spacing:.14em;
+  color:rgba(255,255,255,.38);
+}
+.rail .hist-groups section:first-child .k{padding-top:6px}
+
+/* Pin and rename share the row's right-hand end. Both appear on hover; a pin
+   that is already set stays visible, because that is the state it reports. */
+.rail .hist-pin{
+  flex:none;width:24px;height:24px;
+  display:grid;place-items:center;
+  border:0;border-radius:6px;background:transparent;
+  color:rgba(255,255,255,.5);cursor:pointer;
+  opacity:0;transition:opacity .12s,color .12s,background .12s;
+}
+.rail .hist-pin svg{width:14px;height:14px}
+.rail .hist-row:hover .hist-pin,
+.rail .hist-pin:focus-visible{opacity:1}
+.rail .hist-pin:hover{background:rgba(255,255,255,.1);color:#fff}
+.rail .hist-pin:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.rail .hist-row.is-pinned .hist-pin{opacity:1;color:var(--gold)}
+.rail .hist-row.is-pinned .hist-name{color:rgba(255,255,255,.92)}
