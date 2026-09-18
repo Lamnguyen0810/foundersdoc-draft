@@ -7,6 +7,7 @@
  */
 
 import type { DocType, Field } from "./doctypes";
+import type { DraftingStyle } from "./settings";
 
 export type Answers = Record<string, string>;
 
@@ -24,8 +25,35 @@ function formatField(field: Field, value: string): string {
   return `${field.label}: ${raw === "" ? "(not provided)" : raw}`;
 }
 
-export function buildSystem(docType: DocType): string {
-  if (docType.examples.length === 0) return docType.systemPrompt;
+/**
+ * How the document should read.
+ *
+ * Style is not detail. Detail decides how much ground the document covers;
+ * style decides the register it covers it in, and neither is allowed to change
+ * the commercial position. That last sentence is in the instruction itself,
+ * because "write it in plain English" is exactly the kind of request a model
+ * will happily satisfy by quietly dropping a protection.
+ */
+const STYLE_INSTRUCTION: Record<DraftingStyle, string | null> = {
+  standard_legal: null, // the house prompt already describes this register
+  plain_english: [
+    "REGISTER",
+    "Write in plain English. Short sentences. Everyday words where a legal term",
+    "adds nothing — \"before\" not \"prior to\", \"under\" not \"pursuant to\", \"if\" not",
+    "\"in the event that\". Keep defined terms, party names, cross-references and",
+    "clause numbering exactly as they would otherwise be.",
+    "",
+    "This changes the wording ONLY. Every obligation, exception, limit and remedy",
+    "that would appear in the formal version must appear in this one, with the",
+    "same legal effect. Do not drop a protection because it is hard to say simply.",
+  ].join("\n"),
+};
+
+export function buildSystem(docType: DocType, style: DraftingStyle = "standard_legal"): string {
+  const register = STYLE_INSTRUCTION[style];
+  if (docType.examples.length === 0) {
+    return register ? `${docType.systemPrompt}\n\n${register}` : docType.systemPrompt;
+  }
 
   /* The examples arrive in the order the firm ranked them — best first — and
      the model is told so: when two examples handle a clause differently, the
@@ -39,6 +67,7 @@ export function buildSystem(docType: DocType): string {
 
   return [
     docType.systemPrompt,
+    ...(register ? ["", register] : []),
     "",
     "WORKED EXAMPLES",
     "The documents below show the structure, register and level of detail expected.",
@@ -53,10 +82,29 @@ export function buildSystem(docType: DocType): string {
   ].join("\n");
 }
 
+/** How much of one of their own documents is worth showing as a style guide. */
+const MAX_REFERENCE_CHARS = 8_000;
+
+export interface PastDraft {
+  title: string;
+  text: string;
+}
+
 export function buildUser(
   docType: DocType,
   answers: Answers,
   sourceText?: string,
+  /**
+   * One of the person's own finished documents of this type, when they have
+   * asked FD AI to use their past work.
+   *
+   * It is a STYLE reference and nothing else. The wording below is deliberately
+   * blunt about that, because the failure mode is specific and expensive: a
+   * model given a previous NDA will cheerfully carry last month's counterparty,
+   * term or governing law into this month's document, and the result reads
+   * perfectly while naming the wrong company.
+   */
+  pastDraft?: PastDraft | null,
 ): string {
   const parts: string[] = ["THE FACTS", ""];
 
@@ -80,6 +128,24 @@ export function buildUser(
         "anything you could not verify because of the truncation.",
       );
     }
+  }
+
+  if (pastDraft && pastDraft.text.trim() !== "") {
+    const trimmed = pastDraft.text.trim().slice(0, MAX_REFERENCE_CHARS);
+    parts.push(
+      "",
+      "--- THE USER'S OWN EARLIER DOCUMENT (STYLE REFERENCE ONLY) ---",
+      trimmed,
+      "--- END STYLE REFERENCE ---",
+      "",
+      "The document above is one this user drafted before. Follow its house style:",
+      "clause order, headings, numbering, and how it words standard provisions.",
+      "",
+      "TAKE NO FACT FROM IT. Every party, date, sum, term, jurisdiction and defined",
+      "commercial term comes from THE FACTS above and from nowhere else. If a detail",
+      "appears in the earlier document and not in THE FACTS, it is NOT a fact about",
+      "this matter — leave the placeholder and flag it in DRAFTER'S NOTES.",
+    );
   }
 
   parts.push("", "Draft the document now.");

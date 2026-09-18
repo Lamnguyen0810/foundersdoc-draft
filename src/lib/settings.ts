@@ -19,14 +19,45 @@ export interface CompanyProfile {
 
 export type DetailChoice = "simple" | "standard" | "comprehensive";
 
+/**
+ * How the document reads, as opposed to how long it is.
+ *
+ * Detail decides how much is covered; style decides the register it is covered
+ * in. They are independent: a comprehensive document can still be written in
+ * plain English, and a short one can still be traditionally drafted.
+ */
+export type DraftingStyle = "standard_legal" | "plain_english";
+
+export const DRAFTING_STYLES: { id: DraftingStyle; label: string; help: string }[] = [
+  {
+    id: "standard_legal",
+    label: "Standard legal",
+    help: "The firm's usual register — formal, conventional clause structure.",
+  },
+  {
+    id: "plain_english",
+    label: "Plain English",
+    help: "The same protections in shorter sentences and everyday words.",
+  },
+];
+
 export interface AiPreferences {
   detail: DetailChoice;
+  style: DraftingStyle;
+  /** Show FD AI one of your own finished documents of the same type, as a
+   *  style reference. Never as a source of facts — see lib/prompt.ts. */
+  use_past_drafts: boolean;
 }
 
 export interface UserSettings {
   company: CompanyProfile;
   use_company: boolean;
   ai: AiPreferences;
+  /** Deleting a document keeps it for 30 days before it is really gone. */
+  retain_deleted: boolean;
+  /** Consent for FoundersDoc to learn from this person's documents. Nothing
+   *  does so today; this records the answer for if that ever changes. */
+  improve_product: boolean;
   updated_at: string | null;
 }
 
@@ -38,7 +69,12 @@ export const EMPTY_COMPANY: CompanyProfile = {
 export const DEFAULT_SETTINGS: UserSettings = {
   company: EMPTY_COMPANY,
   use_company: true,
-  ai: { detail: "standard" },
+  ai: { detail: "standard", style: "standard_legal", use_past_drafts: false },
+  /* On by default: a document deleted by accident is recoverable, which is the
+     safer failure for a law firm. Off deletes on the spot. */
+  retain_deleted: true,
+  /* Off by default. Consent is given, not assumed. */
+  improve_product: false,
   updated_at: null,
 };
 
@@ -60,18 +96,30 @@ export const COMPANY_FIELDS: { key: keyof CompanyProfile; label: string; options
 ];
 
 /** Reads a row's jsonb into the shape above, filling anything missing. */
-export function normaliseSettings(row: { company?: unknown; use_company?: unknown; ai?: unknown; updated_at?: unknown } | null): UserSettings {
+export function normaliseSettings(
+  row: {
+    company?: unknown;
+    use_company?: unknown;
+    ai?: unknown;
+    retain_deleted?: unknown;
+    improve_product?: unknown;
+    updated_at?: unknown;
+  } | null,
+): UserSettings {
   const c = (row?.company ?? {}) as Partial<Record<keyof CompanyProfile, unknown>>;
   const company = { ...EMPTY_COMPANY };
   for (const k of Object.keys(EMPTY_COMPANY) as (keyof CompanyProfile)[]) {
     if (typeof c[k] === "string") company[k] = (c[k] as string).slice(0, 2000);
   }
-  const ai = (row?.ai ?? {}) as { detail?: unknown };
+  const ai = (row?.ai ?? {}) as { detail?: unknown; style?: unknown; use_past_drafts?: unknown };
   const detail: DetailChoice = ai.detail === "simple" || ai.detail === "comprehensive" ? ai.detail : "standard";
+  const style: DraftingStyle = ai.style === "plain_english" ? "plain_english" : "standard_legal";
   return {
     company,
     use_company: row?.use_company === undefined ? true : Boolean(row.use_company),
-    ai: { detail },
+    ai: { detail, style, use_past_drafts: Boolean(ai.use_past_drafts) },
+    retain_deleted: row?.retain_deleted === undefined ? true : Boolean(row.retain_deleted),
+    improve_product: Boolean(row?.improve_product),
     updated_at: typeof row?.updated_at === "string" ? row.updated_at : null,
   };
 }

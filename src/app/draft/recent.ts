@@ -81,6 +81,7 @@ export async function recentDrafts(): Promise<RecentDraft[]> {
     const { data, error } = await supabase
       .from("drafts")
       .select("id,title,created_at,pinned,doc_types(label)")
+      .is("deleted_at", null)
       .order("pinned", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(LIMIT);
@@ -113,6 +114,7 @@ async function withoutPinning(
     const { data } = await supabase
       .from("drafts")
       .select("id,title,created_at,doc_types(label)")
+      .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(LIMIT);
     const now = new Date();

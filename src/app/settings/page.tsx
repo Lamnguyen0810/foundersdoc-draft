@@ -8,7 +8,7 @@ import { paymentHistory } from "@/lib/billing/history";
 import { loadSettings } from "@/lib/settings.server";
 import { CancelPlan, UpdateCard } from "../usage/PlanActions";
 import SettingsForm from "./SettingsForm";
-import SettingsShell, { type BillingView, type DraftRow } from "./SettingsShell";
+import SettingsShell, { type BillingView, type DeletedRow, type DraftRow } from "./SettingsShell";
 import "../usage/usage.css";
 import "./settings.css";
 import "./settings-app.css";
@@ -54,14 +54,30 @@ export default async function SettingsPage() {
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
-  const [{ data: draftRows, count: draftCount }, { count: draftsThisMonth }] = await Promise.all([
-    supabase
-      .from("drafts")
-      .select("id,title,status,updated_at,doc_types(label)", { count: "exact" })
-      .order("updated_at", { ascending: false })
-      .limit(8),
-    supabase.from("drafts").select("id", { count: "exact", head: true }).gte("created_at", monthStart.toISOString()),
-  ]);
+  const [{ data: draftRows, count: draftCount }, { count: draftsThisMonth }, binRows] =
+    await Promise.all([
+      supabase
+        .from("drafts")
+        .select("id,title,status,updated_at,doc_types(label)", { count: "exact" })
+        .is("deleted_at", null)
+        .order("updated_at", { ascending: false })
+        .limit(8),
+      supabase
+        .from("drafts")
+        .select("id", { count: "exact", head: true })
+        .is("deleted_at", null)
+        .gte("created_at", monthStart.toISOString()),
+      /* The wastebasket. Its own query rather than a flag on the one above,
+         because it is a different list with a different sort: what is nearest
+         to being destroyed comes first. A database without 032 run simply
+         errors here, and the section does not appear. */
+      supabase
+        .from("drafts")
+        .select("id,title,deleted_at,doc_types(label)")
+        .not("deleted_at", "is", null)
+        .order("deleted_at", { ascending: true })
+        .limit(20),
+    ]);
   const drafts: DraftRow[] = ((draftRows ?? []) as {
     id: string; title: string | null; status: string; updated_at: string; doc_types: { label: string } | { label: string }[] | null;
   }[]).map((d) => {
@@ -74,6 +90,25 @@ export default async function SettingsPage() {
       status: d.status,
       updatedAt: d.updated_at,
       type: dt?.label ?? "Document",
+    };
+  });
+
+  /** How many days are left before a deleted document is destroyed for good. */
+  const DAYS_KEPT = 30;
+  /* Read once, so every row in the list counts down from the same moment. */
+  const nowMs = new Date().getTime();
+  const deleted: DeletedRow[] = ((binRows.data ?? []) as {
+    id: string; title: string | null; deleted_at: string; doc_types: { label: string } | { label: string }[] | null;
+  }[]).map((d) => {
+    const dt = Array.isArray(d.doc_types) ? d.doc_types[0] : d.doc_types;
+    const gone = new Date(new Date(d.deleted_at).getTime() + DAYS_KEPT * 86_400_000);
+    const daysLeft = Math.max(0, Math.ceil((gone.getTime() - nowMs) / 86_400_000));
+    return {
+      id: d.id,
+      title: d.title?.trim() || nameFallback(dt?.label, d.deleted_at),
+      type: dt?.label ?? "Document",
+      deletedAt: d.deleted_at,
+      daysLeft,
     };
   });
 
@@ -143,6 +178,8 @@ export default async function SettingsPage() {
       settingsMissing={tableMissing}
       drafts={drafts}
       draftCount={draftCount ?? drafts.length}
+      deleted={deleted}
+      lastSignInAt={user.last_sign_in_at ?? null}
       billing={billing}
       supabase={{ url, key }}
       passwordForm={<SettingsForm supabaseUrl={url} supabaseKey={key} email={user.email} minLength={MIN_PASSWORD_LENGTH} />}

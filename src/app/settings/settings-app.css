@@ -57,3 +57,33 @@
 
 /* The design's dark palette applies under the site's own theme switch. */
 html[data-theme="dark"] .fdset .setup-note { background: #201816; border-color: #4a2f2b; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   The settings the page did not have yet (v48)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* A document row now carries two actions rather than one link. */
+.fdset .doc-actions{display:flex;align-items:center;gap:8px;justify-self:end}
+.fdset .mini-btn.danger{color:var(--danger,#b4232a);border-color:color-mix(in srgb,var(--danger,#b4232a) 28%,var(--line-strong))}
+.fdset .mini-btn.danger:hover:not(:disabled){background:color-mix(in srgb,var(--danger,#b4232a) 8%,var(--surface))}
+.fdset .mini-btn:disabled{opacity:.55;cursor:default}
+@media(max-width:720px){
+  .fdset .doc-actions{grid-column:1 / -1;justify-self:start;margin-top:4px}
+}
+
+/* The wastebasket's rows read as already-gone. */
+.fdset .doc-icon.muted{color:var(--muted);background:var(--surface-2)}
+
+/* "From your company profile · change it there" is a button, because it moves
+   the page rather than leaving it. It should still read as the quiet note the
+   design put under those selects. */
+.fdset button.soon-note{
+  display:inline-block;margin-top:6px;padding:0;
+  border:0;background:none;text-align:left;
+  font:inherit;font-size:11.5px;color:var(--muted);
+  text-decoration:underline;text-underline-offset:2px;cursor:pointer;
+}
+.fdset button.soon-note:hover{color:var(--ink,inherit)}
+
+/* A select under FD AI that is a real choice now, not a locked box. */
+.fdset .fields .field-note{display:block;margin-top:6px;font-size:11.5px;color:var(--muted);line-height:1.45}

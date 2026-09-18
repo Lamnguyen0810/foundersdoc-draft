@@ -4,7 +4,14 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
-import { COMPANY_FIELDS, type CompanyProfile, type DetailChoice, type UserSettings } from "@/lib/settings";
+import {
+  COMPANY_FIELDS,
+  DRAFTING_STYLES,
+  type CompanyProfile,
+  type DetailChoice,
+  type DraftingStyle,
+  type UserSettings,
+} from "@/lib/settings";
 
 /**
  * The settings page's body: the designer's sidebar, panels, cards, toggles
@@ -25,6 +32,15 @@ export interface DraftRow {
   status: string;
   updatedAt: string;
   type: string;
+}
+
+/** A document the person deleted, still inside its thirty days. */
+export interface DeletedRow {
+  id: string;
+  title: string;
+  type: string;
+  deletedAt: string;
+  daysLeft: number;
 }
 
 export interface BillingView {
@@ -106,6 +122,8 @@ export default function SettingsShell({
   settingsMissing,
   drafts,
   draftCount,
+  deleted,
+  lastSignInAt,
   billing,
   supabase,
   passwordForm,
@@ -118,6 +136,8 @@ export default function SettingsShell({
   settingsMissing: boolean;
   drafts: DraftRow[];
   draftCount: number;
+  deleted: DeletedRow[];
+  lastSignInAt: string | null;
   billing: BillingView;
   supabase: { url: string; key: string };
   passwordForm: ReactNode;
@@ -174,7 +194,17 @@ export default function SettingsShell({
   const [useCompany, setUseCompany] = useState(initialSettings.use_company);
   const [detail, setDetail] = useState<DetailChoice>(initialSettings.ai.detail);
   const [savedDetail, setSavedDetail] = useState<DetailChoice>(initialSettings.ai.detail);
+  const [style, setStyle] = useState<DraftingStyle>(initialSettings.ai.style);
+  const [savedStyle, setSavedStyle] = useState<DraftingStyle>(initialSettings.ai.style);
+  const [usePast, setUsePast] = useState(initialSettings.ai.use_past_drafts);
+  const [retainDeleted, setRetainDeleted] = useState(initialSettings.retain_deleted);
+  const [improveProduct, setImproveProduct] = useState(initialSettings.improve_product);
   const [busy, setBusy] = useState(false);
+  const aiDirty = detail !== savedDetail || style !== savedStyle;
+
+  /* Saving the FD AI section saves all three of its settings together, so the
+     switch and the two choosers cannot end up describing different things. */
+  const aiPayload = () => ({ ai: { detail, style, use_past_drafts: usePast } });
   const companyDirty = JSON.stringify(company) !== JSON.stringify(savedCompany) || useCompany !== initialSettings.use_company;
 
   async function save(payload: Record<string, unknown>, done: string) {
@@ -190,11 +220,68 @@ export default function SettingsShell({
         setSavedCompany(json.settings.company);
         setCompany(json.settings.company);
         setSavedDetail(json.settings.ai.detail);
+        setSavedStyle(json.settings.ai.style);
+        setUsePast(json.settings.ai.use_past_drafts);
+        setRetainDeleted(json.settings.retain_deleted);
+        setImproveProduct(json.settings.improve_product);
       }
       say(done);
       return true;
     } finally {
       setBusy(false);
+    }
+  }
+
+  /* ── documents ── */
+  const [docBusy, setDocBusy] = useState<string | null>(null);
+
+  /**
+   * Delete a document — which, unless the person has turned the thirty days
+   * off, means putting it in the wastebasket below rather than destroying it.
+   * The server decides that, not this button: the setting lives there, and a
+   * browser that has been open since before the setting changed should not be
+   * the thing that decides whether a client's agreement is recoverable.
+   */
+  async function removeDraft(id: string, title: string) {
+    if (!window.confirm(`Delete “${title}”?${retainDeleted ? " You can restore it for 30 days." : " This cannot be undone."}`)) return;
+    setDocBusy(id);
+    try {
+      const res = await fetch(`/api/drafts/${id}`, { method: "DELETE" });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; kept?: boolean; error?: string };
+      if (!res.ok || !json.ok) return say(json.error ?? "Could not delete.");
+      say(json.kept ? "Deleted — recoverable for 30 days" : "Deleted");
+      router.refresh();
+    } finally {
+      setDocBusy(null);
+    }
+  }
+
+  async function restoreDraft(id: string) {
+    setDocBusy(id);
+    try {
+      const res = await fetch(`/api/drafts/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ restore: true }),
+      });
+      if (!res.ok) return say("Could not restore that document.");
+      say("Restored");
+      router.refresh();
+    } finally {
+      setDocBusy(null);
+    }
+  }
+
+  async function destroyDraft(id: string, title: string) {
+    if (!window.confirm(`Delete “${title}” for good? This cannot be undone.`)) return;
+    setDocBusy(id);
+    try {
+      const res = await fetch(`/api/drafts/${id}?forever=1`, { method: "DELETE" });
+      if (!res.ok) return say("Could not delete that document.");
+      say("Deleted for good");
+      router.refresh();
+    } finally {
+      setDocBusy(null);
     }
   }
 
@@ -408,20 +495,36 @@ export default function SettingsShell({
                 </div>
                 <p className="field-note">Sets where the comprehensiveness slider starts on a new NDA. You can still move it on the draft itself.</p>
                 <div className="fields three" style={{ marginTop: 18 }}>
+                  {/* Jurisdiction is not a second setting: it is the governing
+                      law already on the company profile, shown here because
+                      this is where people look for it. Two boxes holding the
+                      same fact is how they come to disagree. */}
                   <div className="field">
-                    <label>Default jurisdiction</label>
-                    <select disabled value="Singapore"><option>Singapore</option></select>
-                    <a className="soon-note" href={soonHref("Default jurisdiction")}>Singapore only for now · more coming soon</a>
+                    <label>Default governing law</label>
+                    <select disabled value={savedCompany.governing_law || "Singapore"}>
+                      <option>{savedCompany.governing_law || "Singapore"}</option>
+                    </select>
+                    <button type="button" className="soon-note" onClick={() => open("company")}>
+                      From your company profile · change it there
+                    </button>
                   </div>
                   <div className="field">
                     <label>Drafting style</label>
-                    <select disabled value="Standard Legal"><option>Standard Legal</option></select>
-                    <a className="soon-note" href={soonHref("Drafting style")}>Coming soon</a>
+                    <select value={style} onChange={(e) => setStyle(e.target.value as DraftingStyle)}>
+                      {DRAFTING_STYLES.map((o) => (
+                        <option key={o.id} value={o.id}>{o.label}</option>
+                      ))}
+                    </select>
+                    <span className="field-note">
+                      {DRAFTING_STYLES.find((o) => o.id === style)?.help}
+                    </span>
                   </div>
                   <div className="field">
-                    <label>Default language</label>
+                    <label>Language</label>
                     <select disabled value="English"><option>English</option></select>
-                    <a className="soon-note" href={soonHref("More languages")}>English only for now</a>
+                    <span className="field-note">
+                      FD AI drafts in English. There is no other language to choose yet.
+                    </span>
                   </div>
                 </div>
                 <div style={{ marginTop: 20 }}>
@@ -437,10 +540,30 @@ export default function SettingsShell({
                   </div>
                   <div className="toggle-row">
                     <div className="toggle-copy">
-                      <strong>Use previous documents as context</strong>
-                      <span>Allow FD AI to reference relevant saved documents when helpful.</span>
+                      <strong>Use my previous documents as a style guide</strong>
+                      <span>
+                        Show FD AI your most recent finished document of the same type, so a new
+                        draft follows your house style. It is used for wording and structure only —
+                        every party, date, sum and term still comes from the questions you answer.
+                      </span>
                     </div>
-                    <SoonSwitch feature="Previous documents as context" />
+                    <label className="switch">
+                      <input
+                        type="checkbox"
+                        checked={usePast}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setUsePast(on);
+                          void save(
+                            { ai: { detail, style, use_past_drafts: on } },
+                            on
+                              ? "Your past documents will guide the style"
+                              : "Drafts will not look at your past documents",
+                          );
+                        }}
+                      />
+                      <span className="slider" />
+                    </label>
                   </div>
                   <div className="toggle-row">
                     <div className="toggle-copy">
@@ -451,7 +574,7 @@ export default function SettingsShell({
                   </div>
                 </div>
                 <div className="savebar">
-                  <button className="btn primary save-action" type="button" disabled={detail === savedDetail || busy || settingsMissing} onClick={() => void save({ ai: { detail } }, "FD AI preferences saved")}>
+                  <button className="btn primary save-action" type="button" disabled={!aiDirty || busy || settingsMissing} onClick={() => void save(aiPayload(), "FD AI preferences saved")}>
                     {busy ? "Saving…" : "Save FD AI preferences"}
                   </button>
                 </div>
@@ -477,7 +600,17 @@ export default function SettingsShell({
                         <strong>{d.title}</strong>
                         <span>{d.type} · Updated {day(d.updatedAt)}</span>
                       </div>
-                      <Link className="mini-btn" href={`/draft/${d.id}`}>Open</Link>
+                      <div className="doc-actions">
+                        <Link className="mini-btn" href={`/draft/${d.id}`}>Open</Link>
+                        <button
+                          type="button"
+                          className="mini-btn danger"
+                          disabled={docBusy === d.id}
+                          onClick={() => void removeDraft(d.id, d.title)}
+                        >
+                          {docBusy === d.id ? "…" : "Delete"}
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {draftCount > drafts.length && (
@@ -485,20 +618,88 @@ export default function SettingsShell({
                   )}
                 </div>
               </div>
+              {deleted.length > 0 && (
+                <div className="card">
+                  <div className="card-head">
+                    <div>
+                      <h2>Recently deleted</h2>
+                      <p>Deleted documents wait 30 days before they are destroyed. Restore one here.</p>
+                    </div>
+                  </div>
+                  <div className="doc-list">
+                    {deleted.map((d) => (
+                      <div className="doc-item" key={d.id}>
+                        <div className="doc-icon muted">BIN</div>
+                        <div>
+                          <strong>{d.title}</strong>
+                          <span>
+                            {d.type} · deleted {day(d.deletedAt)} ·{" "}
+                            {d.daysLeft === 0
+                              ? "destroyed today"
+                              : `${d.daysLeft} day${d.daysLeft === 1 ? "" : "s"} left`}
+                          </span>
+                        </div>
+                        <div className="doc-actions">
+                          <button
+                            type="button"
+                            className="mini-btn"
+                            disabled={docBusy === d.id}
+                            onClick={() => void restoreDraft(d.id)}
+                          >
+                            {docBusy === d.id ? "…" : "Restore"}
+                          </button>
+                          <button
+                            type="button"
+                            className="mini-btn danger"
+                            disabled={docBusy === d.id}
+                            onClick={() => void destroyDraft(d.id, d.title)}
+                          >
+                            Delete now
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="card">
+                {/* Not a setting. Versions are kept for every document and
+                    always have been — the reopened draft shows them — so a
+                    switch here would offer to turn off something that is not
+                    optional. It says what happens instead. */}
                 <div className="toggle-row">
                   <div className="toggle-copy">
-                    <strong>Document history</strong>
-                    <span>Keep version history for generated and edited documents.</span>
+                    <strong>Version history</strong>
+                    <span>
+                      Every version of every document is kept — the first draft and each revision
+                      you ask for. Open a past draft to read or download any of them.
+                    </span>
                   </div>
-                  <SoonSwitch feature="Document history" />
+                  <span className="muted-badge">Always on</span>
                 </div>
                 <div className="toggle-row">
                   <div className="toggle-copy">
-                    <strong>Retain deleted files for 30 days</strong>
-                    <span>Recover accidentally deleted files before permanent removal.</span>
+                    <strong>Keep deleted documents for 30 days</strong>
+                    <span>
+                      Deleting puts a document in Recently deleted, where you can restore it. Turn
+                      this off and deleting destroys it on the spot.
+                    </span>
                   </div>
-                  <SoonSwitch feature="Deleted file retention" />
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={retainDeleted}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setRetainDeleted(on);
+                        void save(
+                          { retain_deleted: on },
+                          on ? "Deleted documents will be kept for 30 days" : "Deleting will destroy a document at once",
+                        );
+                      }}
+                    />
+                    <span className="slider" />
+                  </label>
                 </div>
               </div>
             </section>
@@ -640,9 +841,19 @@ export default function SettingsShell({
                   <div className="toggle-copy"><strong>Two-factor authentication</strong><span>Add an extra verification step when signing in.</span></div>
                   <SoonButton feature="Two-factor authentication" className="btn primary" />
                 </div>
+                {/* A list of devices is not something the sign-in service will
+                    tell us, so this says the one thing it will: when this
+                    account was last used. Ending every session is the row
+                    below, and that has always worked. */}
                 <div className="toggle-row">
-                  <div className="toggle-copy"><strong>Active sessions</strong><span>See the devices signed in to your account.</span></div>
-                  <SoonButton feature="Active sessions" />
+                  <div className="toggle-copy">
+                    <strong>Last sign-in</strong>
+                    <span>
+                      {lastSignInAt
+                        ? `${new Date(lastSignInAt).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" })}. If that was not you, change your password and log out everywhere.`
+                        : "No sign-in recorded yet."}
+                    </span>
+                  </div>
                 </div>
                 <div className="toggle-row">
                   <div className="toggle-copy"><strong>Log out all devices</strong><span>End every signed-in session, including this one, and sign in again.</span></div>
@@ -665,10 +876,28 @@ export default function SettingsShell({
                 </div>
                 <div className="toggle-row">
                   <div className="toggle-copy">
-                    <strong>Product improvement</strong>
-                    <span>Allow de-identified usage information to help improve the product.</span>
+                    <strong>Let FoundersDoc learn from my documents</strong>
+                    <span>
+                      Your documents are not used to train or improve any model, and this switch is
+                      off. It records your answer for if that ever changes — nothing happens either
+                      way today.
+                    </span>
                   </div>
-                  <SoonSwitch feature="Product improvement preference" />
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={improveProduct}
+                      onChange={(e) => {
+                        const on = e.target.checked;
+                        setImproveProduct(on);
+                        void save(
+                          { improve_product: on },
+                          on ? "Noted — you have opted in" : "Noted — your documents stay yours alone",
+                        );
+                      }}
+                    />
+                    <span className="slider" />
+                  </label>
                 </div>
               </div>
             </section>
@@ -722,10 +951,18 @@ export default function SettingsShell({
                   </div>
                 </div>
                 <div className="legal-links">
-                  <a className="legal-item" href="/terms-conditions/" target="_blank" rel="noreferrer"><span>Terms &amp; conditions</span><span>↗</span></a>
-                  <a className="legal-item" href="/privacy-policy/" target="_blank" rel="noreferrer"><span>Privacy Policy</span><span>↗</span></a>
-                  <a className="legal-item updating" href={soonHref("AI and legal disclaimer")}><span>AI / legal disclaimer</span><span className="muted-badge">Updating soon</span></a>
-                  <a className="legal-item" href="/terms-of-service" target="_blank" rel="noreferrer"><span>Service-specific terms</span><span>↗</span></a>
+                  <a
+                    className="legal-item"
+                    href="https://foundersdoc.com/terms-of-service"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <span>FD Consult: Platform Terms of Service</span>
+                    <span>↗</span>
+                  </a>
+                  <a className="legal-item updating" href={soonHref("Terms and conditions")}><span>Terms &amp; conditions</span><span className="muted-badge">Coming soon</span></a>
+                  <a className="legal-item updating" href={soonHref("Privacy policy")}><span>Privacy Policy</span><span className="muted-badge">Coming soon</span></a>
+                  <a className="legal-item updating" href={soonHref("AI and legal disclaimer")}><span>AI / legal disclaimer</span><span className="muted-badge">Coming soon</span></a>
                 </div>
               </div>
             </section>

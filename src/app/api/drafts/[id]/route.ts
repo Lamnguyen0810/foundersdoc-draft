@@ -26,6 +26,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     status?: string;
     title?: string;
     pinned?: boolean;
+    restore?: boolean;
   };
   try {
     body = await req.json();
@@ -57,6 +58,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
      something pinned on the laptop is pinned on the desktop too. */
   if (typeof body.pinned === "boolean") patch.pinned = body.pinned;
 
+  /* Putting a deleted document back. The only way `deleted_at` is ever
+     cleared, and it is refused once the thirty days are up — by then the row
+     is gone, so this simply finds nothing. */
+  if (body.restore === true) patch.deleted_at = null;
+
   if (Object.keys(patch).length === 0) {
     return Response.json({ error: "Nothing to save." }, { status: 400 });
   }
@@ -83,7 +89,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   return Response.json({ ok: true, status });
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+/**
+ * Delete a document.
+ *
+ * By default this MARKS it rather than destroying it: the settings page
+ * promises thirty days to change your mind, and a law firm losing a client's
+ * agreement to a misclick is the failure worth engineering against. A person
+ * who has turned that promise off gets what they asked for, at once.
+ *
+ * `?forever=1` destroys it now whatever the setting — that is the button in
+ * the wastebasket itself, where the person is looking at something they have
+ * already deleted once.
+ */
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   if (!isSupabaseConfigured()) {
     return Response.json({ error: "Not available." }, { status: 501 });
   }
@@ -92,7 +110,34 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
 
   const { id } = await ctx.params;
   const supabase = await createClient();
+  const forever = new URL(req.url).searchParams.get("forever") === "1";
+
+  let keep = true;
+  if (!forever) {
+    const { data } = await supabase.from("user_settings").select("retain_deleted").maybeSingle();
+    /* No row, or a database without 032 run yet: keep it. Recoverable is the
+       safe direction to be wrong in. */
+    keep = (data as { retain_deleted?: boolean } | null)?.retain_deleted !== false;
+  }
+
+  if (keep) {
+    const { error } = await supabase
+      .from("drafts")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id)
+      .is("deleted_at", null);
+    /* 032 not run: no such column. Rather than refuse, do what the older
+       version of this endpoint did. */
+    if (error && /deleted_at/.test(error.message)) {
+      const { error: hard } = await supabase.from("drafts").delete().eq("id", id);
+      if (hard) return Response.json({ error: "Could not delete." }, { status: 500 });
+      return Response.json({ ok: true, kept: false });
+    }
+    if (error) return Response.json({ error: "Could not delete." }, { status: 500 });
+    return Response.json({ ok: true, kept: true });
+  }
+
   const { error } = await supabase.from("drafts").delete().eq("id", id);
   if (error) return Response.json({ error: "Could not delete." }, { status: 500 });
-  return Response.json({ ok: true });
+  return Response.json({ ok: true, kept: false });
 }
