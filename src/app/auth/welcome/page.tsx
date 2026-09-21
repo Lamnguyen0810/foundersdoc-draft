@@ -1,22 +1,30 @@
 import { redirect } from "next/navigation";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
-import LoginBackdrop from "../../login/LoginBackdrop";
 import Welcome from "./Welcome";
 
-export const metadata = { title: "Opening your account — FD AI" };
+export const metadata = { title: "Signing you in — FD AI" };
 export const dynamic = "force-dynamic";
 
 /**
- * The landing pad for Supabase's default email links.
+ * The landing pad for Google and for Supabase's email links.
  *
- * It is a page rather than a route handler because the thing it has to read —
- * the session in the URL's hash — is never sent to a server. See the note at
- * the top of Welcome.tsx.
+ * ── IT SHOWS NOTHING, AND THAT IS THE POINT ─────────────────────────────────
+ * This used to draw the sign-in card with "Welcome to FD AI — one moment".
+ * It was on screen for about a fifth of a second, and in that time it said
+ * hello, congratulated the person on arriving, and made them read a sentence
+ * about waiting. A step that exists only for technical reasons should not
+ * announce itself: the person pressed a button expecting to land in the
+ * product, and the product is where they should appear to go.
  *
- * It looks like the sign-in card on purpose. This is a person opening an email
- * link at an unknown moment on an unknown device; a blank white page with a
- * spinner on it would be indistinguishable from a broken one, and the redirect
- * that follows is usually fast enough that the card is all they see.
+ * So the page renders nothing at all. The work still happens — see
+ * Welcome.tsx — it simply happens behind an empty frame, and the browser moves
+ * on before there is anything to look at.
+ *
+ * ── WHY THE PAGE STILL EXISTS AT ALL ────────────────────────────────────────
+ * Because it cannot be removed. Google comes back through PKCE with a `?code=`
+ * that must be exchanged by the browser holding the verifier, and an email
+ * link comes back with the session in the URL's HASH, which no server ever
+ * sees. Both need a browser. This is that browser, doing it silently.
  */
 export default async function WelcomePage({
   searchParams,
@@ -28,27 +36,27 @@ export default async function WelcomePage({
   if (!url || !key) redirect("/login");
 
   /* Same rule as /auth/confirm: a relative path on this site, or nothing. An
-     open redirect on the end of an email link is how a sign-in page ends up
+     open redirect on the end of a sign-in link is how a sign-in page ends up
      hosted on somebody else's domain. */
   const raw = (await searchParams).next ?? "/draft";
   const next = raw.startsWith("/") && !raw.startsWith("//") ? raw : "/draft";
 
   return (
-    <div className="login-stage">
-      <LoginBackdrop />
-      <div className="login-scrim" aria-hidden="true" />
+    <main
+      /* The app's own background, so the moment it is on screen reads as the
+         page still loading rather than as a page that arrived empty. */
+      style={{ minHeight: "60vh", background: "var(--bg, transparent)" }}
+    >
+      <Welcome supabaseUrl={url} supabaseKey={key} next={next} />
 
-      <div className="login-modal" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-        <p className="kicker">FD AI</p>
-        <h1 id="welcome-title">Welcome to FD AI</h1>
-        <Welcome supabaseUrl={url} supabaseKey={key} next={next} />
-        <noscript>
-          <p className="note note-warn" style={{ marginTop: 16 }}>
-            This page needs JavaScript to finish signing you in. Turn it on and open the link
-            again, or use <b>Forgot your password?</b> on the sign-in screen.
-          </p>
-        </noscript>
-      </div>
-    </div>
+      {/* The only thing ever drawn here, and only when the one thing this page
+          depends on is switched off. */}
+      <noscript>
+        <p className="note note-warn" style={{ margin: "80px auto", maxWidth: 440 }}>
+          This page needs JavaScript to finish signing you in. Turn it on and open the link
+          again, or use <b>Forgot your password?</b> on the sign-in screen.
+        </p>
+      </noscript>
+    </main>
   );
 }

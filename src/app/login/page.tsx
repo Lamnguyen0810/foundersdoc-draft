@@ -50,7 +50,11 @@ export default async function LoginPage() {
 
       <div className="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
         <p className="kicker">FD AI</p>
-        <h1 id="login-title">Log in to your Founders Doc account</h1>
+        {/* The firm's name is one thing, so it breaks as one thing. Without the
+            non-breaking space the card wrapped after "Founders", leaving "Doc
+            account" stranded on the next line — the heading still fits, it just
+            chooses a different place to fold. */}
+        <h1 id="login-title">Log in to your Founders&nbsp;Doc account</h1>
 
         <Suspense fallback={null}>
           <LoginForm
