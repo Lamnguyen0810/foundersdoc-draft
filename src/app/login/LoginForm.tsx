@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { track } from "@/lib/track";
+import GoogleButton, { OrLine } from "@/components/GoogleButton";
 
 /**
  * The Supabase URL and publishable key are passed in as props rather than read
@@ -70,9 +71,12 @@ function signInMessage(error: { message?: string; code?: string; status?: number
 export default function LoginForm({
   supabaseUrl,
   supabaseKey,
+  google = false,
 }: {
   supabaseUrl: string;
   supabaseKey: string;
+  /** Offered only where FD has configured the provider in Supabase. */
+  google?: boolean;
 }) {
   const params = useSearchParams();
   /* Only ever a path on this site. Without this check, /login?next=https://evil
@@ -316,6 +320,25 @@ export default function LoginForm({
         Forgot your password?
       </button>
 
+      {/* ── AND THE OTHER WAY IN ─────────────────────────────────────────────
+          Not a convenience. Somebody who registered with Google never set a
+          password, so without this the screen above offers them nothing at
+          all and "Forgot your password?" sends a reset for a password that
+          does not exist. It is the same button as on the sign-up card,
+          because to Supabase it is the same request. */}
+      {google && (
+        <>
+          <OrLine />
+          <GoogleButton
+            supabaseUrl={supabaseUrl}
+            supabaseKey={supabaseKey}
+            next={next}
+            label="Sign in with Google"
+            disabled={busy}
+            onError={(m) => setError(m || null)}
+          />
+        </>
+      )}
     </form>
   );
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { track } from "@/lib/track";
+import GoogleButton, { OrLine } from "@/components/GoogleButton";
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -134,26 +135,6 @@ export default function RegisterForm({
     }
   }
 
-  async function withGoogle() {
-    setBusy(true);
-    setError(null);
-    try {
-      const supabase = createBrowserClient(supabaseUrl, supabaseKey);
-      const { error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${window.location.origin}/auth/welcome?next=%2Fdraft` },
-      });
-      if (oauthError) {
-        setError(registerMessage(oauthError.message));
-        setBusy(false);
-      }
-      /* On success the browser is already leaving for Google. Nothing is reset
-         here, because there is no "here" to come back to. */
-    } catch {
-      setError("Could not reach Google just now. Use a password instead.");
-      setBusy(false);
-    }
-  }
 
   if (check) {
     return (
@@ -235,36 +216,17 @@ export default function RegisterForm({
 
       {google && (
         <>
-          <div className="or-line">
-            <span>or</span>
-          </div>
-          <button type="button" className="btn btn-google" onClick={withGoogle} disabled={busy}>
-            <GoogleMark />
-            Continue with Google
-          </button>
+          <OrLine />
+          <GoogleButton
+            supabaseUrl={supabaseUrl}
+            supabaseKey={supabaseKey}
+            next="/draft"
+            disabled={busy}
+            onError={(m) => setError(m || null)}
+          />
         </>
       )}
     </form>
   );
 }
 
-/** Google's own mark, inline: their brand guidelines ask for this one. */
-function GoogleMark() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-      <path
-        fill="#4285F4"
-        d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2 5-4.4 6.6v5.5h7.1c4.1-3.8 6.6-9.4 6.6-16.1z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 46c5.9 0 10.9-2 14.5-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.4 2.1-5.7 0-10.5-3.8-12.2-9H4.5v5.7C8.1 41.1 15.4 46 24 46z"
-      />
-      <path fill="#FBBC05" d="M11.8 28.2c-.4-1.3-.7-2.7-.7-4.2s.2-2.9.7-4.2v-5.7H4.5A22 22 0 0 0 2 24c0 3.6.9 6.9 2.5 9.9l7.3-5.7z" />
-      <path
-        fill="#EA4335"
-        d="M24 10.6c3.2 0 6.1 1.1 8.4 3.3l6.3-6.3C34.9 4 29.9 2 24 2 15.4 2 8.1 6.9 4.5 14.1l7.3 5.7c1.7-5.2 6.5-9.2 12.2-9.2z"
-      />
-    </svg>
-  );
-}
