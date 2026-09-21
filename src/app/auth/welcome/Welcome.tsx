@@ -48,20 +48,42 @@ export default function Welcome({
     /* No state is set here, deliberately: the markup below is the same before
        and after, so there is nothing to re-render and nothing to get out of
        step with the browser's own idea of where it is going. */
-    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
-    const params = new URLSearchParams(hash);
+
+    /* ── TWO SHAPES OF ANSWER, AND THEY ARRIVE IN DIFFERENT PLACES ─────────
+       Google and the email links do not come back the same way, and reading
+       only one of them is how half the ways into this product break while the
+       other half look fine.
+
+         GOOGLE, and any OAuth provider, goes through PKCE. Supabase sends the
+         browser back with `?code=…` as a QUERY parameter, and that code has
+         to be exchanged for a session using a verifier this browser stored on
+         its way out.
+
+         AN EMAIL LINK on the default template comes back with the session
+         itself in the URL's HASH — #access_token=…&refresh_token=… — which
+         never reaches a server at all.
+
+       So both are read, and errors are looked for in both, because a refusal
+       arrives as a query parameter on one path and a fragment on the other. */
+    const url = new URL(window.location.href);
+    const query = url.searchParams;
+    const fragment = new URLSearchParams(
+      window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "",
+    );
+    const pick = (key: string) => query.get(key) ?? fragment.get(key);
 
     const leave = (to: string) => window.location.replace(to);
 
-    /* Something went wrong, and Supabase says so in the hash rather than by
+    /* Something went wrong, and Supabase says so in the URL rather than by
        failing. Two cases are worth telling apart, because the answers are
        opposite: "open the link again" and "you are not on the list". */
-    const errorCode = params.get("error_code") ?? "";
-    const errorText = params.get("error_description") ?? params.get("error") ?? "";
+    const errorCode = pick("error_code") ?? "";
+    const errorText = pick("error_description") ?? pick("error") ?? "";
     if (errorCode || errorText) {
-      /* The gate refused. This is the Google path: the trigger raised, GoTrue
-         turned it into a database error, and the person is standing on the
-         first screen of the product with no idea why. */
+      /* The gate refused. Nearly always Google: signing in with Google for the
+         first time IS creating an account, the trigger raised, GoTrue turned
+         that into a database error, and the person is standing on the first
+         screen of the product with no idea why. */
       const refused =
         /not_on_waitlist|registration_closed|database error|saving new user/i.test(
           `${errorCode} ${errorText}`,
@@ -70,10 +92,38 @@ export default function Welcome({
       return;
     }
 
-    const access_token = params.get("access_token");
-    const refresh_token = params.get("refresh_token");
+    const supabase = createBrowserClient(supabaseUrl, supabaseKey);
 
-    /* Nothing in the hash at all. Somebody typed the address, or a mail client
+    /* ── THE GOOGLE PATH ──────────────────────────────────────────────────
+       Exchanged in the browser, by the same client that started the sign-in,
+       because it is the only one holding the verifier that proves this is the
+       browser the code was issued to. */
+    const code = query.get("code");
+    if (code) {
+      supabase.auth
+        .exchangeCodeForSession(code)
+        .then(({ error }) => {
+          if (!error) {
+            leave(next);
+            return;
+          }
+          /* The trigger can also refuse HERE rather than at the redirect,
+             depending on where in the dance the account would have been
+             created — so the same reading is done again on the message. */
+          const refused = /not_on_waitlist|registration_closed|database error|saving new user/i.test(
+            error.message ?? "",
+          );
+          leave(refused ? "/login?error=not-on-waitlist" : "/login?error=link-expired");
+        })
+        .catch(() => leave("/login?error=link-expired"));
+      return;
+    }
+
+    /* ── THE EMAIL-LINK PATH ──────────────────────────────────────────────── */
+    const access_token = fragment.get("access_token");
+    const refresh_token = fragment.get("refresh_token");
+
+    /* Nothing in either place. Somebody typed the address, or a mail client
        stripped the fragment. Either way there is no session to establish, and
        the sign-in screen is where they should be. */
     if (!access_token || !refresh_token) {
@@ -81,7 +131,6 @@ export default function Welcome({
       return;
     }
 
-    const supabase = createBrowserClient(supabaseUrl, supabaseKey);
     supabase.auth
       .setSession({ access_token, refresh_token })
       .then(({ error }) => {

@@ -53,7 +53,14 @@ export default async function LoginPage() {
         <h1 id="login-title">Log in to your Founders Doc account</h1>
 
         <Suspense fallback={null}>
-          <LoginForm supabaseUrl={url} supabaseKey={key} />
+          <LoginForm
+            supabaseUrl={url}
+            supabaseKey={key}
+            /* Read on the server, per request. A NEXT_PUBLIC_ variable read
+               inside the client component would be baked in at build time, so
+               turning Google on would need a redeploy rather than a setting. */
+            google={process.env.NEXT_PUBLIC_GOOGLE_AUTH === "1"}
+          />
         </Suspense>
 
         {/* Not "sign up" — FD AI is not open yet, and only the firm's own
