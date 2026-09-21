@@ -1915,20 +1915,37 @@ body:has(.login-stage) {
    action as a pill on the right. The number leads because "how many drafts
    have I got" is the only question the card answers. */
 .cat-credits {
-  /* The sidebar is a column flex with align-items:flex-start, so every card in
-     it shrinks to its own content. Stretching is what makes this card and the
-     admin card below it read as a set. */
-  align-self: stretch;
+  /* ── IT IS AS WIDE AS WHAT IS IN IT ────────────────────────────────────
+     This used to stretch to the full column so that it and the admin card
+     below read as a matched pair. The pair was not worth the price: stretched
+     to 430px around 360px of content, the card carried dead margins at both
+     ends, and no amount of aligning the contents inside could disguise a box
+     that was simply too big for them.
+
+     Unstretched, the sidebar's align-items:flex-start sizes it to its own
+     content. The left edge still lines up with the paragraph above, because
+     that is where the column starts; the slack comes off the right, where it
+     was never doing anything. */
+  align-self: start;
   position: relative;
   overflow: hidden;
   display: grid;
-  grid-template-columns: auto auto 1fr auto;
+  /* ── NO FLEXIBLE COLUMN, AND THAT IS THE POINT ──────────────────────────
+     This was `auto auto 1fr auto`, so the label column swallowed every spare
+     pixel and dumped it in one place: a hole between "Trial ends" and the
+     button, wide enough to look like something had failed to load. With four
+     auto columns the row is only as wide as its contents, and the spare space
+     goes to the two ends instead of piling up in the middle. */
+  grid-template-columns: auto auto auto auto;
   align-items: center;
-  column-gap: 16px;
-  margin-top: 26px;
-  padding: 18px 18px 18px 22px;
+  column-gap: 13px;
+  margin-top: 22px;
+  /* Flattened. It is a status line, not a feature — it sits under the page's
+     own introduction and should read as a quiet footnote to it rather than
+     competing with the catalogue beside it. */
+  padding: 11px 13px 11px 16px;
   border: 1px solid var(--rule, #e6e6ea);
-  border-radius: 16px;
+  border-radius: 12px;
   background: var(--card, #fff);
 }
 /* A 2px left border would be turned into a notch at each corner by the radius,
@@ -1939,30 +1956,30 @@ body:has(.login-stage) {
   left: 0;
   top: 0;
   bottom: 0;
-  width: 4px;
+  width: 3px;
   background: var(--gold, #e9b03c);
 }
 .cat-credits-ic {
-  width: 44px;
-  height: 44px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: color-mix(in srgb, var(--gold, #e9b03c) 16%, transparent);
   color: var(--ink, #1b1b1e);
 }
-.cat-credits-ic svg { width: 21px; height: 21px; display: block }
+.cat-credits-ic svg { width: 17px; height: 17px; display: block }
 /* The hairline between the mark and the figure. */
 .cat-credits-ic::after {
   content: "";
   position: absolute;
-  margin-left: 66px;
+  margin-left: 52px;
   width: 1px;
-  height: 34px;
+  height: 24px;
   background: var(--rule, #e6e6ea);
 }
 .cat-credits-n {
-  font-size: 34px;
+  font-size: 26px;
   line-height: 1;
   font-weight: 700;
   letter-spacing: -0.045em;
@@ -1974,13 +1991,13 @@ body:has(.login-stage) {
   min-width: 0;
 }
 .cat-credits-t b {
-  font-size: 17px;
+  font-size: 14.5px;
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
 .cat-credits-t small {
-  font-size: 12px;
+  font-size: 11.5px;
   line-height: 1.35;
   color: var(--grey-5, #6b6b76);
 }
@@ -1989,10 +2006,10 @@ body:has(.login-stage) {
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  padding: 10px 15px;
+  padding: 7px 12px;
   border: 1px solid var(--rule, #e6e6ea);
-  border-radius: 12px;
-  font-size: 12.5px;
+  border-radius: 10px;
+  font-size: 12px;
   font-weight: 600;
   text-decoration: none;
   transition: border-color 0.15s, background 0.15s;
@@ -2007,14 +2024,22 @@ body:has(.login-stage) {
 @media (max-width: 520px) {
   .cat-credits {
     grid-template-columns: auto auto 1fr;
+    /* Stretched again down here. On a phone the button is on its own row, and
+       a card sized to its own contents collapses to something about half the
+       width of the screen with a lot of nothing beside it. */
+    align-self: stretch;
     row-gap: 14px;
+  }
+  .admin-open {
+    align-self: stretch;
   }
   .cat-credits-a { grid-column: 1 / -1; justify-content: center }
 }
 
-/* The admin card is the balance card's neighbour; they should be one width. */
+/* The admin card sits directly under the balance card, so it follows it: each
+   is the width of its own contents rather than of the column they share. */
 .admin-open {
-  align-self: stretch;
+  align-self: start;
 }
 
 

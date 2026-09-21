@@ -571,6 +571,64 @@ export default function DraftChat({
   const [picked, setPicked] = useState<{ screen: "select" | "chat"; type: DocType | null } | null>(
     null,
   );
+
+  /* ── THE BACK BUTTON ────────────────────────────────────────────────────
+     Choosing a document swapped one screen for another inside the same page.
+     To React that is a state change; to the BROWSER nothing happened at all.
+     So Back from the conversation did not return to the catalogue — it left
+     /draft altogether and landed on the marketing site, which is the last
+     place somebody halfway through a document wants to be. "Change document"
+     had the same fault in reverse.
+
+     The fix is to make each screen a real entry in the browser's history.
+     Opening a document pushes /draft?type=<slug>; the catalogue is the entry
+     underneath it. Back then does what Back is supposed to do, and Forward
+     works too. The URL is one this page already understood as a deep link, so
+     reloading on it lands in the right place rather than somewhere invented
+     for the occasion.
+
+     Nothing is pushed for a draft reopened by id, a restored stash or a deep
+     link: in those the conversation IS the page's first entry, and inventing
+     a catalogue behind it would put a screen in the person's history that
+     they never visited. */
+  const openDocument = useCallback((d: DocType) => {
+    setPicked({ screen: "chat", type: d });
+    try {
+      window.history.pushState({ fdScreen: "chat", fdSlug: d.slug }, "", `/draft?type=${d.slug}`);
+    } catch {
+      /* A browser that will not take history entries still gets the screen —
+         it just keeps the old Back behaviour, which is no worse than before. */
+    }
+  }, []);
+
+  const leaveDocument = useCallback(() => {
+    /* back(), not another push. Undoing the entry keeps the history honest:
+       one catalogue, one conversation, and no growing stack of them if
+       somebody changes their mind five times. */
+    if (typeof window !== "undefined" && window.history.state?.fdScreen === "chat") {
+      window.history.back();
+      return;
+    }
+    setPicked({ screen: "select", type: null });
+  }, []);
+
+  /* The browser moved; follow it. Reading the entry we land ON rather than
+     assuming it is the catalogue, so Forward returns to the conversation. */
+  useEffect(() => {
+    function onPop() {
+      const entry = window.history.state as { fdScreen?: string; fdSlug?: string } | null;
+      if (entry?.fdScreen === "chat" && entry.fdSlug) {
+        const d = docTypes.find((x) => x.slug === entry.fdSlug);
+        if (d) {
+          setPicked({ screen: "chat", type: d });
+          return;
+        }
+      }
+      setPicked({ screen: "select", type: null });
+    }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [docTypes]);
   const opened =
     resumeType ??
     stashType ??
@@ -614,7 +672,7 @@ export default function DraftChat({
               if (!d) return;
               clearStash();
               track("doc_selected", { doc_type: d.slug });
-              setPicked({ screen: "chat", type: d });
+              openDocument(d);
             }}
           />
         )}
@@ -637,7 +695,7 @@ export default function DraftChat({
                  old conversation stashed would bring it back on the next
                  visit, over the top of whatever they choose now. */
               clearStash();
-              setPicked({ screen: "select", type: null });
+              leaveDocument();
             }}
           />
         )}
