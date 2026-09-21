@@ -8,7 +8,18 @@ import GoogleButton, { OrLine } from "@/components/GoogleButton";
 const MIN_PASSWORD_LENGTH = 12;
 
 /**
- * Step two: choosing a password, on the page they are already looking at.
+ * Signing up. The whole of it, on one screen.
+ *
+ * ── WHAT WAS REMOVED, AND WHY ───────────────────────────────────────────────
+ * There used to be a step in front of this one: join the waitlist, then come
+ * back and choose a password. That made sense while FD AI was invitation-only
+ * — the list WAS the product's front door, and a database trigger enforced it.
+ * FD AI is open now, so the first screen asked people to queue for something
+ * they were already allowed to have.
+ *
+ * The waitlist itself is not deleted. Every row stays, the admin console still
+ * reads it, and anyone on it who registers is still matched to their row. It
+ * simply no longer stands between a person and an account.
  *
  * ── WHY THERE IS NO EMAIL IN THE MIDDLE ─────────────────────────────────────
  * The first version of this sent an invitation and asked people to go and find
@@ -18,39 +29,36 @@ const MIN_PASSWORD_LENGTH = 12;
  * has to be configured correctly in three places before anybody can get in at
  * all, which is one place too many for a launch.
  *
- * So the account is made here, in the browser, with Supabase's own sign-up —
- * the same call any Next.js application makes — and the person is signed in
- * before they have looked away.
- *
- * ── THEN WHAT STOPS A STRANGER ──────────────────────────────────────────────
- * A trigger in the database: an account may be created only for an address
- * already on the waitlist, whichever provider asks. It refuses before the row
- * is written, so a refused sign-up never reaches 004's trigger and no trial
- * credits are granted. See 035_only_the_waitlist_may_register.sql.
- *
- * This form cannot talk its way past that, and neither can anything else —
- * which is the point of putting it there rather than here.
+ * So the account is made here, in the browser, with Supabase's own sign-up,
+ * and the person is signed in before they have looked away.
  *
  * ── WHAT IS NOT CLAIMED ─────────────────────────────────────────────────────
- * Nobody has proved they own this address. They typed it into the form one
- * screen ago and nothing checked. The account is worth three documents and a
- * fortnight, and the real owner takes it back with "Forgot your password?", so
- * the trade is deliberate — but it IS a trade, and turning "Confirm email" on
- * in Supabase is how FD reverses it.
+ * Nobody has proved they own this address. They typed it in and nothing
+ * checked. The account is worth three documents and a fortnight, and the real
+ * owner takes it back with "Forgot your password?", so the trade is
+ * deliberate — but it IS a trade, and turning "Confirm email" on in Supabase
+ * is how FD reverses it. That needs a mail provider configured first, because
+ * the built-in sender is rate-limited to a handful an hour.
+ *
+ * ── AND THE NAME BOX ────────────────────────────────────────────────────────
+ * It is the only field here that is not strictly needed to make an account,
+ * and it earns its place three times over: the product greets people by it,
+ * the admin list is unreadable without it, and the Slack announcement of a new
+ * account otherwise says "hoang.co" where a person's name should be. Google
+ * hands one over without being asked; a password sign-up has to be asked.
  */
 
 /** Supabase reports a trigger's refusal as a generic database error. */
 function registerMessage(message: string): string {
   const m = message.toLowerCase();
 
-  if (m.includes("not_on_waitlist")) {
-    return "That address is not on the waitlist. Join it first, on the previous step.";
-  }
+  /* The one gate left in the database: FD can stop registration from a single
+     UPDATE, with no deploy, if something goes wrong at three in the morning. */
   if (m.includes("registration_closed")) {
-    return "Registration is paused just now. You are on the list and we will be in touch.";
+    return "New accounts are paused just now. Please try again shortly, or contact us.";
   }
-  /* What the refusals above actually look like from the browser: GoTrue turns
-     any exception from the trigger into this one sentence. */
+  /* What that refusal actually looks like from the browser: GoTrue turns any
+     exception from a trigger into this one sentence, with nothing in it. */
   if (m.includes("database error") || m.includes("saving new user")) {
     return "We could not open an account for that address. Please contact us and we will sort it out.";
   }
@@ -60,22 +68,25 @@ function registerMessage(message: string): string {
   if (m.includes("signups not allowed") || m.includes("signup is disabled")) {
     return "Sign-up is switched off in Supabase. Turn 'Allow new users to sign up' on.";
   }
+  if (m.includes("invalid") && m.includes("email")) {
+    return "That does not look like an email address.";
+  }
   if (m.includes("password")) return message;
   return "Could not create the account. Please try again, or contact us.";
 }
 
 export default function RegisterForm({
-  email,
   supabaseUrl,
   supabaseKey,
   google,
 }: {
-  email: string;
   supabaseUrl: string;
   supabaseKey: string;
   /** Google sign-in is only offered where FD has configured the provider. */
   google: boolean;
 }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -83,7 +94,11 @@ export default function RegisterForm({
   const [check, setCheck] = useState(false);
 
   const tooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH;
-  const ready = password.length >= MIN_PASSWORD_LENGTH && accepted;
+  const ready =
+    name.trim().length > 0 &&
+    email.trim().length > 0 &&
+    password.length >= MIN_PASSWORD_LENGTH &&
+    accepted;
 
   async function register(e: React.FormEvent) {
     e.preventDefault();
@@ -93,7 +108,15 @@ export default function RegisterForm({
 
     try {
       const supabase = createBrowserClient(supabaseUrl, supabaseKey);
-      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        /* full_name is where 001's handle_new_user trigger looks first when it
+           writes the profile row, and where 037's announcement looks first when
+           it writes the Slack line. The same key Google fills in, deliberately,
+           so neither of them needs to know which way the person came in. */
+        options: { data: { full_name: name.trim() } },
+      });
 
       if (signUpError) {
         setError(registerMessage(signUpError.message));
@@ -135,7 +158,6 @@ export default function RegisterForm({
     }
   }
 
-
   if (check) {
     return (
       <div className="note note-ok" style={{ marginTop: 20 }}>
@@ -150,19 +172,29 @@ export default function RegisterForm({
 
   return (
     <form onSubmit={register} style={{ display: "grid", gap: 15, marginTop: 20 }}>
-      <div className="note note-ok" style={{ margin: 0 }}>
-        <b>You&rsquo;re on the list.</b>
-        <p style={{ margin: "4px 0 0" }}>
-          Choose a password and your three documents are ready to use.
-        </p>
-      </div>
-
-      {/* Shown, not editable. They typed it one step ago, and an address they
-          can change here is an address that no longer matches the waitlist row
-          the database is about to check it against. */}
       <label style={{ display: "block" }}>
-        <span className="field-label">Your email</span>
-        <input className="input" type="email" value={email} readOnly disabled />
+        <span className="field-label">Your name</span>
+        <input
+          className="input"
+          type="text"
+          autoComplete="name"
+          autoFocus
+          required
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </label>
+
+      <label style={{ display: "block" }}>
+        <span className="field-label">Work email</span>
+        <input
+          className="input"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
       </label>
 
       <label style={{ display: "block" }}>
@@ -171,7 +203,6 @@ export default function RegisterForm({
           className="input"
           type="password"
           autoComplete="new-password"
-          autoFocus
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
@@ -229,4 +260,3 @@ export default function RegisterForm({
     </form>
   );
 }
-
