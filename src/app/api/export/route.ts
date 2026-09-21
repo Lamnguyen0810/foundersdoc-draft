@@ -1,56 +1,67 @@
 import { NextRequest } from "next/server";
 import {
   AlignmentType,
+  BorderStyle,
   Document,
-  Footer,
-  Header,
-  ImageRun,
+  LineRuleType,
   Packer,
-  PageNumber,
   Paragraph,
+  TabStopType,
   TextRun,
   UnderlineType,
 } from "docx";
-import fs from "node:fs/promises";
-import path from "node:path";
-import { LETTERHEAD } from "@/lib/letterhead";
 import { splitNotes } from "@/lib/prompt";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getUser } from "@/lib/supabase/server";
+import * as S from "@/lib/doc-style";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const PT = (n: number) => n * 2; // docx sizes are half-points
-const FONT = LETTERHEAD.font;
-
-function run(
-  text: string,
-  opts: { b?: boolean; i?: boolean; u?: boolean; size?: number; color?: string } = {},
-) {
-  return new TextRun({
-    text,
-    bold: opts.b,
-    italics: opts.i,
-    underline: opts.u ? { type: UnderlineType.SINGLE } : undefined,
-    font: FONT,
-    size: opts.size ?? PT(LETTERHEAD.bodyPt),
-    color: opts.color,
-  });
-}
-
 /**
- * Turns the plain-text draft into Word paragraphs.
+ * The Word file, built to look like the screen.
  *
- * The model is told to return numbered clauses as "1." and lettered sub-clauses
- * as "(a)", so those two shapes drive the indentation. Everything else is a
- * justified body paragraph. Deliberately simple: a clever parser that guesses
- * wrong is worse than a plain one a lawyer can fix in ten seconds.
+ * ── WHAT THIS USED TO BE ────────────────────────────────────────────────────
+ * A second, unrelated design. The preview was Cambria 10.5pt, flush left, with
+ * a blue Calibri title over a blue rule; the download was Times New Roman
+ * 11pt, justified, black throughout, indented clauses, and — on every page —
+ * a FoundersDoc letterhead with a placeholder address, a "subject to review"
+ * footer and page numbers that the screen never showed. A lawyer who had
+ * spent ten minutes getting the document right on screen opened the download
+ * and found a different document.
+ *
+ * ── WHAT IT IS NOW ──────────────────────────────────────────────────────────
+ * A translation of the preview's stylesheet, rule by rule. Every size, colour,
+ * gap and indent comes from src/lib/doc-style.ts, which mirrors the
+ * `.wd-pages .sheet` rules in globals.css and says which one each number came
+ * from. There is no header and no footer, because there is none on screen.
+ * If the firm wants a letterhead, it belongs in the preview first, so that
+ * what is seen is what is sent.
+ *
+ * ── WHAT IS TAKEN FROM THE SCREEN ───────────────────────────────────────────
+ * The browser sends the preview's own HTML — the same <p class="doc-…">
+ * elements the lawyer edited — so the download carries their edits, their
+ * bold, and the blanks they left. Each class maps to one paragraph shape
+ * below. Anything without a class is a body paragraph.
  */
+
+const run = (
+  text: string,
+  o: { b?: boolean; i?: boolean; u?: boolean; size?: number; color?: string; font?: string } = {},
+) =>
+  new TextRun({
+    text,
+    bold: o.b,
+    italics: o.i,
+    underline: o.u ? { type: UnderlineType.SINGLE } : undefined,
+    font: o.font ?? S.BODY_FONT,
+    size: o.size ?? S.pt(S.BODY_PT),
+    color: o.color ?? S.INK,
+  });
 
 function decodeHtml(value: string): string {
   return value
-    .replace(/&nbsp;/gi, " ")
+    .replace(/&nbsp;/gi, "\u00A0")
     .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
@@ -60,188 +71,258 @@ function decodeHtml(value: string): string {
     .replace(/&#x([\da-f]+);/gi, (_, n: string) => String.fromCodePoint(parseInt(n, 16)));
 }
 
-function runsFromHtml(fragment: string): TextRun[] {
-  const prepared = fragment
-    .replace(/<span\b[^>]*class=["'][^"']*placeholder[^"']*["'][^>]*>\s*<\/span>/gi, "____________")
-    .replace(/<br\s*\/?>/gi, "\n");
-  const tokens = prepared.split(/(<\/?(?:strong|b|em|i|u)\b[^>]*>)/gi);
+type Style = { size?: number; color?: string; font?: string; b?: boolean };
+
+/**
+ * Inline HTML → Word runs. Understands <b>/<strong>, <i>/<em>, <u>, <br>, and
+ * the preview's fill-in blanks.
+ *
+ * A blank is `<span class="placeholder">` — empty when nobody has typed into
+ * it, which on screen is a ruled gap. Word has no ruled gap, so it becomes
+ * underlined non-breaking spaces of the same width; text the lawyer typed
+ * into it comes through underlined, exactly as it sits on the line on screen.
+ */
+function runsFromHtml(fragment: string, style: Style = {}): TextRun[] {
+  const runs: TextRun[] = [];
+  const tokens = fragment
+    .replace(/<br\s*\/?>/gi, "\n")
+    .split(/(<span\b[^>]*class=["'][^"']*\bplaceholder\b[^"']*["'][^>]*>[\s\S]*?<\/span>|<\/?(?:strong|b|em|i|u)\b[^>]*>)/gi);
+
   let bold = 0;
   let italics = 0;
   let underline = 0;
-  const runs: TextRun[] = [];
+
   for (const token of tokens) {
-    const tag = token.match(/^<\/?(strong|b|em|i|u)\b/i);
-    if (tag) {
-      const closing = /^<\//.test(token);
-      const delta = closing ? -1 : 1;
-      if (/^(strong|b)$/i.test(tag[1])) bold = Math.max(0, bold + delta);
-      if (/^(em|i)$/i.test(tag[1])) italics = Math.max(0, italics + delta);
-      if (/^u$/i.test(tag[1])) underline = Math.max(0, underline + delta);
+    if (!token) continue;
+
+    if (/^<span\b[^>]*\bplaceholder\b/i.test(token)) {
+      const typed = decodeHtml(token.replace(/^<span\b[^>]*>/i, "").replace(/<\/span>$/i, "").replace(/<[^>]+>/g, "")).trim();
+      runs.push(
+        run(typed || "\u00A0".repeat(S.PLACEHOLDER_WIDTH), {
+          ...style,
+          u: true,
+          b: style.b || bold > 0,
+          i: italics > 0,
+        }),
+      );
       continue;
     }
+
+    const tag = /^<(\/?)(strong|b|em|i|u)\b/i.exec(token);
+    if (tag) {
+      const delta = tag[1] ? -1 : 1;
+      const name = tag[2].toLowerCase();
+      if (name === "strong" || name === "b") bold = Math.max(0, bold + delta);
+      if (name === "em" || name === "i") italics = Math.max(0, italics + delta);
+      if (name === "u") underline = Math.max(0, underline + delta);
+      continue;
+    }
+
     const value = decodeHtml(token.replace(/<[^>]+>/g, ""));
-    if (value) runs.push(run(value, { b: bold > 0, i: italics > 0, u: underline > 0 }));
+    if (!value) continue;
+    runs.push(run(value, { ...style, b: style.b || bold > 0, i: italics > 0, u: underline > 0 }));
   }
   return runs;
 }
 
-function bodyParagraphsFromHtml(html: string, includeNotes: boolean): Paragraph[] {
-  const paragraphs: Paragraph[] = [];
-  const pattern = /<p\b([^>]*)>([\s\S]*?)<\/p>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(html))) {
-    const attrs = match[1];
-    const fragment = match[2];
-    const className = /class=["']([^"']*)["']/i.exec(attrs)?.[1] ?? "";
-    if (/doc-end-note/.test(className)) continue;
-    if (!includeNotes && /doc-notes-title|doc-note/.test(className)) continue;
-
-    const children = runsFromHtml(fragment);
-    if (!children.length) continue;
-
-    const heading = /doc-title|doc-section|doc-label|doc-notes-title/.test(className);
-    const centered = /doc-title|doc-date/.test(className);
-    const subClause = /doc-subclause/.test(className);
-    const clause = /doc-clause|doc-party|doc-recital/.test(className);
-    paragraphs.push(
-      new Paragraph({
-        alignment: centered ? AlignmentType.CENTER : heading ? AlignmentType.LEFT : AlignmentType.JUSTIFIED,
-        spacing: heading ? { before: 240, after: 120 } : { after: 140 },
-        indent: subClause ? { left: 720 } : clause ? { left: 360 } : undefined,
-        children,
-      }),
-    );
-  }
-  return paragraphs;
+/**
+ * The two halves of a numbered paragraph, or null when it is not one.
+ *
+ * The body span is the paragraph's LAST child and may itself contain spans —
+ * every fill-in blank is one — so it cannot be matched lazily to the first
+ * closing tag: that stops at the first blank and silently drops the rest of
+ * the sentence. It runs from its opening tag to the fragment's final </span>.
+ */
+function splitNumbered(fragment: string): { num: string; body: string } | null {
+  const num = /<span\b[^>]*class=["'][^"']*\bdoc-num\b[^"']*["'][^>]*>([\s\S]*?)<\/span>/i.exec(fragment);
+  const open = /<span\b[^>]*class=["'][^"']*\bdoc-body\b[^"']*["'][^>]*>/i.exec(fragment);
+  if (!num || !open) return null;
+  const after = fragment.slice(open.index + open[0].length);
+  const body = after.replace(/<\/span>\s*$/i, "");
+  return { num: decodeHtml(num[1].replace(/<[^>]+>/g, "")).trim(), body };
 }
 
-function bodyParagraphs(text: string): Paragraph[] {
+const single = (line: number) => ({ line, lineRule: LineRuleType.AUTO });
+
+function paragraphsFromHtml(html: string): Paragraph[] {
   const out: Paragraph[] = [];
+  const pattern = /<p\b([^>]*)>([\s\S]*?)<\/p>/gi;
+  let m: RegExpExecArray | null;
 
-  for (const raw of text.split("\n")) {
-    const line = raw.trimEnd();
-    if (line.trim() === "") continue;
+  while ((m = pattern.exec(html))) {
+    const cls = /class=["']([^"']*)["']/i.exec(m[1])?.[1] ?? "";
+    const has = (name: string) => new RegExp(`\\b${name}\\b`).test(cls);
+    const fragment = m[2];
 
-    const isHeading = /^\d+\.\s+[A-Z][A-Z0-9 ,;'&\-/()]{2,}$/.test(line.trim());
-    const isAllCapsHeading = /^[A-Z][A-Z0-9 ,;'&\-/()]{4,}$/.test(line.trim());
-    const isSubClause = /^\d+\.\d+/.test(line.trim());
-    const isLettered = /^\([a-z0-9ivx]+\)/.test(line.trim());
-    const isSignature = /^(SIGNED|Signed|Name:|Title:|Date:|Signature:|By:|EXECUTED)/.test(
-      line.trim(),
-    );
-
-    if (isHeading || isAllCapsHeading) {
+    // ── the title: Calibri, blue, centred, a rule beneath
+    if (has("doc-title")) {
       out.push(
         new Paragraph({
-          spacing: { before: 240, after: 120 },
-          children: [run(line.trim(), { b: true })],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: S.TITLE_STYLE.after, ...single(S.TITLE_STYLE.line) },
+          border: {
+            bottom: {
+              style: BorderStyle.SINGLE,
+              size: S.TITLE_STYLE.border.size,
+              color: S.TITLE_STYLE.border.color,
+              space: S.TITLE_STYLE.border.space,
+            },
+          },
+          children: runsFromHtml(fragment, { size: S.TITLE_STYLE.size, color: S.TITLE, font: S.HEAD_FONT, b: true }),
         }),
       );
-    } else if (isSubClause) {
-      out.push(
-        new Paragraph({
-          spacing: { after: 140 },
-          indent: { left: 360 },
-          alignment: AlignmentType.JUSTIFIED,
-          children: [run(line.trim())],
-        }),
-      );
-    } else if (isLettered) {
-      out.push(
-        new Paragraph({
-          spacing: { after: 140 },
-          indent: { left: 720 },
-          alignment: AlignmentType.JUSTIFIED,
-          children: [run(line.trim())],
-        }),
-      );
-    } else if (isSignature) {
-      out.push(new Paragraph({ spacing: { after: 60 }, children: [run(line.trim())] }));
-    } else {
-      out.push(
-        new Paragraph({
-          spacing: { after: 160 },
-          alignment: AlignmentType.JUSTIFIED,
-          children: [run(line.trim())],
-        }),
-      );
+      continue;
     }
-  }
 
-  return out;
-}
+    if (has("doc-date")) {
+      out.push(new Paragraph({ spacing: { after: S.DATE_AFTER, ...single(S.BODY_LINE) }, children: runsFromHtml(fragment) }));
+      continue;
+    }
 
-async function letterheadHeader(): Promise<Header> {
-  const children: Paragraph[] = [];
-
-  if (LETTERHEAD.logoFile) {
-    try {
-      const data = await fs.readFile(path.join(process.cwd(), "public", LETTERHEAD.logoFile));
-      children.push(
+    // ── "Parties", "Background": bold body font, a little air either side
+    if (has("doc-label")) {
+      out.push(
         new Paragraph({
-          alignment: AlignmentType.LEFT,
-          spacing: { after: 80 },
+          spacing: { before: S.LABEL.before, after: S.LABEL.after, ...single(S.BODY_LINE) },
+          children: runsFromHtml(fragment, { b: true }),
+        }),
+      );
+      continue;
+    }
+
+    // ── "1. Definitions": Calibri, blue, bold
+    if (has("doc-section")) {
+      const parts = splitNumbered(fragment);
+      const text = parts ? `${parts.num} ${parts.body}` : fragment;
+      out.push(
+        new Paragraph({
+          spacing: { before: S.SECTION.before, after: S.SECTION.after, ...single(S.SECTION.line) },
+          children: runsFromHtml(text, { size: S.SECTION.size, color: S.HEAD, font: S.HEAD_FONT, b: true }),
+        }),
+      );
+      continue;
+    }
+
+    // ── (a) sub-clauses: number in the margin, body hanging beside it
+    if (has("doc-subclause")) {
+      const parts = splitNumbered(fragment);
+      out.push(
+        new Paragraph({
+          spacing: { after: S.SUBCLAUSE.after, ...single(S.BODY_LINE) },
+          indent: { left: S.SUBCLAUSE.left, hanging: S.SUBCLAUSE.hanging },
+          tabStops: [{ type: TabStopType.LEFT, position: S.SUBCLAUSE.left }],
+          children: parts
+            ? [run(`${parts.num}\t`), ...runsFromHtml(parts.body)]
+            : runsFromHtml(fragment),
+        }),
+      );
+      continue;
+    }
+
+    // ── parties, recitals, clauses: number inline, flush left
+    if (has("doc-party") || has("doc-recital") || has("doc-clause")) {
+      const parts = splitNumbered(fragment);
+      out.push(
+        new Paragraph({
+          spacing: { after: S.CLAUSE_AFTER, ...single(S.BODY_LINE) },
+          children: parts ? [run(`${parts.num} `), ...runsFromHtml(parts.body)] : runsFromHtml(fragment),
+        }),
+      );
+      continue;
+    }
+
+    // ── "Drafter's notes": small Calibri heading over a grey rule
+    if (has("doc-notes-title")) {
+      out.push(
+        new Paragraph({
+          spacing: { before: S.NOTES_TITLE.before, after: S.NOTES_TITLE.after, ...single(S.BODY_LINE) },
+          border: {
+            top: {
+              style: BorderStyle.SINGLE,
+              size: S.NOTES_TITLE.border.size,
+              color: S.NOTES_TITLE.border.color,
+              space: S.NOTES_TITLE.border.space,
+            },
+          },
+          children: runsFromHtml(fragment, { size: S.NOTES_TITLE.size, color: S.HEAD, font: S.HEAD_FONT, b: true }),
+        }),
+      );
+      continue;
+    }
+
+    // ── each note: smaller, muted, a bullet hung in the margin
+    if (has("doc-note")) {
+      out.push(
+        new Paragraph({
+          spacing: { after: S.NOTE.after, ...single(S.NOTE.line) },
+          indent: { left: S.NOTE.hanging, hanging: S.NOTE.hanging },
+          tabStops: [{ type: TabStopType.LEFT, position: S.NOTE.hanging }],
           children: [
-            new ImageRun({
-              data,
-              type: LETTERHEAD.logoFile.endsWith(".jpg") ? "jpg" : "png",
-              transformation: { width: 150, height: 45 },
-            }),
+            run("•\t", { size: S.NOTE.size, color: S.MUTED }),
+            ...runsFromHtml(fragment, { size: S.NOTE.size, color: S.MUTED }),
           ],
         }),
       );
-    } catch {
-      // No logo file: fall through to the text header. A missing image must never
-      // break a download.
+      continue;
+    }
+
+    // ── the line that says a model wrote it: small, grey, centred, last
+    if (has("doc-end-note")) {
+      out.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { before: S.END_NOTE_STYLE.before, after: 0, ...single(S.BODY_LINE) },
+          children: runsFromHtml(fragment, { size: S.END_NOTE_STYLE.size, color: S.END_NOTE, font: S.HEAD_FONT }),
+        }),
+      );
+      continue;
+    }
+
+    // ── anything else is a body paragraph
+    const children = runsFromHtml(fragment);
+    if (children.length) {
+      out.push(new Paragraph({ spacing: { after: S.PARA_AFTER, ...single(S.BODY_LINE) }, children }));
     }
   }
-
-  if (children.length === 0) {
-    children.push(
-      new Paragraph({
-        spacing: { after: 20 },
-        children: [run(LETTERHEAD.firmName, { b: true, size: PT(16) })],
-      }),
-      new Paragraph({
-        spacing: { after: 80 },
-        children: [run(LETTERHEAD.tagline, { size: PT(9), color: "666666" })],
-      }),
-    );
-  }
-
-  children.push(
-    new Paragraph({
-      alignment: AlignmentType.RIGHT,
-      spacing: { after: 200 },
-      children: [
-        run([...LETTERHEAD.addressLines, ...LETTERHEAD.contactLines].join("  ·  "), {
-          size: PT(8),
-          color: "666666",
-        }),
-      ],
-    }),
-  );
-
-  return new Header({ children });
+  return out;
 }
 
-function footer(): Footer {
-  return new Footer({
-    children: [
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [
-          run(`${LETTERHEAD.footer}    `, { size: PT(8), color: "888888" }),
-          new TextRun({
-            children: ["Page ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES],
-            font: FONT,
-            size: PT(8),
-            color: "888888",
-          }),
-        ],
-      }),
-    ],
-  });
+/**
+ * Plain text → paragraphs, for the rare caller with no HTML. The same
+ * typography as the HTML path, recognising the shapes the model is told to
+ * produce: "1. HEADING", "1.1", "(a)", and signature lines.
+ */
+function paragraphsFromText(text: string): Paragraph[] {
+  const out: Paragraph[] = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+
+    const heading = /^\d+\.\s+[A-Z][A-Z0-9 ,;'&\-/()]{2,}$/.test(line) || /^[A-Z][A-Z0-9 ,;'&\-/()]{4,}$/.test(line);
+    const lettered = /^\([a-z0-9ivx]+\)\s/.test(line);
+
+    if (heading) {
+      out.push(
+        new Paragraph({
+          spacing: { before: S.SECTION.before, after: S.SECTION.after, ...single(S.SECTION.line) },
+          children: [run(line, { b: true, size: S.SECTION.size, color: S.HEAD, font: S.HEAD_FONT })],
+        }),
+      );
+    } else if (lettered) {
+      const [, num, body] = /^(\([a-z0-9ivx]+\))\s+([\s\S]*)$/.exec(line) ?? [line, "", line];
+      out.push(
+        new Paragraph({
+          spacing: { after: S.SUBCLAUSE.after, ...single(S.BODY_LINE) },
+          indent: { left: S.SUBCLAUSE.left, hanging: S.SUBCLAUSE.hanging },
+          tabStops: [{ type: TabStopType.LEFT, position: S.SUBCLAUSE.left }],
+          children: [run(`${num}\t`), run(body)],
+        }),
+      );
+    } else {
+      out.push(new Paragraph({ spacing: { after: S.PARA_AFTER, ...single(S.BODY_LINE) }, children: [run(line)] }));
+    }
+  }
+  return out;
 }
 
 function safeName(s: string): string {
@@ -269,34 +350,42 @@ export async function POST(req: NextRequest) {
   const text = (body.text ?? "").trim();
   if (!text) return Response.json({ error: "There is nothing to export." }, { status: 400 });
 
-  // The drafter's notes are for the lawyer, not the counterparty. Excluded by
-  // default so a download can never accidentally send [[TO CONFIRM]] markers out.
-  const { body: documentBody, notes } = splitNotes(text);
   const html = (body.html ?? "").trim();
-  const children = html ? bodyParagraphsFromHtml(html, Boolean(body.includeNotes)) : bodyParagraphs(documentBody);
+  let children: Paragraph[];
 
-  if (body.includeNotes && notes) {
-    children.push(
-      new Paragraph({
-        spacing: { before: 400, after: 120 },
-        children: [run("INTERNAL — DRAFTER'S NOTES (delete before sending)", { b: true, color: "B00020" })],
-      }),
-      ...bodyParagraphs(notes),
-    );
+  if (html) {
+    /* The screen, verbatim — notes and the end line included, because they
+       are on the screen. The lawyer decides what to delete before sending, and
+       does it in the one place they are already looking. */
+    children = paragraphsFromHtml(html);
+  } else {
+    // No HTML: the older callers, which still choose whether notes travel.
+    const { body: documentBody, notes } = splitNotes(text);
+    children = paragraphsFromText(documentBody);
+    if (body.includeNotes && notes) {
+      children.push(
+        new Paragraph({
+          spacing: { before: S.NOTES_TITLE.before, after: S.NOTES_TITLE.after },
+          children: [run("Drafter's notes", { b: true, size: S.NOTES_TITLE.size, color: S.HEAD, font: S.HEAD_FONT })],
+        }),
+        ...paragraphsFromText(notes),
+      );
+    }
   }
 
   const doc = new Document({
-    styles: { default: { document: { run: { font: FONT, size: PT(LETTERHEAD.bodyPt) } } } },
+    styles: {
+      default: {
+        document: {
+          run: { font: S.BODY_FONT, size: S.pt(S.BODY_PT), color: S.INK },
+          paragraph: { spacing: { after: S.PARA_AFTER, ...single(S.BODY_LINE) } },
+        },
+      },
+    },
     sections: [
       {
-        properties: {
-          page: {
-            size: { width: 11906, height: 16838 }, // A4 portrait, DXA
-            margin: { top: 1440, right: 1134, bottom: 1134, left: 1134 },
-          },
-        },
-        headers: { default: await letterheadHeader() },
-        footers: { default: footer() },
+        properties: { page: { size: { width: S.PAGE.width, height: S.PAGE.height }, margin: S.PAGE.margin } },
+        // No header, no footer: there is none on the screen.
         children,
       },
     ],
@@ -311,8 +400,7 @@ export async function POST(req: NextRequest) {
 
   return new Response(new Uint8Array(buffer), {
     headers: {
-      "content-type":
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "content-disposition": `attachment; filename="${filename}"`,
       "cache-control": "no-store",
     },
