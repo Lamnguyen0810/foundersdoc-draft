@@ -217,6 +217,8 @@ export async function POST(req: NextRequest) {
 
       const session = await s.checkout.sessions.create({
         mode: "subscription",
+        // Singapore dollars only -- see the note on the one-off session below.
+        adaptive_pricing: { enabled: false },
         customer: customer.id,
         line_items: [{ price: price.id, quantity: 1 }],
         success_url: `${origin}/billing?joined=1&session_id={CHECKOUT_SESSION_ID}`,
@@ -243,8 +245,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ url: session.url });
     }
 
+    /* ── EVERY PRICE IS SHOWN AND CHARGED IN SINGAPORE DOLLARS ─────────────
+       Stripe's ADAPTIVE PRICING converts the total into whatever currency it
+       guesses the buyer's country uses, and it is on by default. The result
+       is a checkout page headed "Pay FOUNDERS DOC PTE. LTD." offering
+       d186,701 beside SGD 8.80, with the dong PRESELECTED, because whoever
+       is looking happens to be in Vietnam.
+
+       Three reasons that is wrong for this product, in order of importance:
+
+       1. The customer pays 2-4% more. Stripe takes it out of the exchange
+          rate rather than out of our fee, so it costs the firm nothing and
+          costs the buyer something -- precisely the sort of charge a law
+          firm should not be adding to its own invoice by accident.
+       2. The site says S$8.80 everywhere. A page that then quotes a
+          six-figure number in another currency reads as a mistake.
+       3. It is decided by GEOGRAPHY, not by choice. A Singapore firm's
+          Singapore customer sees SGD; the same page shown to that customer
+          on holiday does not. A price should not depend on where somebody
+          happens to be standing.
+
+       There is a switch for this in the Dashboard, and the Dashboard is the
+       wrong place for it: account-wide, invisible from the code, and one
+       click from being turned back on by somebody who does not know what it
+       does. Setting it per session states what this integration requires,
+       inside the integration.
+
+       The SGD guard above is a DIFFERENT check and does not cover this. That
+       one asks what currency the PRICE is denominated in, which stays SGD.
+       This is about what the buyer is shown and charged at the till. */
     const session = await s.checkout.sessions.create({
       mode: "payment",
+      adaptive_pricing: { enabled: false },
       customer: customer.id,
       line_items: [{ price: price.id, quantity: 1 }],
       success_url: `${origin}/billing?paid=1&session_id={CHECKOUT_SESSION_ID}`,
