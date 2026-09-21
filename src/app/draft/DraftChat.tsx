@@ -602,14 +602,29 @@ export default function DraftChat({
   }, []);
 
   const leaveDocument = useCallback(() => {
-    /* back(), not another push. Undoing the entry keeps the history honest:
-       one catalogue, one conversation, and no growing stack of them if
-       somebody changes their mind five times. */
-    if (typeof window !== "undefined" && window.history.state?.fdScreen === "chat") {
-      window.history.back();
-      return;
-    }
     setPicked({ screen: "select", type: null });
+    try {
+      /* ── A PUSH, NOT A back() ──────────────────────────────────────────
+         This called history.back(), on the reasoning that "Change document"
+         undoes "open document" and the history should not collect entries
+         nobody asked for.
+
+         That reasoning was about the history; it was not about the person.
+         Press Change document, then Back, and what you expect is the
+         conversation you just left — because Back undoes the last thing you
+         did, and the last thing you did was leave it. With back() the
+         conversation sat in FORWARD instead, and Back went one entry further
+         and took you out of the product altogether. The original complaint,
+         one step along.
+
+         So moving to the catalogue is a move like any other and gets its own
+         entry. Changing your mind repeatedly does lengthen the history, which
+         is what every website does and what the buttons are for. */
+      window.history.pushState({ fdScreen: "select" }, "", "/draft");
+    } catch {
+      /* No history available. The screen still changes; only Back is poorer,
+         which is where this started. */
+    }
   }, []);
 
   /* The browser moved; follow it. Reading the entry we land ON rather than
