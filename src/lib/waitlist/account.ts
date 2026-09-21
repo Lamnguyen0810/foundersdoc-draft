@@ -146,11 +146,54 @@ export async function createAccountFor(
 }
 
 /**
- * Does joining the waitlist lead straight to a password? A row, not a constant.
+ * Is registration open? A row, not a constant.
  *
  * The same row the database trigger reads, which is what makes it a real
  * switch: turning it off does not merely hide a form, it makes the database
  * refuse the account the form would have asked for.
+ *
+ * ── WHY THIS DEFAULTS TO OPEN AND autoAccountOn() DEFAULTS TO CLOSED ────────
+ * They read the same column and disagree about what silence means, on purpose.
+ *
+ * autoAccountOn() answers "should joining the waitlist hand out an account?",
+ * and there the safe failure is no: a waitlist that is not yet handing out
+ * accounts is a Tuesday, whereas one handing them out without the switch that
+ * closes it again is a problem.
+ *
+ * This one answers "may a stranger sign up?" on a product that is open, and
+ * the safe failure is the other way. A missing secret key, a network blip, a
+ * config row somebody deleted — none of those are FD deciding to close the
+ * door, and treating them as though they were would take the sign-up form off
+ * the front of the product with no error, no log and nobody the wiser until
+ * somebody asked why the week had been quiet.
+ *
+ * 038's trigger makes the same choice (`coalesce(v_auto, true)`), and the two
+ * have to agree: a page that hides the form while the database would have
+ * accepted it is a lie in one direction, and a page that offers a form the
+ * database will refuse is a lie in the other.
+ */
+export async function registrationOpen(): Promise<boolean> {
+  if (!isAdminClientConfigured()) return true;
+  try {
+    const { data, error } = await supabaseAdmin()
+      .from("signup_config")
+      .select("auto_account")
+      .maybeSingle();
+
+    // Cannot ask, or nothing to read: stay open. See above.
+    if (error || !data) return true;
+    return data.auto_account !== false;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Does joining the waitlist lead straight to a password? A row, not a constant.
+ *
+ * Still read by the waitlist API route, which is still reachable for anything
+ * outside this application that posts to it. The sign-up screen no longer uses
+ * it — see registrationOpen() above for why the two differ.
  */
 export async function autoAccountOn(): Promise<boolean> {
   if (!isAdminClientConfigured()) return false;

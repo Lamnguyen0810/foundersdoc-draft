@@ -3,27 +3,32 @@ import Link from "next/link";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { getUser } from "@/lib/supabase/server";
 import { TRIAL } from "@/lib/billing/plans";
-import { autoAccountOn } from "@/lib/waitlist/account";
-import WaitlistForm from "./WaitlistForm";
+import { registrationOpen } from "@/lib/waitlist/account";
+import RegisterForm from "./RegisterForm";
 import LoginBackdrop from "../login/LoginBackdrop";
 
 export const metadata = { title: "Start with FD AI — Founders Doc" };
 export const dynamic = "force-dynamic";
 
 /**
- * The waitlist, which is now also the sign-up — both steps on one screen.
+ * Signing up. One screen, one form, no queue.
  *
- * Leaving an address here puts a row on the waitlist as it always did, and
- * then, while signup_config.auto_account is on, offers a password straight
- * away. No email in between. What stops a stranger is a trigger in the
- * database — an account may be created only for an address on the waitlist —
- * rather than Supabase's sign-up toggle, which had to be off for the old
- * arrangement and made both a password field and Google sign-in impossible.
+ * ── WHAT THIS PAGE USED TO BE ───────────────────────────────────────────────
+ * Two steps in one card: leave your details for the waitlist, then choose a
+ * password. That was right while FD AI was invitation-only and a database
+ * trigger enforced the list. Now that anybody may register, the first step was
+ * asking people to queue for something they were already allowed to have —
+ * and every step between "I want to try this" and "I am trying this" loses
+ * some of them.
  *
- * ── THE PAGE READS THE SWITCH ───────────────────────────────────────────────
- * Because it can be turned off, and a page that promises an account while the
- * database is handing out queue tickets is worse than either. The words follow
- * the setting; nobody has to remember to change them.
+ * The waitlist table is untouched and the admin console still reads it. It is
+ * a record of who asked before FD opened up, not a gate.
+ *
+ * ── THE PAGE STILL READS THE SWITCH ─────────────────────────────────────────
+ * signup_config.auto_account is no longer a waitlist setting; it is the stop
+ * switch — one UPDATE, no deploy, if registration has to be closed at an hour
+ * when a deploy is not possible. The database refuses sign-ups while it is
+ * off, so this page says so rather than offering a form that cannot work.
  *
  * ── GOOGLE ─────────────────────────────────────────────────────────────────
  * Offered only where NEXT_PUBLIC_GOOGLE_AUTH is set, because the button is
@@ -39,10 +44,10 @@ export default async function SignupPage() {
   const url = supabaseUrl();
   const key = supabasePublishableKey();
   if (!url || !key) redirect("/login");
-  // Someone already signed in has no business on a waitlist.
+  // Someone already signed in has no business on a sign-up screen.
   if (await getUser()) redirect("/draft");
 
-  const instant = await autoAccountOn();
+  const open = await registrationOpen();
   const google = process.env.NEXT_PUBLIC_GOOGLE_AUTH === "1";
 
   return (
@@ -50,29 +55,24 @@ export default async function SignupPage() {
       <LoginBackdrop />
       <div className="login-scrim" aria-hidden="true" />
 
-      <div className="login-modal" role="dialog" aria-modal="true" aria-labelledby="waitlist-title">
+      <div className="login-modal" role="dialog" aria-modal="true" aria-labelledby="signup-title">
         <p className="kicker">FD AI</p>
-        <h1 id="waitlist-title">{instant ? "Start drafting free" : "Join the waitlist"}</h1>
+        <h1 id="signup-title">{open ? "Start drafting free" : "New accounts are paused"}</h1>
         <p className="sub">
-          {instant ? (
+          {open ? (
             <>
-              Register below and choose a password — your account opens with {TRIAL.credits}{" "}
-              documents to use over the next {TRIAL.days} days. No card, no obligation.
+              Your account opens with {TRIAL.credits} documents to use over the next {TRIAL.days}{" "}
+              days. No card, no obligation.
             </>
           ) : (
             <>
-              FD AI is not open to everyone yet. Leave your details and we will email you the
-              moment your place is ready.
+              We have had to pause new accounts for a moment. Nothing is wrong with yours if you
+              already have one — sign in as usual.
             </>
           )}
         </p>
 
-        <WaitlistForm
-          instant={instant}
-          supabaseUrl={url}
-          supabaseKey={key}
-          google={google}
-        />
+        {open && <RegisterForm supabaseUrl={url} supabaseKey={key} google={google} />}
 
         <p className="login-note">
           <b>Need something drafted now?</b> You do not have to wait for the software —{" "}

@@ -67,13 +67,14 @@ export default async function LoginPage() {
           />
         </Suspense>
 
-        {/* Not "sign up" — FD AI is not open yet, and only the firm's own
-            accounts can sign in. This says what is actually on offer to a
-            stranger: a place in the queue. */}
+        {/* This said "AI drafting is coming soon — join the waitlist", which
+            was true for exactly as long as there was a waitlist. Leaving it up
+            after the product opened would have been the worst of both: a
+            stranger told to wait, on a screen whose other button would have
+            let them in. What is on offer now is the product. */}
         <p className="login-note">
-          <b>AI drafting is coming soon.</b> Be among the first to try it when it launches. Join
-          the waitlist today and we will let you know as soon as it is ready.{" "}
-          <a href="/signup">Sign up here.</a>
+          <b>New to FD AI?</b> Create an account and draft your first documents free —{" "}
+          <a href="/signup">start here</a>.
         </p>
       </div>
     </div>

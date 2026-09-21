@@ -102,10 +102,10 @@ export default function Welcome({
          that into a database error, and the person is standing on the first
          screen of the product with no idea why. */
       const refused =
-        /not_on_waitlist|registration_closed|database error|saving new user/i.test(
+        /registration_closed|database error|saving new user/i.test(
           `${errorCode} ${errorText}`,
         );
-      leave(refused ? "/login?error=not-on-waitlist" : "/login?error=link-expired");
+      leave(refused ? "/login?error=registration-closed" : "/login?error=link-expired");
       return;
     }
 
@@ -127,10 +127,10 @@ export default function Welcome({
           /* The trigger can also refuse HERE rather than at the redirect,
              depending on where in the dance the account would have been
              created — so the same reading is done again on the message. */
-          const refused = /not_on_waitlist|registration_closed|database error|saving new user/i.test(
+          const refused = /registration_closed|database error|saving new user/i.test(
             error.message ?? "",
           );
-          leave(refused ? "/login?error=not-on-waitlist" : "/login?error=link-expired");
+          leave(refused ? "/login?error=registration-closed" : "/login?error=link-expired");
         })
         .catch(() => leave("/login?error=link-expired"));
       return;

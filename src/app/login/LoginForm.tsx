@@ -96,12 +96,12 @@ export default function LoginForm({
     "link-expired":
       "That link has expired or has already been used. Reset links work once, and not for long — request another below.",
     "not-configured": "Sign-in is not configured on this site yet.",
-    /* The gate in the database refused to make an account. Almost always the
-       Google button: signing in with Google for the first time IS creating an
-       account, and only addresses on the waitlist may have one. Said plainly,
-       because the person has done nothing wrong and the fix is one click. */
-    "not-on-waitlist":
-      "FD AI is not open to everyone yet, and that address is not on our list. Register first and you can start straight away — it takes a moment.",
+    /* The one gate left in the database refused to make an account. Almost
+       always the Google button, because signing in with Google for the first
+       time IS creating an account. Said plainly, because the person has done
+       nothing wrong and there is nothing they can do about it. */
+    "registration-closed":
+      "New accounts are paused just now. Nothing is wrong with yours if you already have one — sign in above. Otherwise please try again shortly.",
   };
 
   /* Where closing an account lands. Not an error — they asked for this — so it
