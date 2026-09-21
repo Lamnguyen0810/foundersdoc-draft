@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 
 /**
@@ -34,6 +34,16 @@ import { createBrowserClient } from "@supabase/ssr";
  * client library, which writes the session cookie the rest of the app reads.
  * A forged hash produces a session Supabase will not honour on the next
  * request, which is the same answer as no session at all.
+ *
+ * ── AND IT DRAWS NOTHING ────────────────────────────────────────────────────
+ * Normally this is on screen for about a fifth of a second, so anything it
+ * said would be a flicker the person had no time to read and no reason to
+ * want. It renders null and gets out of the way.
+ *
+ * The exception is when it is NOT quick. An exchange that hangs — a slow
+ * network, Supabase having a bad minute — would otherwise leave somebody
+ * looking at an empty page with no idea whether it was working. After four
+ * seconds, and only then, one quiet line appears.
  */
 export default function Welcome({
   supabaseUrl,
@@ -44,10 +54,14 @@ export default function Welcome({
   supabaseKey: string;
   next: string;
 }) {
+  /* Nothing is shown until this turns true, which in the normal case never
+     happens because the browser has already left. */
+  const [slow, setSlow] = useState(false);
+
   useEffect(() => {
-    /* No state is set here, deliberately: the markup below is the same before
-       and after, so there is nothing to re-render and nothing to get out of
-       step with the browser's own idea of where it is going. */
+    /* Set from a timer rather than during the effect, so the first paint is
+       empty and stays empty for as long as this is behaving. */
+    const tooLong = setTimeout(() => setSlow(true), 4000);
 
     /* ── TWO SHAPES OF ANSWER, AND THEY ARRIVE IN DIFFERENT PLACES ─────────
        Google and the email links do not come back the same way, and reading
@@ -72,7 +86,10 @@ export default function Welcome({
     );
     const pick = (key: string) => query.get(key) ?? fragment.get(key);
 
-    const leave = (to: string) => window.location.replace(to);
+    const leave = (to: string) => {
+      clearTimeout(tooLong);
+      window.location.replace(to);
+    };
 
     /* Something went wrong, and Supabase says so in the URL rather than by
        failing. Two cases are worth telling apart, because the answers are
@@ -143,11 +160,15 @@ export default function Welcome({
         leave(next);
       })
       .catch(() => leave("/login?error=link-expired"));
+
+    return () => clearTimeout(tooLong);
   }, [supabaseUrl, supabaseKey, next]);
 
+  if (!slow) return null;
+
   return (
-    <p className="sub" style={{ marginTop: 18 }}>
-      One moment — opening your account…
+    <p className="sub" style={{ margin: "80px auto", maxWidth: 440, textAlign: "center" }}>
+      Still signing you in — one moment.
     </p>
   );
 }
