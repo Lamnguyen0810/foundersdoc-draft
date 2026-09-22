@@ -252,6 +252,7 @@ export default function RegisterForm({
             supabaseUrl={supabaseUrl}
             supabaseKey={supabaseKey}
             next="/draft"
+            intent="sign-up"
             disabled={busy}
             onError={(m) => setError(m || null)}
           />

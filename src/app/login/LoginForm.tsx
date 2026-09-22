@@ -64,8 +64,14 @@ function signInMessage(error: { message?: string; code?: string; status?: number
   if (is("failed_to_fetch") || is("network")) {
     return "Could not reach the sign-in service. Check your connection and try again.";
   }
-  // Wrong password, unknown address, anything else: stay vague on purpose.
-  return "Those details were not accepted. Check the email and password and try again.";
+  /* Wrong password, unknown address, a deleted account — all the same answer,
+     on purpose: a sign-in form must not confirm which addresses exist. But it
+     can say what to DO in each case, and one of the cases is "you have no
+     account here", which is the commonest reason a correct password fails. */
+  return (
+    "No account matches that email and password. If you have not created an FD AI " +
+    "account yet, sign up first — otherwise check the password and try again."
+  );
 }
 
 export default function LoginForm({
@@ -102,6 +108,11 @@ export default function LoginForm({
        nothing wrong and there is nothing they can do about it. */
     "registration-closed":
       "New accounts are paused just now. Nothing is wrong with yours if you already have one — sign in above. Otherwise please try again shortly.",
+    /* "Sign in with Google" was pressed by somebody with no account. Google
+       made one, /auth/google unmade it, and this is what they see instead of
+       the inside of the product. Sign-up is one line below the form. */
+    "no-account":
+      "There is no FD AI account for that Google login yet. Create an account first — it takes a moment — then sign in.",
   };
 
   /* Where closing an account lands. Not an error — they asked for this — so it
@@ -333,6 +344,7 @@ export default function LoginForm({
             supabaseUrl={supabaseUrl}
             supabaseKey={supabaseKey}
             next={next}
+            intent="sign-in"
             label="Sign in with Google"
             disabled={busy}
             onError={(m) => setError(m || null)}
