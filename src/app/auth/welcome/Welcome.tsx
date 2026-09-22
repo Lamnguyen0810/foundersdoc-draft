@@ -119,8 +119,31 @@ export default function Welcome({
     if (code) {
       supabase.auth
         .exchangeCodeForSession(code)
-        .then(({ error }) => {
+        .then(async ({ error }) => {
           if (!error) {
+            /* ── DID THIS PRESS MAKE AN ACCOUNT IT SHOULD NOT HAVE? ──────
+               Google sign-in creates an account for anyone it has not met.
+               /auth/google knows which screen the button was on and when it
+               was pressed; if that was the sign-in screen and the account is
+               newer than the press, the account is removed and the person is
+               told they have none yet. Anything short of a clear "none" —
+               a network hiccup, an odd reply — lets them in, as before. */
+            let account = "ok";
+            try {
+              const res = await fetch("/auth/google", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ step: "arrived" }),
+              });
+              account = ((await res.json()) as { account?: string }).account ?? "ok";
+            } catch {
+              /* fall through: let them in */
+            }
+            if (account === "none") {
+              await supabase.auth.signOut().catch(() => undefined);
+              leave("/login?error=no-account");
+              return;
+            }
             leave(next);
             return;
           }

@@ -16,10 +16,19 @@ import { createBrowserClient } from "@supabase/ssr";
  *
  * ── WHAT IT DOES NOT DECIDE ─────────────────────────────────────────────────
  * Whether the account may exist. Google proves who they are; the gate in
- * 035_only_the_waitlist_may_register.sql decides whether an account is allowed
- * for that address, and it refuses before any row is written. A refusal comes
- * back through Google's redirect as a URL fragment, which /auth/welcome reads
- * and turns into a message on the sign-in screen.
+ * 038_the_door_opens.sql decides whether an account is allowed at all, and it
+ * refuses before any row is written. A refusal comes back through Google's
+ * redirect as a URL fragment, which /auth/welcome reads and turns into a
+ * message on the sign-in screen.
+ *
+ * ── WHAT IT MUST SAY ────────────────────────────────────────────────────────
+ * Which screen it is on. Google's round trip carries nothing about that, and
+ * yet it is the difference between the two screens: on the sign-up screen a
+ * new account is the point; on the sign-in screen a new account is a person
+ * who has none and should be told so. So before the browser leaves for
+ * Google, the button tells /auth/google where it was pressed, and
+ * /auth/welcome asks that route afterwards what to do with what came back.
+ * The `intent` prop is required so that no screen can forget to say.
  *
  * ── THE MARK ────────────────────────────────────────────────────────────────
  * Inline SVG, in Google's own four colours, on a white button. Their brand
@@ -31,6 +40,8 @@ export default function GoogleButton({
   supabaseKey,
   /** Where to land afterwards. A path on this site, not a full URL. */
   next = "/draft",
+  /** The screen this button is on. See "WHAT IT MUST SAY" above. */
+  intent,
   label = "Continue with Google",
   /** Told when Google itself could not be reached; the caller shows it. */
   onError,
@@ -39,6 +50,7 @@ export default function GoogleButton({
   supabaseUrl: string;
   supabaseKey: string;
   next?: string;
+  intent: "sign-in" | "sign-up";
   label?: string;
   onError?: (message: string) => void;
   disabled?: boolean;
@@ -49,6 +61,14 @@ export default function GoogleButton({
     setBusy(true);
     onError?.("");
     try {
+      /* Say where we are before we go. Best effort: if this cannot be said,
+         the sign-in behaves as it always did rather than not at all. */
+      await fetch("/auth/google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ step: "leaving", intent }),
+      }).catch(() => undefined);
+
       const supabase = createBrowserClient(supabaseUrl, supabaseKey);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
