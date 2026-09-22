@@ -111,10 +111,8 @@ begin
           'how',            'Google',
           'accounts_total', v_total,
           'message',        'Not a new account: ' || v_email
-                            || ' pressed "Sign in with Google" on the sign-in screen without having an account. '
-                            || 'Nothing was kept; they were asked to sign up. '
-                            || case when v_total = 1 then 'Still 1 account.'
-                                    else 'Still ' || v_total || ' accounts.' end
+                            || ' pressed Sign in with Google without having an account. Nothing was kept.'
+                            || E'\n\n' || 'Running total of registered (email) accounts: ' || v_total
         ),
         timeout_milliseconds := 5000
       );
