@@ -60,27 +60,7 @@ export const PACKS: CreditPack[] = [
     lookupKey: "fdai_pack_1",
     label: "Single document",
     credits: 1,
-    /* TEMPORARY -- LIVE PAYMENT TEST. Put this back to 880.
-       --------------------------------------------------------------------
-       This is S$8.80 in every other sense; the figure is 50 so that a real
-       card can go through the real checkout for the least Stripe will
-       accept, and the credit can be watched landing.
-
-       IT IS ONLY HALF THE CHANGE. This number is what the PAGE says. What
-       the card is charged is whatever Stripe's price carrying the lookup key
-       fdai_pack_1 says, and the two have to move together:
-
-         node scripts/set-pack-price.mjs sk_live_... fdai_pack_1 0.50
-
-       and to put it back, both again:
-
-         node scripts/set-pack-price.mjs sk_live_... fdai_pack_1 --restore
-
-       Change one and not the other and every visitor gets a warning on the
-       card -- "Stripe charges S$0.50, the price list says S$8.80" -- which
-       is /billing doing exactly what it was built to do, and not a thing to
-       leave up. */
-    amountCents: 50,
+    amountCents: 880,
     currency: SGD,
     blurb: "One document, whenever you need it.",
   },
