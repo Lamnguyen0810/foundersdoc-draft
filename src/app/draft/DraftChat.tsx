@@ -704,6 +704,7 @@ export default function DraftChat({
             prefill={prefill ?? null}
             resume={resumeType && resume ? resume : null}
             restore={stashType && stashType.slug === chosen.slug ? stash : null}
+            isAdmin={isAdmin}
             onCreditSpent={spendCredit}
             onChangeDocument={() => {
               /* Choosing a different document abandons this one — leaving the
@@ -1153,6 +1154,10 @@ const RAIL_MIN = 200;
 const RAIL_MAX = 420;
 const RAIL_KEY = "fdai.rail-width";
 
+/** How many past drafts the rail lists before "Show more". Seven is a week's
+ *  worth for most people and leaves the account block on screen. */
+const RAIL_DRAFTS_SHOWN = 7;
+
 /* The width lives in this browser, not in the database: it is a preference
    about one screen on one machine, and the firm has no use for it. Reading it
    through useSyncExternalStore rather than in an effect is what keeps the
@@ -1281,6 +1286,7 @@ function Chat({
   prefill,
   resume,
   restore,
+  isAdmin = false,
   onCreditSpent,
   onChangeDocument,
 }: {
@@ -1292,6 +1298,9 @@ function Chat({
   resume: ResumeDraft | null;
   /** A draft this tab was part-way through when it navigated away. */
   restore: DraftStash | null;
+  /** Whether to offer the admin dashboard at the foot of the rail. The page
+   *  behind it checks again on the server; the button is a courtesy. */
+  isAdmin?: boolean;
   onCreditSpent: (creditsLeft: number | null) => void;
   onChangeDocument: () => void;
 }) {
@@ -1388,6 +1397,16 @@ function Chat({
   /* The rail's list, held here rather than read straight from the prop, because
      renaming one has to show on the spot rather than on the next page load. */
   const [pastDrafts, setPastDrafts] = useState<RecentDraft[]>(recent);
+  /* The rail shows the last few drafts and offers the rest behind one button.
+     Twenty rows of history pushed the account block off the bottom of the
+     screen, where nobody scrolls to find it. */
+  const [showAllDrafts, setShowAllDrafts] = useState(false);
+  const shownDrafts = showAllDrafts
+    ? pastDrafts
+    : /* The one being looked at stays listed even when it is older than the
+         cut, so a draft opened from Past drafts is marked in the rail. */
+      pastDrafts.filter((r, idx) => idx < RAIL_DRAFTS_SHOWN || r.id === draftId);
+  const hiddenDrafts = pastDrafts.length - shownDrafts.length;
   const [renamingId, setRenamingId] = useState<string | null>(null);
 
   /* How wide the rail is. Null means the width the design ships with; a number
@@ -2861,7 +2880,7 @@ function Chat({
         )}
         {pastDrafts.length > 0 && (
           <div className="hist-groups">
-            {groupDrafts(pastDrafts).map((group) => (
+            {groupDrafts(shownDrafts).map((group) => (
               <section key={group.heading}>
                 <p className="k">{group.heading}</p>
                 <div className="hist">
@@ -2955,9 +2974,27 @@ function Chat({
                 </div>
               </section>
             ))}
+            {pastDrafts.length > RAIL_DRAFTS_SHOWN && (
+              <button
+                type="button"
+                className="hist-more"
+                aria-expanded={showAllDrafts}
+                onClick={() => setShowAllDrafts((v) => !v)}
+              >
+                {showAllDrafts ? "Show fewer" : `Show more (${hiddenDrafts})`}
+              </button>
+            )}
           </div>
         )}
         <div className="rail-bottom">
+          {/* Admins only, and absent from the HTML everyone else receives —
+              the same rule as the catalogue's Admin workspace card. */}
+          {isAdmin && (
+            <a className="rail-admin" href="/admin">
+              <span aria-hidden="true" />
+              Admin dashboard
+            </a>
+          )}
           {/* The same account menu as the one in the nav. Two places show who
               is signed in, so both must do the same thing when clicked —
               a chip that looks like a button and does nothing is worse than
