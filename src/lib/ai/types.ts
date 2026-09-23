@@ -5,7 +5,7 @@
  * See provider.ts for the reason why.
  */
 
-export type ProviderName = "gemini" | "anthropic" | "ollama" | "mock";
+export type ProviderName = "gemini" | "anthropic" | "openai" | "ollama" | "mock";
 
 export interface GenerateInput {
   /** System instruction: role, house style, hard rules. */

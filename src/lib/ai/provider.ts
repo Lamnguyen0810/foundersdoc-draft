@@ -19,12 +19,14 @@ import type {
 } from "./types";
 import { gemini } from "./gemini";
 import { anthropic } from "./anthropic";
+import { openai } from "./openai";
 import { ollama } from "./ollama";
 import { mock } from "./mock";
 
 const IMPLS: Record<ProviderName, ProviderImpl> = {
   gemini,
   anthropic,
+  openai,
   ollama,
   mock,
 };

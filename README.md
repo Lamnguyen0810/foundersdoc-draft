@@ -60,6 +60,7 @@ Open <http://localhost:3000/draft>. The mock provider needs no key and no networ
 | `src/lib/ai/provider.ts` | ⭐ **The swap point.** The only module that knows which provider is in use |
 | `src/lib/ai/gemini.ts` | Free tier today |
 | `src/lib/ai/anthropic.ts` | Paid replacement, wired and ready, needs only env vars |
+| `src/lib/ai/openai.ts` | OpenAI GPT-5.6 (Sol / Terra / Luna) — the drafting-test winners; env vars only |
 | `src/lib/ai/ollama.ts` | A model on a machine you control — the Phase 3 private tier |
 | `src/lib/ai/mock.ts` | No key, no network. Echoes the prompt |
 | `src/lib/ai/pricing.ts` | The money meter: what each draft *would* cost on a paid model |
@@ -152,6 +153,7 @@ Scanned PDFs are detected and refused with an explanation rather than silently p
 | From | To | What changes |
 |---|---|---|
 | Gemini free | Anthropic paid | `AI_PROVIDER=anthropic`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`. Nothing else |
+| Gemini free | OpenAI paid | `AI_PROVIDER=openai`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-5.6-sol` (or `-luna`). Optional `OPENAI_REASONING=none\|low\|medium\|high`, default low |
 | Gemini free | Gemini paid | Enable billing on the Google Cloud project behind the key. No code change at all |
 | Cloud | Local (Phase 3) | `AI_PROVIDER=ollama`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL` |
 
@@ -165,7 +167,7 @@ The trigger for the first swap is not a feeling. It is either (a) a confidential
 |---|---|---|---|
 | Supabase **publishable** / `anon` | `NEXT_PUBLIC_` | ✅ Yes | Designed to be public. Every request it makes is constrained by row-level security |
 | Supabase **secret** / `service_role` | never | ❌ Never | Bypasses RLS entirely. This app never needs it |
-| `GEMINI_API_KEY`, `ANTHROPIC_API_KEY` | never | ❌ Never | Read only inside `/api/generate` on the server |
+| `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | never | ❌ Never | Read only inside `/api/generate` on the server |
 
 If you are ever unsure, the rule is: `NEXT_PUBLIC_` means "printed on the front page of a newspaper". Only the Supabase publishable key survives that test.
 
