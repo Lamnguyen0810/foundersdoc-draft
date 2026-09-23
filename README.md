@@ -132,6 +132,16 @@ Then in Vercel:
 5. **Settings → Domains**: add `app.foundersdoc.com` and create the CNAME Vercel shows you.
 6. On the marketing site, add one nav link to `https://app.foundersdoc.com`. That link is the entire integration.
 
+### Google sign-in (free, on your own domain)
+
+"Continue with Google" is handled by this app, not by Supabase's OAuth redirect — so Google's consent screen says **foundersdoc.com**, not a `*.supabase.co` address, and Google's free brand verification can be granted. Supabase still owns every account; it just receives Google's ID token instead of running the handshake (`signInWithIdToken`). Set-up, once:
+
+1. **Google Cloud → APIs & Services → Credentials → your OAuth web client.** Authorised redirect URI: `https://foundersdoc.com/auth/google/callback` (and `http://localhost:3000/auth/google/callback` for local work). The old `…supabase.co/auth/v1/callback` entry can go.
+2. **Vercel → Environment Variables:** `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` (server-only — no `NEXT_PUBLIC_`), plus `NEXT_PUBLIC_GOOGLE_AUTH=1` to show the button and `NEXT_PUBLIC_SITE_URL=https://foundersdoc.com` so the redirect URI matches byte for byte. Redeploy.
+3. **Supabase → Authentication → Providers → Google:** enabled, with the same Client ID in the **Client IDs** box — that is what lets Supabase accept the token.
+4. **Supabase SQL editor:** run `supabase/042_google_on_our_domain.sql`.
+5. **Google Auth Platform → Branding / Audience / Verification Centre:** app name, support email, homepage, privacy and terms URLs on foundersdoc.com, authorised domain `foundersdoc.com`, status *In production*, submit. Until approval the screen reads "Sign in to foundersdoc.com"; after it, "Founders Doc".
+
 > **Plan note.** Vercel's fair-use guidelines restrict the free Hobby plan to non-commercial personal use, and define commercial usage broadly enough to include a project whose code is written by a paid employee. Check which plan the foundersdoc.com team is on before assuming this is free.
 
 ---
@@ -166,7 +176,8 @@ The trigger for the first swap is not a feeling. It is either (a) a confidential
 | Key | Prefix | Goes to the browser? | Why |
 |---|---|---|---|
 | Supabase **publishable** / `anon` | `NEXT_PUBLIC_` | ✅ Yes | Designed to be public. Every request it makes is constrained by row-level security |
-| Supabase **secret** / `service_role` | never | ❌ Never | Bypasses RLS entirely. This app never needs it |
+| Supabase **secret** / `service_role` | never | ❌ Never | Bypasses RLS entirely. Used only by the Stripe webhook and by the Google callback's "is there an account for this email?" check |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | never | ❌ Never | Read only inside `/auth/google` and `/auth/google/callback` on the server |
 | `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` | never | ❌ Never | Read only inside `/api/generate` on the server |
 
 If you are ever unsure, the rule is: `NEXT_PUBLIC_` means "printed on the front page of a newspaper". Only the Supabase publishable key survives that test.
