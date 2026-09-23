@@ -17,6 +17,11 @@ export interface Price {
 export const PRICES: Record<string, Price> = {
   "gemini-2.5-flash": { label: "Gemini 2.5 Flash (paid tier)", inputPerM: 0.3, outputPerM: 2.5 },
   "gemini-2.5-pro": { label: "Gemini 2.5 Pro", inputPerM: 1.25, outputPerM: 10 },
+  "gemini-3.8-flash": { label: "Gemini 3.8 Flash", inputPerM: 0.75, outputPerM: 3.75 },
+  /* OpenAI list prices, September 2026. Sol's is promotional until 21 Nov 2026. */
+  "gpt-5.6-sol": { label: "GPT-5.6 Sol", inputPerM: 4, outputPerM: 20 },
+  "gpt-5.6-terra": { label: "GPT-5.6 Terra", inputPerM: 2, outputPerM: 12 },
+  "gpt-5.6-luna": { label: "GPT-5.6 Luna", inputPerM: 0.2, outputPerM: 1.2 },
   "mock-echo-1": { label: "Mock (no cost)", inputPerM: 0, outputPerM: 0 },
   ollama: { label: "Local model (electricity only)", inputPerM: 0, outputPerM: 0 },
 };
@@ -35,6 +40,7 @@ export function costUsd(price: Price, inputTokens: number, outputTokens: number)
 export function priceFor(model: string): Price {
   if (PRICES[model]) return PRICES[model];
   if (model.startsWith("gemini")) return PRICES["gemini-2.5-flash"];
+  if (model.startsWith("gpt-5.6")) return PRICES["gpt-5.6-terra"];
   return { label: model, inputPerM: 0, outputPerM: 0 };
 }
 
