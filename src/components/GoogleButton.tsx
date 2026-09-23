@@ -1,34 +1,30 @@
 "use client";
 
 import { useState } from "react";
-import { createBrowserClient } from "@supabase/ssr";
 
 /**
  * "Continue with Google", on both screens.
  *
  * ── WHY IT HAS TO BE ON BOTH ────────────────────────────────────────────────
- * Because signing in with Google and signing UP with Google are the same
- * request, and Supabase decides which it was. Somebody who registered with
- * Google has no password — none was ever set — so a sign-in screen offering
- * only an email and a password offers them nothing at all. The button existed
- * on the sign-up screen first, which meant a person could get in once and
- * never again.
+ * Somebody who registered with Google has no password — none was ever set —
+ * so a sign-in screen offering only an email and a password offers them
+ * nothing at all. The button existed on the sign-up screen first, which meant
+ * a person could get in once and never again.
  *
- * ── WHAT IT DOES NOT DECIDE ─────────────────────────────────────────────────
- * Whether the account may exist. Google proves who they are; the gate in
- * 038_the_door_opens.sql decides whether an account is allowed at all, and it
- * refuses before any row is written. A refusal comes back through Google's
- * redirect as a URL fragment, which /auth/welcome reads and turns into a
- * message on the sign-in screen.
+ * ── WHAT IT DOES ────────────────────────────────────────────────────────────
+ * Very little. It sends the browser to /auth/google on THIS site, saying
+ * which screen it was on and where to land afterwards. That route talks to
+ * Google; /auth/google/callback talks to Supabase. Nothing about Google, and
+ * nothing about Supabase, happens in the browser any more — which is what
+ * makes Google's consent screen name foundersdoc.com rather than a Supabase
+ * address. See lib/auth/google.ts for the why.
  *
  * ── WHAT IT MUST SAY ────────────────────────────────────────────────────────
  * Which screen it is on. Google's round trip carries nothing about that, and
  * yet it is the difference between the two screens: on the sign-up screen a
  * new account is the point; on the sign-in screen a new account is a person
- * who has none and should be told so. So before the browser leaves for
- * Google, the button tells /auth/google where it was pressed, and
- * /auth/welcome asks that route afterwards what to do with what came back.
- * The `intent` prop is required so that no screen can forget to say.
+ * who has none and should be told so. The `intent` prop is required so that
+ * no screen can forget to say.
  *
  * ── THE MARK ────────────────────────────────────────────────────────────────
  * Inline SVG, in Google's own four colours, on a white button. Their brand
@@ -36,59 +32,29 @@ import { createBrowserClient } from "@supabase/ssr";
  * more thing to load before somebody can sign in.
  */
 export default function GoogleButton({
-  supabaseUrl,
-  supabaseKey,
   /** Where to land afterwards. A path on this site, not a full URL. */
   next = "/draft",
   /** The screen this button is on. See "WHAT IT MUST SAY" above. */
   intent,
   label = "Continue with Google",
-  /** Told when Google itself could not be reached; the caller shows it. */
-  onError,
   disabled = false,
 }: {
-  supabaseUrl: string;
-  supabaseKey: string;
   next?: string;
   intent: "sign-in" | "sign-up";
   label?: string;
-  onError?: (message: string) => void;
   disabled?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
 
-  async function go() {
+  function go() {
     setBusy(true);
-    onError?.("");
-    try {
-      /* Say where we are before we go. Best effort: if this cannot be said,
-         the sign-in behaves as it always did rather than not at all. */
-      await fetch("/auth/google", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ step: "leaving", intent }),
-      }).catch(() => undefined);
-
-      const supabase = createBrowserClient(supabaseUrl, supabaseKey);
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          /* /auth/welcome, not /auth/confirm: Google's round trip comes back
-             with the session in the URL's HASH, which never reaches a server.
-             See the note at the top of Welcome.tsx. */
-          redirectTo: `${window.location.origin}/auth/welcome?next=${encodeURIComponent(next)}`,
-        },
-      });
-      if (error) {
-        onError?.("Could not open Google just now. Use your email and password instead.");
-        setBusy(false);
-      }
-      /* On success the browser is already leaving for Google, so nothing is
-         reset: there is no "here" to come back to. */
-    } catch {
-      onError?.("Could not reach Google just now. Use your email and password instead.");
-      setBusy(false);
-    }
+    const p = new URLSearchParams({ intent, next });
+    /* A full navigation, not the router: /auth/google is a route handler
+       that answers with a redirect to Google, and the app router has no
+       business trying to render that. */
+    window.location.assign(new URL(`/auth/google?${p.toString()}`, window.location.origin).href);
+    /* The browser is leaving; nothing is reset because there is no "here"
+       to come back to. */
   }
 
   return (

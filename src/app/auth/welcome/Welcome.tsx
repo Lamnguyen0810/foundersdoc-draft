@@ -68,10 +68,9 @@ export default function Welcome({
        only one of them is how half the ways into this product break while the
        other half look fine.
 
-         GOOGLE, and any OAuth provider, goes through PKCE. Supabase sends the
-         browser back with `?code=…` as a QUERY parameter, and that code has
-         to be exchanged for a session using a verifier this browser stored on
-         its way out.
+         A PKCE link comes back with `?code=…` as a QUERY parameter, and that
+         code has to be exchanged for a session using a verifier this browser
+         stored on its way out.
 
          AN EMAIL LINK on the default template comes back with the session
          itself in the URL's HASH — #access_token=…&refresh_token=… — which
@@ -111,39 +110,18 @@ export default function Welcome({
 
     const supabase = createBrowserClient(supabaseUrl, supabaseKey);
 
-    /* ── THE GOOGLE PATH ──────────────────────────────────────────────────
-       Exchanged in the browser, by the same client that started the sign-in,
-       because it is the only one holding the verifier that proves this is the
-       browser the code was issued to. */
+    /* ── A PKCE CODE ───────────────────────────────────────────────────────
+       Google no longer comes through here (see lib/auth/google.ts — it has a
+       callback of its own on this site), but a Supabase email link on the
+       PKCE template still can. Exchanged in the browser, by the same client
+       that started the flow, because it is the only one holding the verifier
+       that proves this is the browser the code was issued to. */
     const code = query.get("code");
     if (code) {
       supabase.auth
         .exchangeCodeForSession(code)
         .then(async ({ error }) => {
           if (!error) {
-            /* ── DID THIS PRESS MAKE AN ACCOUNT IT SHOULD NOT HAVE? ──────
-               Google sign-in creates an account for anyone it has not met.
-               /auth/google knows which screen the button was on and when it
-               was pressed; if that was the sign-in screen and the account is
-               newer than the press, the account is removed and the person is
-               told they have none yet. Anything short of a clear "none" —
-               a network hiccup, an odd reply — lets them in, as before. */
-            let account = "ok";
-            try {
-              const res = await fetch("/auth/google", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ step: "arrived" }),
-              });
-              account = ((await res.json()) as { account?: string }).account ?? "ok";
-            } catch {
-              /* fall through: let them in */
-            }
-            if (account === "none") {
-              await supabase.auth.signOut().catch(() => undefined);
-              leave("/login?error=no-account");
-              return;
-            }
             leave(next);
             return;
           }

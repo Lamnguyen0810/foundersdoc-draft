@@ -113,6 +113,10 @@ export default function LoginForm({
        the inside of the product. Sign-up is one line below the form. */
     "no-account":
       "There is no FD AI account for that Google login yet. Create an account first — it takes a moment — then sign in.",
+    /* Google's round trip did not complete — a cancelled chooser is not this,
+       that comes back silent; this is a token exchange that failed, a state
+       that did not match, or Google keys missing on the server. */
+    google: "Google sign-in did not complete. Try again, or use your email and password.",
   };
 
   /* Where closing an account lands. Not an error — they asked for this — so it
@@ -341,13 +345,10 @@ export default function LoginForm({
         <>
           <OrLine />
           <GoogleButton
-            supabaseUrl={supabaseUrl}
-            supabaseKey={supabaseKey}
             next={next}
             intent="sign-in"
             label="Sign in with Google"
             disabled={busy}
-            onError={(m) => setError(m || null)}
           />
         </>
       )}
