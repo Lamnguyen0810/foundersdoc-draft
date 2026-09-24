@@ -68,22 +68,46 @@ export function playbookBlock(docType: DocType): string | null {
     .join("\n\n");
   return [
     "THE FIRM'S PLAYBOOK",
-    "The rules below are how this firm drafts. They take precedence over the",
-    "worked examples and over any general drafting habit: where a rule and an",
-    "example differ, follow the rule. Apply every rule that bears on this",
-    "document. Where a rule needs a fact the user has not given, use a",
-    "[[TO CONFIRM: ...]] placeholder rather than inventing one. Never quote,",
-    "mention or explain the playbook in the draft — it shows in what you write,",
-    "not in what you say about it.",
+    "The rules below are how this firm drafts, and they are the ONLY authority on",
+    "style and structure. They outrank the house style and the clause order given",
+    "above, the worked examples below, and any general drafting habit: wherever",
+    "two instructions about wording, numbering, defined terms, tone, order or",
+    "layout differ, the playbook wins. Apply every rule that bears on this",
+    "document.",
+    "",
+    "The playbook does not override the guardrails: the facts still come only",
+    "from THE FACTS; a missing fact is still a [[TO CONFIRM: ...]] placeholder,",
+    "never a guess; the hard rules, the treatment of skipped answers, the",
+    "required comprehensiveness and the output format (including DRAFTER'S",
+    "NOTES) still apply as written.",
+    "",
+    "Never quote, mention or explain the playbook in the draft — it shows in",
+    "what you write, not in what you say about it.",
     "",
     body,
   ].join("\n");
 }
 
+/**
+ * The built-in prompt carries a "House style" line of its own. With a
+ * playbook live that line is a second voice on the same subject, and two
+ * voices is how a model ends up choosing. It is pointed at the playbook
+ * instead. Matched loosely, so a prompt edited in the database still works;
+ * an unrecognised prompt is left alone and the playbook's own precedence
+ * statement does the job.
+ */
+function deferHouseStyle(systemPrompt: string): string {
+  return systemPrompt.replace(
+    /^(\s*-\s*House style:)[\s\S]*?(?=\n\s*-\s|\n\s*\n)/m,
+    "$1 as set out in THE FIRM'S PLAYBOOK below, which governs wording, numbering, defined terms, tone and layout.",
+  );
+}
+
 export function buildSystem(docType: DocType, style: DraftingStyle = "standard_legal"): string {
   const register = STYLE_INSTRUCTION[style];
   const playbook = playbookBlock(docType);
-  const head = [docType.systemPrompt, ...(register ? ["", register] : []), ...(playbook ? ["", playbook] : [])].join("\n");
+  const base = playbook ? deferHouseStyle(docType.systemPrompt) : docType.systemPrompt;
+  const head = [base, ...(register ? ["", register] : []), ...(playbook ? ["", playbook] : [])].join("\n");
   if (docType.examples.length === 0) {
     return head;
   }
