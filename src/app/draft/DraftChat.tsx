@@ -2681,7 +2681,7 @@ function Chat({
       const firstLine = t.split("\n")[0];
       let cls = "";
       if (/^[A-Z0-9 .()'"—-]{3,}$/.test(firstLine) && t.length < 40) cls = "h";
-      if (/DRAFTER'S NOTES/.test(t)) cls = "h";
+      if (/DRAFTER[’'‘`]?S\s+NOTES?/i.test(t)) cls = "h";
       if (/^•/.test(t)) cls = "note";
       return (
         <p key={k} className={cls || undefined}>

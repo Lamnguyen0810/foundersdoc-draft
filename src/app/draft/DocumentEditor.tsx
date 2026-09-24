@@ -300,7 +300,12 @@ export default function DocumentEditor({
     if (savedHtml) {
       const tmp = document.createElement("div");
       tmp.innerHTML = savedHtml;
-      items = Array.from(tmp.children) as HTMLElement[];
+      /* A document saved before the notes and the end line left the page
+         still carries them in its HTML. They are dropped on the way in, so
+         an old draft opens as the document alone, like a new one. */
+      items = (Array.from(tmp.children) as HTMLElement[]).filter(
+        (p) => !/\b(doc-notes-title|doc-note|doc-end-note)\b/.test(p.className),
+      );
     } else {
       items = draftToParagraphs(document, text);
     }
