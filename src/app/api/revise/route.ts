@@ -8,7 +8,7 @@ import {
 } from "@/lib/ai/types";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
-import { playbookBlock } from "@/lib/prompt";
+import { lessonsBlock, playbookBlock } from "@/lib/prompt";
 import {
   FAIR_USE_REACHED,
   currentBalance,
@@ -159,11 +159,16 @@ export async function POST(req: NextRequest) {
     const dt = (draft as { doc_types?: { slug?: string } | { slug?: string }[] | null } | null)?.doc_types;
     const slug = Array.isArray(dt) ? dt[0]?.slug : dt?.slug;
     if (slug) {
-      const { data: rules } = await supabase.rpc("playbook_for", { p_slug: slug });
-      const block = playbookBlock({
-        playbook: ((rules ?? []) as { title: string; text: string }[]),
-      } as Parameters<typeof playbookBlock>[0]);
-      if (block) system = `${SYSTEM}\n\n${block}`;
+      const [{ data: rules }, { data: learnt }] = await Promise.all([
+        supabase.rpc("playbook_for", { p_slug: slug }),
+        supabase.rpc("lessons_for", { p_slug: slug }),
+      ]);
+      const stub = {
+        playbook: (rules ?? []) as { title: string; text: string }[],
+        lessons: ((learnt ?? []) as { rule: string }[]).map((r) => r.rule),
+      } as Parameters<typeof playbookBlock>[0];
+      const blocks = [playbookBlock(stub), lessonsBlock(stub)].filter(Boolean);
+      if (blocks.length > 0) system = [SYSTEM, ...blocks].join("\n\n");
     }
 
     const used = Number(draft?.revisions ?? 0);

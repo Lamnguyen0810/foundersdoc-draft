@@ -37,6 +37,8 @@ export interface Block {
   num: string;
   /** The text of the block, placeholders still written as [[LIKE THIS]]. */
   text: string;
+  /** Sub-clauses only: how deep the number sits — (a) 1, (ii) 2, (A) 3. */
+  level?: 1 | 2 | 3;
 }
 
 /**
@@ -65,23 +67,50 @@ export function parseDraft(draft: string): Block[] {
     const t = flatten(raw);
     if (!t) return;
 
-    // The first block is always the document's title.
-    if (idx === 0) return push("title", t);
+    /* ── THE MARKS ──────────────────────────────────────────────────────
+       The model writes **bold** and _italic_ where the firm's precedents
+       have them (lib/extract.ts, lib/prompt.ts). The shape rules below look
+       at the words, so a block that BEGINS with a mark — "**1. DEFINITIONS**",
+       "**(1)** Acme" — is classified on the bare text and its number taken
+       from there; the marks stay in the text for the renderer. A heading is
+       bold by its class already, so its own marks are dropped. */
+    const bare = t.replace(/\*\*/g, "").replace(/(?<!\w)_(?=\S)|(?<=\S)_(?!\w)/g, "");
+    const afterNum = (num: string): string => {
+      const esc = num.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (!/^\*\*/.test(t)) return t.replace(new RegExp(`^${esc}\\s*`), "");
+      const rest = t.replace(new RegExp(`^\\*\\*\\s*${esc}\\s*`), "");
+      /* "**(1)** Acme" — the mark closed right after the number: drop it.
+         "**(2) Kestrel Ltd** (…)" — it closes after the name: reopen it. */
+      return rest.startsWith("**") ? rest.slice(2).trim() : `**${rest}`;
+    };
 
-    if (/^THIS AGREEMENT\b/.test(t)) return push("date", t);
-    if (/^(BETWEEN|WHEREAS|IT IS AGREED)/.test(t)) return push("label", t);
+    // The first block is always the document's title.
+    if (idx === 0) return push("title", bare);
+
+    if (/^THIS AGREEMENT\b/.test(bare)) return push("date", t);
+    /* A short line in capitals with no number — PARTIES, BACKGROUND, AGREED
+       TERMS, SCHEDULE 1 — is a label: bold, its own line, not a clause. */
+    if (/^(BETWEEN|WHEREAS|IT IS AGREED)/.test(bare) || (/^[A-Z][A-Z\s&'’:-]{1,48}$/.test(bare) && bare.split(/\s+/).length <= 5)) {
+      return push("label", t);
+    }
 
     // (1) Acme Pte Ltd (UEN …), a company incorporated in …
-    let m = t.match(/^(\(\d+\))\s*(.*)$/);
-    if (m) return push("party", m[2], m[1]);
+    let m = bare.match(/^(\(\d+\))\s*(.*)$/);
+    if (m) return push("party", afterNum(m[1]), m[1]);
 
-    // (A) The Parties wish to …
-    m = t.match(/^(\([A-Z]\))\s*(.*)$/);
-    if (m) return push("recital", m[2], m[1]);
+    /* (A) The Parties wish to … — a recital, unless the document is already
+       into its numbered clauses, where "(A)" is the third level of a list. */
+    m = bare.match(/^(\([A-Z]\))\s*(.*)$/);
+    if (m) {
+      const last = out[out.length - 1];
+      const inClauses = last && (last.kind === "clause" || last.kind === "subclause");
+      if (inClauses) return out.push({ kind: "subclause", num: m[1], text: afterNum(m[1]), level: 3 });
+      return push("recital", afterNum(m[1]), m[1]);
+    }
 
     // A numbered HEADING — "3. CONFIDENTIALITY" — must be caught before 3.1.
-    if (/^\d+\.\s{1,}/.test(t) && /^[\d.]+\s+[A-Z][A-Z\s&'-]+$/.test(t)) {
-      const sm = t.match(/^(\d+\.)\s+(.*)$/)!;
+    if (/^\d+\.\s{1,}/.test(bare) && /^[\d.]+\s+[A-Z][A-Z\s&'-]+$/.test(bare)) {
+      const sm = bare.match(/^(\d+\.)\s+(.*)$/)!;
       /* As written. This used to title-case the heading ("3. CONFIDENTIALITY"
          → "3. Confidentiality"), which was the app's taste over the firm's:
          the playbook and the precedents decide whether headings are capitals. */
@@ -89,20 +118,30 @@ export function parseDraft(draft: string): Block[] {
     }
 
     // 3.1 The Recipient shall …
-    m = t.match(/^(\d+\.\d+)\s+(.*)$/);
-    if (m) return push("clause", m[2], m[1]);
+    m = bare.match(/^(\d+\.\d+)\s+(.*)$/);
+    if (m) return push("clause", afterNum(m[1]), m[1]);
 
     /* A run of sub-clauses arrives as ONE block with single newlines between
        them, so it is split here rather than by the blank-line pass above. */
-    if (/^\s*\([a-z]\)/.test(raw)) {
+    /* Three depths, as the numbering hierarchies of most playbooks go:
+       (a) letters, then (i) (ii) (iii) romans, then (A) capitals. A lone
+       "(i)" is a letter — it is the ninth item of a lettered list far more
+       often than the first of a roman one, and the difference is an indent. */
+    if (/^\s*(?:\*\*)?\((?:[a-z]|[ivx]{2,5}|[A-Z])\)/.test(raw)) {
       raw
         .trim()
-        .split(/\n\s*(?=\([a-z]\))/g)
-        .forEach((x) => {
+        .split(/\n\s*(?=(?:\*\*)?\((?:[a-z]|[ivx]{2,5}|[A-Z])\))/g)
+        .forEach((x, k, items) => {
           const sx = flatten(x);
-          const sm = sx.match(/^(\([a-z]\))\s*(.*)$/);
-          if (sm) push("subclause", sm[2], sm[1]);
-          else push("plain", sx);
+          const sm = sx.match(/^(?:\*\*\s*)?(\((?:[a-z]|[ivx]{2,5}|[A-Z])\))(?:\s*\*\*)?\s*(.*)$/);
+          if (!sm) return push("plain", sx);
+          /* "(i)" is roman when "(ii)" follows it, or when it does not follow
+             "(h)" — as the ninth letter it can only come after the eighth. */
+          const prev = k > 0 ? items[k - 1] : (out[out.length - 1]?.kind === "subclause" ? out[out.length - 1].num : "");
+          const roman =
+            sm[1] === "(i)" &&
+            (/^\s*(?:\*\*)?\(ii\)/.test(items[k + 1] ?? "") || !/\(h\)/.test(prev));
+          out.push({ kind: "subclause", num: sm[1], text: sm[2], level: roman ? 2 : subclauseLevel(sm[1]) });
         });
       return;
     }
@@ -131,21 +170,61 @@ export function parseDraft(draft: string): Block[] {
   return out;
 }
 
-/** A run of text split into literal parts and [[PLACEHOLDER]] parts. */
-export type Piece = { text: string } | { placeholder: string };
+/** A run of text split into literal parts, marked (bold/italic) parts and
+ *  [[PLACEHOLDER]] parts. */
+export type Piece =
+  | { text: string; b?: boolean; i?: boolean }
+  | { placeholder: string }
+  /** An [FD Note: …] — the playbook's in-text note for the reviewing lawyer. */
+  | { note: string };
+
+/** The playbook's in-text note, with or without the bold-italic marks the
+ *  playbook wraps it in (R10.3): **_[FD Note: …]_** */
+const NOTE = /(\*{0,2}_?\[\s*FD Note:[^\]]*\]_?\*{0,2})/gi;
+/** A gap: the playbook's "[●]", or the older "[[TO CONFIRM: …]]". */
+const GAP = /(\[\[[^\]]+\]\]|\[●\])/g;
+/** **bold** and _italic_. An underscore inside a word is not a mark. */
+const MARK = /(\*\*[^*]+\*\*|(?<!\w)_[^_\n]+_(?!\w))/g;
 
 export function splitPlaceholders(text: string): Piece[] {
-  return text
-    .split(/(\[\[[^\]]+\]\])/g)
-    .filter((p) => p !== "")
-    .map((part) => {
+  const out: Piece[] = [];
+  const gaps = (run: string, b?: boolean, i?: boolean) => {
+    for (const part of run.split(GAP)) {
+      if (part === "") continue;
       const m = part.match(/^\[\[([^\]]+)\]\]$/);
-      return m ? { placeholder: m[1] } : { text: part };
-    });
+      if (m) out.push({ placeholder: m[1] });
+      else if (part === "[●]") out.push({ placeholder: "●" });
+      else out.push(b || i ? { text: part, b, i } : { text: part });
+    }
+  };
+  for (const chunk of text.split(NOTE)) {
+    if (chunk === "") continue;
+    const n = chunk.match(/^\*{0,2}_?\[\s*FD Note:\s*([^\]]*)\]_?\*{0,2}$/i);
+    if (n) {
+      out.push({ note: n[1].trim() });
+      continue;
+    }
+    /* Marks first, then gaps inside each run, so "**[●] PTE. LTD.**" is one
+       bold run with a gap in it rather than two stray asterisks. */
+    for (const run of chunk.split(MARK)) {
+      if (run === "") continue;
+      if (/^\*\*[^*]+\*\*$/.test(run)) gaps(run.slice(2, -2), true);
+      else if (/^_[^_\n]+_$/.test(run)) gaps(run.slice(1, -1), undefined, true);
+      else gaps(run);
+    }
+  }
+  return out;
 }
 
 /** In a party line, the name up to the first "(" or "," is the defined term. */
 export function splitPartyName(text: string): { name: string; rest: string } | null {
   const m = text.match(/^(.+?)(\s\(|,)(.*)$/);
   return m ? { name: m[1], rest: m[2] + m[3] } : null;
+}
+
+/** How deep a sub-clause number sits: (a) 1, (ii) 2, (A) 3. */
+export function subclauseLevel(num: string): 1 | 2 | 3 {
+  if (/^\([ivx]{2,5}\)$/.test(num)) return 2;
+  if (/^\([A-Z]\)$/.test(num)) return 3;
+  return 1;
 }

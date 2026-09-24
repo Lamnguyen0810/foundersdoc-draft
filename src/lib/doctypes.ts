@@ -74,6 +74,9 @@ export interface DocType {
    *  the admin console (supabase/044). Read before the examples and told to
    *  win over them. Absent when nothing is live. */
   playbook?: { title: string; text: string }[];
+  /** Corrections the firm made to earlier drafts, as rules (supabase/045).
+   *  Read after the playbook, with the same authority. */
+  lessons?: string[];
 }
 
 /** Worked examples, keyed by doc type slug. Swap these for the firm's own sanitised

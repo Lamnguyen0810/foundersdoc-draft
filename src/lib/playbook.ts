@@ -50,13 +50,33 @@ export const PLAYBOOK_COLUMNS =
 export interface DocumentLook {
   /** A typeface Word has on every machine. */
   font: string;
-  /** Body size in points. Headings are the same size, bold; the title two points larger. */
+  /** Body size in points. Headings are the same size, bold; the title is
+   *  `titlePt`, or two points larger when the playbook names none. */
   sizePt: number;
+  titlePt: number;
+  /** Body text justified (else left). */
+  justify: boolean;
+  /** Line spacing as a multiple of single. */
+  lineSpacing: number;
+  /** Paragraph spacing, in points. */
+  spaceAfterPt: number;
+  headingBeforePt: number;
+  headingAfterPt: number;
   /** Where the choice came from, for the panel to say so. */
   source: "playbook" | "default";
 }
 
-export const DEFAULT_LOOK: DocumentLook = { font: "Times New Roman", sizePt: 12, source: "default" };
+export const DEFAULT_LOOK: DocumentLook = {
+  font: "Times New Roman",
+  sizePt: 12,
+  titlePt: 14,
+  justify: false,
+  lineSpacing: 1.24,
+  spaceAfterPt: 8,
+  headingBeforePt: 12,
+  headingAfterPt: 2,
+  source: "default",
+};
 
 /** Typefaces the page and Word both have without installing anything. */
 export const KNOWN_FONTS = [
@@ -98,26 +118,80 @@ export function fontStack(font: string): string {
 }
 
 /**
- * Read the look out of the live playbooks: the document type's own text is
- * read before the firm-wide one, so a type may set its own face. The first
- * known typeface named wins; a point size on the same line, or within the
- * same sentence, goes with it. A size named anywhere ("body text 11pt") is
- * used when no size sits by the face.
+ * Read the look out of the live playbooks.
+ *
+ * Two shapes are understood, and a playbook may use either:
+ *
+ *   · a machine-readable block of `key: value` lines — the kind a firm
+ *     writes for exactly this purpose:
+ *         font: Arial
+ *         body_size_pt: 10
+ *         title_size_pt: 12
+ *         line_spacing: 1.15 (multiple)
+ *         space_after_pt: 8
+ *         heading_space_before_pt: 12
+ *         heading_space_after_pt: 6
+ *         alignment_body: justified
+ *   · prose — "All FD documents use Arial", "Body text … 10 pt", "Body text
+ *     is justified".
+ *
+ * The document type's own text is read before the firm-wide one, so a type
+ * may set its own face. Anything not stated keeps the default.
  */
 export function documentLook(texts: (string | null | undefined)[]): DocumentLook {
+  const look: DocumentLook = { ...DEFAULT_LOOK };
+  let found = false;
   const fontRe = new RegExp(`\\b(${KNOWN_FONTS.map((f) => f.replace(/ /g, "\\s+")).join("|")})\\b`, "i");
-  const sizeRe = /\b(\d{1,2}(?:\.5)?)\s*(?:-?\s*)?(?:pt\b|point)/i;
+  const num = (re: RegExp, raw: string): number | null => {
+    const m = re.exec(raw);
+    return m ? Number(m[1]) : null;
+  };
+  const clampPt = (n: number) => Math.min(16, Math.max(8, n));
+
   for (const raw of texts) {
     if (!raw) continue;
-    const lines = raw.split(/\n+/);
-    for (const line of lines) {
-      const fm = fontRe.exec(line);
-      if (!fm) continue;
-      const font = KNOWN_FONTS.find((f) => f.toLowerCase() === fm[1].replace(/\s+/g, " ").toLowerCase()) ?? fm[1];
-      const sm = sizeRe.exec(line) ?? sizeRe.exec(raw);
-      const sizePt = sm ? Math.min(16, Math.max(8, Number(sm[1]))) : DEFAULT_LOOK.sizePt;
-      return { font, sizePt, source: "playbook" };
+
+    /* Typeface: the first known face named, anywhere. */
+    if (!found) {
+      const fm = fontRe.exec(raw);
+      if (fm) {
+        look.font = KNOWN_FONTS.find((f) => f.toLowerCase() === fm[1].replace(/\s+/g, " ").toLowerCase()) ?? fm[1];
+        found = true;
+      }
+    }
+
+    /* Body size: the key, or "Body text … 10 pt", or a size on the font's line. */
+    const body =
+      num(/\bbody_size_pt\s*[:=]\s*(\d{1,2}(?:\.5)?)/i, raw) ??
+      num(/\bbody text\b[^\n]{0,80}?\b(\d{1,2}(?:\.5)?)\s*(?:pt\b|point)/i, raw) ??
+      (() => {
+        const line = raw.split(/\n+/).find((l) => fontRe.test(l));
+        return line ? num(/\b(\d{1,2}(?:\.5)?)\s*(?:pt\b|point)/i, line) : null;
+      })();
+    if (body !== null && look.source === "default") {
+      look.sizePt = clampPt(body);
+      look.titlePt = clampPt(body + 2);
+    }
+    const title = num(/\btitle_size_pt\s*[:=]\s*(\d{1,2}(?:\.5)?)/i, raw) ?? num(/\bdocument title\b[^\n]{0,80}?\b(\d{1,2}(?:\.5)?)\s*(?:pt\b|point)/i, raw);
+    if (title !== null && look.source === "default") look.titlePt = clampPt(title);
+
+    const ls = num(/\bline_spacing\s*[:=]\s*(\d(?:\.\d{1,2})?)/i, raw) ?? num(/\bline spacing is\s*\**\s*(\d(?:\.\d{1,2})?)/i, raw);
+    if (ls !== null && ls >= 1 && ls <= 2 && look.source === "default") look.lineSpacing = ls;
+
+    const after = num(/\bspace_after_pt\s*[:=]\s*(\d{1,2})/i, raw) ?? num(/\b(\d{1,2})\s*pt after\b/i, raw);
+    if (after !== null && look.source === "default") look.spaceAfterPt = Math.min(24, after);
+    const hb = num(/\bheading_space_before_pt\s*[:=]\s*(\d{1,2})/i, raw) ?? num(/\bheadings take\s*\**\s*(\d{1,2})\s*pt before/i, raw);
+    if (hb !== null && look.source === "default") look.headingBeforePt = Math.min(36, hb);
+    const ha = num(/\bheading_space_after_pt\s*[:=]\s*(\d{1,2})/i, raw) ?? num(/\bheadings take[^\n]{0,40}?and\s*\**\s*(\d{1,2})\s*pt after/i, raw);
+    if (ha !== null && look.source === "default") look.headingAfterPt = Math.min(36, ha);
+
+    if (/\balignment_body\s*[:=]\s*justif/i.test(raw) || /\bbody text is\s*\**\s*justified/i.test(raw)) {
+      if (look.source === "default") look.justify = true;
+    }
+
+    if (found || body !== null) {
+      look.source = "playbook";
     }
   }
-  return DEFAULT_LOOK;
+  return look;
 }

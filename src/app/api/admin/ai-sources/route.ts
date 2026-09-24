@@ -98,7 +98,8 @@ async function handleUpload(req: NextRequest) {
       if (e === "txt") {
         text = buffer.toString("utf-8");
       } else {
-        const out = await extractFromBuffer(buffer, file.name);
+        /* Samples keep their bold and italics as marks — see extract.ts. */
+        const out = await extractFromBuffer(buffer, file.name, { emphasis: true });
         text = out.text;
         if (out.warning) {
           results.push({ filename: file.name, ok: false, error: out.warning });

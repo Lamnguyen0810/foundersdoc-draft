@@ -11,6 +11,7 @@ import {
   UnderlineType,
 } from "docx";
 import { splitNotes } from "@/lib/prompt";
+import { splitPlaceholders } from "@/lib/contract/parse";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
 import * as S from "@/lib/doc-style";
@@ -24,7 +25,13 @@ import { DEFAULT_LOOK, documentLook, type DocumentLook } from "@/lib/playbook";
    in between. Title = body + 2pt bold; headings = body bold. No colour. */
 let LOOK: DocumentLook = DEFAULT_LOOK;
 const bodySize = () => S.pt(LOOK.sizePt);
-const titleSize = () => S.pt(LOOK.sizePt + 2);
+const titleSize = () => S.pt(LOOK.titlePt);
+/* Spacing and alignment, from the same place. */
+const bodyLine = () => S.lines(LOOK.lineSpacing);
+const paraAfter = () => S.tw(LOOK.spaceAfterPt);
+const headBefore = () => S.tw(LOOK.headingBeforePt);
+const headAfter = () => S.tw(LOOK.headingAfterPt);
+const bodyAlign = () => (LOOK.justify ? AlignmentType.JUSTIFIED : AlignmentType.LEFT);
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -58,12 +65,14 @@ export const maxDuration = 60;
 
 const run = (
   text: string,
-  o: { b?: boolean; i?: boolean; u?: boolean; size?: number; color?: string; font?: string } = {},
+  o: { b?: boolean; i?: boolean; u?: boolean; size?: number; color?: string; font?: string; hl?: boolean } = {},
 ) =>
   new TextRun({
     text,
     bold: o.b,
     italics: o.i,
+    /* An FD Note on a draft is highlighted yellow (playbook R10.4). */
+    highlight: o.hl ? "yellow" : undefined,
     underline: o.u ? { type: UnderlineType.SINGLE } : undefined,
     font: LOOK.font,
     size: o.size ?? bodySize(),
@@ -97,7 +106,7 @@ function runsFromHtml(fragment: string, style: Style = {}): TextRun[] {
   const runs: TextRun[] = [];
   const tokens = fragment
     .replace(/<br\s*\/?>/gi, "\n")
-    .split(/(<span\b[^>]*class=["'][^"']*\bplaceholder\b[^"']*["'][^>]*>[\s\S]*?<\/span>|<\/?(?:strong|b|em|i|u)\b[^>]*>)/gi);
+    .split(/(<span\b[^>]*class=["'][^"']*\b(?:placeholder|fd-note)\b[^"']*["'][^>]*>[\s\S]*?<\/span>|<\/?(?:strong|b|em|i|u)\b[^>]*>)/gi);
 
   let bold = 0;
   let italics = 0;
@@ -105,6 +114,12 @@ function runsFromHtml(fragment: string, style: Style = {}): TextRun[] {
 
   for (const token of tokens) {
     if (!token) continue;
+
+    if (/^<span\b[^>]*\bfd-note\b/i.test(token)) {
+      const note = decodeHtml(token.replace(/^<span\b[^>]*>/i, "").replace(/<\/span>$/i, "").replace(/<[^>]+>/g, "")).trim();
+      if (note) runs.push(run(note, { ...style, b: true, i: true, hl: true }));
+      continue;
+    }
 
     if (/^<span\b[^>]*\bplaceholder\b/i.test(token)) {
       const typed = decodeHtml(token.replace(/^<span\b[^>]*>/i, "").replace(/<\/span>$/i, "").replace(/<[^>]+>/g, "")).trim();
@@ -170,7 +185,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
       out.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { after: S.TITLE_STYLE.after, ...single(S.TITLE_STYLE.line) },
+          spacing: { after: S.TITLE_STYLE.after, ...single(bodyLine()) },
           children: runsFromHtml(fragment, { size: titleSize(), b: true }),
         }),
       );
@@ -178,7 +193,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
     }
 
     if (has("doc-date")) {
-      out.push(new Paragraph({ spacing: { after: S.DATE_AFTER, ...single(S.BODY_LINE) }, children: runsFromHtml(fragment) }));
+      out.push(new Paragraph({ alignment: bodyAlign(), spacing: { after: S.DATE_AFTER, ...single(bodyLine()) }, children: runsFromHtml(fragment) }));
       continue;
     }
 
@@ -186,7 +201,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
     if (has("doc-label")) {
       out.push(
         new Paragraph({
-          spacing: { before: S.LABEL.before, after: S.LABEL.after, ...single(S.BODY_LINE) },
+          spacing: { before: S.LABEL.before, after: S.LABEL.after, ...single(bodyLine()) },
           children: runsFromHtml(fragment, { b: true }),
         }),
       );
@@ -199,7 +214,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
       const text = parts ? `${parts.num} ${parts.body}` : fragment;
       out.push(
         new Paragraph({
-          spacing: { before: S.SECTION.before, after: S.SECTION.after, ...single(S.SECTION.line) },
+          spacing: { before: headBefore(), after: headAfter(), ...single(bodyLine()) },
           children: runsFromHtml(text, { size: bodySize(), b: true }),
         }),
       );
@@ -209,11 +224,15 @@ function paragraphsFromHtml(html: string): Paragraph[] {
     // ── (a) sub-clauses: number in the margin, body hanging beside it
     if (has("doc-subclause")) {
       const parts = splitNumbered(fragment);
+      /* (a) at the first step, (ii) one further, (A) one further again. */
+      const step = has("doc-level-3") ? 2 : has("doc-level-2") ? 1 : 0;
+      const left = S.SUBCLAUSE.left + step * S.SUBCLAUSE.hanging;
       out.push(
         new Paragraph({
-          spacing: { after: S.SUBCLAUSE.after, ...single(S.BODY_LINE) },
-          indent: { left: S.SUBCLAUSE.left, hanging: S.SUBCLAUSE.hanging },
-          tabStops: [{ type: TabStopType.LEFT, position: S.SUBCLAUSE.left }],
+          alignment: bodyAlign(),
+          spacing: { after: S.SUBCLAUSE.after, ...single(bodyLine()) },
+          indent: { left, hanging: S.SUBCLAUSE.hanging },
+          tabStops: [{ type: TabStopType.LEFT, position: left }],
           children: parts
             ? [run(`${parts.num}\t`), ...runsFromHtml(parts.body)]
             : runsFromHtml(fragment),
@@ -227,7 +246,8 @@ function paragraphsFromHtml(html: string): Paragraph[] {
       const parts = splitNumbered(fragment);
       out.push(
         new Paragraph({
-          spacing: { after: S.CLAUSE_AFTER, ...single(S.BODY_LINE) },
+          alignment: bodyAlign(),
+          spacing: { after: paraAfter(), ...single(bodyLine()) },
           children: parts ? [run(`${parts.num} `), ...runsFromHtml(parts.body)] : runsFromHtml(fragment),
         }),
       );
@@ -238,7 +258,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
     if (has("doc-notes-title")) {
       out.push(
         new Paragraph({
-          spacing: { before: S.NOTES_TITLE.before, after: S.NOTES_TITLE.after, ...single(S.BODY_LINE) },
+          spacing: { before: S.NOTES_TITLE.before, after: S.NOTES_TITLE.after, ...single(bodyLine()) },
           border: {
             top: {
               style: BorderStyle.SINGLE,
@@ -274,7 +294,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
       out.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { before: S.END_NOTE_STYLE.before, after: 0, ...single(S.BODY_LINE) },
+          spacing: { before: S.END_NOTE_STYLE.before, after: 0, ...single(bodyLine()) },
           children: runsFromHtml(fragment, { size: S.END_NOTE_STYLE.size, color: S.END_NOTE, font: S.HEAD_FONT }),
         }),
       );
@@ -284,7 +304,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
     // ── anything else is a body paragraph
     const children = runsFromHtml(fragment);
     if (children.length) {
-      out.push(new Paragraph({ spacing: { after: S.PARA_AFTER, ...single(S.BODY_LINE) }, children }));
+      out.push(new Paragraph({ alignment: bodyAlign(), spacing: { after: paraAfter(), ...single(bodyLine()) }, children }));
     }
   }
   return out;
@@ -295,34 +315,51 @@ function paragraphsFromHtml(html: string): Paragraph[] {
  * typography as the HTML path, recognising the shapes the model is told to
  * produce: "1. HEADING", "1.1", "(a)", and signature lines.
  */
+/** Plain text with the model's **bold** and _italic_ marks, as runs. */
+function runsFromMarks(text: string, style: { b?: boolean; size?: number } = {}): TextRun[] {
+  const runs: TextRun[] = [];
+  for (const piece of splitPlaceholders(text)) {
+    if ("note" in piece) {
+      runs.push(run(`[FD Note: ${piece.note}]`, { ...style, b: true, i: true, hl: true }));
+    } else if ("placeholder" in piece) {
+      runs.push(run("\u00A0".repeat(S.PLACEHOLDER_WIDTH), { ...style, u: true }));
+    } else {
+      runs.push(run(piece.text, { ...style, b: style.b || piece.b, i: piece.i }));
+    }
+  }
+  return runs;
+}
+
 function paragraphsFromText(text: string): Paragraph[] {
   const out: Paragraph[] = [];
   for (const raw of text.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
 
-    const heading = /^\d+\.\s+[A-Z][A-Z0-9 ,;'&\-/()]{2,}$/.test(line) || /^[A-Z][A-Z0-9 ,;'&\-/()]{4,}$/.test(line);
-    const lettered = /^\([a-z0-9ivx]+\)\s/.test(line);
+    const bare = line.replace(/\*\*/g, "");
+    const heading = /^\d+\.\s+[A-Z][A-Z0-9 ,;'&\-/()]{2,}$/.test(bare) || /^[A-Z][A-Z0-9 ,;'&\-/()]{4,}$/.test(bare);
+    const lettered = /^\([a-z0-9ivx]+\)\s/.test(bare);
 
     if (heading) {
       out.push(
         new Paragraph({
-          spacing: { before: S.SECTION.before, after: S.SECTION.after, ...single(S.SECTION.line) },
-          children: [run(line, { b: true, size: bodySize() })],
+          spacing: { before: headBefore(), after: headAfter(), ...single(bodyLine()) },
+          children: runsFromMarks(line.replace(/\*\*/g, ""), { b: true, size: bodySize() }),
         }),
       );
     } else if (lettered) {
       const [, num, body] = /^(\([a-z0-9ivx]+\))\s+([\s\S]*)$/.exec(line) ?? [line, "", line];
       out.push(
         new Paragraph({
-          spacing: { after: S.SUBCLAUSE.after, ...single(S.BODY_LINE) },
+          alignment: bodyAlign(),
+          spacing: { after: S.SUBCLAUSE.after, ...single(bodyLine()) },
           indent: { left: S.SUBCLAUSE.left, hanging: S.SUBCLAUSE.hanging },
           tabStops: [{ type: TabStopType.LEFT, position: S.SUBCLAUSE.left }],
-          children: [run(`${num}\t`), run(body)],
+          children: [run(`${num}\t`), ...runsFromMarks(body)],
         }),
       );
     } else {
-      out.push(new Paragraph({ spacing: { after: S.PARA_AFTER, ...single(S.BODY_LINE) }, children: [run(line)] }));
+      out.push(new Paragraph({ alignment: bodyAlign(), spacing: { after: paraAfter(), ...single(bodyLine()) }, children: runsFromMarks(line) }));
     }
   }
   return out;
@@ -401,7 +438,7 @@ export async function POST(req: NextRequest) {
       default: {
         document: {
           run: { font: LOOK.font, size: bodySize(), color: S.INK },
-          paragraph: { spacing: { after: S.PARA_AFTER, ...single(S.BODY_LINE) } },
+          paragraph: { alignment: bodyAlign(), spacing: { after: paraAfter(), ...single(bodyLine()) } },
         },
       },
     },

@@ -232,10 +232,11 @@ export default function Playbook({
             </span>
           </div>
           <p className="playbook-look">
-            Page set in <b>{look.font} {look.sizePt}pt</b>
+            Page set in <b>{look.font} {look.sizePt}pt</b>, title {look.titlePt}pt, {look.justify ? "justified" : "left-aligned"},
+            line spacing {look.lineSpacing}, {look.spaceAfterPt}pt after paragraphs, headings {look.headingBeforePt}/{look.headingAfterPt}pt
             {look.source === "playbook"
-              ? " — named in this playbook."
-              : " — the default. Name a typeface and size in the playbook (e.g. “Font: Arial, 11pt”) to change it; the firm-wide playbook is read when this one names none."}
+              ? " — read from this playbook (a house_style block with font, body_size_pt, title_size_pt, line_spacing, space_after_pt, heading_space_before_pt, heading_space_after_pt, alignment_body — or the same in prose)."
+              : " — the defaults. State them in the playbook to change them; the firm-wide playbook is read when this one says nothing."}
           </p>
           {file ? (
             <div className="playbook-file">

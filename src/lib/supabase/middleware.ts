@@ -29,6 +29,9 @@ const PUBLIC_PATHS = [
   // independently with ANALYTICS_REPORT_SECRET and returns aggregate counts
   // only; without this exception middleware would redirect Zapier to /login.
   "/api/analytics/weekly",
+  // Feedback typed in Slack arrives from Zapier with a shared secret, which
+  // the route and the database both check. No browser, no session.
+  "/api/feedback/slack",
 ];
 
 /** The static marketing pages, served from `public/` (see next.config.ts). */

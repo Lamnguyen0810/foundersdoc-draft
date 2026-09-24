@@ -116,7 +116,7 @@ function DrafterNotes({ text }: { text: string }) {
   if (lines.length === 0) return null;
   return (
     <div className="cg-notes">
-      <b>For the reviewing lawyer</b>
+      <b>FD Notes — for the reviewing lawyer</b>
       <ul>
         {lines.map((l, i) => (
           <li key={i}>{l}</li>

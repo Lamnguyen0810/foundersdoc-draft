@@ -45,7 +45,45 @@ function tidy(raw: string): string {
     .trim();
 }
 
-export async function extractFromBuffer(buffer: Buffer, filename: string): Promise<ExtractResult> {
+/**
+ * Word's bold and italics, kept as marks in the text.
+ *
+ * ── WHY ────────────────────────────────────────────────────────────────────
+ * A precedent read as raw text loses everything Word carried in formatting.
+ * The firm's master NDA sets every defined term in bold; extracted raw, it
+ * showed the model plain words, the model wrote plain words, and the
+ * lawyers asked why the definitions did not track the master. So a sample
+ * document is read WITH its emphasis: **bold** and _italic_, the marks the
+ * model is also told to write (lib/prompt.ts), and the page and the Word
+ * file turn back into bold and italic (lib/contract/dom.ts, /api/export).
+ * Everything else Word had — fonts, colours, tables — is still dropped.
+ */
+async function docxWithEmphasis(buffer: Buffer): Promise<string> {
+  const { value: html } = await mammoth.convertToHtml({ buffer });
+  const text = html
+    .replace(/<\/(p|h[1-6]|li|tr|table)>/gi, "\n\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<(strong|b)>([\s\S]*?)<\/\1>/gi, (_m, _t, inner: string) => (inner.trim() ? `**${inner.trim()}**` : ""))
+    .replace(/<(em|i)>([\s\S]*?)<\/\1>/gi, (_m, _t, inner: string) => (inner.trim() ? `_${inner.trim()}_` : ""))
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    /* Word often bolds a run and the space after it separately: "**Term** **:**"
+       — join marks that touch. */
+    .replace(/\*\*[ \t]*\*\*/g, "")
+    .replace(/\*\*([^*\n]+)\*\*([ \t]*)\*\*/g, "**$1$2");
+  return tidy(text);
+}
+
+export async function extractFromBuffer(
+  buffer: Buffer,
+  filename: string,
+  options: { emphasis?: boolean } = {},
+): Promise<ExtractResult> {
   if (buffer.byteLength === 0) throw new ExtractError("That file is empty.");
   if (buffer.byteLength > MAX_UPLOAD_BYTES) {
     throw new ExtractError(
@@ -64,8 +102,12 @@ export async function extractFromBuffer(buffer: Buffer, filename: string): Promi
   if (kind === "docx") {
     let text: string;
     try {
-      const result = await mammoth.extractRawText({ buffer });
-      text = tidy(result.value);
+      if (options.emphasis) {
+        text = await docxWithEmphasis(buffer);
+      } else {
+        const result = await mammoth.extractRawText({ buffer });
+        text = tidy(result.value);
+      }
     } catch {
       throw new ExtractError(
         "That Word file could not be read. If it is an old .doc, save it as .docx first.",

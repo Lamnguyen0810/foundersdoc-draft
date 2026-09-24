@@ -1,4 +1,4 @@
-import { parseDraft, splitPlaceholders, type Block } from "./parse";
+import { parseDraft, splitPlaceholders, subclauseLevel, type Block } from "./parse";
 
 /**
  * Blocks → DOM, for the editable document.
@@ -29,8 +29,30 @@ const STRUCTURED = new Set<Block["kind"]>(["party", "recital", "clause", "subcla
 
 function appendText(doc: Document, el: HTMLElement, text: string, inNote = false): void {
   for (const piece of splitPlaceholders(text)) {
+    if ("note" in piece) {
+      /* The playbook's FD Note: bold italic in square brackets, highlighted
+         on a draft (R10.3, R10.4). Not editable as a gap — it is a note. */
+      const span = doc.createElement("span");
+      span.className = "fd-note";
+      span.textContent = `[FD Note: ${piece.note}]`;
+      el.appendChild(span);
+      continue;
+    }
     if ("text" in piece) {
-      el.appendChild(doc.createTextNode(piece.text));
+      /* **bold** and _italic_, as the precedents have them. */
+      if (piece.b || piece.i) {
+        const wrap = doc.createElement(piece.b ? "b" : "i");
+        if (piece.b && piece.i) {
+          const inner = doc.createElement("i");
+          inner.textContent = piece.text;
+          wrap.appendChild(inner);
+        } else {
+          wrap.textContent = piece.text;
+        }
+        el.appendChild(wrap);
+      } else {
+        el.appendChild(doc.createTextNode(piece.text));
+      }
       continue;
     }
     if (inNote) {
@@ -45,7 +67,7 @@ function appendText(doc: Document, el: HTMLElement, text: string, inNote = false
     const span = doc.createElement("span");
     span.className = "placeholder";
     span.dataset.ph = piece.placeholder;
-    span.title = `Fill in: ${piece.placeholder.toLowerCase()}`;
+    span.title = piece.placeholder === "●" ? "Fill in" : `Fill in: ${piece.placeholder.toLowerCase()}`;
     el.appendChild(span);
   }
 }
@@ -59,6 +81,10 @@ export function blocksToParagraphs(doc: Document, blocks: Block[]): HTMLElement[
 
     if (STRUCTURED.has(b.kind) && b.num) {
       p.className = `${cls} doc-structured`.trim();
+      if (b.kind === "subclause") {
+        const level = b.level ?? subclauseLevel(b.num);
+        if (level > 1) p.classList.add(`doc-level-${level}`);
+      }
       const num = doc.createElement("span");
       num.className = "doc-num";
       num.textContent = b.num;

@@ -26,7 +26,7 @@ import { track } from "@/lib/track";
 import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
 import DraftReady from "./DraftReady";
-import { SKIPPED, splitNotes } from "@/lib/prompt";
+import { SKIPPED, fdNotes, splitNotes } from "@/lib/prompt";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 
 /* ────────────────────────────────────────────────────── the catalogue */
@@ -1585,6 +1585,51 @@ function Chat({
   const [copied, setCopied] = useState(false);
   const [exporting, setExporting] = useState(false);
 
+  /* ── FEEDBACK ON THE DRAFT ─────────────────────────────────────────────
+     One of the firm's lawyers (an admin) sees something wrong and says so,
+     here, with the passage they had selected. It goes to admin → AI files →
+     Feedback, where it becomes a rule for every later draft — the loop the
+     firm asked for. Feedback can also be typed in Slack; see 045. */
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackExcerpt, setFeedbackExcerpt] = useState("");
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackDone, setFeedbackDone] = useState<string | null>(null);
+
+  function openFeedback() {
+    const sel = typeof window !== "undefined" ? window.getSelection()?.toString().trim() ?? "" : "";
+    setFeedbackExcerpt(sel.slice(0, 600));
+    setFeedbackDone(null);
+    setFeedbackOpen(true);
+  }
+
+  async function sendFeedback() {
+    if (feedbackSending || !feedbackText.trim()) return;
+    setFeedbackSending(true);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ draftId, message: feedbackText.trim(), excerpt: feedbackExcerpt || undefined }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; learnt?: boolean; rule?: string; reason?: string };
+      if (!res.ok || !j.ok) {
+        setFeedbackDone(j.error ?? "Could not send that. Try again.");
+        return;
+      }
+      track("draft_feedback", { doc_type: docType.slug });
+      setFeedbackText("");
+      setFeedbackExcerpt("");
+      setFeedbackDone(
+        j.learnt && j.rule
+          ? `Learnt. From the next draft: “${j.rule}” — edit or switch off under Admin → AI files → Feedback & lessons.`
+          : `Saved for a person to decide${j.reason ? ` (${j.reason})` : ""} — Admin → AI files → Feedback & lessons.`,
+      );
+    } finally {
+      setFeedbackSending(false);
+    }
+  }
+
   const threadRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -2671,13 +2716,21 @@ function Chat({
      used to be typeset at the foot of the page, and went into the Word file
      with it. It is split off here: the page and the download get the
      document; the notes are shown beside it, in the conversation. */
-  const { body: documentBody, notes: drafterNotes } = splitNotes(output);
+  const { body: documentBody, notes: legacyNotes } = splitNotes(output);
+  /* The playbook's own notes live IN the text as [FD Note: …] (R10.3); the
+     card lists them so the lawyer sees every one at a glance. A draft from
+     before the playbook may still carry the old foot block instead. */
+  const inlineNotes = fdNotes(documentBody);
+  const drafterNotes =
+    inlineNotes.length > 0 ? inlineNotes.map((n) => `• ${n}`).join("\n") : legacyNotes;
 
   const sheetParagraphs = documentBody
     .trim()
     .split(/\n\s*\n/)
     .map((b, k) => {
-      const t = b.replace(/\n {8}/g, " ").replace(/\n {4}(?!\()/g, " ").replace(/\n {2}/g, " ");
+      /* Streaming view only: the marks are typeset once the editor takes
+         over, so here they are simply not shown. */
+      const t = b.replace(/\n {8}/g, " ").replace(/\n {4}(?!\()/g, " ").replace(/\n {2}/g, " ").replace(/\*\*/g, "");
       const firstLine = t.split("\n")[0];
       let cls = "";
       if (/^[A-Z0-9 .()'"—-]{3,}$/.test(firstLine) && t.length < 40) cls = "h";
@@ -2964,6 +3017,20 @@ function Chat({
             >
               {copied ? "Copied" : "Copy"}
             </button>
+            {/* The firm's own lawyers, not customers: feedback changes the
+                rules for every later draft, so it is the firm's to give.
+                The server refuses anyone else regardless. */}
+            {isAdmin && (
+              <button
+                type="button"
+                className="dbtn"
+                disabled={!output || busy}
+                title="Tell the drafter what should change — select a passage first to quote it"
+                onClick={openFeedback}
+              >
+                Feedback
+              </button>
+            )}
             <button
               type="button"
               className="dbtn gold"
@@ -2995,6 +3062,47 @@ function Chat({
             </button>
           </div>
         </div>
+        {feedbackOpen && (
+          <div className="fb-overlay" onClick={(e) => e.target === e.currentTarget && setFeedbackOpen(false)}>
+            <div className="fb-modal" role="dialog" aria-modal="true" aria-labelledby="fb-title">
+              <h3 id="fb-title">What should change?</h3>
+              <p className="fb-sub">
+                The drafter reads it against this draft and turns it into a rule for every later {docType.label}.
+                Be concrete: “defined terms should be bold”, “clause 4 should say…”.
+              </p>
+              {feedbackExcerpt && (
+                <blockquote className="fb-quote">
+                  {feedbackExcerpt}
+                  <button type="button" className="link-btn" onClick={() => setFeedbackExcerpt("")}>
+                    remove quote
+                  </button>
+                </blockquote>
+              )}
+              <textarea
+                rows={5}
+                value={feedbackText}
+                placeholder="What is wrong, and what it should be instead"
+                onChange={(e) => setFeedbackText(e.target.value)}
+                disabled={feedbackSending}
+                autoFocus
+              />
+              {feedbackDone && <p className="fb-done">{feedbackDone}</p>}
+              <div className="fb-actions">
+                <button type="button" className="dbtn" onClick={() => setFeedbackOpen(false)}>
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="dbtn gold"
+                  disabled={feedbackSending || !feedbackText.trim()}
+                  onClick={() => void sendFeedback()}
+                >
+                  {feedbackSending ? "Sending…" : "Send to the firm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* While the draft is still streaming, show the raw text: the parser
             needs whole blocks and pagination needs a finished document, so
             building pages on every chunk would flicker and mis-split. The
