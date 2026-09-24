@@ -268,6 +268,14 @@ export function AppNav({
           <Link className="btn btn-gold" href="/draft">
             Launch FD AI
           </Link>
+          {/* Signed out: the account chip's place is taken by a plain Log in.
+              The drafting screen is open to visitors now, so this is the only
+              door back to an existing account that is always on screen. */}
+          {!signedIn && (
+            <Link className="nav-login" href="/login?next=%2Fdraft">
+              Log in
+            </Link>
+          )}
         </div>
 
         {/* Light / dark, in the same corner as on the other subpages. */}
@@ -343,6 +351,12 @@ export function AppNav({
           </div>
           <a href="/about">About us</a>
           <a href="/contact">Contact us</a>
+          {!signedIn && (
+            <div className="menu-group">
+              <Link href="/login?next=%2Fdraft">Log in</Link>
+              <Link href="/signup">Sign up for free</Link>
+            </div>
+          )}
           {signedIn && (
             <div className="menu-group">
               <span>{userEmail}</span>

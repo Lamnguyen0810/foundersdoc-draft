@@ -14,7 +14,14 @@ export const metadata = { title: "Sign in — FD AI" };
  */
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  /* `from=draft`: mid-conversation on /draft, pressed Generate, chose "Log in"
+     over "Sign up". Their answers are in their browser; say so. */
+  const fromDraft = (await searchParams).from === "draft";
   const url = supabaseUrl();
   const key = supabasePublishableKey();
 
@@ -55,6 +62,11 @@ export default async function LoginPage() {
             account" stranded on the next line — the heading still fits, it just
             chooses a different place to fold. */}
         <h1 id="login-title">Log in to your Founders&nbsp;Doc account</h1>
+        {fromDraft && (
+          <p className="sub">
+            Your answers are saved. Log in and your draft generates straight away.
+          </p>
+        )}
 
         <Suspense fallback={null}>
           <LoginForm

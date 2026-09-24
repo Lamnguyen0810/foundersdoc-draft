@@ -36,6 +36,7 @@ export const EVENTS = {
   draft_exported: "A draft was downloaded as Word",
   draft_abandoned: "The flow was left without generating",
   paywall_hit: "Someone ran out of credits mid-draft",
+  signup_gate: "A visitor without an account pressed Generate (or attach) and was sent to sign up",
 
   // ── accounts ─────────────────────────────────────────────────────────────
   waitlist_joined: "Someone joined the FD AI waitlist",
