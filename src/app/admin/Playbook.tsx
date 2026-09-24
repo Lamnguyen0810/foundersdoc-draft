@@ -214,9 +214,10 @@ export default function Playbook({
       <p className="playbook-why">
         <b>Rules, not samples.</b> The training documents above show the model what a finished document looks
         like. The playbook tells it what the firm always does — numbering, defined terms, clauses that are never
-        dropped, wording it must use or avoid. The model reads the firm-wide playbook first, then the one for the
-        document type, <b>before</b> the samples, and is told the playbook wins where they differ. Write it as
-        instructions: short lines, one rule each.
+        dropped, wording it must use or avoid. While a playbook is live it is the <b>only</b> authority on style and
+        structure: it outranks the built-in house style, the clause order and the samples wherever they differ. What
+        it cannot switch off are the guardrails — no invented facts, [[TO CONFIRM]] placeholders, the hard rules,
+        the user’s detail level and the output format. Write it as instructions: short lines, one rule each.
       </p>
 
       <div className="playbook-grid">
