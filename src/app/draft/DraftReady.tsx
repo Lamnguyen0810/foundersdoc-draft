@@ -103,26 +103,40 @@ export interface DraftReadyProps {
 }
 
 /**
- * The model's notes for the reviewing lawyer, as a card in the conversation.
- * They used to be the last section of the document itself; the firm asked
- * that the document be only the document. Bullets in, bullets out.
+ * What the drafter says about the draft, as a colleague would.
+ *
+ * The model's notes (the playbook's FD Notes, or the older foot block) are
+ * not in the document any more; they are said here, in plain words, as a
+ * short list of things to check before the document goes out. Rule
+ * references the model appended ("See R10.1.") are for the playbook's
+ * benefit, not the reader's, and are left off.
  */
-function DrafterNotes({ text }: { text: string }) {
+function ThingsToCheck({ text }: { text: string }) {
   const lines = text
-    .replace(/^[\s*#_-]*DRAFTER[’'‘`]?S\s+NOTES?:?[\s*]*/i, "")
+    .replace(/^DRAFTER['’]S NOTES:?\s*/i, "")
     .split(/\n+/)
-    .map((l) => l.replace(/^\s*[•\-–*]\s*/, "").trim())
+    .map((l) =>
+      l
+        .replace(/^\s*[•\-–*]\s*/, "")
+        .replace(/\s*\(?\bSee R\d+(?:\.\d+)?\.?\)?\s*$/i, "")
+        .replace(/\s*\(?\bR\d+(?:\.\d+)?\)?\s*$/i, "")
+        .trim(),
+    )
     .filter(Boolean);
   if (lines.length === 0) return null;
   return (
-    <div className="cg-notes">
-      <b>FD Notes — for the reviewing lawyer</b>
-      <ul>
+    <>
+      <p>
+        {lines.length === 1
+          ? "One thing to check before it goes out:"
+          : `A few things to check before it goes out — ${lines.length} in all:`}
+      </p>
+      <ul className="cg-checks">
         {lines.map((l, i) => (
           <li key={i}>{l}</li>
         ))}
       </ul>
-    </div>
+    </>
   );
 }
 
@@ -276,19 +290,19 @@ export default function DraftReady({
                 <FdAvatar />
           <div className="cg-msg">
             <p>
-              Done. I’ve drafted your <b>{docLabel}</b> from the firm’s playbook and precedents.{" "}
+              Here’s your <b>{docLabel}</b>, drafted on the firm’s playbook and precedents.{" "}
               {/* Say plainly what was and was not filled in. A draft that quietly
                   looks complete is the one that gets sent without being read. */}
               {skippedCount > 0 ? (
                 <>
-                  I filled in only the details you provided and left{" "}
+                  I used the details you gave me and left{" "}
                   <b>
-                    {skippedCount} {skippedCount === 1 ? "detail" : "details"}
+                    {skippedCount} {skippedCount === 1 ? "blank" : "blanks"}
                   </b>{" "}
-                  blank for you to complete — each one is marked in the document.
+                  where you skipped a question — you’ll see them as underlined gaps.
                 </>
               ) : (
-                <>I used every answer you gave. Anything I could not confirm is marked in the document.</>
+                <>I used every answer you gave; anything I couldn’t confirm is an underlined gap.</>
               )}
             </p>
 
@@ -308,7 +322,7 @@ export default function DraftReady({
               </span>
             </button>
 
-            {notes && <DrafterNotes text={notes} />}
+            {notes && <ThingsToCheck text={notes} />}
           </div>
         </div>
         )}

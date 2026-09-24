@@ -309,8 +309,9 @@ export default function DocumentEditor({
       /* A document saved before the notes and the end line left the page
          still carries them in its HTML. They are dropped on the way in, so
          an old draft opens as the document alone, like a new one. */
+      tmp.querySelectorAll(".fd-note").forEach((n) => n.remove());
       items = (Array.from(tmp.children) as HTMLElement[]).filter(
-        (p) => !/\b(doc-notes-title|doc-note|doc-end-note)\b/.test(p.className),
+        (p) => !/\b(doc-notes-title|doc-note|doc-end-note)\b/.test(p.className) && (p.textContent ?? "").trim() !== "",
       );
     } else {
       items = draftToParagraphs(document, text);

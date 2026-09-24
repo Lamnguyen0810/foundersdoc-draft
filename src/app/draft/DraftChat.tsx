@@ -26,7 +26,7 @@ import { track } from "@/lib/track";
 import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
 import DraftReady from "./DraftReady";
-import { SKIPPED, fdNotes, splitNotes } from "@/lib/prompt";
+import { SKIPPED, fdNotes, splitNotes, stripNotes } from "@/lib/prompt";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 
 /* ────────────────────────────────────────────────────── the catalogue */
@@ -2716,11 +2716,14 @@ function Chat({
      used to be typeset at the foot of the page, and went into the Word file
      with it. It is split off here: the page and the download get the
      document; the notes are shown beside it, in the conversation. */
-  const { body: documentBody, notes: legacyNotes } = splitNotes(output);
-  /* The playbook's own notes live IN the text as [FD Note: …] (R10.3); the
-     card lists them so the lawyer sees every one at a glance. A draft from
-     before the playbook may still carry the old foot block instead. */
-  const inlineNotes = fdNotes(documentBody);
+  const { body: withNotes, notes: legacyNotes } = splitNotes(output);
+  /* The model writes its notes into the text as [FD Note: …], as the
+     playbook asks. The document the person sees and downloads has none of
+     them: they are read out and said in the conversation instead, the way
+     a colleague hands over a draft — "here it is; three things to check".
+     A draft from before the playbook may carry the old foot block instead. */
+  const inlineNotes = fdNotes(withNotes);
+  const documentBody = stripNotes(withNotes);
   const drafterNotes =
     inlineNotes.length > 0 ? inlineNotes.map((n) => `• ${n}`).join("\n") : legacyNotes;
 

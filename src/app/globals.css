@@ -3005,6 +3005,10 @@ html[data-theme=dark]{
   color: var(--tx-3, #8a8a95);
 }
 
+/* Things to check, said in the conversation like any other message. */
+.cg-checks{margin:0;padding-left:20px;max-width:62ch;font-size:14px;line-height:1.55;color:var(--tx);display:grid;gap:6px}
+.cg-checks li::marker{color:var(--gold)}
+
 /* The drafter's notes, beside the document rather than inside it. */
 .cg-notes {
   width: 100%;

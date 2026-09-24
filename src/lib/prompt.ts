@@ -348,3 +348,20 @@ export function fdNotes(text: string): string[] {
   }
   return out;
 }
+
+/**
+ * The document without its FD Notes.
+ *
+ * The playbook puts notes in the text; the firm's lawyers, having seen it,
+ * asked for the document to be only the document and the notes to be said
+ * beside it, the way a colleague would. So the notes are read out with
+ * fdNotes() and taken out here — with the bold-italic marks the playbook
+ * wraps them in, and any paragraph left empty by their going.
+ */
+export function stripNotes(text: string): string {
+  return text
+    .replace(/[ \t]*\*{0,2}_?\[\s*FD Note:[^\]]*\]_?\*{0,2}[ \t]*/gi, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
