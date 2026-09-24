@@ -6,7 +6,8 @@
  *   x-feedback-secret: <select public.slack_feedback_secret()>
  * and a body of {text, user, link}. Only messages that begin "feedback:" or
  * "fb:" are kept; everything else in the channel is ignored with a 200, so
- * the Zap never errors on ordinary chat.
+ * the Zap never errors on ordinary chat. "fb undo" switches off the last
+ * live rule (supabase/047).
  *
  * No session: this is Zapier's server, not a browser. The secret is checked
  * here AND in feedback_from_slack(); the route runs with the service key.
@@ -20,6 +21,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SIGNAL = /^\s*(feedback|fb)\s*:/i;
+/* "fb undo" — take back the last rule. Also "fb: undo", "fb cancel", "fb revert". */
+const UNDO = /^\s*(feedback|fb)\s*:?\s*(undo|cancel|revert|recall)\b/i;
 
 function field(body: Record<string, unknown>, ...names: string[]): string {
   for (const n of names) {
@@ -49,6 +52,18 @@ export async function POST(req: NextRequest) {
   const text = field(body, "text", "message", "raw_text");
   const who = field(body, "user_name", "user", "real_name", "username", "name");
   const link = field(body, "permalink", "link", "url");
+
+  if (UNDO.test(text)) {
+    /* undo_last_lesson does not take the secret, so it is checked here. */
+    const { data: expected } = await supabaseAdmin().rpc("slack_feedback_secret");
+    if (!expected || expected !== secret) return NextResponse.json({ error: "Bad secret." }, { status: 401 });
+    const { data, error } = await supabaseAdmin().rpc("undo_last_lesson", { p_who: who || null });
+    if (error) {
+      console.error("[feedback/slack] undo failed:", error.message);
+      return NextResponse.json({ error: "Could not undo." }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true, undone: (data as string | null) ?? null });
+  }
 
   if (!SIGNAL.test(text)) return NextResponse.json({ ok: true, ignored: true });
 
