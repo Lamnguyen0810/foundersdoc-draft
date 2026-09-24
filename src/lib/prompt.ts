@@ -175,7 +175,9 @@ export function lessonsBlock(docType: DocType): string | null {
     "LESSONS FROM REVIEW",
     "The firm's lawyers reviewed earlier drafts and asked for these changes.",
     "Each is a rule with the same authority as the playbook; where a lesson",
-    "and the playbook differ, the lesson is the later word and wins.",
+    "and the playbook differ, the lesson is the later word and wins. They are",
+    "in the order they were given: where two lessons differ, the later",
+    "(higher-numbered) one is the firm's current position and wins.",
     "",
     ...lessons.map((l, i) => `${i + 1}. ${l}`),
   ].join("\n");
@@ -347,4 +349,21 @@ export function fdNotes(text: string): string[] {
     if (t) out.push(t);
   }
   return out;
+}
+
+/**
+ * The document without its FD Notes.
+ *
+ * The playbook puts notes in the text; the firm's lawyers, having seen it,
+ * asked for the document to be only the document and the notes to be said
+ * beside it, the way a colleague would. So the notes are read out with
+ * fdNotes() and taken out here — with the bold-italic marks the playbook
+ * wraps them in, and any paragraph left empty by their going.
+ */
+export function stripNotes(text: string): string {
+  return text
+    .replace(/[ \t]*\*{0,2}_?\[\s*FD Note:[^\]]*\]_?\*{0,2}[ \t]*/gi, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
