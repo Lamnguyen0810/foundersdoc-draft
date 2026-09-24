@@ -8,6 +8,8 @@ import { ago, day, fmt, stamp } from "./parts";
 import FilterSelect from "./FilterSelect";
 import AiFiles from "./AiFiles";
 import Questions, { type DocTypeForEditor, type FieldRow, type GroupRow } from "./Questions";
+import Playbook, { type PlaybookInitial } from "./Playbook";
+import { PLAYBOOK_COLUMNS } from "@/lib/playbook";
 import PeriodSelect from "./PeriodSelect";
 import InviteButton from "./InviteButton";
 import type { FolderRow, SourceRow } from "@/lib/ai-library";
@@ -392,6 +394,7 @@ export default async function AdminPage({
   let libraryMissing = false;
   let rankingMissing = false;
   let stepsMissing = false;
+  let playbook: PlaybookInitial = { scope: "*", live: null, versions: [], missing: false };
   if (tab === "ai-files") {
     const BASE_COLS =
       "id,folder_id,doc_type_slug,title,filename,file_ext,jurisdiction,version,privacy,privacy_flags,status,permitted,note,bytes,uploaded_by_email,reviewed_at,approved_at,created_at,updated_at";
@@ -443,6 +446,22 @@ export default async function AdminPage({
       draftSavedAt: d.draft_saved_at ?? null,
       publishedAt: d.published_at ?? null,
     }));
+
+    /* ── THE PLAYBOOK, FOR THE FIRST DOCUMENT TYPE ─────────────────────────
+       Read here so the panel opens filled. Other scopes are fetched when
+       chosen. Before 044 the table is not there; the panel then says which
+       file to run and nothing else on the tab is affected. */
+    const firstScope = catalogue[0]?.slug ?? "*";
+    const [pbVersions, pbLive] = await Promise.all([
+      supabase.from("playbooks").select(PLAYBOOK_COLUMNS).eq("scope", firstScope).order("version", { ascending: false }),
+      supabase.from("playbooks").select(`${PLAYBOOK_COLUMNS},content`).eq("scope", firstScope).eq("live", true).maybeSingle(),
+    ]);
+    playbook = {
+      scope: firstScope,
+      missing: Boolean(pbVersions.error && /playbooks/.test(pbVersions.error.message)),
+      live: (pbLive.data as PlaybookInitial["live"]) ?? null,
+      versions: (pbVersions.data as PlaybookInitial["versions"] | null) ?? [],
+    };
   }
 
   /* The utility strip says what needs a person. Only what is counted. */
@@ -1542,6 +1561,8 @@ export default async function AdminPage({
                   docTypes={catalogue.map((d) => ({ slug: d.slug, label: d.label }))}
                   ranking={!rankingMissing}
                 />
+                {/* Rules, beneath the samples they override. */}
+                <Playbook docTypes={catalogue.map((d) => ({ slug: d.slug, label: d.label }))} initial={playbook} />
                 {stepsMissing && !libraryMissing && (
                   <div className="setup-note">
                     <strong>Save-as-draft and step order are not switched on yet.</strong> Run{" "}

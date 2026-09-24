@@ -107,6 +107,12 @@ build that can fail.
 
 `systemPrompt` holds the instructions; `examples` holds the worked documents. They are separate fields so that swapping in the firm's own sanitised NDAs at sprint 2.2 changes nothing else. Never paste an example inline into the prompt text.
 
+### The playbook is a third thing
+
+**Admin → AI files → Playbook.** The firm's drafting *rules* — numbering, defined terms, clauses never dropped, wording to use or avoid — firm-wide and per document type. Paste or upload (Word, PDF, Markdown, text); every save is a version, any version can be read or restored, "Switch off" retires the live one. Storage is `supabase/044_playbook.sql`.
+
+The model reads the playbook **before** the worked examples and is told it wins where they differ (`playbookBlock()` in `lib/prompt.ts`). Do not put a playbook in the training library: the library holds documents to imitate, and a page of rules would be imitated as if it were one.
+
 ---
 
 ## 🚀 Deploying to Vercel

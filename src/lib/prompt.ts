@@ -49,10 +49,43 @@ const STYLE_INSTRUCTION: Record<DraftingStyle, string | null> = {
   ].join("\n"),
 };
 
+/**
+ * The firm's rules, as a block of the system prompt.
+ *
+ * ── WHY THE PLAYBOOK COMES BEFORE THE EXAMPLES ─────────────────────────────
+ * Examples are persuasive: a model shown three NDAs that survive for two
+ * years will write a fourth that does, however the rule reads. So the rules
+ * are stated first, told in so many words that they beat the examples, and
+ * the examples section repeats it. Rules are also told to stay invisible —
+ * a playbook says "always use 'shall'", and the failure mode is a draft
+ * with a paragraph explaining that it always uses "shall".
+ */
+export function playbookBlock(docType: DocType): string | null {
+  const rules = (docType.playbook ?? []).filter((r) => r.text.trim().length > 0);
+  if (rules.length === 0) return null;
+  const body = rules
+    .map((r) => `--- ${r.title.toUpperCase()} ---\n${r.text.trim()}\n--- END ${r.title.toUpperCase()} ---`)
+    .join("\n\n");
+  return [
+    "THE FIRM'S PLAYBOOK",
+    "The rules below are how this firm drafts. They take precedence over the",
+    "worked examples and over any general drafting habit: where a rule and an",
+    "example differ, follow the rule. Apply every rule that bears on this",
+    "document. Where a rule needs a fact the user has not given, use a",
+    "[[TO CONFIRM: ...]] placeholder rather than inventing one. Never quote,",
+    "mention or explain the playbook in the draft — it shows in what you write,",
+    "not in what you say about it.",
+    "",
+    body,
+  ].join("\n");
+}
+
 export function buildSystem(docType: DocType, style: DraftingStyle = "standard_legal"): string {
   const register = STYLE_INSTRUCTION[style];
+  const playbook = playbookBlock(docType);
+  const head = [docType.systemPrompt, ...(register ? ["", register] : []), ...(playbook ? ["", playbook] : [])].join("\n");
   if (docType.examples.length === 0) {
-    return register ? `${docType.systemPrompt}\n\n${register}` : docType.systemPrompt;
+    return head;
   }
 
   /* The examples arrive in the order the firm ranked them — best first — and
@@ -66,13 +99,15 @@ export function buildSystem(docType: DocType, style: DraftingStyle = "standard_l
     .join("\n\n");
 
   return [
-    docType.systemPrompt,
-    ...(register ? ["", register] : []),
+    head,
     "",
     "WORKED EXAMPLES",
     "The documents below show the structure, register and level of detail expected.",
     "They are in order of preference: Example 1 is the firm's preferred style, and",
     "where examples differ, follow the earlier one. Follow their shape and tone.",
+    ...(playbook
+      ? ["Where an example and THE FIRM'S PLAYBOOK above differ, the playbook wins."]
+      : []),
     "Do NOT copy their facts, parties or figures — those come only from THE FACTS",
     "section of the user message. A placeholder such as [REDACTED COMPANY] marks",
     "where a detail was removed; treat it as the kind of thing named, never as text",

@@ -8,6 +8,7 @@ import {
 } from "@/lib/ai/types";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { playbookBlock } from "@/lib/prompt";
 import {
   FAIR_USE_REACHED,
   currentBalance,
@@ -137,6 +138,9 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
 
+  /* The rules the draft was written under, when 044 has been run. */
+  let system = SYSTEM;
+
   /* ── does this one cost a credit? ─────────────────────────────────────── */
   let spendId: string | null = null;
   let charged = false;
@@ -144,9 +148,23 @@ export async function POST(req: NextRequest) {
   if (isSupabaseConfigured() && body.draftId) {
     const supabase = await createClient();
     const [{ data: draft }, { data: cfg }] = await Promise.all([
-      supabase.from("drafts").select("revisions").eq("id", body.draftId).maybeSingle(),
+      supabase.from("drafts").select("revisions,doc_types(slug)").eq("id", body.draftId).maybeSingle(),
       supabase.from("billing_config").select("free_revisions").maybeSingle(),
     ]);
+
+    /* The firm's rules follow the document into its revisions: a rewrite
+       to a different detail level must keep the same survival period, the
+       same defined terms. Best effort — a revision is never refused for
+       want of a playbook. */
+    const dt = (draft as { doc_types?: { slug?: string } | { slug?: string }[] | null } | null)?.doc_types;
+    const slug = Array.isArray(dt) ? dt[0]?.slug : dt?.slug;
+    if (slug) {
+      const { data: rules } = await supabase.rpc("playbook_for", { p_slug: slug });
+      const block = playbookBlock({
+        playbook: ((rules ?? []) as { title: string; text: string }[]),
+      } as Parameters<typeof playbookBlock>[0]);
+      if (block) system = `${SYSTEM}\n\n${block}`;
+    }
 
     const used = Number(draft?.revisions ?? 0);
     const free = Number(cfg?.free_revisions ?? 3);
@@ -237,7 +255,7 @@ export async function POST(req: NextRequest) {
             : `${userMessage}\n\nRETRY REQUIREMENT: The previous attempt did not materially reach the requested comprehensiveness level. Rewrite the complete document more decisively and stay within the requested word range.`;
 
         for await (const event of generateDraftStream({
-          system: SYSTEM,
+          system,
           user: attemptMessage,
           signal: deadline.signal,
         })) {
