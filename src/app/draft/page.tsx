@@ -38,6 +38,12 @@ export default async function DraftPage({
     isSupabaseConfigured() ? isAdmin() : Promise.resolve(false),
     isSupabaseConfigured() ? loadPrefill() : Promise.resolve(null),
   ]);
+  const guest = isSupabaseConfigured() && !user;
+  /* A visitor has no wallet. credit_balance() answers 0 for nobody, which
+     the screen would show as "0 credits — Add credits": a paywall for a
+     person who has not been asked to pay, in the place the sign-up block
+     is meant to speak from. Nothing is the truthful number here. */
+  const credits = guest ? null : wallet;
 
   return (
     <DraftChat
@@ -47,12 +53,12 @@ export default async function DraftPage({
       /* Accounts exist and this person has none: the questions are open to
          them, Generate is where they sign up. Never true when Supabase is
          absent — local development drafts without accounts at all. */
-      guest={isSupabaseConfigured() && !user}
+      guest={guest}
       recent={recent}
       wallet={
-        Number.isFinite(wallet.credits)
-          ? { credits: wallet.credits, inTrial: wallet.inTrial, trialEndsAt: wallet.trialEndsAt }
-          : null /* unmetered local dev: show nothing rather than "Infinity left" */
+        credits && Number.isFinite(credits.credits)
+          ? { credits: credits.credits, inTrial: credits.inTrial, trialEndsAt: credits.trialEndsAt }
+          : null /* a visitor, or unmetered local dev: show nothing */
       }
       isAdmin={admin}
       prefill={prefill}
