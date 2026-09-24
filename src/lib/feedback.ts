@@ -14,6 +14,8 @@ export interface FeedbackRow {
   source: "app" | "slack";
   link: string | null;
   status: "new" | "applied" | "dismissed";
+  /** FD AI's one-line reason: why it made the rule it made, or made none. */
+  note: string | null;
   lesson_id: string | null;
   handled_by: string | null;
   handled_at: string | null;
@@ -31,5 +33,5 @@ export interface LessonRow {
 }
 
 export const FEEDBACK_COLUMNS =
-  "id,draft_id,doc_type_slug,user_email,excerpt,message,source,link,status,lesson_id,handled_by,handled_at,created_at";
+  "id,draft_id,doc_type_slug,user_email,excerpt,message,source,link,status,note,lesson_id,handled_by,handled_at,created_at";
 export const LESSON_COLUMNS = "id,scope,rule,live,feedback_id,created_by,created_at";

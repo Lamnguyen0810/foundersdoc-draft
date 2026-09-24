@@ -1612,7 +1612,7 @@ function Chat({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ draftId, message: feedbackText.trim(), excerpt: feedbackExcerpt || undefined }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; learnt?: boolean; rule?: string; reason?: string };
       if (!res.ok || !j.ok) {
         setFeedbackDone(j.error ?? "Could not send that. Try again.");
         return;
@@ -1620,7 +1620,11 @@ function Chat({
       track("draft_feedback", { doc_type: docType.slug });
       setFeedbackText("");
       setFeedbackExcerpt("");
-      setFeedbackDone("Saved. Turn it into a rule in Admin → AI files → Feedback & lessons.");
+      setFeedbackDone(
+        j.learnt && j.rule
+          ? `Learnt. From the next draft: “${j.rule}” — edit or switch off under Admin → AI files → Feedback & lessons.`
+          : `Saved for a person to decide${j.reason ? ` (${j.reason})` : ""} — Admin → AI files → Feedback & lessons.`,
+      );
     } finally {
       setFeedbackSending(false);
     }
@@ -3057,7 +3061,7 @@ function Chat({
             <div className="fb-modal" role="dialog" aria-modal="true" aria-labelledby="fb-title">
               <h3 id="fb-title">What should change?</h3>
               <p className="fb-sub">
-                Lands in Admin → Feedback &amp; lessons, to be turned into a rule for every later {docType.label}.
+                The drafter reads it against this draft and turns it into a rule for every later {docType.label}.
                 Be concrete: “defined terms should be bold”, “clause 4 should say…”.
               </p>
               {feedbackExcerpt && (

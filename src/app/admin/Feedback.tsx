@@ -112,10 +112,11 @@ export default function Feedback({
       )}
 
       <p className="playbook-why">
-        <b>How the drafter learns.</b> An admin presses <b>Feedback</b> beside a draft and says what is wrong —
-        or types a message beginning <b>feedback:</b> in the Slack drafts channel. It arrives here. Turn it into a
-        rule — one line, written as an instruction — and every later draft of that kind follows it, after the
-        playbook and with the same authority. Nothing is learned automatically: the firm writes the rule.
+        <b>How the drafter learns.</b> An admin presses <b>Feedback</b> beside a draft, or types a message beginning{" "}
+        <b>fb:</b> in the Slack drafts channel (with the draft’s <b>#ref</b> from the download message to name it).
+        FD AI reads the comment against that draft, the playbook and the rules already learnt, and writes one rule —
+        live from the next draft, announced in Slack, listed on the right with an edit and a switch. Feedback it
+        cannot turn into a rule (praise, a question, something a guardrail forbids) waits here for a person.
       </p>
 
       {notice && (
@@ -148,12 +149,17 @@ export default function Feedback({
                     )}
                     {f.status !== "new" && (
                       <span className="badge gray" style={{ marginLeft: 8 }}>
-                        {f.status === "applied" ? "Rule made" : "Dismissed"}
+                        {f.status === "applied" ? (f.handled_by === "FD AI" ? "Rule learnt" : "Rule made") : "Dismissed"}
                       </span>
                     )}
                   </div>
                   {f.excerpt && <blockquote className="feedback-quote">{f.excerpt}</blockquote>}
                   <p className="feedback-text">{f.message}</p>
+                  {f.note && (
+                    <p className="feedback-note">
+                      <b>{f.handled_by === "FD AI" ? "FD AI" : "Note"}:</b> {f.note}
+                    </p>
+                  )}
                   {f.status === "new" && (
                     <div className="inline-actions">
                       <button
@@ -195,7 +201,7 @@ export default function Feedback({
                 <li key={l.id} className={l.live ? "live" : "off"}>
                   <div className="feedback-meta">
                     {label(l.scope)} · {stamp(l.created_at)}
-                    {l.created_by ? ` · ${l.created_by}` : ""}
+                    {l.created_by ? ` · ${l.created_by === "FD AI" ? "learnt by FD AI" : l.created_by}` : ""}
                     {!l.live && <span className="badge gray" style={{ marginLeft: 8 }}>Off</span>}
                   </div>
                   {editing?.id === l.id ? (

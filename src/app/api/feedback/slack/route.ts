@@ -14,6 +14,7 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
+import { learnFromFeedback } from "@/lib/learn";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,5 +63,11 @@ export async function POST(req: NextRequest) {
     if (!bad) console.error("[feedback/slack]", error.message);
     return NextResponse.json({ error: bad ? "Bad secret." : "Could not save." }, { status: bad ? 401 : 500 });
   }
-  return NextResponse.json({ ok: true, id: data as string });
+  /* Now learn from it. Awaited, so Zapier's call carries the answer; a
+     failure here leaves the feedback queued for a person, never lost. */
+  const learnt = await learnFromFeedback(data as string).catch((err: unknown) => {
+    console.error("[feedback/slack] learn failed:", err);
+    return { learnt: false, reason: "error" };
+  });
+  return NextResponse.json({ ok: true, id: data as string, ...learnt });
 }

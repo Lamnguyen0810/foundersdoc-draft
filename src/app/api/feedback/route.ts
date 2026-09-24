@@ -11,6 +11,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isAdminClientConfigured } from "@/lib/supabase/admin";
+import { learnFromFeedback } from "@/lib/learn";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,5 +42,14 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
-  return NextResponse.json({ ok: true, id: data as string });
+  /* The drafter learns from it now — see lib/learn.ts. Needs the service
+     key; without it the feedback simply waits for a person. */
+  let learnt: { learnt: boolean; rule?: string; scope?: string; reason?: string } = { learnt: false, reason: "no service key" };
+  if (isAdminClientConfigured()) {
+    learnt = await learnFromFeedback(data as string).catch((err: unknown) => {
+      console.error("[feedback] learn failed:", err);
+      return { learnt: false, reason: "error" };
+    });
+  }
+  return NextResponse.json({ ok: true, id: data as string, ...learnt });
 }
