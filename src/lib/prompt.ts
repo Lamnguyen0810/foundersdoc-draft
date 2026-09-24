@@ -97,17 +97,80 @@ export function playbookBlock(docType: DocType): string | null {
  * statement does the job.
  */
 function deferHouseStyle(systemPrompt: string): string {
-  return systemPrompt.replace(
-    /^(\s*-\s*House style:)[\s\S]*?(?=\n\s*-\s|\n\s*\n)/m,
-    "$1 as set out in THE FIRM'S PLAYBOOK below, which governs wording, numbering, defined terms, tone and layout.",
+  return (
+    systemPrompt
+      /* "- House style: British spelling. Formal but plain English. …" */
+      .replace(
+        /^(\s*-\s*House style:)[\s\S]*?(?=\n\s*-\s|\n\s*\n)/m,
+        "$1 as set out in THE FIRM'S PLAYBOOK below, which governs wording, numbering, defined terms, tone and layout.",
+      )
+      /* "- Numbered clauses where a document has more than three substantive points." */
+      .replace(/^\s*-\s*Numbered clauses where[^\n]*\n?/m, "")
+      /* "STRUCTURE — follow this order …" through to the blank line: the
+         playbook and the precedents set the order of a document. */
+      .replace(
+        /^STRUCTURE\b[^\n]*\n[\s\S]*?(?=\n\s*\n)/m,
+        "STRUCTURE — follow the order the firm's playbook sets, and otherwise the order the worked examples show. Include a clause only where the facts or the playbook call for it.",
+      )
+      /* OUTPUT FORMAT's own numbering line: the playbook's numbering wins. */
+      .replace(
+        /^(\s*-\s*Plain text with blank lines between paragraphs\.)[^\n]*$/m,
+        "$1 Number clauses the way the playbook and the worked examples do.",
+      )
   );
+}
+
+/**
+ * The one piece of markup the model may write.
+ *
+ * Bold and italics do not survive plain text, and the firm's precedents use
+ * them — every defined term in the master NDA is bold. The samples are read
+ * with their emphasis kept as marks (lib/extract.ts), the model is told to
+ * write the same marks where the precedents and the playbook have them, and
+ * the page and the Word file set them (lib/contract, /api/export). Nothing
+ * else is markup: no headings with #, no bullet dashes, no code fences.
+ */
+const EMPHASIS_INSTRUCTION = [
+  "EMPHASIS",
+  "Where the firm's playbook or worked examples set text in bold — defined terms,",
+  "party names, headings — write it between double asterisks: **Confidential",
+  "Information**. Italics, where they use them, between single underscores:",
+  "_oral_. Use these marks exactly where the precedents use emphasis and",
+  "nowhere else. They are the only markup permitted; everything else is plain",
+  "text.",
+].join("\n");
+
+/**
+ * The lessons: rules the firm wrote from feedback on earlier drafts. They
+ * come after the playbook and carry the same authority — each is a
+ * correction the playbook did not yet make explicit.
+ */
+export function lessonsBlock(docType: DocType): string | null {
+  const lessons = (docType.lessons ?? []).map((l) => l.trim()).filter(Boolean);
+  if (lessons.length === 0) return null;
+  return [
+    "LESSONS FROM REVIEW",
+    "The firm's lawyers reviewed earlier drafts and asked for these changes.",
+    "Each is a rule with the same authority as the playbook; where a lesson",
+    "and the playbook differ, the lesson is the later word and wins.",
+    "",
+    ...lessons.map((l, i) => `${i + 1}. ${l}`),
+  ].join("\n");
 }
 
 export function buildSystem(docType: DocType, style: DraftingStyle = "standard_legal"): string {
   const register = STYLE_INSTRUCTION[style];
   const playbook = playbookBlock(docType);
+  const lessons = lessonsBlock(docType);
   const base = playbook ? deferHouseStyle(docType.systemPrompt) : docType.systemPrompt;
-  const head = [base, ...(register ? ["", register] : []), ...(playbook ? ["", playbook] : [])].join("\n");
+  const head = [
+    base,
+    "",
+    EMPHASIS_INSTRUCTION,
+    ...(register ? ["", register] : []),
+    ...(playbook ? ["", playbook] : []),
+    ...(lessons ? ["", lessons] : []),
+  ].join("\n");
   if (docType.examples.length === 0) {
     return head;
   }

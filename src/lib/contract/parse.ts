@@ -65,23 +65,40 @@ export function parseDraft(draft: string): Block[] {
     const t = flatten(raw);
     if (!t) return;
 
-    // The first block is always the document's title.
-    if (idx === 0) return push("title", t);
+    /* ── THE MARKS ──────────────────────────────────────────────────────
+       The model writes **bold** and _italic_ where the firm's precedents
+       have them (lib/extract.ts, lib/prompt.ts). The shape rules below look
+       at the words, so a block that BEGINS with a mark — "**1. DEFINITIONS**",
+       "**(1)** Acme" — is classified on the bare text and its number taken
+       from there; the marks stay in the text for the renderer. A heading is
+       bold by its class already, so its own marks are dropped. */
+    const bare = t.replace(/\*\*/g, "").replace(/(?<!\w)_(?=\S)|(?<=\S)_(?!\w)/g, "");
+    const afterNum = (num: string): string => {
+      const esc = num.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (!/^\*\*/.test(t)) return t.replace(new RegExp(`^${esc}\\s*`), "");
+      const rest = t.replace(new RegExp(`^\\*\\*\\s*${esc}\\s*`), "");
+      /* "**(1)** Acme" — the mark closed right after the number: drop it.
+         "**(2) Kestrel Ltd** (…)" — it closes after the name: reopen it. */
+      return rest.startsWith("**") ? rest.slice(2).trim() : `**${rest}`;
+    };
 
-    if (/^THIS AGREEMENT\b/.test(t)) return push("date", t);
-    if (/^(BETWEEN|WHEREAS|IT IS AGREED)/.test(t)) return push("label", t);
+    // The first block is always the document's title.
+    if (idx === 0) return push("title", bare);
+
+    if (/^THIS AGREEMENT\b/.test(bare)) return push("date", t);
+    if (/^(BETWEEN|WHEREAS|IT IS AGREED)/.test(bare)) return push("label", t);
 
     // (1) Acme Pte Ltd (UEN …), a company incorporated in …
-    let m = t.match(/^(\(\d+\))\s*(.*)$/);
-    if (m) return push("party", m[2], m[1]);
+    let m = bare.match(/^(\(\d+\))\s*(.*)$/);
+    if (m) return push("party", afterNum(m[1]), m[1]);
 
     // (A) The Parties wish to …
-    m = t.match(/^(\([A-Z]\))\s*(.*)$/);
-    if (m) return push("recital", m[2], m[1]);
+    m = bare.match(/^(\([A-Z]\))\s*(.*)$/);
+    if (m) return push("recital", afterNum(m[1]), m[1]);
 
     // A numbered HEADING — "3. CONFIDENTIALITY" — must be caught before 3.1.
-    if (/^\d+\.\s{1,}/.test(t) && /^[\d.]+\s+[A-Z][A-Z\s&'-]+$/.test(t)) {
-      const sm = t.match(/^(\d+\.)\s+(.*)$/)!;
+    if (/^\d+\.\s{1,}/.test(bare) && /^[\d.]+\s+[A-Z][A-Z\s&'-]+$/.test(bare)) {
+      const sm = bare.match(/^(\d+\.)\s+(.*)$/)!;
       /* As written. This used to title-case the heading ("3. CONFIDENTIALITY"
          → "3. Confidentiality"), which was the app's taste over the firm's:
          the playbook and the precedents decide whether headings are capitals. */
@@ -89,18 +106,18 @@ export function parseDraft(draft: string): Block[] {
     }
 
     // 3.1 The Recipient shall …
-    m = t.match(/^(\d+\.\d+)\s+(.*)$/);
-    if (m) return push("clause", m[2], m[1]);
+    m = bare.match(/^(\d+\.\d+)\s+(.*)$/);
+    if (m) return push("clause", afterNum(m[1]), m[1]);
 
     /* A run of sub-clauses arrives as ONE block with single newlines between
        them, so it is split here rather than by the blank-line pass above. */
-    if (/^\s*\([a-z]\)/.test(raw)) {
+    if (/^\s*(?:\*\*)?\([a-z]\)/.test(raw)) {
       raw
         .trim()
-        .split(/\n\s*(?=\([a-z]\))/g)
+        .split(/\n\s*(?=(?:\*\*)?\([a-z]\))/g)
         .forEach((x) => {
           const sx = flatten(x);
-          const sm = sx.match(/^(\([a-z]\))\s*(.*)$/);
+          const sm = sx.match(/^(?:\*\*\s*)?(\([a-z]\))(?:\s*\*\*)?\s*(.*)$/);
           if (sm) push("subclause", sm[2], sm[1]);
           else push("plain", sx);
         });
@@ -131,17 +148,30 @@ export function parseDraft(draft: string): Block[] {
   return out;
 }
 
-/** A run of text split into literal parts and [[PLACEHOLDER]] parts. */
-export type Piece = { text: string } | { placeholder: string };
+/** A run of text split into literal parts, marked (bold/italic) parts and
+ *  [[PLACEHOLDER]] parts. */
+export type Piece = { text: string; b?: boolean; i?: boolean } | { placeholder: string };
 
 export function splitPlaceholders(text: string): Piece[] {
-  return text
-    .split(/(\[\[[^\]]+\]\])/g)
-    .filter((p) => p !== "")
-    .map((part) => {
-      const m = part.match(/^\[\[([^\]]+)\]\]$/);
-      return m ? { placeholder: m[1] } : { text: part };
-    });
+  const out: Piece[] = [];
+  for (const part of text.split(/(\[\[[^\]]+\]\])/g)) {
+    if (part === "") continue;
+    const m = part.match(/^\[\[([^\]]+)\]\]$/);
+    if (m) {
+      out.push({ placeholder: m[1] });
+      continue;
+    }
+    /* **bold** and _italic_, as the model writes them after the precedents.
+       An underscore inside a word (snake_case, a reference number) is not a
+       mark. */
+    for (const run of part.split(/(\*\*[^*]+\*\*|(?<!\w)_[^_\n]+_(?!\w))/g)) {
+      if (run === "") continue;
+      if (/^\*\*[^*]+\*\*$/.test(run)) out.push({ text: run.slice(2, -2), b: true });
+      else if (/^_[^_\n]+_$/.test(run)) out.push({ text: run.slice(1, -1), i: true });
+      else out.push({ text: run });
+    }
+  }
+  return out;
 }
 
 /** In a party line, the name up to the first "(" or "," is the defined term. */

@@ -293,3 +293,25 @@ html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 @media (max-width: 900px) {
   .fdadmin .playbook-grid { grid-template-columns: 1fr; }
 }
+
+/* ── Feedback & lessons ──────────────────────────────────────────────────── */
+.fdadmin .feedback-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 0 18px 18px; }
+.fdadmin .feedback-col { border: 1px solid var(--line); border-radius: 14px; background: #FCFCFD; padding: 14px 16px; min-width: 0; }
+.fdadmin .feedback-col-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.fdadmin .feedback-col-head h3 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.fdadmin .feedback-toggle { font-size: 11px; color: var(--muted); display: inline-flex; align-items: center; gap: 5px; }
+.fdadmin .feedback-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.fdadmin .feedback-list li { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.fdadmin .feedback-list li.new { border-color: #D1AC32; background: var(--fd-yellow-wash); }
+.fdadmin .feedback-list li.off { opacity: .7; }
+.fdadmin .feedback-meta { font-size: 10px; color: var(--muted); }
+.fdadmin .feedback-meta b { color: var(--ink); font-weight: 600; }
+.fdadmin .feedback-quote { margin: 6px 0; padding: 6px 10px; border-left: 3px solid #D1AC32; background: #FFFDF6; font-size: 11px; line-height: 1.45; color: var(--ink-2); border-radius: 0 6px 6px 0; white-space: pre-wrap; }
+.fdadmin .feedback-text { margin: 6px 0 4px; font-size: 12px; line-height: 1.5; color: var(--ink); white-space: pre-wrap; }
+.fdadmin .feedback-list .inline-actions { margin-top: 6px; gap: 12px; }
+.fdadmin .feedback-list .inline-actions .btn { height: 32px; padding: 0 12px; font-size: 12px; }
+.fdadmin .feedback-list textarea { margin-top: 6px; font-size: 12px; }
+.fdadmin .feedback-origin { margin-bottom: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #FCFCFD; font-size: 12px; }
+.fdadmin .feedback-origin b { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+.fdadmin .feedback-origin p { margin: 4px 0 0; white-space: pre-wrap; }
+@media (max-width: 900px) { .fdadmin .feedback-grid { grid-template-columns: 1fr; } }

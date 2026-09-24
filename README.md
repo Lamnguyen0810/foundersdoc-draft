@@ -113,6 +113,14 @@ build that can fail.
 
 The model reads the playbook **before** the worked examples and is told it wins where they differ (`playbookBlock()` in `lib/prompt.ts`). Do not put a playbook in the training library: the library holds documents to imitate, and a page of rules would be imitated as if it were one.
 
+### Feedback becomes rules
+
+**Feedback** beside every draft (admins only): a lawyer says what is wrong, with the passage they selected. Or type a message beginning `feedback:` in the Slack drafts channel — Zapier (Slack "New Message Posted to Channel", bot messages off → Webhooks POST to `/api/feedback/slack`, header `x-feedback-secret` from `select public.slack_feedback_secret()`, body `text`/`user_name`/`permalink`) forwards it. Both land in **Admin → AI files → Feedback & lessons**. "Turn into rule" makes it a lesson; live lessons go into every later draft of that scope after the playbook, with the same authority (`lessonsBlock()`). Nothing is learned automatically — the firm writes the rule. Storage is `supabase/045_feedback_and_lessons.sql`.
+
+### Bold tracks the precedent
+
+Sample documents are read with their emphasis kept as marks (`**bold**`, `_italic_` — `lib/extract.ts`), the model is told to write the same marks where the precedents and playbook use emphasis, and the page and the Word file set them. Re-upload a sample to pick up its bold; samples uploaded before this were read as plain text.
+
 ---
 
 ## 🚀 Deploying to Vercel

@@ -295,20 +295,33 @@ function paragraphsFromHtml(html: string): Paragraph[] {
  * typography as the HTML path, recognising the shapes the model is told to
  * produce: "1. HEADING", "1.1", "(a)", and signature lines.
  */
+/** Plain text with the model's **bold** and _italic_ marks, as runs. */
+function runsFromMarks(text: string, style: { b?: boolean; size?: number } = {}): TextRun[] {
+  const runs: TextRun[] = [];
+  for (const piece of text.split(/(\*\*[^*]+\*\*|(?<!\w)_[^_\n]+_(?!\w))/g)) {
+    if (!piece) continue;
+    if (/^\*\*[^*]+\*\*$/.test(piece)) runs.push(run(piece.slice(2, -2), { ...style, b: true }));
+    else if (/^_[^_\n]+_$/.test(piece)) runs.push(run(piece.slice(1, -1), { ...style, i: true }));
+    else runs.push(run(piece, style));
+  }
+  return runs;
+}
+
 function paragraphsFromText(text: string): Paragraph[] {
   const out: Paragraph[] = [];
   for (const raw of text.split("\n")) {
     const line = raw.trim();
     if (!line) continue;
 
-    const heading = /^\d+\.\s+[A-Z][A-Z0-9 ,;'&\-/()]{2,}$/.test(line) || /^[A-Z][A-Z0-9 ,;'&\-/()]{4,}$/.test(line);
-    const lettered = /^\([a-z0-9ivx]+\)\s/.test(line);
+    const bare = line.replace(/\*\*/g, "");
+    const heading = /^\d+\.\s+[A-Z][A-Z0-9 ,;'&\-/()]{2,}$/.test(bare) || /^[A-Z][A-Z0-9 ,;'&\-/()]{4,}$/.test(bare);
+    const lettered = /^\([a-z0-9ivx]+\)\s/.test(bare);
 
     if (heading) {
       out.push(
         new Paragraph({
           spacing: { before: S.SECTION.before, after: S.SECTION.after, ...single(S.SECTION.line) },
-          children: [run(line, { b: true, size: bodySize() })],
+          children: runsFromMarks(line.replace(/\*\*/g, ""), { b: true, size: bodySize() }),
         }),
       );
     } else if (lettered) {
@@ -318,11 +331,11 @@ function paragraphsFromText(text: string): Paragraph[] {
           spacing: { after: S.SUBCLAUSE.after, ...single(S.BODY_LINE) },
           indent: { left: S.SUBCLAUSE.left, hanging: S.SUBCLAUSE.hanging },
           tabStops: [{ type: TabStopType.LEFT, position: S.SUBCLAUSE.left }],
-          children: [run(`${num}\t`), run(body)],
+          children: [run(`${num}\t`), ...runsFromMarks(body)],
         }),
       );
     } else {
-      out.push(new Paragraph({ spacing: { after: S.PARA_AFTER, ...single(S.BODY_LINE) }, children: [run(line)] }));
+      out.push(new Paragraph({ spacing: { after: S.PARA_AFTER, ...single(S.BODY_LINE) }, children: runsFromMarks(line) }));
     }
   }
   return out;

@@ -208,6 +208,22 @@ export async function loadDocTypes(): Promise<CatalogueResult> {
       }),
     );
 
+    /* ── AND THE LESSONS ──────────────────────────────────────────────────
+       Feedback the firm turned into rules (045). Missing RPC: none. */
+    await Promise.all(
+      docTypes.map(async (docType) => {
+        const { data: rows, error: lErr } = await supabase.rpc("lessons_for", { p_slug: docType.slug });
+        if (lErr) {
+          if (!/lessons_for/.test(lErr.message)) {
+            console.error(`[doctypes] could not read the lessons for "${docType.slug}":`, lErr.message);
+          }
+          return;
+        }
+        const lessons = ((rows ?? []) as { rule: string }[]).map((r) => r.rule.trim()).filter(Boolean);
+        if (lessons.length > 0) docType.lessons = lessons;
+      }),
+    );
+
     return { docTypes, source: "database" };
   } catch (err) {
     console.error("[doctypes] falling back to built-in catalogue:", err);

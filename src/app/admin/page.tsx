@@ -9,6 +9,8 @@ import FilterSelect from "./FilterSelect";
 import AiFiles from "./AiFiles";
 import Questions, { type DocTypeForEditor, type FieldRow, type GroupRow } from "./Questions";
 import Playbook, { type PlaybookInitial } from "./Playbook";
+import Feedback, { type FeedbackInitial } from "./Feedback";
+import { FEEDBACK_COLUMNS, LESSON_COLUMNS } from "@/lib/feedback";
 import { PLAYBOOK_COLUMNS } from "@/lib/playbook";
 import PeriodSelect from "./PeriodSelect";
 import InviteButton from "./InviteButton";
@@ -395,6 +397,7 @@ export default async function AdminPage({
   let rankingMissing = false;
   let stepsMissing = false;
   let playbook: PlaybookInitial = { scope: "*", live: null, versions: [], missing: false };
+  let feedbackInitial: FeedbackInitial = { feedback: [], lessons: [], missing: false };
   if (tab === "ai-files") {
     const BASE_COLS =
       "id,folder_id,doc_type_slug,title,filename,file_ext,jurisdiction,version,privacy,privacy_flags,status,permitted,note,bytes,uploaded_by_email,reviewed_at,approved_at,created_at,updated_at";
@@ -461,6 +464,17 @@ export default async function AdminPage({
       missing: Boolean(pbVersions.error && /playbooks/.test(pbVersions.error.message)),
       live: (pbLive.data as PlaybookInitial["live"]) ?? null,
       versions: (pbVersions.data as PlaybookInitial["versions"] | null) ?? [],
+    };
+
+    /* Feedback and lessons (045), for the panel beneath the playbook. */
+    const [fb, ls] = await Promise.all([
+      supabase.from("draft_feedback").select(FEEDBACK_COLUMNS).order("created_at", { ascending: false }).limit(200),
+      supabase.from("playbook_lessons").select(LESSON_COLUMNS).order("created_at", { ascending: false }).limit(500),
+    ]);
+    feedbackInitial = {
+      feedback: (fb.data as FeedbackInitial["feedback"] | null) ?? [],
+      lessons: (ls.data as FeedbackInitial["lessons"] | null) ?? [],
+      missing: Boolean(fb.error && /draft_feedback/.test(fb.error.message)),
     };
   }
 
@@ -1563,6 +1577,8 @@ export default async function AdminPage({
                 />
                 {/* Rules, beneath the samples they override. */}
                 <Playbook docTypes={catalogue.map((d) => ({ slug: d.slug, label: d.label }))} initial={playbook} />
+                {/* What the lawyers said about drafts, and the rules made from it. */}
+                <Feedback docTypes={catalogue.map((d) => ({ slug: d.slug, label: d.label }))} initial={feedbackInitial} />
                 {stepsMissing && !libraryMissing && (
                   <div className="setup-note">
                     <strong>Save-as-draft and step order are not switched on yet.</strong> Run{" "}
