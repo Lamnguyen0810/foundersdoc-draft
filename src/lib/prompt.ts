@@ -175,7 +175,9 @@ export function lessonsBlock(docType: DocType): string | null {
     "LESSONS FROM REVIEW",
     "The firm's lawyers reviewed earlier drafts and asked for these changes.",
     "Each is a rule with the same authority as the playbook; where a lesson",
-    "and the playbook differ, the lesson is the later word and wins.",
+    "and the playbook differ, the lesson is the later word and wins. They are",
+    "in the order they were given: where two lessons differ, the later",
+    "(higher-numbered) one is the firm's current position and wins.",
     "",
     ...lessons.map((l, i) => `${i + 1}. ${l}`),
   ].join("\n");
