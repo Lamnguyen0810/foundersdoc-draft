@@ -59,8 +59,20 @@ const SITE_PAGES = [
  */
 const PUBLIC_PREFIXES = ["/resources"];
 
+/**
+ * The drafting screen itself, and only itself.
+ *
+ * Anybody may open /draft, pick a document and answer the questions — the
+ * account is asked for at Generate, not at the door (see DraftChat's guest
+ * notes). Everything underneath stays gated: /draft/<id> is somebody's
+ * document, and the API routes that spend credits check for a user
+ * themselves. Exact match, so a trailing path never inherits the exception.
+ */
+const OPEN_DOOR = "/draft";
+
 function isPublic(pathname: string): boolean {
   const path = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  if (path === OPEN_DOOR) return true;
   if (SITE_PAGES.includes(path)) return true;
   if (PUBLIC_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`))) return true;
   // The rewrite target, in case anyone reaches the file directly.

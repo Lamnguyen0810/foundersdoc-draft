@@ -254,6 +254,58 @@ export interface DraftStash {
   version: number;
   detail: number;
   skipped: string[];
+  /** Written by a visitor without an account at the moment they pressed
+   *  Generate or attach. See "THE GUEST'S DRAFT" below. */
+  handoff?: boolean;
+  /** Generate was what they pressed; do it for them once they are in. */
+  pendingGenerate?: boolean;
+}
+
+/* ── THE GUEST'S DRAFT ───────────────────────────────────────────────────────
+   Anybody may open /draft and answer the questions; the account is asked for
+   at Generate. The answers must survive the sign-up, and sign-up leaves this
+   tab: Google goes to accounts.google.com and back (same tab), an email
+   confirmation link opens wherever the mail client opens it (often a new
+   tab). Session storage does not cross tabs, so at the moment of the gate
+   the stash is ALSO copied to local storage, marked as a hand-off.
+
+   Whoever signs in next on this browser inherits it — a deliberate exception
+   to "a stash belongs to a person": the person who wrote it had no account to
+   own it with, and pressed a button whose whole meaning was "keep this and
+   let me in". It is short-lived (an hour) and removed on first use, so the
+   window in which a second person on the same machine could inherit it is
+   the window in which the first is still standing at the sign-up screen. */
+const HANDOFF_KEY = "fdai.draft-handoff";
+const HANDOFF_MAX_AGE_MS = 60 * 60 * 1000;
+
+function readHandoff(): DraftStash | null {
+  try {
+    const raw = window.localStorage.getItem(HANDOFF_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DraftStash;
+    if (parsed?.v !== STASH_VERSION || !parsed.slug) return null;
+    if (Date.now() - (parsed.at ?? 0) > HANDOFF_MAX_AGE_MS) return null;
+    return { ...parsed, handoff: true };
+  } catch {
+    return null;
+  }
+}
+
+function writeHandoff(stash: DraftStash): void {
+  try {
+    window.localStorage.setItem(HANDOFF_KEY, JSON.stringify({ ...stash, handoff: true }));
+  } catch {
+    /* Storage refused: the sign-up still happens, only the answers do not
+       follow. Better than refusing the sign-up. */
+  }
+}
+
+export function clearHandoff(): void {
+  try {
+    window.localStorage.removeItem(HANDOFF_KEY);
+  } catch {
+    /* nothing to forget */
+  }
 }
 
 /* Read once per page load and held, so the value cannot change underneath a
@@ -265,6 +317,17 @@ let stashRead = false;
 function readStash(): DraftStash | null {
   if (stashRead) return stashOnce;
   stashRead = true;
+  /* A hand-off first — see THE GUEST'S DRAFT. It is newer than anything this
+     tab holds (written at the moment of the gate, from the same conversation)
+     and it is the only copy that knows Generate was pressed. In the tab that
+     did the signing up, the session stash still says "anon" and would be
+     refused as somebody else's; in a fresh tab there is no session stash at
+     all. Either way the hand-off is the one to read. */
+  const handedOff = readHandoff();
+  if (handedOff) {
+    stashOnce = handedOff;
+    return stashOnce;
+  }
   try {
     const raw = window.sessionStorage.getItem(STASH_KEY);
     if (!raw) return null;
@@ -496,6 +559,7 @@ export default function DraftChat({
   docTypes,
   presetSlug,
   userEmail,
+  guest = false,
   recent,
   wallet,
   isAdmin = false,
@@ -505,6 +569,9 @@ export default function DraftChat({
   docTypes: DocType[];
   presetSlug?: string;
   userEmail?: string | null;
+  /** Accounts exist and this visitor has none. The questions are open to
+   *  them; Generate and attach send them to sign up with their answers. */
+  guest?: boolean;
   recent?: RecentDraft[];
   wallet?: WalletView | null;
   isAdmin?: boolean;
@@ -550,8 +617,16 @@ export default function DraftChat({
      is a prop of this screen and not something module-level storage code can
      know. A stash belonging to somebody else is treated exactly as no stash:
      the catalogue, as a new account should see it. */
-  const stash = found && found.who === stashOwner(userEmail) ? found : null;
+  const stash =
+    found && (found.who === stashOwner(userEmail) || found.handoff) ? found : null;
   const notMine = Boolean(found) && !stash;
+
+  /* A hand-off, once read, is spent: the next person to sign in on this
+     browser must not inherit it too. The tab's own stash writer takes over
+     from here, under the signed-in owner's name. */
+  useEffect(() => {
+    if (found?.handoff && !guest) clearHandoff();
+  }, [found, guest]);
 
   /* Somebody else's conversation, still sitting in this tab's storage. It is
      already not being shown; this takes it out of the browser as well, so it
@@ -681,6 +756,7 @@ export default function DraftChat({
           <Catalogue
             liveSlugs={liveSlugs}
             isAdmin={isAdmin}
+            guest={guest}
             wallet={live}
             onPick={(slug) => {
               const d = docTypes.find((x) => x.slug === slug);
@@ -705,6 +781,7 @@ export default function DraftChat({
             resume={resumeType && resume ? resume : null}
             restore={stashType && stashType.slug === chosen.slug ? stash : null}
             isAdmin={isAdmin}
+            guest={guest}
             onCreditSpent={spendCredit}
             onChangeDocument={() => {
               /* Choosing a different document abandons this one — leaving the
@@ -824,11 +901,13 @@ function FileIcon() {
 function Catalogue({
   liveSlugs,
   isAdmin,
+  guest = false,
   wallet,
   onPick,
 }: {
   liveSlugs: Set<string>;
   isAdmin: boolean;
+  guest?: boolean;
   wallet: WalletView | null;
   onPick: (slug: string) => void;
 }) {
@@ -984,6 +1063,10 @@ function Catalogue({
               </a>
             </div>
           )}
+
+          {/* A visitor with no account, where the credits card would be. The
+              same promise the sign-up screen makes, one screen earlier. */}
+          {guest && <GuestBlock where="catalogue" />}
 
           {/* Admins only, and only ever rendered for them: the button is not
               hidden with CSS, it is absent from the HTML a normal user
@@ -1278,6 +1361,34 @@ function DraftName({
 
 /* ════════════════════════════════════════════════════════════════ chat */
 
+/**
+ * What stands where the account block would, for a visitor with none.
+ *
+ * Two doors and one promise. The promise matters more than the doors: a
+ * person who has answered six questions and is now told to sign up will
+ * assume their answers are gone. They are not — see THE GUEST'S DRAFT — and
+ * the block says so before they have to wonder.
+ */
+function GuestBlock({ where }: { where: "rail" | "catalogue" }) {
+  return (
+    <div className={`guest-block guest-${where}`}>
+      <b>No account needed to start</b>
+      <p>
+        Answer the questions now. Create a free account when you press Generate — your
+        answers come with you.
+      </p>
+      <div className="guest-actions">
+        <a className="guest-signup" href="/signup?from=draft">
+          Sign up for free
+        </a>
+        <a className="guest-login" href="/login?next=%2Fdraft&from=draft">
+          Log in
+        </a>
+      </div>
+    </div>
+  );
+}
+
 function Chat({
   docType,
   userEmail,
@@ -1287,6 +1398,7 @@ function Chat({
   resume,
   restore,
   isAdmin = false,
+  guest = false,
   onCreditSpent,
   onChangeDocument,
 }: {
@@ -1301,6 +1413,8 @@ function Chat({
   /** Whether to offer the admin dashboard at the foot of the rail. The page
    *  behind it checks again on the server; the button is a courtesy. */
   isAdmin?: boolean;
+  /** No account. Questions open; Generate and attach go to sign-up. */
+  guest?: boolean;
   onCreditSpent: (creditsLeft: number | null) => void;
   onChangeDocument: () => void;
 }) {
@@ -1518,33 +1632,41 @@ function Chat({
 
      Debounced, because `answers` changes on every keystroke and there is no
      sense serialising the whole conversation forty times a second. */
+  /** The conversation as it stands, in the shape storage keeps it. */
+  function snapshot(): DraftStash {
+    return {
+      v: STASH_VERSION,
+      at: Date.now(),
+      who: stashOwner(userEmail),
+      slug: docType.slug,
+      answers,
+      status,
+      i,
+      msgs,
+      name,
+      sourceText,
+      attachments,
+      output,
+      draftId,
+      view,
+      docOpen,
+      follow,
+      versions: documentVersions,
+      version: documentVersion,
+      detail: ndaDetailLevel,
+      skipped: skippedLabels,
+    };
+  }
+
   useEffect(() => {
     if (resume) return;
     const write = setTimeout(() => {
-      writeStash({
-        v: STASH_VERSION,
-        at: Date.now(),
-        who: stashOwner(userEmail),
-        slug: docType.slug,
-        answers,
-        status,
-        i,
-        msgs,
-        name,
-        sourceText,
-        attachments,
-        output,
-        draftId,
-        view,
-        docOpen,
-        follow,
-        versions: documentVersions,
-        version: documentVersion,
-        detail: ndaDetailLevel,
-        skipped: skippedLabels,
-      });
+      writeStash(snapshot());
     }, 400);
     return () => clearTimeout(write);
+    /* snapshot() reads exactly the values listed below; listing it too would
+       re-run this on every render, since it is a new function each time. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     resume,
     userEmail,
@@ -1760,6 +1882,13 @@ function Chat({
   }
 
   async function upload(file: File) {
+    /* Reading a file is a server call that spends nothing but needs a session
+       (the middleware gates /api/extract). A visitor is sent to sign up first;
+       their answers so far go with them. */
+    if (guest) {
+      gateToSignUp("upload");
+      return;
+    }
     setUploading(true);
     setError(null);
     try {
@@ -1793,7 +1922,45 @@ function Chat({
     }
   }
 
+  /**
+   * The moment a visitor becomes a customer — or is asked to.
+   *
+   * Their whole conversation goes into the hand-off, they go to sign-up, and
+   * when they come back (any tab, within the hour) the screen restores it and
+   * — if Generate was what they pressed — presses it for them. Nothing they
+   * typed is sent anywhere by this: the hand-off lives in their own browser.
+   */
+  function gateToSignUp(reason: "generate" | "upload") {
+    writeHandoff({
+      ...snapshot(),
+      handoff: true,
+      pendingGenerate: reason === "generate",
+    });
+    track("signup_gate", { doc_type: docType.slug, reason, step: i + 1 });
+    window.location.assign(new URL("/signup?from=draft", window.location.origin).href);
+  }
+
+  /* The answer to "you were about to generate when you signed up": do it,
+     once, on the first paint after the hand-off has been restored. The ref
+     stops StrictMode's double-run from spending two credits. */
+  const resumedGenerateRef = useRef(false);
+  useEffect(() => {
+    if (guest || !restore?.pendingGenerate || resumedGenerateRef.current) return;
+    resumedGenerateRef.current = true;
+    const t = setTimeout(() => void generate(), 300);
+    return () => clearTimeout(t);
+    // generate is stable for the lifetime of this mount; restore is read once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function generate() {
+    /* No account: the questions were free, the draft is where the account
+       is asked for. Everything typed so far goes with them. */
+    if (guest) {
+      gateToSignUp("generate");
+      return;
+    }
+
     /* One generation at a time, enforced with a ref rather than the `busy`
        state. The buttons are disabled on `busy`, but React applies state
        asynchronously, so two clicks landing in the same tick both see the old
@@ -2995,10 +3162,14 @@ function Chat({
               Admin dashboard
             </a>
           )}
+          {/* No account yet: the account chip's place says so, and offers the
+              two doors. The questions above it work regardless. */}
+          {guest && <GuestBlock where="rail" />}
           {/* The same account menu as the one in the nav. Two places show who
               is signed in, so both must do the same thing when clicked —
               a chip that looks like a button and does nothing is worse than
               no chip at all. */}
+          {!guest && (
           <div className={`acct-wrap${acctOpen ? " on" : ""}`}>
             {acctOpen && (
               <div className="acct-menu" onClick={() => setAcctOpen(false)}>
@@ -3031,6 +3202,7 @@ function Chat({
               </span>
             </button>
           </div>
+          )}
         </div>
       </aside>
 

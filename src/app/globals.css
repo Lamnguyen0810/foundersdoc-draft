@@ -439,6 +439,22 @@ html[data-theme="dark"] .logo .logo-dark {
   gap: 8px;
   margin-left: 8px;
 }
+/* "Log in", a plain word next to the button, for a visitor who already has an
+   account. The button beside it is the door for everybody else. */
+.nav-login {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tx);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.nav-login:hover { text-decoration: underline; }
+@media (max-width: 560px) {
+  .nav-login { display: none; }
+}
 
 /* theme toggle */
 .theme {
@@ -3461,3 +3477,37 @@ html[data-theme=dark]{
 .rail .rail-admin span{width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
 .rail .rail-admin:hover{background:rgba(243,191,75,.12);color:#fff}
 .rail .rail-admin:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+/* ── THE GUEST BLOCK ────────────────────────────────────────────────────────
+   Where the account chip sits for somebody with an account. One promise (your
+   answers come with you), two doors. In the rail it is on the dark ground with
+   the gold outline of the admin door; in the catalogue it is on paper, where
+   the credits card would be. */
+.guest-block{display:grid;gap:8px}
+.guest-block b{font-size:13px;font-weight:600}
+.guest-block p{margin:0;font-size:12.5px;line-height:1.45}
+.guest-actions{display:grid;gap:6px}
+.guest-actions a{
+  display:block;text-align:center;text-decoration:none;
+  padding:8px 12px;border-radius:10px;
+  font-size:13px;font-weight:600;
+}
+.rail .guest-block{margin:0;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#fff}
+.rail .guest-block p{color:rgba(255,255,255,.66)}
+.rail .guest-signup{background:var(--gold);color:#141414}
+.rail .guest-signup:hover{background:#ffd066}
+.rail .guest-login{border:1px solid rgba(255,255,255,.22);color:#fff}
+.rail .guest-login:hover{background:rgba(255,255,255,.08)}
+.rail .guest-actions a:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.guest-catalogue{
+  align-self:start;max-width:360px;
+  padding:16px 18px;border-radius:14px;
+  border:1px solid var(--rule-2);background:var(--bg-2, var(--bg));
+}
+.guest-catalogue b{font-size:14px}
+.guest-catalogue p{color:var(--grey-5)}
+.guest-catalogue .guest-actions{grid-template-columns:1fr 1fr;margin-top:4px}
+.guest-catalogue .guest-signup{background:var(--black);color:#fff}
+.guest-catalogue .guest-signup:hover{background:#333}
+.guest-catalogue .guest-login{border:1px solid var(--rule-2);color:var(--tx)}
+.guest-catalogue .guest-login:hover{background:var(--grey-1, rgba(0,0,0,.04))}

@@ -40,7 +40,17 @@ export const dynamic = "force-dynamic";
  * catalogue, because a visitor clicking a link on the sign-in card should feel
  * they have moved one step sideways, not landed somewhere else.
  */
-export default async function SignupPage() {
+export default async function SignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string }>;
+}) {
+  /* `from=draft`: they were mid-conversation on /draft and pressed Generate.
+     Their answers are waiting in their browser (see THE GUEST'S DRAFT in
+     DraftChat); this screen's job is to say so, because a person who has just
+     answered eight questions and is now looking at a sign-up form will
+     otherwise assume the answers are gone. */
+  const fromDraft = (await searchParams).from === "draft";
   const url = supabaseUrl();
   const key = supabasePublishableKey();
   if (!url || !key) redirect("/login");
@@ -57,9 +67,17 @@ export default async function SignupPage() {
 
       <div className="login-modal" role="dialog" aria-modal="true" aria-labelledby="signup-title">
         <p className="kicker">FD AI</p>
-        <h1 id="signup-title">{open ? "Start drafting free" : "New accounts are paused"}</h1>
+        <h1 id="signup-title">
+          {open ? (fromDraft ? "One step before your draft" : "Start drafting free") : "New accounts are paused"}
+        </h1>
         <p className="sub">
-          {open ? (
+          {open && fromDraft ? (
+            <>
+              Your answers are saved. Create a free account and your draft generates straight
+              away — {TRIAL.credits} documents over the next {TRIAL.days} days, no card, no
+              obligation.
+            </>
+          ) : open ? (
             <>
               Your account opens with {TRIAL.credits} documents to use over the next {TRIAL.days}{" "}
               days. No card, no obligation.
@@ -80,7 +98,8 @@ export default async function SignupPage() {
         </p>
 
         <p className="login-note" style={{ borderTop: "none", paddingTop: 0, marginTop: 10 }}>
-          Already have an account? <Link href="/login">Sign in</Link>.
+          Already have an account?{" "}
+          <Link href={fromDraft ? "/login?next=%2Fdraft&from=draft" : "/login"}>Sign in</Link>.
         </p>
       </div>
     </div>
