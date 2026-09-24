@@ -25,6 +25,8 @@ interface DocTypeRow {
   groups: Group[] | null;
   system_prompt: string;
   examples: { title: string; text: string }[] | null;
+  /** 'chat' or 'assembly' (048). Absent before that migration. */
+  engine?: string | null;
 }
 
 /**
@@ -113,6 +115,7 @@ function fromRow(row: DocTypeRow): DocType {
     groups: groups.length > 0 ? groups : undefined,
     systemPrompt,
     examples: rowExamples.length > 0 ? rowExamples : (EXAMPLES_BY_SLUG[row.slug] ?? []),
+    engine: row.engine === "assembly" ? "assembly" : "chat",
   };
 }
 
@@ -133,9 +136,17 @@ export async function loadDocTypes(): Promise<CatalogueResult> {
        first-appearance order, exactly as before. */
     let res: { data: DocTypeRow[] | null; error: { message: string } | null } = await supabase
       .from("doc_types")
-      .select("slug,label,description,fields,groups,system_prompt,examples")
+      .select("slug,label,description,fields,groups,system_prompt,examples,engine")
       .eq("is_active", true)
       .order("label");
+    /* `engine` arrives with 048. Before it, every type is drafted by chat. */
+    if (res.error && /engine/.test(res.error.message)) {
+      res = await supabase
+        .from("doc_types")
+        .select("slug,label,description,fields,groups,system_prompt,examples")
+        .eq("is_active", true)
+        .order("label");
+    }
     if (res.error && /groups/.test(res.error.message)) {
       const bare = await supabase
         .from("doc_types")
@@ -260,6 +271,7 @@ export function forTheBrowser(docTypes: DocType[]): {
       groups: d.groups,
       systemPrompt: "",
       examples: [],
+      engine: d.engine,
     })),
     looks: Object.fromEntries(
       docTypes.map((d) => {

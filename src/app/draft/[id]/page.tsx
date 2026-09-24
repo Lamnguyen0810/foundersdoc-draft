@@ -5,7 +5,9 @@ import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { getWallet } from "@/lib/billing/credits";
 import { nameFromAnswers } from "@/lib/draft-name";
 import DraftChat, { type ResumeDraft } from "../DraftChat";
+import TermSheet, { type TermResume } from "../TermSheet";
 import { recentDrafts } from "../recent";
+import type { DraftStatus, Flag } from "@/lib/termsheet/types";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Draft — FD AI" };
@@ -35,6 +37,9 @@ interface Row {
   title: string | null;
   created_at: string;
   doc_types: { slug: string } | null;
+  /** 048: the playbook's flags and the lawyer's note. Absent before it. */
+  flags?: Flag[] | null;
+  review_note?: string | null;
 }
 
 interface VersionRow {
@@ -50,14 +55,27 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
   const { id } = await params;
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("drafts")
-    .select("id,answers,source_text,output,output_html,status,title,created_at,doc_types(slug)")
-    .eq("id", id)
-    /* A deleted draft is not found, even during its thirty days: it is in the
-       wastebasket on the settings page, and that is the only way back to it. */
-    .is("deleted_at", null)
-    .maybeSingle();
+  let data: unknown = (
+    await supabase
+      .from("drafts")
+      .select("id,answers,source_text,output,output_html,status,title,created_at,flags,review_note,doc_types(slug)")
+      .eq("id", id)
+      /* A deleted draft is not found, even during its thirty days: it is in the
+         wastebasket on the settings page, and that is the only way back to it. */
+      .is("deleted_at", null)
+      .maybeSingle()
+  ).data;
+  if (!data) {
+    /* Before 048 there are no flags to read; the same row without them. */
+    data = (
+      await supabase
+        .from("drafts")
+        .select("id,answers,source_text,output,output_html,status,title,created_at,doc_types(slug)")
+        .eq("id", id)
+        .is("deleted_at", null)
+        .maybeSingle()
+    ).data;
+  }
 
   // RLS means another user's draft simply returns nothing — which is exactly the
   // behaviour we want: not found, not "forbidden".
@@ -88,6 +106,33 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
   ]);
 
   const answers = row.answers ?? {};
+
+  /* A term sheet reopens on its own screen, with the letter as it was saved. */
+  if (docType.engine === "assembly") {
+    const saved = (answers ?? {}) as Record<string, unknown>;
+    const termResume: TermResume = {
+      id: row.id,
+      title: (row.title ?? "").trim() || "Term Sheet",
+      answers: saved,
+      output: row.output ?? "",
+      outputHtml: row.output_html,
+      status: (["draft", "final", "held", "stopped"].includes(row.status) ? row.status : "draft") as DraftStatus,
+      flags: Array.isArray(row.flags) ? row.flags : [],
+      reviewNote: row.review_note ?? null,
+      createdAt: row.created_at,
+    };
+    return (
+      <TermSheet
+        look={looks[docType.slug]}
+        userEmail={user?.email ?? null}
+        guest={false}
+        wallet={Number.isFinite(wallet.credits) ? { credits: wallet.credits, inTrial: wallet.inTrial, trialEndsAt: wallet.trialEndsAt } : null}
+        isAdmin={admin}
+        company={null}
+        resume={termResume}
+      />
+    );
+  }
 
   const resume: ResumeDraft = {
     id: row.id,

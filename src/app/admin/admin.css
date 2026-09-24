@@ -317,3 +317,15 @@ html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 .fdadmin .feedback-origin b { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
 .fdadmin .feedback-origin p { margin: 4px 0 0; white-space: pre-wrap; }
 @media (max-width: 900px) { .fdadmin .feedback-grid { grid-template-columns: 1fr; } }
+
+/* ── Review queue (term sheets held or stopped by the playbook) ──────────── */
+.fdadmin .review-flags { margin: 6px 0 4px; padding-left: 18px; font-size: 12px; line-height: 1.5; color: var(--ink); display: grid; gap: 3px; }
+.fdadmin .review-flags b { font-weight: 600; margin-right: 4px; }
+.fdadmin .review-open { margin-top: 8px; display: grid; gap: 8px; }
+.fdadmin .review-letter { max-height: 60vh; overflow: auto; padding: 24px 28px; border: 1px solid var(--line); border-radius: 10px; background: #fff; font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; line-height: 1.4; color: #1f1f1f; }
+.fdadmin .review-letter p { margin: 0 0 8pt; }
+.fdadmin .review-letter .doc-section { font-weight: 700; margin-top: 12pt; }
+.fdadmin .review-letter .doc-structured { display: grid; grid-template-columns: 3em 1fr; }
+.fdadmin .review-letter .doc-subclause { margin-left: 3em; }
+.fdadmin .review-letter .placeholder::before { content: "________"; text-decoration: underline; }
+.fdadmin .review-open textarea { width: 100%; font: inherit; font-size: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }

@@ -3,8 +3,9 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getUser, isAdmin } from "@/lib/supabase/server";
 import { getWallet } from "@/lib/billing/credits";
 import DraftChat from "./DraftChat";
+import TermSheet from "./TermSheet";
 import { recentDrafts } from "./recent";
-import { loadPrefill } from "@/lib/settings.server";
+import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
 
 /* The one screen in the app Google is welcome to read: a visitor can open it
    without an account, so it is what a search for "draft an NDA online" should
@@ -41,6 +42,25 @@ export default async function DraftPage({
     isSupabaseConfigured() ? loadPrefill() : Promise.resolve(null),
   ]);
   const guest = isSupabaseConfigured() && !user;
+
+  /* An assembled document — the term sheet — has a screen of its own. The
+     catalogue is DraftChat's; a pick there hard-navigates here with the
+     slug, and this is where the branch happens. */
+  const preset = docTypes.find((d) => d.slug === presetSlug);
+  if (preset?.engine === "assembly") {
+    const company = isSupabaseConfigured() && user ? await loadCompanyProfile() : null;
+    return (
+      <TermSheet
+        look={looks[preset.slug]}
+        userEmail={user?.email ?? null}
+        guest={guest}
+        wallet={!guest && wallet && Number.isFinite(wallet.credits) ? { credits: wallet.credits, inTrial: wallet.inTrial, trialEndsAt: wallet.trialEndsAt } : null}
+        isAdmin={admin}
+        company={company}
+      />
+    );
+  }
+
   /* A visitor has no wallet. credit_balance() answers 0 for nobody, which
      the screen would show as "0 credits — Add credits": a paywall for a
      person who has not been asked to pay, in the place the sign-up block

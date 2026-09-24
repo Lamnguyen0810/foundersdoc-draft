@@ -77,7 +77,13 @@ const CATALOGUE: CatFolder[] = [
     "Fundraising",
     [
       ["safe", "SAFE Note", "Raise early money with a simple agreement", false, "fundraising seed investment convertible"],
-      ["term", "Term Sheet", "Key terms for a funding round", false, "fundraising round investors valuation"],
+      [
+        "term",
+        "Term Sheet",
+        "Investment, loan, acquisition or partnership — the key terms before the full agreements",
+        true,
+        "fundraising round investors valuation loan acquisition heads of terms letter of intent mou",
+      ],
     ],
   ],
 ];
@@ -607,6 +613,21 @@ export default function DraftChat({
     track("ai_opened");
   }, []);
 
+  /* A visitor who was mid-way through a TERM SHEET when they signed up comes
+     back here, to the catalogue, because that is where sign-up returns
+     everyone. Their answers are waiting under the term sheet's own key; the
+     term sheet's screen is the one that knows how to read them. */
+  useEffect(() => {
+    if (guest || resume || presetSlug) return;
+    try {
+      const raw = window.localStorage.getItem("fdai.term-handoff");
+      const term = docTypes.find((d) => d.engine === "assembly");
+      if (raw && term) window.location.replace(`/draft?type=${term.slug}`);
+    } catch {
+      /* nothing to restore */
+    }
+  }, [guest, resume, presetSlug, docTypes]);
+
   /* A reopened draft goes straight to its conversation: the catalogue is for
      choosing what to draft, and that choice was made weeks ago. */
   const resumeType = resume ? (docTypes.find((d) => d.slug === resume.docTypeSlug) ?? null) : null;
@@ -767,6 +788,12 @@ export default function DraftChat({
               if (!d) return;
               clearStash();
               track("doc_selected", { doc_type: d.slug });
+              /* An assembled document (the term sheet) has its own screen,
+                 served by the page for its slug — not this conversation. */
+              if (d.engine === "assembly") {
+                window.location.assign(`/draft?type=${d.slug}`);
+                return;
+              }
               openDocument(d);
             }}
           />

@@ -77,6 +77,11 @@ export interface DocType {
   /** Corrections the firm made to earlier drafts, as rules (supabase/045).
    *  Read after the playbook, with the same authority. */
   lessons?: string[];
+  /** How this document is made (supabase/048). "chat": a model drafts it
+   *  from the playbook and samples — the NDA. "assembly": the answers are
+   *  put into the firm's master by rule and the model drafts named fields
+   *  only — the term sheet. Absent means "chat". */
+  engine?: "chat" | "assembly";
 }
 
 /** Worked examples, keyed by doc type slug. Swap these for the firm's own sanitised

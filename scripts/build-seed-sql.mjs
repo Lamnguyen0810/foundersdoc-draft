@@ -22,7 +22,9 @@ function q(value) {
   return `${TAG}${s}${TAG}`;
 }
 
-const rows = DOC_TYPE_DATA.map(
+/* An assembled type (the term sheet) is seeded by its own migration (048),
+   which also adds the `engine` column this row needs. */
+const rows = DOC_TYPE_DATA.filter((d) => d.engine !== "assembly").map(
   (d) => `insert into public.doc_types (slug, label, description, fields, system_prompt, examples)
 values (
   ${q(d.slug)},
@@ -58,4 +60,4 @@ const header = `-- =============================================================
 
 const out = path.join(process.cwd(), "supabase/002_seed_doctypes.sql");
 fs.writeFileSync(out, header + rows + "\n");
-console.log(`wrote ${out} (${DOC_TYPE_DATA.length} doc type(s))`);
+console.log(`wrote ${out} (${DOC_TYPE_DATA.filter((d) => d.engine !== "assembly").length} doc type(s))`);
