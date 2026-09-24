@@ -1,0 +1,1485 @@
+"use client";
+
+/**
+ * The term sheet screen.
+ *
+ * A sibling of DraftChat, not a mode of it: the NDA is a conversation that
+ * ends in a model writing a document, and this is a questionnaire that ends
+ * in a letter assembled from the firm's master. The two share the page's
+ * skeleton — the rail, the conversation, the progress pane, the document
+ * beside it — and the same document editor and Word export, so that a
+ * person who has drafted an NDA finds nothing new to learn here.
+ *
+ * What is different, and why:
+ *   - the questions branch (questionnaire.json's show_if), so the list of
+ *     steps is recomputed from the answers on every change;
+ *   - there is a Parties step, because the master needs full legal names,
+ *     numbers and addresses, which the NDA flow never asked for;
+ *   - the letter appears at once with the AI's few lines beside it for the
+ *     person to confirm (playbook §1.10), rather than a stream of text;
+ *   - a draft the playbook flags is HELD: on screen, but not for download
+ *     until a lawyer releases it (§8).
+ */
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import DocumentEditor from "./DocumentEditor";
+import { track } from "@/lib/track";
+import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
+import { applyDefaults, questionsFor, rolesFor, type Answers, type Option, type Question } from "@/lib/termsheet/conditions";
+import { COUNTRIES, STATES, TOP_COUNTRIES } from "@/lib/termsheet/data/map";
+import { INTRO } from "@/lib/termsheet/data/intro";
+import { DOCUMENT_TITLES } from "@/lib/termsheet/data/master";
+import { normaliseMoney } from "@/lib/termsheet/format";
+import type { AiFields, DraftStatus, Flag, KeyTerm, Party } from "@/lib/termsheet/types";
+
+/* ── what the page hands in ───────────────────────────────────────────── */
+
+export interface TermResume {
+  id: string;
+  title: string;
+  answers: Record<string, unknown>;
+  output: string;
+  outputHtml: string | null;
+  status: DraftStatus;
+  flags: Flag[];
+  reviewNote: string | null;
+  createdAt: string;
+}
+
+export interface CompanyPrefill {
+  name: string;
+  uen: string;
+  address: string;
+  contact: string;
+  country: string;
+}
+
+export interface TermSheetProps {
+  look?: DocumentLook;
+  userEmail: string | null;
+  guest: boolean;
+  wallet: { credits: number; inTrial: boolean; trialEndsAt: string | null } | null;
+  isAdmin: boolean;
+  company: CompanyPrefill | null;
+  resume?: TermResume;
+}
+
+type Stage = "intro" | "questions" | "review" | "drafted";
+
+/** A step is a question, or the parties. */
+type Step = { kind: "q"; q: Question } | { kind: "parties" };
+
+const PARTIES_AFTER = "Q2";
+const HANDOFF_KEY = "fdai.term-handoff";
+const STASH_KEY = "fdai.term-in-progress";
+
+const ENTITY_TYPES = [
+  "private company limited by shares",
+  "private limited company",
+  "public company limited by shares",
+  "limited liability company",
+  "corporation",
+  "limited liability partnership",
+  "partnership",
+  "sole proprietorship",
+];
+
+const ID_TYPES = ["NRIC", "passport", "FIN", "national ID card"];
+
+const emptyParty = (kind: Party["kind"] = "company"): Party => ({ kind, name: "", address: "" });
+
+const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+/** The label shown for an answer, for the conversation and the summary. */
+function answerLabel(q: Question, a: Answers): string {
+  const v = a[q.id];
+  if (v === undefined || v === null || v === "") return "";
+  const label = (x: string) => q.options.find((o) => o.value === x)?.label ?? x;
+  let text = Array.isArray(v) ? v.filter((x) => x !== "other").map((x) => label(String(x))).join(", ") : label(String(v));
+  if (text === "other") text = "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) text = `by ${text}`;
+  const extras = [a[`${q.id}_other`], a[`${q.id}_detail`], a[`${q.id}_amount`]].map(str).filter(Boolean);
+  if (q.id === "Q8c" && str(a.Q8c_basis) && str(a.Q8c_basis) !== "unsure") text += ` (${str(a.Q8c_basis)}-money)`;
+  return [text, ...extras].filter(Boolean).join(" — ");
+}
+
+/* ── the component ────────────────────────────────────────────────────── */
+
+export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAdmin, company, resume }: TermSheetProps) {
+  const [stage, setStage] = useState<Stage>(resume ? "drafted" : "intro");
+  const [learnMore, setLearnMore] = useState(false);
+  const [answers, setAnswers] = useState<Answers>(() => (resume ? fromSaved(resume.answers) : {}));
+  const [parties, setParties] = useState<Party[]>(() =>
+    resume && Array.isArray(resume.answers._parties) ? (resume.answers._parties as Party[]) : [emptyParty(), emptyParty()],
+  );
+  const [idx, setIdx] = useState(0);
+  const [typed, setTyped] = useState("");
+  const [multi, setMulti] = useState<string[]>([]);
+  const [listItems, setListItems] = useState<string[]>([]);
+  const [pendingDetail, setPendingDetail] = useState<{ key: string; label: string } | null>(null);
+  const [basis, setBasis] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [asks, setAsks] = useState<string[]>([]);
+  const [paywalled, setPaywalled] = useState(false);
+  const [credits, setCredits] = useState(wallet?.credits ?? null);
+
+  /* the draft */
+  const [draftId, setDraftId] = useState<string | null>(resume?.id ?? null);
+  const [title, setTitle] = useState(resume?.title ?? "Term Sheet");
+  const [html, setHtml] = useState<string | null>(resume?.outputHtml ?? null);
+  const [text, setText] = useState(resume?.output ?? "");
+  const [status, setStatus] = useState<DraftStatus | "stopped">(resume?.status ?? "draft");
+  const [flags, setFlags] = useState<Flag[]>(resume?.flags ?? []);
+  const [reviewNote] = useState<string | null>(resume?.reviewNote ?? null);
+  const [ai, setAi] = useState<AiFields | null>(() => (resume ? ((resume.answers._ai as AiFields | null) ?? null) : null));
+  const [aiEdit, setAiEdit] = useState<AiFields | null>(null);
+  const [savingAi, setSavingAi] = useState(false);
+  const [docOpen, setDocOpen] = useState(Boolean(resume?.outputHtml));
+  const [exporting, setExporting] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [version, setVersion] = useState(1);
+  const [documentTitle, setDocumentTitle] = useState<string>(() => str(resume?.answers._document_title) || "TERM SHEET");
+  const editorRef = useRef<{ html: string; plain: string } | null>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
+
+  /* Feedback to the firm — the firm's own lawyers only, as on the NDA. */
+  const [fbOpen, setFbOpen] = useState(false);
+  const [fbText, setFbText] = useState("");
+  const [fbExcerpt, setFbExcerpt] = useState("");
+  const [fbSending, setFbSending] = useState(false);
+  const [fbDone, setFbDone] = useState<string | null>(null);
+
+  /* ── the steps, from the answers ────────────────────────────────────── */
+  const steps = useMemo<Step[]>(() => {
+    const out: Step[] = [];
+    for (const q of questionsFor(answers)) {
+      out.push({ kind: "q", q });
+      if (q.id === PARTIES_AFTER) out.push({ kind: "parties" });
+    }
+    return out;
+  }, [answers]);
+
+  const roles = rolesFor(str(answers.Q1) || "other");
+  const step = steps[idx];
+  const finished = idx >= steps.length;
+  const answered = steps.filter((s) => (s.kind === "q" ? answers[s.q.id] !== undefined : partiesComplete(parties))).length;
+  const pct = steps.length ? Math.round((Math.min(idx, steps.length) / steps.length) * 100) : 0;
+
+  /* Restore a hand-off (a visitor who signed up mid-flow) or a stash. Read
+     after mount, not during render: the server never saw the storage, and a
+     first paint that differs from the server's is a hydration error. */
+  useEffect(() => {
+    if (resume) return;
+    const t = setTimeout(() => {
+      try {
+        const handoff = localStorage.getItem(HANDOFF_KEY);
+        const raw = handoff ?? sessionStorage.getItem(STASH_KEY);
+        if (!raw) return;
+        const s = JSON.parse(raw) as { answers: Answers; parties: Party[]; idx: number; stage: Stage };
+        /* Nothing answered yet is nothing to restore — and the intro is
+           worth reading once. */
+        if (!s || !s.answers || (Object.keys(s.answers).length === 0 && !(s.idx > 0))) return;
+        setAnswers(s.answers);
+        setParties(s.parties?.length >= 2 ? s.parties : [emptyParty(), emptyParty()]);
+        setIdx(s.idx ?? 0);
+        if (handoff && !guest) {
+          localStorage.removeItem(HANDOFF_KEY);
+          setStage("review");
+        } else {
+          setStage(s.stage === "intro" ? "questions" : s.stage);
+        }
+      } catch {
+        /* nothing to restore */
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [resume, guest]);
+
+  useEffect(() => {
+    if (resume || stage === "drafted") return;
+    try {
+      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, parties, idx, stage }));
+    } catch {
+      /* private mode */
+    }
+  }, [answers, parties, idx, stage, resume]);
+
+  useEffect(() => {
+    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
+  }, [idx, stage, asks, error]);
+
+  /* ── answering ──────────────────────────────────────────────────────── */
+
+  const resetInput = () => {
+    setTyped("");
+    setMulti([]);
+    setListItems([]);
+    setPendingDetail(null);
+    setBasis("");
+  };
+
+  const setAnswer = useCallback((q: Question, value: unknown, extras: Record<string, unknown> = {}) => {
+    setAnswers((a) => {
+      const next: Answers = { ...a, [q.id]: value, ...extras };
+      /* Changing the deal changes the questions that depend on it. */
+      if (q.id === "Q1" && a.Q1 !== value) {
+        for (const k of Object.keys(next)) if (/^(Q2|Q4|Q5|Q8[b-e])(_|$)/.test(k)) delete next[k];
+      }
+      if (q.id === "Q4" && a.Q4 !== value) {
+        for (const k of Object.keys(next)) if (/^Q5(_|$)/.test(k)) delete next[k];
+      }
+      return next;
+    });
+  }, []);
+
+  const advance = useCallback(() => {
+    resetInput();
+    setIdx((i) => i + 1);
+    if (idx === 0) track("draft_started", { doc_type: "term", total_steps: steps.length });
+  }, [idx, steps.length]);
+
+  /* The person's own side of the letter, from their company profile, the
+     moment they say which side they are on. */
+  const prefillMine = (side: string) => {
+    if (!company) return;
+    const mine = side === "recipient" ? 1 : 0;
+    setParties((ps) => {
+      const p = ps[mine];
+      if (!p || p.name) return ps;
+      const next = ps.slice();
+      next[mine] = {
+        ...p,
+        kind: "company",
+        name: company.name,
+        reg_no: company.uen || undefined,
+        address: company.address,
+        jurisdiction: company.country || "Singapore",
+        entity_type: !company.country || company.country === "Singapore" ? "private company limited by shares" : undefined,
+      };
+      return next;
+    });
+  };
+
+  const commit = (q: Question, value: unknown, extras: Record<string, unknown> = {}) => {
+    setError(null);
+    setAnswer(q, value, extras);
+    if (q.id === "Q2" && typeof value === "string") prefillMine(value);
+    advance();
+  };
+
+  const skip = (q: Question) => {
+    setAnswer(q, q.defaultValue ?? "");
+    advance();
+  };
+
+  /* ── preparing the term sheet ───────────────────────────────────────── */
+
+  async function prepare() {
+    if (guest) {
+      try {
+        localStorage.setItem(HANDOFF_KEY, JSON.stringify({ answers, parties, idx, stage: "review" }));
+      } catch {
+        /* the sign-up still works; the answers just do not follow */
+      }
+      track("signup_gate", { doc_type: "term", reason: "generate" });
+      window.location.href = "/signup?from=draft";
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setAsks([]);
+    try {
+      const res = await fetch("/api/termsheet", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ answers: applyDefaults(answers), parties, documentTitle }),
+      });
+      const j = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+      if (res.status === 402) {
+        setPaywalled(true);
+        track("paywall_hit", { doc_type: "term" });
+        return;
+      }
+      if (!res.ok || !j) {
+        setError((j?.error as string) ?? "Something went wrong. Please try again.");
+        track("draft_failed", { doc_type: "term" });
+        return;
+      }
+      if (j.kind === "ask") {
+        setAsks((j.questions as Flag[]).map((f) => f.user_message ?? f.reason));
+        setStage("questions");
+        return;
+      }
+      if (j.kind === "questions") {
+        setAsks(j.questions as string[]);
+        setStage("questions");
+        return;
+      }
+      if (j.kind === "stopped") {
+        setStatus("stopped");
+        setDraftId((j.draftId as string | null) ?? null);
+        setHtml(null);
+        setText("");
+        setStage("drafted");
+        return;
+      }
+      setDraftId((j.draftId as string | null) ?? null);
+      setTitle((j.title as string) ?? "Term Sheet");
+      setHtml(j.html as string);
+      setText(j.text as string);
+      setStatus(j.status as DraftStatus);
+      setFlags((j.flags as Flag[]) ?? []);
+      setAi((j.ai as AiFields) ?? null);
+      setAiEdit(null);
+      setVersion(1);
+      setDocOpen(true);
+      setStage("drafted");
+      if (typeof j.creditsLeft === "number") setCredits(j.creditsLeft);
+      try {
+        sessionStorage.removeItem(STASH_KEY);
+      } catch {
+        /* fine */
+      }
+      track("draft_generated", { doc_type: "term", words: Number(j.words ?? 0) });
+    } catch {
+      setError("Could not reach FD AI. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveAi() {
+    if (!draftId || !aiEdit) return;
+    setSavingAi(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/termsheet/${draftId}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ai: aiEdit, documentTitle }),
+      });
+      const j = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+      if (!res.ok || !j) {
+        setError((j?.error as string) ?? "Could not save the changes.");
+        return;
+      }
+      setHtml(j.html as string);
+      setText(j.text as string);
+      setFlags((j.flags as Flag[]) ?? []);
+      setStatus(j.status as DraftStatus);
+      setAi(aiEdit);
+      setAiEdit(null);
+      setVersion((v) => v + 1);
+      editorRef.current = null;
+    } catch {
+      setError("Could not save the changes. Check your connection.");
+    } finally {
+      setSavingAi(false);
+    }
+  }
+
+  async function saveDocument(editedHtml: string, plain: string) {
+    if (!draftId) return;
+    await fetch(`/api/drafts/${draftId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ outputHtml: editedHtml, output: plain }),
+    });
+  }
+
+  async function exportDocx() {
+    if (!html || status === "held" || status === "stopped") return;
+    setExporting(true);
+    try {
+      const res = await fetch("/api/export", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          text: editorRef.current?.plain ?? text,
+          html: editorRef.current?.html ?? html,
+          title,
+          fileName: `${title.replace(/[^a-zA-Z0-9 &-]/g, "").trim().replace(/\s+/g, "-").slice(0, 48) || "Term-Sheet"}-V${version}.docx`,
+          includeNotes: false,
+          docTypeSlug: "term",
+        }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => null)) as { error?: string } | null;
+        setError(j?.error ?? "Export failed.");
+        return;
+      }
+      const blob = await res.blob();
+      const match = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = match?.[1] ?? "term-sheet.docx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      track("draft_exported", { doc_type: "term", format: "docx" });
+    } catch {
+      setError("Export failed. Check your connection.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  function openFeedback() {
+    const sel = typeof window !== "undefined" ? (window.getSelection()?.toString() ?? "").trim() : "";
+    setFbExcerpt(sel.slice(0, 1500));
+    setFbDone(null);
+    setFbOpen(true);
+  }
+
+  async function sendFeedback() {
+    if (fbSending || !fbText.trim()) return;
+    setFbSending(true);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ draftId, message: fbText.trim(), excerpt: fbExcerpt || undefined }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; learnt?: boolean; rule?: string; reason?: string };
+      if (!res.ok || !j.ok) {
+        setFbDone(j.error ?? "Could not send that. Try again.");
+        return;
+      }
+      track("draft_feedback", { doc_type: "term" });
+      setFbText("");
+      setFbExcerpt("");
+      setFbDone(
+        j.learnt && j.rule
+          ? `Learnt. From the next term sheet: “${j.rule}” — edit or switch off under Admin → AI files → Feedback & lessons.`
+          : `Saved for a person to decide${j.reason ? ` (${j.reason})` : ""} — Admin → AI files → Feedback & lessons.`,
+      );
+    } finally {
+      setFbSending(false);
+    }
+  }
+
+  const changeAnswers = () => {
+    setStage("questions");
+    setIdx(steps.length);
+    setDocOpen(false);
+  };
+
+  /* ── the answer UI for the current step ─────────────────────────────── */
+
+  function chipsFor(q: Question, opts: Option[], onPick: (o: Option) => void) {
+    return opts.map((o) => (
+      <button
+        key={o.value}
+        type="button"
+        className={`chip${o.recommended ? " rec" : ""}${multi.includes(o.value) ? " on" : ""}`}
+        title={o.recommended ? "Usual choice" : undefined}
+        onClick={() => onPick(o)}
+      >
+        {o.label}
+        {o.recommended ? " ·" : ""}
+      </button>
+    ));
+  }
+
+  function questionUI(q: Question) {
+    /* A detail the last chip asked for: "In instalments (describe)". */
+    if (pendingDetail) {
+      return (
+        <div className="chips">
+          <input
+            className="input"
+            autoFocus
+            placeholder={pendingDetail.label}
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && typed.trim()) {
+                e.preventDefault();
+                finishDetail();
+              }
+            }}
+          />
+          <button type="button" className="go" disabled={!typed.trim()} onClick={() => finishDetail()}>
+            Continue
+          </button>
+        </div>
+      );
+    }
+
+    switch (q.type) {
+      case "single_choice":
+      case "yes_no":
+      case "yes_no_period":
+      case "period_or_date":
+      case "date":
+      case "state_list":
+      case "country": {
+        let opts = q.options.slice();
+        if (q.type === "country") opts = TOP_COUNTRIES.map((c) => ({ value: c, label: c }));
+        if (q.type === "state_list") {
+          const country = str(answers.Q7a_other) || str(answers.Q7a);
+          opts = (STATES[country] ?? []).map((s) => ({ value: s, label: s }));
+        }
+        const showOther = q.allowOther || q.type === "country" || q.type === "state_list";
+        return (
+          <>
+            <div className="chips">
+              {chipsFor(q, opts, (o) => {
+                if (o.needs_detail) {
+                  setAnswer(q, o.value);
+                  setPendingDetail({ key: `${q.id}_detail`, label: "Describe it briefly" });
+                  return;
+                }
+                if (o.needs_amount) {
+                  setAnswer(q, o.value);
+                  setPendingDetail({ key: `${q.id}_amount`, label: "The limit, e.g. SGD 15,000" });
+                  return;
+                }
+                commit(q, o.value);
+              })}
+              {(q.allowDate || q.type === "date") && (
+                <input
+                  className="input"
+                  type="date"
+                  aria-label="Pick a date"
+                  onChange={(e) => e.target.value && commit(q, e.target.value)}
+                />
+              )}
+              {showOther && (
+                <input
+                  className="input"
+                  placeholder={q.type === "country" ? "Another country…" : q.type === "state_list" ? "Another state or province…" : q.otherLabel ?? "Other (please type)"}
+                  value={typed}
+                  onChange={(e) => setTyped(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && typed.trim()) {
+                      e.preventDefault();
+                      typedOther(q);
+                    }
+                  }}
+                />
+              )}
+              {showOther && typed.trim() && (
+                <button type="button" className="go" onClick={() => typedOther(q)}>
+                  Use this
+                </button>
+              )}
+            </div>
+            {!q.required && (
+              <p className="later">
+                <button type="button" className="alt-link" onClick={() => skip(q)}>
+                  Skip for now
+                </button>
+              </p>
+            )}
+          </>
+        );
+      }
+
+      case "multi_choice": {
+        const opts = q.options;
+        return (
+          <div className="chips">
+            {chipsFor(q, opts, (o) => {
+              setMulti((m) => {
+                if (o.exclusive) return m.includes(o.value) ? [] : [o.value];
+                const without = m.filter((x) => !opts.find((p) => p.value === x)?.exclusive);
+                return without.includes(o.value) ? without.filter((x) => x !== o.value) : [...without, o.value];
+              });
+            })}
+            {q.allowOther && (
+              <input
+                className="input"
+                placeholder={q.otherLabel ?? "Other (please type)"}
+                value={typed}
+                onChange={(e) => setTyped(e.target.value)}
+              />
+            )}
+            <button
+              type="button"
+              className="go"
+              disabled={multi.length === 0 && !typed.trim()}
+              onClick={() => {
+                const extras: Record<string, unknown> = {};
+                let vals = multi.slice();
+                if (typed.trim()) {
+                  extras[`${q.id}_other`] = typed.trim();
+                  vals = [...vals.filter((v) => v !== "none"), "other"];
+                }
+                commit(q, vals, extras);
+              }}
+            >
+              {multi.includes("suggest") ? "Suggest for me" : "Done"}
+            </button>
+          </div>
+        );
+      }
+
+      case "free_text_list":
+        return (
+          <div className="chips">
+            {listItems.map((l, i) => (
+              <button key={i} type="button" className="chip on" title="Remove" onClick={() => setListItems((xs) => xs.filter((_, k) => k !== i))}>
+                {l} ×
+              </button>
+            ))}
+            <input
+              className="input"
+              placeholder={q.placeholder ?? "One term per line"}
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && typed.trim()) {
+                  e.preventDefault();
+                  setListItems((xs) => [...xs, typed.trim()].slice(0, q.maxItems ?? 5));
+                  setTyped("");
+                }
+              }}
+            />
+            {typed.trim() && (
+              <button
+                type="button"
+                className="go"
+                onClick={() => {
+                  setListItems((xs) => [...xs, typed.trim()].slice(0, q.maxItems ?? 5));
+                  setTyped("");
+                }}
+              >
+                Add
+              </button>
+            )}
+            <button type="button" className="go" onClick={() => commit(q, listItems)}>
+              {listItems.length ? "That's all" : "None"}
+            </button>
+          </div>
+        );
+
+      case "amount_with_choice":
+        return (
+          <div className="chips">
+            <input
+              className="input"
+              placeholder="e.g. USD 10,000,000"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+            {q.options.map((o) => (
+              <button key={o.value} type="button" className={`chip${basis === o.value ? " on" : ""}`} onClick={() => setBasis(o.value)}>
+                {o.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="go"
+              disabled={!typed.trim() || !basis}
+              onClick={() => commit(q, moneyOrText(typed), { Q8c_basis: basis })}
+            >
+              Continue
+            </button>
+            {!q.required && (
+              <button type="button" className="alt-link" onClick={() => skip(q)}>
+                Not agreed yet
+              </button>
+            )}
+          </div>
+        );
+
+      case "amount":
+      case "rate_and_period":
+      case "free_text":
+      default:
+        return (
+          <div className="chips">
+            <textarea
+              className="input"
+              rows={q.type === "free_text" ? 2 : 1}
+              maxLength={q.maxLength ?? 300}
+              placeholder={q.placeholder ?? ""}
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && typed.trim()) {
+                  e.preventDefault();
+                  commit(q, q.type === "amount" ? moneyOrText(typed) : typed.trim());
+                }
+              }}
+            />
+            {q.type === "amount" && typed.trim() && normaliseMoney(typed) && (
+              <span className="later">Will read as <b>{normaliseMoney(typed)!.text}</b></span>
+            )}
+            <button
+              type="button"
+              className="go"
+              disabled={!typed.trim()}
+              onClick={() => commit(q, q.type === "amount" ? moneyOrText(typed) : typed.trim())}
+            >
+              Continue
+            </button>
+            {!q.required && (
+              <button type="button" className="alt-link" onClick={() => skip(q)}>
+                Skip for now
+              </button>
+            )}
+          </div>
+        );
+    }
+  }
+
+  function moneyOrText(v: string): string {
+    return normaliseMoney(v)?.text ?? v.trim();
+  }
+
+  function typedOther(q: Question) {
+    const v = typed.trim();
+    if (!v) return;
+    if (q.type === "country" || q.type === "state_list") {
+      commit(q, v, { [`${q.id}_other`]: v });
+    } else if (q.id === "Q1") {
+      commit(q, "other", { Q1_other: v });
+    } else if (q.id === "Q2") {
+      /* "Treat as issuer unless the text says otherwise; flag for review." */
+      commit(q, /receiv|invited|borrow|sell|rais/i.test(v) ? "recipient" : "issuer", { Q2_other: v });
+    } else {
+      commit(q, v, { [`${q.id}_other`]: v });
+    }
+  }
+
+  function finishDetail() {
+    if (!pendingDetail || !typed.trim()) return;
+    const value = pendingDetail.key.endsWith("_amount") ? moneyOrText(typed) : typed.trim();
+    const extras = { [pendingDetail.key]: value };
+    setAnswers((a) => ({ ...a, ...extras }));
+    setPendingDetail(null);
+    setTyped("");
+    setIdx((i) => i + 1);
+  }
+
+  /* ── parties ────────────────────────────────────────────────────────── */
+
+  function partyForm(i: number) {
+    const p = parties[i] ?? emptyParty();
+    const set = (patch: Partial<Party>) =>
+      setParties((ps) => {
+        const next = ps.slice();
+        while (next.length <= i) next.push(emptyParty());
+        next[i] = { ...next[i], ...patch };
+        return next;
+      });
+    const heading = i === 0 ? `Sending the term sheet — the ${roles[0]}` : i === 1 ? `Receiving it — the ${roles[1]}` : p.role || `Party ${i + 1}`;
+    return (
+      <div className="ts-party" key={i}>
+        <div className="ts-party-h">
+          <b>{heading}</b>
+          <span className="segs">
+            <button type="button" className={`chip${p.kind === "company" ? " on" : ""}`} onClick={() => set({ kind: "company" })}>
+              Company
+            </button>
+            <button type="button" className={`chip${p.kind === "individual" ? " on" : ""}`} onClick={() => set({ kind: "individual" })}>
+              Individual
+            </button>
+          </span>
+        </div>
+        {i >= 2 && (
+          <label>
+            Role in the deal
+            <input className="input" placeholder="e.g. Co-Investor, Founder, Guarantor, Seller" value={p.role ?? ""} onChange={(e) => set({ role: e.target.value })} />
+          </label>
+        )}
+        <label>
+          {p.kind === "individual" ? "Full name" : "Full legal name (never a trading name)"}
+          <input className="input" value={p.name} onChange={(e) => set({ name: e.target.value })} placeholder={p.kind === "individual" ? "e.g. Tan Wei Ming" : "e.g. Meridian Logistics Pte. Ltd."} />
+        </label>
+        {p.kind === "company" ? (
+          <>
+            <div className="ts-row">
+              <label>
+                Country of incorporation
+                <input className="input" list="ts-countries" value={p.jurisdiction ?? ""} onChange={(e) => set({ jurisdiction: e.target.value })} placeholder="Singapore" />
+              </label>
+              <label>
+                Registration number
+                <input className="input" value={p.reg_no ?? ""} onChange={(e) => set({ reg_no: e.target.value })} placeholder="e.g. 202012345K" />
+              </label>
+            </div>
+            <label>
+              Type of entity
+              <input className="input" list="ts-entities" value={p.entity_type ?? ""} onChange={(e) => set({ entity_type: e.target.value })} placeholder="private company limited by shares" />
+            </label>
+            <label>
+              Registered office
+              <input className="input" value={p.address} onChange={(e) => set({ address: e.target.value })} placeholder="1 Raffles Place, #20-01, Singapore 048616" />
+            </label>
+          </>
+        ) : (
+          <>
+            <div className="ts-row">
+              <label>
+                ID type
+                <input className="input" list="ts-idtypes" value={p.id_type ?? ""} onChange={(e) => set({ id_type: e.target.value })} placeholder="NRIC / passport" />
+              </label>
+              <label>
+                ID number
+                <input className="input" value={p.id_no ?? ""} onChange={(e) => set({ id_no: e.target.value })} />
+              </label>
+            </div>
+            <label>
+              Address
+              <input className="input" value={p.address} onChange={(e) => set({ address: e.target.value })} />
+            </label>
+          </>
+        )}
+        {i === 1 && (
+          <div className="ts-row">
+            <label>
+              Addressed to (name)
+              <input className="input" value={p.contact_name ?? ""} onChange={(e) => set({ contact_name: e.target.value })} placeholder="Jane Smith" />
+            </label>
+            <label>
+              Their title
+              <input className="input" value={p.contact_title ?? ""} onChange={(e) => set({ contact_title: e.target.value })} placeholder="Chief Executive Officer" />
+            </label>
+            <label>
+              Dear …
+              <input className="input" value={p.salutation ?? ""} onChange={(e) => set({ salutation: e.target.value })} placeholder="Jane (blank = Sirs)" />
+            </label>
+          </div>
+        )}
+        <label className="ts-check">
+          <input type="checkbox" checked={Boolean(p.listed_or_regulated)} onChange={(e) => set({ listed_or_regulated: e.target.checked })} />
+          Listed on a stock exchange, or regulated by a financial regulator
+        </label>
+        {i >= 2 && (
+          <button type="button" className="alt-link" onClick={() => setParties((ps) => ps.filter((_, k) => k !== i))}>
+            Remove this party
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  function partiesUI() {
+    const ok = partiesComplete(parties);
+    return (
+      <div className="ts-parties">
+        <datalist id="ts-countries">{COUNTRIES.map((c) => <option key={c} value={c} />)}</datalist>
+        <datalist id="ts-entities">{ENTITY_TYPES.map((c) => <option key={c} value={c} />)}</datalist>
+        <datalist id="ts-idtypes">{ID_TYPES.map((c) => <option key={c} value={c} />)}</datalist>
+        {parties.map((_, i) => partyForm(i))}
+        <div className="chips">
+          {parties.length < 6 && (
+            <button type="button" className="chip" onClick={() => setParties((ps) => [...ps, emptyParty()])}>
+              + Add another party
+            </button>
+          )}
+          <button type="button" className="go" disabled={!ok} onClick={advance} title={ok ? undefined : "Every party needs its full name, number and address"}>
+            Continue
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── rendering ──────────────────────────────────────────────────────── */
+
+  const summary = steps
+    .filter((s): s is { kind: "q"; q: Question } => s.kind === "q")
+    .map((s) => ({ id: s.q.id, label: s.q.text, value: answerLabel(s.q, answers) }))
+    .filter((x) => x.value);
+
+  const yellow = flags.filter((f) => f.level === "yellow" || f.level === "red");
+  const infos = flags.filter((f) => f.level === "green" && f.user_message);
+  const aiForm = aiEdit ?? ai;
+
+  const isDraft = stage === "drafted";
+
+  return (
+    <div className="fdai-screens">
+      <div id="scr-chat" className={`scr on fade-in ts-screen${isDraft ? " is-draft" : ""}${isDraft && docOpen && html ? " doc-open" : ""}`}>
+        {/* ── the rail ── */}
+        <aside className="rail" aria-label="FD AI">
+          <Link className="sb-new" href="/draft">
+            + New draft
+          </Link>
+          <p className="k">FD AI</p>
+          <nav className="nav2">
+            <Link href="/draft">
+              <i />
+              New draft
+            </Link>
+            <a href="/history">
+              <i />
+              Past drafts
+            </a>
+            <a href="/billing">
+              <i />
+              Credits
+            </a>
+            <a href="/usage">
+              <i />
+              Usage
+            </a>
+          </nav>
+          {credits !== null && (
+            <div className="rail-credits">
+              <span>
+                <b>{credits}</b> {credits === 1 ? "credit" : "credits"} left
+              </span>
+              {wallet?.inTrial ? <small>Free week · trial credits expire</small> : <a href="/billing">{credits === 0 ? "Add credits" : "Add more"}</a>}
+            </div>
+          )}
+          <div className="rail-bottom">
+            {isAdmin && (
+              <a className="rail-admin" href="/admin">
+                <span aria-hidden="true" />
+                Admin dashboard
+              </a>
+            )}
+            {guest ? (
+              <div className="guest-block guest-rail">
+                <b>No account needed to start</b>
+                <p>Answer the questions now. Create a free account when you press Prepare — your answers come with you.</p>
+                <div className="guest-actions">
+                  <a className="guest-signup" href="/signup?from=draft">
+                    Sign up for free
+                  </a>
+                  <a className="guest-login" href="/login?from=draft">
+                    Log in
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="acct-wrap">
+                <a className="acct" href="/settings">
+                  <i>{(userEmail ?? "FD").slice(0, 2).toUpperCase()}</i>
+                  <div>
+                    {(userEmail ?? "Signed out").split("@")[0]}
+                    <small>{userEmail ? userEmail.split("@")[1] : "Founders Doc"}</small>
+                  </div>
+                </a>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* ── the strip ── */}
+        <div className="strip">
+          <span className="dot" />
+          <span className="dname">{isDraft ? title : "New term sheet"}</span>
+          <Link className="chg" href="/draft">
+            Change document
+          </Link>
+        </div>
+
+        {/* ── the conversation ── */}
+        {!isDraft && (
+          <div className="convo">
+            <div className="chat" ref={threadRef}>
+              <div className="chat-in">
+                {stage === "intro" && (
+                  <div className="m">
+                    <div className="av">FD</div>
+                    <div>
+                      <div className="txt ts-intro">
+                        <Markdown text={INTRO.short} />
+                        {learnMore && (
+                          <div className="ts-more">
+                            <p>{INTRO.learn_more.when_used.replace(/\*/g, "")}</p>
+                            <b>Usually binding</b>
+                            <ul>{INTRO.learn_more.usually_binding.map((x) => <li key={x}>{x}</li>)}</ul>
+                            <b>Usually not binding</b>
+                            <ul>{INTRO.learn_more.usually_not_binding.map((x) => <li key={x}>{x}</li>)}</ul>
+                            <b>After the term sheet</b>
+                            <p>{INTRO.learn_more.after_the_term_sheet}</p>
+                            <b>Good to know</b>
+                            <ul>{INTRO.learn_more.good_to_know.map((x) => <li key={x}>{x}</li>)}</ul>
+                          </div>
+                        )}
+                        <p className="ts-disclaimer">{INTRO.disclaimer}</p>
+                      </div>
+                      <div className="ans">
+                        <div className="chips">
+                          <button type="button" className="go" onClick={() => setStage("questions")}>
+                            Start
+                          </button>
+                          <button type="button" className="chip" onClick={() => setLearnMore((v) => !v)}>
+                            {learnMore ? "Less" : "Learn more"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {stage !== "intro" &&
+                  steps.slice(0, Math.min(idx, steps.length)).map((s, k) => (
+                    <div key={k}>
+                      <div className="m">
+                        <div className="av">FD</div>
+                        <div>
+                          <div className="txt">{s.kind === "q" ? s.q.text : "Who are the parties? Full legal names, numbers and registered addresses, as they will appear in the letter."}</div>
+                        </div>
+                      </div>
+                      <div className="m me">
+                        <div className="txt">
+                          <b>{s.kind === "q" ? s.q.section : "Parties"}</b>
+                          {s.kind === "q" ? answerLabel(s.q, answers) || "Skipped" : parties.map((p) => p.name || "…").join(" · ")}
+                          <button type="button" className="alt-link ts-edit" onClick={() => { resetInput(); setIdx(k); }}>
+                            edit
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                {stage === "questions" && step && (
+                  <div className="m">
+                    <div className="av">FD</div>
+                    <div>
+                      <div className="txt">
+                        {step.kind === "q" ? step.q.text : "Who are the parties? Full legal names, numbers and registered addresses, as they will appear in the letter."}
+                        {step.kind === "q" && step.q.help && <p className="sub">{step.q.help}</p>}
+                        {step.kind === "parties" && <p className="sub">The side sending the term sheet is party 1. Your own details are filled in from your profile where you have one.</p>}
+                      </div>
+                      <div className="ans">{step.kind === "q" ? questionUI(step.q) : partiesUI()}</div>
+                    </div>
+                  </div>
+                )}
+
+                {stage === "questions" && finished && (
+                  <div className="m">
+                    <div className="av">FD</div>
+                    <div>
+                      <div className="txt">That’s everything. Have a look over the answers, then I’ll prepare the term sheet.</div>
+                      <div className="ans">
+                        <div className="chips">
+                          <button type="button" className="go" onClick={() => setStage("review")}>
+                            Review answers
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {stage === "review" && (
+                  <div className="m">
+                    <div className="av">FD</div>
+                    <div>
+                      <div className="txt">
+                        <b style={{ fontWeight: 500 }}>Here is what I have.</b>
+                        <dl className="cg-answers ts-summary">
+                          <div>
+                            <dt>Parties</dt>
+                            <dd>{parties.map((p, i) => `${i === 0 ? roles[0] : i === 1 ? roles[1] : p.role || "Party"}: ${p.name}`).join(" · ")}</dd>
+                          </div>
+                          {summary.map((x) => (
+                            <div key={x.id}>
+                              <dt>{x.label}</dt>
+                              <dd>{x.value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                        <p className="sub">
+                          Title:{" "}
+                          {DOCUMENT_TITLES.map((t) => (
+                            <button key={t} type="button" className={`chip${documentTitle === t ? " on" : ""}`} onClick={() => setDocumentTitle(t)}>
+                              {t.charAt(0) + t.slice(1).toLowerCase()}
+                            </button>
+                          ))}
+                        </p>
+                      </div>
+                      <div className="ans">
+                        <div className="chips">
+                          <button type="button" className="go" disabled={busy} onClick={() => void prepare()}>
+                            {busy ? "Preparing…" : guest ? "Sign up and prepare" : "Prepare term sheet"}
+                          </button>
+                          <button type="button" className="chip" disabled={busy} onClick={changeAnswers}>
+                            Change an answer
+                          </button>
+                        </div>
+                        <p className="later">One credit. The letter is assembled from the firm’s master; FD AI drafts only the heading, the nature of the deal, the structure and the key-term lines, which you confirm next.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {asks.length > 0 && (
+                  <div className="m">
+                    <div className="av">FD</div>
+                    <div>
+                      <div className="txt">
+                        <b style={{ fontWeight: 500 }}>Before I prepare it, a couple of things:</b>
+                        <ul className="cg-checks">{asks.map((q) => <li key={q}>{q}</li>)}</ul>
+                        <p className="sub">Use “edit” on the answer above, or the parties step, then review again.</p>
+                      </div>
+                      <div className="ans">
+                        <div className="chips">
+                          <button type="button" className="go" onClick={() => { setAsks([]); setStage("review"); }}>
+                            Review again
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {paywalled && (
+                  <div className="m">
+                    <div className="av">FD</div>
+                    <div>
+                      <div className="txt">
+                        <b style={{ fontWeight: 500 }}>You’ve used your free documents.</b>
+                        <p style={{ margin: "8px 0 0" }}>Your answers are still here. Add credits and the term sheet is prepared straight away.</p>
+                        <p style={{ margin: "14px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <a className="btn btn-gold" href="/billing">Add credits</a>
+                          <a className="btn btn-white" href="/history">Past drafts</a>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="m">
+                    <div className="av">FD</div>
+                    <div>
+                      <div className="txt">{error}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="composer">
+              <p className="fine">
+                A draft term sheet, assembled from Founders Doc’s master — reviewed by a qualified lawyer before use.{" "}
+                <a href="https://foundersdoc.com/terms-conditions/">Terms</a>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── the draft view ── */}
+        {isDraft && (
+          <div className="dview">
+            <section className="gen-left">
+              <div className="gen-left-head">
+                <div className="gen-left-title">
+                  <span className="eyebrow">FD AI</span>
+                  <h2>{status === "stopped" ? "A lawyer needs to look at this" : status === "held" ? "Your term sheet — being checked" : "Your term sheet is ready"}</h2>
+                  <p>
+                    {status === "stopped"
+                      ? "Nothing has been drafted yet."
+                      : status === "held"
+                        ? "One of our lawyers is checking a couple of points before it is released for download. You can read it beside this, and confirm the lines FD AI drafted."
+                        : "Read the letter beside this, confirm the lines FD AI drafted, and download it as Word."}
+                  </p>
+                </div>
+                <span className={`gen-ready${status === "held" ? " is-working" : ""}`}>
+                  <i />
+                  {status === "stopped" ? "Stopped" : status === "held" ? "In review" : "Ready"}
+                </span>
+              </div>
+
+              <div className="gen-thread" ref={threadRef}>
+                <div className="cg-user cg-summary-wrap">
+                  <div className="cg-bubble cg-summary">
+                    <div className="cg-summary-head">
+                      <b>Your answers</b>
+                      <span>Term Sheet</span>
+                    </div>
+                    <dl className="cg-answers">
+                      <div>
+                        <dt>Parties</dt>
+                        <dd>{parties.map((p) => p.name).filter(Boolean).join(" · ")}</dd>
+                      </div>
+                      {summary.map((x) => (
+                        <div key={x.id}>
+                          <dt>{x.label}</dt>
+                          <dd>{x.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                </div>
+
+                <div className="cg-turn">
+                  <div className="cg-avatar" aria-hidden="true">FD</div>
+                  <div className="cg-msg">
+                    {status === "stopped" ? (
+                      <p>We need one of our lawyers to look at this before we can prepare a term sheet. Someone from Founders Doc will be in touch — nothing has been charged.</p>
+                    ) : (
+                      <>
+                        <p>
+                          Here’s your <b>{documentTitle.charAt(0) + documentTitle.slice(1).toLowerCase()}</b>, assembled from the firm’s master.{" "}
+                          {status === "held"
+                            ? "A few points need a lawyer’s eye, so it stays here until one of us releases it — usually within a working day."
+                            : "Nothing in it is invented: every number, date and party comes from your answers."}
+                        </p>
+                        {reviewNote && (
+                          <p className="ts-note">
+                            <b>From the reviewing lawyer:</b> {reviewNote}
+                          </p>
+                        )}
+                        {html && (
+                          <button type="button" className="gen-doc-card cg-file" onClick={() => setDocOpen(true)} aria-pressed={docOpen}>
+                            <span className="cg-file-ic">▤</span>
+                            <span>
+                              <b>{title}</b>
+                              <small>Version {version} · click to display</small>
+                            </span>
+                          </button>
+                        )}
+                        {infos.length > 0 && (
+                          <ul className="cg-checks">{infos.map((f, k) => <li key={k}>{f.user_message}</li>)}</ul>
+                        )}
+                        {yellow.length > 0 && (
+                          <div className="cg-notes">
+                            <b>{status === "held" ? "What the lawyer is checking" : "Worth a look"}</b>
+                            <ul>{yellow.map((f, k) => <li key={k}>{f.reason}</li>)}</ul>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {aiForm && status !== "stopped" && (
+                  <div className="cg-turn">
+                    <div className="cg-avatar" aria-hidden="true">FD</div>
+                    <div className="cg-msg ts-ai">
+                      <p>
+                        <b>I drafted these lines — please confirm them.</b> Everything else is the master’s approved wording.
+                      </p>
+                      <label>
+                        Heading
+                        <input className="input" value={aiForm.transaction_title} onChange={(e) => setAiEdit({ ...aiForm, transaction_title: e.target.value.toUpperCase() })} />
+                      </label>
+                      <label>
+                        2.1 The Parties propose to enter into…
+                        <input className="input" value={aiForm.transaction_description} onChange={(e) => setAiEdit({ ...aiForm, transaction_description: e.target.value })} />
+                      </label>
+                      <label>
+                        2.3 Structure
+                        <textarea className="input" rows={3} value={aiForm.structure} onChange={(e) => setAiEdit({ ...aiForm, structure: e.target.value })} />
+                      </label>
+                      {(aiForm.key_terms ?? []).map((t: KeyTerm, k: number) => (
+                        <label key={k}>
+                          Key term — {t.heading} <small>({t.source})</small>
+                          <input
+                            className="input"
+                            value={t.text}
+                            onChange={(e) => {
+                              const kt = (aiForm.key_terms ?? []).slice();
+                              kt[k] = { ...t, text: e.target.value };
+                              setAiEdit({ ...aiForm, key_terms: kt });
+                            }}
+                          />
+                        </label>
+                      ))}
+                      <div className="chips">
+                        <button type="button" className="go" disabled={!aiEdit || savingAi} onClick={() => void saveAi()}>
+                          {savingAi ? "Saving…" : aiEdit ? "Save and re-assemble" : "Confirmed"}
+                        </button>
+                        {aiEdit && (
+                          <button type="button" className="chip" onClick={() => setAiEdit(null)}>
+                            Undo changes
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="cg-turn" role="alert">
+                    <div className="cg-avatar" aria-hidden="true">FD</div>
+                    <div className="cg-msg">
+                      <p>{error}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="gen-compose">
+                <div className="chips">
+                  <button type="button" className="chip" onClick={changeAnswers}>
+                    Change answers and prepare again
+                  </button>
+                  <Link className="chip" href="/draft">
+                    New draft
+                  </Link>
+                </div>
+                <p className="hint">Changing an answer prepares a fresh term sheet (one credit). Editing the letter itself is free — use the document beside this.</p>
+              </div>
+            </section>
+
+            {docOpen && html && (
+              <section className="gen-right">
+                <div className="dbar">
+                  <span className="dstat">
+                    <i />
+                    {[`Version ${version}`, status === "held" ? "In review" : "", yellow.length ? `${yellow.length} to check` : ""].filter(Boolean).join(" · ")}
+                  </span>
+                  <div className="dacts">
+                    <button
+                      type="button"
+                      className="dbtn"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(editorRef.current?.plain ?? text);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 1200);
+                        } catch {
+                          setError("Could not copy. Select the text and copy manually.");
+                        }
+                      }}
+                    >
+                      {copied ? "Copied" : "Copy"}
+                    </button>
+                    {isAdmin && draftId && (
+                      <button type="button" className="dbtn" title="Tell the drafter what should change — select a passage first to quote it" onClick={openFeedback}>
+                        Feedback
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="dbtn gold"
+                      disabled={exporting || status === "held"}
+                      title={status === "held" ? "Available once a lawyer has released it" : undefined}
+                      onClick={() => void exportDocx()}
+                    >
+                      {exporting ? "Preparing…" : status === "held" ? "Word after review" : "Download Word"}
+                    </button>
+                    <button type="button" className="dbtn d-close" aria-label="Close document" title="Close document" onClick={() => setDocOpen(false)}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
+                        <path d="M6 6l12 12M18 6 6 18" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+                {fbOpen && (
+                  <div className="fb-overlay" onClick={(e) => e.target === e.currentTarget && setFbOpen(false)}>
+                    <div className="fb-modal" role="dialog" aria-modal="true" aria-labelledby="ts-fb-title">
+                      <h3 id="ts-fb-title">What should change?</h3>
+                      <p className="fb-sub">
+                        The drafter reads it against this term sheet and turns it into a rule for the AI’s lines in every later one. The master’s wording is not the AI’s to change — for that, upload a new master.
+                      </p>
+                      {fbExcerpt && (
+                        <blockquote className="fb-quote">
+                          {fbExcerpt}
+                          <button type="button" className="link-btn" onClick={() => setFbExcerpt("")}>
+                            remove quote
+                          </button>
+                        </blockquote>
+                      )}
+                      <textarea rows={5} value={fbText} placeholder="What is wrong, and what it should be instead" onChange={(e) => setFbText(e.target.value)} disabled={fbSending} autoFocus />
+                      {fbDone && <p className="fb-done">{fbDone}</p>}
+                      <div className="fb-actions">
+                        <button type="button" className="dbtn" onClick={() => setFbOpen(false)}>
+                          Close
+                        </button>
+                        <button type="button" className="dbtn gold" disabled={fbSending || !fbText.trim()} onClick={() => void sendFeedback()}>
+                          {fbSending ? "Sending…" : "Send to the firm"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <DocumentEditor
+                  key={`${draftId ?? "unsaved"}:v${version}`}
+                  text={text}
+                  savedHtml={html}
+                  look={look}
+                  onContentChange={(h, p) => {
+                    editorRef.current = { html: h, plain: p };
+                  }}
+                  onSave={saveDocument}
+                />
+              </section>
+            )}
+          </div>
+        )}
+
+        {/* ── the progress pane ── */}
+        <section className="pane">
+          <div className="pane-h">
+            {isDraft ? "This draft" : "Progress"}
+            {!isDraft && <span className="pct">{pct}%</span>}
+          </div>
+          <div className="studio-body">
+            {isDraft ? (
+              <div className="ts-pane">
+                <p className="k">Status</p>
+                <p>{status === "stopped" ? "Stopped — a lawyer will be in touch" : status === "held" ? "Held for a lawyer’s review" : "Ready to download"}</p>
+                <p className="k">Binding paragraphs</p>
+                <p className="sub">Legal Effect, and the paragraphs it lists (exclusivity, confidentiality, costs, expiry, law, general). Nothing commercial binds.</p>
+                <p className="k">Master</p>
+                <p className="sub">FD Master Term Sheet v4.0 · Drafting Playbook v1.0</p>
+              </div>
+            ) : (
+              <>
+                <div className="prog-h">
+                  <b className="cnt">
+                    {answered} of {steps.length} answered
+                  </b>
+                  <span className="eta">{finished ? "Ready to prepare" : `About ${Math.max(1, Math.ceil((steps.length - idx) * 0.5))} min`}</span>
+                </div>
+                <div className="ts-steps">
+                  {steps.map((s, k) => (
+                    <div key={k} className={`ts-step${k === idx ? " on" : ""}${k < idx ? " done" : ""}`}>
+                      <span className="n">{k + 1}</span>
+                      <span>{s.kind === "q" ? s.q.section : "Parties"}</span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          {!isDraft && (
+            <div className="studio-foot">
+              <button type="button" className="btn s-gen" disabled={busy || stage === "intro"} onClick={() => (finished ? setStage("review") : setIdx(steps.length))} title={finished ? undefined : "Skip the remaining questions"}>
+                {finished ? "Review answers" : "Skip the rest"}
+              </button>
+              <small>Skipped questions take the usual answer; you can change any of them before preparing.</small>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/* ── helpers ──────────────────────────────────────────────────────────── */
+
+function partiesComplete(ps: Party[]): boolean {
+  if (ps.length < 2) return false;
+  return ps.every((p) =>
+    p.name.trim() && p.address.trim() && (p.kind === "individual" ? p.id_no?.trim() : p.reg_no?.trim() && p.jurisdiction?.trim() && p.entity_type?.trim()),
+  );
+}
+
+/** The saved answers, minus the assembler's own keys. */
+function fromSaved(saved: Record<string, unknown>): Answers {
+  const out: Answers = {};
+  for (const [k, v] of Object.entries(saved)) if (!k.startsWith("_")) out[k] = v;
+  return out;
+}
+
+/** Just enough Markdown for the intro: **bold** and paragraphs. */
+function Markdown({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/\n\n+/).map((para, i) => (
+        <p key={i}>
+          {para.split(/(\*\*[^*]+\*\*)/).map((bit, k) =>
+            /^\*\*[^*]+\*\*$/.test(bit) ? <b key={k}>{bit.slice(2, -2)}</b> : <span key={k}>{bit}</span>,
+          )}
+        </p>
+      ))}
+    </>
+  );
+}

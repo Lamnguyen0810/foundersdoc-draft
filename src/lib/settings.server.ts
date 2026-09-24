@@ -82,3 +82,21 @@ export async function loadStyleReference(docTypeSlug: string): Promise<PastDraft
     return null;
   }
 }
+
+/**
+ * The person's company, for the term sheet's Parties step: their own side of
+ * the letter filled in from the profile they keep in Settings. Nothing when
+ * they have switched that off, or have no profile.
+ */
+export async function loadCompanyProfile(): Promise<{ name: string; uen: string; address: string; contact: string; country: string } | null> {
+  const { settings } = await loadSettings();
+  if (!settings.use_company || !settings.company.name.trim()) return null;
+  const c = settings.company;
+  return {
+    name: c.name.trim(),
+    uen: c.uen.trim(),
+    address: c.address.trim(),
+    contact: c.contact.trim(),
+    country: c.governing_law.trim(),
+  };
+}

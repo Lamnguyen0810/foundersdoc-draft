@@ -256,4 +256,23 @@ export const NDA_DATA = {
   ],
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA];
+/**
+ * The term sheet is not drafted by a model: the answers are put into the
+ * firm's master by rule (src/lib/termsheet), and the model drafts a handful
+ * of named fields under the Term Sheet Drafting Playbook. So it carries no
+ * questions here — the questionnaire is src/lib/termsheet/data — and its
+ * prompt is a note. `engine: "assembly"` is what sends it to its own screen.
+ * Supabase gets this row from 048_term_sheet.sql, not from the seed.
+ */
+export const TERM_DATA = {
+  slug: "term",
+  label: "Term Sheet",
+  description:
+    "Investment, loan, acquisition or project. Assembled from FD Master Term Sheet v4.0 by rule; the AI drafts only the heading, the nature of the deal, the structure and the key-term lines, per the Term Sheet Drafting Playbook.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from the FD master term sheet. The AI drafts only the fields the Term Sheet Drafting Playbook allows (upload it under Playbook → Term Sheet).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA];

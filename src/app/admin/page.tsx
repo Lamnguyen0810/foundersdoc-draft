@@ -10,6 +10,7 @@ import AiFiles from "./AiFiles";
 import Questions, { type DocTypeForEditor, type FieldRow, type GroupRow } from "./Questions";
 import Playbook, { type PlaybookInitial } from "./Playbook";
 import Feedback, { type FeedbackInitial } from "./Feedback";
+import Review, { type ReviewInitial } from "./Review";
 import { FEEDBACK_COLUMNS, LESSON_COLUMNS } from "@/lib/feedback";
 import { PLAYBOOK_COLUMNS } from "@/lib/playbook";
 import PeriodSelect from "./PeriodSelect";
@@ -398,6 +399,7 @@ export default async function AdminPage({
   let stepsMissing = false;
   let playbook: PlaybookInitial = { scope: "*", live: null, versions: [], missing: false };
   let feedbackInitial: FeedbackInitial = { feedback: [], lessons: [], missing: false };
+  let reviewInitial: ReviewInitial = { queue: [], missing: false };
   if (tab === "ai-files") {
     const BASE_COLS =
       "id,folder_id,doc_type_slug,title,filename,file_ext,jurisdiction,version,privacy,privacy_flags,status,permitted,note,bytes,uploaded_by_email,reviewed_at,approved_at,created_at,updated_at";
@@ -475,6 +477,12 @@ export default async function AdminPage({
       feedback: (fb.data as FeedbackInitial["feedback"] | null) ?? [],
       lessons: (ls.data as FeedbackInitial["lessons"] | null) ?? [],
       missing: Boolean(fb.error && /draft_feedback/.test(fb.error.message)),
+    };
+    /* Term sheets held or stopped by the playbook (048). */
+    const rq = await supabase.rpc("review_queue");
+    reviewInitial = {
+      queue: (rq.data as ReviewInitial["queue"] | null) ?? [],
+      missing: Boolean(rq.error && /review_queue|does not exist/i.test(rq.error.message)),
     };
   }
 
@@ -1577,6 +1585,8 @@ export default async function AdminPage({
                 />
                 {/* Rules, beneath the samples they override. */}
                 <Playbook docTypes={catalogue.map((d) => ({ slug: d.slug, label: d.label }))} initial={playbook} />
+                {/* Term sheets waiting for a lawyer's release. */}
+                <Review initial={reviewInitial} />
                 {/* What the lawyers said about drafts, and the rules made from it. */}
                 <Feedback docTypes={catalogue.map((d) => ({ slug: d.slug, label: d.label }))} initial={feedbackInitial} />
                 {stepsMissing && !libraryMissing && (
