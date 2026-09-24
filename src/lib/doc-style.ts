@@ -30,21 +30,26 @@ const px = (n: number) => n * 0.75;
 /* Cambria and Calibri are the preview's first choices and ship with every
    copy of Word. The CSS falls back through Caladea/Georgia and Carlito/Aptos
    for machines without them; Word on such a machine substitutes on its own. */
-export const BODY_FONT = "Cambria";
-export const HEAD_FONT = "Calibri";
+/* Both faces are the ONE face the playbook names (lib/playbook.ts
+   documentLook); these are the fallbacks when it names none. The export
+   route overrides them per request. */
+export const BODY_FONT = "Times New Roman";
+export const HEAD_FONT = "Times New Roman";
 
 /* --doc-ink, --doc-title, --doc-rule, --doc-head, --doc-muted, and the two
    greys written inline in the CSS. Word wants them without the '#'. */
 export const INK = "1F1F1F";
-export const TITLE = "1F3864";
-export const RULE = "4472C4";
-export const HEAD = "2F5496";
+/* Title, rule and headings were three blues. They are black now: the app
+   adds no colour of its own to a document. */
+export const TITLE = INK;
+export const RULE = INK;
+export const HEAD = INK;
 export const MUTED = "595959";
 export const NOTE_RULE = "D9D9D9";
 export const END_NOTE = "8A8A8A";
 
 /* .wd-pages .sheet.wd-page: 10.5pt, line-height 1.24, padding 64px 72px 72px. */
-export const BODY_PT = 10.5;
+export const BODY_PT = 12;
 export const BODY_LINE = lines(1.24);
 export const PAGE = {
   // A4 in twips.
@@ -59,11 +64,13 @@ export const PARA_AFTER = tw(8);
 /* .doc-title: Calibri 14pt/1.2 bold, --doc-title, centred, 1.25px --doc-rule
    underneath with 3pt of air, 14pt after. 1.25px is 0.94pt; border sizes are
    in eighths of a point, so 8 (= 1pt) is the nearest Word can draw. */
+/* No rule under the title any more; the border is kept as a named shape
+   with zero width so the paragraph builder needs no special case. */
 export const TITLE_STYLE = {
-  size: pt(14),
+  size: pt(BODY_PT + 2),
   line: lines(1.2),
   after: tw(14),
-  border: { size: 8, color: RULE, space: 3 },
+  border: { size: 0, color: RULE, space: 0 },
 } as const;
 
 /* .doc-date: margin 0 0 10pt. */
@@ -73,7 +80,7 @@ export const DATE_AFTER = tw(10);
 export const LABEL = { before: tw(10), after: tw(6) } as const;
 
 /* .doc-section: Calibri 10.5pt/1.25 bold, --doc-head, margin 12pt 0 2pt. */
-export const SECTION = { size: pt(10.5), line: lines(1.25), before: tw(12), after: tw(2) } as const;
+export const SECTION = { size: pt(BODY_PT), line: lines(1.25), before: tw(12), after: tw(2) } as const;
 
 /* .doc-party, .doc-recital, .doc-clause: flush left, number inline with .3em
    of air after it, margin 0 0 8pt. The air is a plain space in Word. */

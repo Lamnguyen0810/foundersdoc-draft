@@ -1,5 +1,6 @@
 import "server-only";
 import { DOC_TYPES, EXAMPLES_BY_SLUG, type DocType, type Field, type Group } from "./doctypes";
+import { documentLook, type DocumentLook } from "./playbook";
 import { isSupabaseConfigured } from "./supabase/config";
 import { createClient } from "./supabase/server";
 
@@ -218,4 +219,39 @@ export async function loadDocTypes(): Promise<CatalogueResult> {
 export async function loadDocType(slug: string): Promise<DocType | undefined> {
   const { docTypes } = await loadDocTypes();
   return docTypes.find((d) => d.slug === slug);
+}
+
+/**
+ * The catalogue as the BROWSER may have it.
+ *
+ * The screen needs the questions and the labels. It does not need the
+ * system prompt, the firm's worked examples or the playbook — and with
+ * /draft open to visitors, anything in the page's React payload is on a
+ * public page. So those three are blanked before the catalogue leaves the
+ * server; /api/generate reads them for itself. The look of the page — face
+ * and size, read from the playbook — travels as two small values per type.
+ */
+export function forTheBrowser(docTypes: DocType[]): {
+  docTypes: DocType[];
+  looks: Record<string, DocumentLook>;
+} {
+  return {
+    docTypes: docTypes.map((d) => ({
+      slug: d.slug,
+      label: d.label,
+      description: d.description,
+      fields: d.fields,
+      groups: d.groups,
+      systemPrompt: "",
+      examples: [],
+    })),
+    looks: Object.fromEntries(
+      docTypes.map((d) => {
+        const rules = d.playbook ?? [];
+        const own = rules.filter((r) => r.title !== "Firm-wide playbook").map((r) => r.text);
+        const firm = rules.filter((r) => r.title === "Firm-wide playbook").map((r) => r.text);
+        return [d.slug, documentLook([...own, ...firm])];
+      }),
+    ),
+  };
 }

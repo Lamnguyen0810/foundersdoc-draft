@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { draftToParagraphs, paragraphText } from "@/lib/contract/dom";
+import { DEFAULT_LOOK, fontStack, type DocumentLook } from "@/lib/playbook";
 
 /**
  * The editable document: A4 pages, a formatting toolbar, and a save state.
@@ -30,6 +31,8 @@ export interface DocumentEditorProps {
   savedHtml?: string | null;
   /** Keeps the parent in sync with the exact content currently shown in the editor. */
   onContentChange?: (html: string, plain: string) => void;
+  /** The face and size the page is set in — from the playbook. */
+  look?: DocumentLook;
 }
 
 /**
@@ -49,14 +52,15 @@ const FONTS: { label: string; css: string }[] = [
   { label: "Times New Roman", css: '"Times New Roman",Times,serif' },
   { label: "Cambria", css: 'Cambria,Georgia,"Times New Roman",serif' },
   { label: "Georgia", css: 'Georgia,"Times New Roman",serif' },
+  { label: "Garamond", css: 'Garamond,Georgia,"Times New Roman",serif' },
+  { label: "Book Antiqua", css: '"Book Antiqua",Georgia,"Times New Roman",serif' },
 ];
 
 /** Points, because that is what a document is set in and what Word will show. */
 const SIZES = ["9pt", "10pt", "10.5pt", "11pt", "11.5pt", "12pt", "13pt", "14pt"];
 
-/** What the page is set in before anybody changes anything. */
-const DEFAULT_FONT = FONTS[0].label;
-const DEFAULT_SIZE = "11pt";
+/* What the page is set in before anybody changes anything comes from the
+   playbook — the `look` prop — not from a constant here. */
 
 const A4_RATIO = 297 / 210;
 /** Keep a heading with the paragraph beneath it rather than orphaning it. */
@@ -67,9 +71,20 @@ export default function DocumentEditor({
   onSave,
   savedHtml,
   onContentChange,
+  look = DEFAULT_LOOK,
 }: DocumentEditorProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
+
+  /* The page is set in the playbook's face and size (globals.css reads the
+     two variables). The toolbar's font and size menus start on the same
+     values, so what the menu says is what the page is. */
+  const lookStyle = {
+    "--doc-font": fontStack(look.font),
+    "--doc-size": `${look.sizePt}pt`,
+  } as CSSProperties;
+  const lookFont = FONTS.find((f) => f.label === look.font)?.label ?? FONTS[0].label;
+  const lookSize = `${look.sizePt}pt`;
 
   const [pageCount, setPageCount] = useState(1);
   const [pageNow, setPageNow] = useState(1);
@@ -81,8 +96,8 @@ export default function DocumentEditor({
   const [canRedo, setCanRedo] = useState(false);
   /* What the two dropdowns show. Read back from the document at the caret, so
      they describe what is actually there rather than what was last clicked. */
-  const [fontNow, setFontNow] = useState(DEFAULT_FONT);
-  const [sizeNow, setSizeNow] = useState(DEFAULT_SIZE);
+  const [fontNow, setFontNow] = useState(lookFont);
+  const [sizeNow, setSizeNow] = useState(lookSize);
 
   // History and the last-saved snapshot live in refs: changing them must not
   // re-render, or every keystroke would rebuild the toolbar.
@@ -502,14 +517,14 @@ export default function DocumentEditor({
       const family = near("font-family");
       const first = (v: string) => v.replace(/["']/g, "").split(",")[0].trim().toLowerCase();
       const hit = family ? FONTS.find((f) => first(f.css) === first(family)) : null;
-      setFontNow(hit ? hit.label : DEFAULT_FONT);
+      setFontNow(hit ? hit.label : lookFont);
 
       const size = near("font-size");
-      setSizeNow(size && SIZES.includes(size.trim()) ? size.trim() : DEFAULT_SIZE);
+      setSizeNow(size && SIZES.includes(size.trim()) ? size.trim() : lookSize);
     };
     document.addEventListener("selectionchange", read);
     return () => document.removeEventListener("selectionchange", read);
-  }, []);
+  }, [lookFont, lookSize]);
 
   const stateLabel = dirty
     ? "Unsaved changes"
@@ -606,7 +621,7 @@ export default function DocumentEditor({
       <div className="dscroll" ref={scrollRef}>
         {/* React renders this div and then never touches its children again —
             everything inside is built and owned by the effects above. */}
-        <div className="wd-pages" ref={pagesRef} suppressHydrationWarning />
+        <div className="wd-pages" ref={pagesRef} style={lookStyle} suppressHydrationWarning />
       </div>
     </>
   );

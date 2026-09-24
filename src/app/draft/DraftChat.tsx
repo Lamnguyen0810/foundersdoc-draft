@@ -26,7 +26,8 @@ import { track } from "@/lib/track";
 import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
 import DraftReady from "./DraftReady";
-import { SKIPPED } from "@/lib/prompt";
+import { SKIPPED, splitNotes } from "@/lib/prompt";
+import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 
 /* ────────────────────────────────────────────────────── the catalogue */
 
@@ -565,8 +566,11 @@ export default function DraftChat({
   isAdmin = false,
   prefill,
   resume = null,
+  looks = {},
 }: {
   docTypes: DocType[];
+  /** Face and size per document type, read from the playbook on the server. */
+  looks?: Record<string, DocumentLook>;
   presetSlug?: string;
   userEmail?: string | null;
   /** Accounts exist and this visitor has none. The questions are open to
@@ -782,6 +786,7 @@ export default function DraftChat({
             restore={stashType && stashType.slug === chosen.slug ? stash : null}
             isAdmin={isAdmin}
             guest={guest}
+            look={looks[chosen.slug] ?? DEFAULT_LOOK}
             onCreditSpent={spendCredit}
             onChangeDocument={() => {
               /* Choosing a different document abandons this one — leaving the
@@ -1399,10 +1404,13 @@ function Chat({
   restore,
   isAdmin = false,
   guest = false,
+  look = DEFAULT_LOOK,
   onCreditSpent,
   onChangeDocument,
 }: {
   docType: DocType;
+  /** How the page is set — from the playbook. */
+  look?: DocumentLook;
   userEmail: string | null;
   recent: RecentDraft[];
   wallet: WalletView | null;
@@ -2359,11 +2367,12 @@ function Chat({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          text: documentText === output ? editorExportRef.current?.plain ?? documentText : documentText,
+          text: documentText === output ? editorExportRef.current?.plain ?? documentBody : splitNotes(documentText).body,
           html: documentText === output ? editorExportRef.current?.html : undefined,
           title,
           fileName,
           includeNotes: false,
+          docTypeSlug: docType.slug,
         }),
       });
       if (!res.ok) {
@@ -2656,7 +2665,15 @@ function Chat({
     );
   }
 
-  const sheetParagraphs = output
+  /* ── THE DOCUMENT IS ONLY THE DOCUMENT ────────────────────────────────
+     The model still ends its answer with DRAFTER'S NOTES — the list of every
+     [[TO CONFIRM]] and skipped answer, for the reviewing lawyer. That list
+     used to be typeset at the foot of the page, and went into the Word file
+     with it. It is split off here: the page and the download get the
+     document; the notes are shown beside it, in the conversation. */
+  const { body: documentBody, notes: drafterNotes } = splitNotes(output);
+
+  const sheetParagraphs = documentBody
     .trim()
     .split(/\n\s*\n/)
     .map((b, k) => {
@@ -2899,6 +2916,7 @@ function Chat({
           }
           follow={follow}
           conversation={msgs}
+          notes={drafterNotes}
         />
 
         {/* The document is not rendered at all until it exists and the person
@@ -2990,7 +3008,8 @@ function Chat({
         ) : (
           <DocumentEditor
             key={`${draftId ?? "unsaved"}:v${documentVersion}`}
-            text={output}
+            text={documentBody}
+            look={look}
             savedHtml={savedHtml}
             onContentChange={captureEditorContent}
             onSave={saveDocument}

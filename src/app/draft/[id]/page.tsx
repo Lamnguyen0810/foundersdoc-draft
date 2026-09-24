@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { loadDocTypes } from "@/lib/doctypes.server";
+import { forTheBrowser, loadDocTypes } from "@/lib/doctypes.server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { getWallet } from "@/lib/billing/credits";
@@ -64,8 +64,10 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
   if (!data) notFound();
   const row = data as unknown as Row;
 
-  const { docTypes } = await loadDocTypes();
-  const docType = docTypes.find((d) => d.slug === row.doc_types?.slug);
+  const { docTypes: loaded } = await loadDocTypes();
+  const docType = loaded.find((d) => d.slug === row.doc_types?.slug);
+  /* Questions and labels only — see forTheBrowser(). */
+  const { docTypes, looks } = forTheBrowser(loaded);
 
   /* The document type was retired or renamed after this draft was made. There
      is no conversation to replay without its questions, so rather than guess
@@ -112,6 +114,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
   return (
     <DraftChat
       docTypes={docTypes}
+      looks={looks}
       userEmail={user?.email ?? null}
       recent={recent}
       wallet={

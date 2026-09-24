@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { FIRM_WIDE, MAX_PLAYBOOK_CHARS, type PlaybookVersion } from "@/lib/playbook";
+import { FIRM_WIDE, MAX_PLAYBOOK_CHARS, documentLook, type PlaybookVersion } from "@/lib/playbook";
 import { stamp } from "./parts";
 
 /**
@@ -101,6 +101,9 @@ export default function Playbook({
   const chars = text.length;
   const tooLong = chars > MAX_PLAYBOOK_CHARS;
   const label = scopes.find((s) => s.slug === scope)?.label ?? scope;
+  /* What the page will be set in, read from the text in the box — so the
+     effect of a "Font: Arial, 11pt" line is visible before it is saved. */
+  const look = documentLook([text]);
 
   function takeFile(list: FileList | null) {
     const f = list?.[0];
@@ -228,6 +231,12 @@ export default function Playbook({
               {chars.toLocaleString("en-GB")} / {MAX_PLAYBOOK_CHARS.toLocaleString("en-GB")}
             </span>
           </div>
+          <p className="playbook-look">
+            Page set in <b>{look.font} {look.sizePt}pt</b>
+            {look.source === "playbook"
+              ? " — named in this playbook."
+              : " — the default. Name a typeface and size in the playbook (e.g. “Font: Arial, 11pt”) to change it; the firm-wide playbook is read when this one names none."}
+          </p>
           {file ? (
             <div className="playbook-file">
               <div className="filetype">{(file.name.split(".").pop() ?? "").toUpperCase().slice(0, 4)}</div>

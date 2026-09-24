@@ -39,17 +39,6 @@ export interface Block {
   text: string;
 }
 
-/** Words that stay lower-case inside a title-cased heading. */
-const SMALL = /^(a|an|and|as|at|by|for|in|of|on|or|the|to|with)$/;
-
-function titleCase(s: string): string {
-  return s
-    .toLowerCase()
-    .split(" ")
-    .map((w, i) => (i > 0 && SMALL.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
-    .join(" ");
-}
-
 /**
  * Collapse the wrapping the model emits, leaving blank-line breaks alone
  * (those have already separated the blocks by the time this runs).
@@ -93,7 +82,10 @@ export function parseDraft(draft: string): Block[] {
     // A numbered HEADING — "3. CONFIDENTIALITY" — must be caught before 3.1.
     if (/^\d+\.\s{1,}/.test(t) && /^[\d.]+\s+[A-Z][A-Z\s&'-]+$/.test(t)) {
       const sm = t.match(/^(\d+\.)\s+(.*)$/)!;
-      return push("section", `${sm[1]} ${titleCase(sm[2])}`);
+      /* As written. This used to title-case the heading ("3. CONFIDENTIALITY"
+         → "3. Confidentiality"), which was the app's taste over the firm's:
+         the playbook and the precedents decide whether headings are capitals. */
+      return push("section", `${sm[1]} ${sm[2].trim()}`);
     }
 
     // 3.1 The Recipient shall …

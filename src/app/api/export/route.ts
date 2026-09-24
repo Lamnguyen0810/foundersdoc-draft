@@ -12,8 +12,19 @@ import {
 } from "docx";
 import { splitNotes } from "@/lib/prompt";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { getUser } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import * as S from "@/lib/doc-style";
+import { DEFAULT_LOOK, documentLook, type DocumentLook } from "@/lib/playbook";
+
+/* ── THE FACE AND SIZE, PER REQUEST ──────────────────────────────────────────
+   The playbook names the typeface and body size (lib/playbook.ts); every run
+   below is set in it. It is a module variable rather than a parameter
+   threaded through a dozen builders because the whole build between the two
+   awaits in POST is synchronous: it is set, used, and nothing else can run
+   in between. Title = body + 2pt bold; headings = body bold. No colour. */
+let LOOK: DocumentLook = DEFAULT_LOOK;
+const bodySize = () => S.pt(LOOK.sizePt);
+const titleSize = () => S.pt(LOOK.sizePt + 2);
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -54,9 +65,9 @@ const run = (
     bold: o.b,
     italics: o.i,
     underline: o.u ? { type: UnderlineType.SINGLE } : undefined,
-    font: o.font ?? S.BODY_FONT,
-    size: o.size ?? S.pt(S.BODY_PT),
-    color: o.color ?? S.INK,
+    font: LOOK.font,
+    size: o.size ?? bodySize(),
+    color: S.INK,
   });
 
 function decodeHtml(value: string): string {
@@ -160,15 +171,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
         new Paragraph({
           alignment: AlignmentType.CENTER,
           spacing: { after: S.TITLE_STYLE.after, ...single(S.TITLE_STYLE.line) },
-          border: {
-            bottom: {
-              style: BorderStyle.SINGLE,
-              size: S.TITLE_STYLE.border.size,
-              color: S.TITLE_STYLE.border.color,
-              space: S.TITLE_STYLE.border.space,
-            },
-          },
-          children: runsFromHtml(fragment, { size: S.TITLE_STYLE.size, color: S.TITLE, font: S.HEAD_FONT, b: true }),
+          children: runsFromHtml(fragment, { size: titleSize(), b: true }),
         }),
       );
       continue;
@@ -197,7 +200,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
       out.push(
         new Paragraph({
           spacing: { before: S.SECTION.before, after: S.SECTION.after, ...single(S.SECTION.line) },
-          children: runsFromHtml(text, { size: S.SECTION.size, color: S.HEAD, font: S.HEAD_FONT, b: true }),
+          children: runsFromHtml(text, { size: bodySize(), b: true }),
         }),
       );
       continue;
@@ -305,7 +308,7 @@ function paragraphsFromText(text: string): Paragraph[] {
       out.push(
         new Paragraph({
           spacing: { before: S.SECTION.before, after: S.SECTION.after, ...single(S.SECTION.line) },
-          children: [run(line, { b: true, size: S.SECTION.size, color: S.HEAD, font: S.HEAD_FONT })],
+          children: [run(line, { b: true, size: bodySize() })],
         }),
       );
     } else if (lettered) {
@@ -340,7 +343,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
 
-  let body: { text?: string; html?: string; title?: string; fileName?: string; includeNotes?: boolean };
+  let body: { text?: string; html?: string; title?: string; fileName?: string; includeNotes?: boolean; docTypeSlug?: string };
   try {
     body = await req.json();
   } catch {
@@ -349,6 +352,26 @@ export async function POST(req: NextRequest) {
 
   const text = (body.text ?? "").trim();
   if (!text) return Response.json({ error: "There is nothing to export." }, { status: 400 });
+
+  /* The face and size come from the live playbook for this document type
+     (firm-wide first, then the type's own — documentLook reads the type's
+     text first so a type may set its own). Missing playbook, or 044 not run:
+     the default. Never a reason to refuse the download. */
+  LOOK = DEFAULT_LOOK;
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      const slug = typeof body.docTypeSlug === "string" && /^[a-z0-9_-]{1,64}$/.test(body.docTypeSlug) ? body.docTypeSlug : "*";
+      const { data } = await supabase.rpc("playbook_for", { p_slug: slug });
+      const rows = ((data ?? []) as { scope: string; text: string }[]);
+      LOOK = documentLook([
+        ...rows.filter((r) => r.scope !== "*").map((r) => r.text),
+        ...rows.filter((r) => r.scope === "*").map((r) => r.text),
+      ]);
+    } catch {
+      /* default look */
+    }
+  }
 
   const html = (body.html ?? "").trim();
   let children: Paragraph[];
@@ -377,7 +400,7 @@ export async function POST(req: NextRequest) {
     styles: {
       default: {
         document: {
-          run: { font: S.BODY_FONT, size: S.pt(S.BODY_PT), color: S.INK },
+          run: { font: LOOK.font, size: bodySize(), color: S.INK },
           paragraph: { spacing: { after: S.PARA_AFTER, ...single(S.BODY_LINE) } },
         },
       },

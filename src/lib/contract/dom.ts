@@ -1,4 +1,4 @@
-import { parseDraft, splitPartyName, splitPlaceholders, type Block } from "./parse";
+import { parseDraft, splitPlaceholders, type Block } from "./parse";
 
 /**
  * Blocks → DOM, for the editable document.
@@ -66,16 +66,10 @@ export function blocksToParagraphs(doc: Document, blocks: Block[]): HTMLElement[
       const body = doc.createElement("span");
       body.className = "doc-body";
 
-      // A party's defined name is bold up to the first bracket or comma.
-      const named = b.kind === "party" ? splitPartyName(b.text) : null;
-      if (named) {
-        const strong = doc.createElement("b");
-        strong.textContent = named.name;
-        body.appendChild(strong);
-        appendText(doc, body, named.rest);
-      } else {
-        appendText(doc, body, b.text);
-      }
+      /* A party's name used to be set in bold up to the first bracket. Not
+         any more: emphasis is the firm's call, made in the playbook and shown
+         in the precedents, and the app adds none of its own. */
+      appendText(doc, body, b.text);
 
       p.appendChild(num);
       p.appendChild(body);
@@ -87,14 +81,10 @@ export function blocksToParagraphs(doc: Document, blocks: Block[]): HTMLElement[
     out.push(p);
   }
 
-  /* Always last, never editable: whatever the lawyer does to the document, it
-     should not be possible to delete the line that says it came from a model. */
-  const foot = doc.createElement("p");
-  foot.className = "doc-end-note";
-  foot.contentEditable = "false";
-  foot.textContent = "AI-generated first draft · Review before external use";
-  out.push(foot);
-
+  /* Nothing is appended. The document is the document: the firm asked that
+     no line of the app's own — no notice, no notes — sit inside it. The
+     drafter's notes are shown beside the page instead (DraftReady), and the
+     "AI-generated" reminder lives in the product, not in the file. */
   return out;
 }
 
