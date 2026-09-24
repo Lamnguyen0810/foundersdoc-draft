@@ -2738,7 +2738,7 @@ html[data-theme=dark]{
      fallbacks for a page rendered before it has said. */
   font-family:var(--doc-font,"Times New Roman",Times,serif)!important;
   font-size:var(--doc-size,12pt)!important;
-  line-height:1.24!important;
+  line-height:var(--doc-line,1.24)!important;
   color:var(--doc-ink)!important;
   caret-color:var(--doc-ink)!important;
 }
@@ -2748,8 +2748,8 @@ html[data-theme=dark]{
   font-family:inherit!important;
   font-size:inherit!important;
   line-height:inherit!important;
-  margin:0 0 8pt!important;
-  text-align:left!important;
+  margin:0 0 var(--doc-after,8pt)!important;
+  text-align:var(--doc-align,left)!important;
   hyphens:auto;
   -webkit-hyphens:auto;
   overflow-wrap:break-word!important;
@@ -2761,7 +2761,7 @@ html[data-theme=dark]{
    the app adds nothing of its own. */
 .wd-pages .sheet .doc-title{
   font-family:inherit!important;
-  font-size:calc(var(--doc-size,12pt) + 2pt)!important;
+  font-size:var(--doc-title-size,calc(var(--doc-size,12pt) + 2pt))!important;
   line-height:1.2!important;
   font-weight:700!important;
   letter-spacing:0!important;
@@ -2779,7 +2779,8 @@ html[data-theme=dark]{
   letter-spacing:0!important;
   text-transform:none!important;
   color:var(--doc-ink)!important;
-  margin:10pt 0 6pt!important;
+  text-align:left!important;
+  margin:var(--doc-head-before,10pt) 0 var(--doc-head-after,6pt)!important;
 }
 
 /* Section headings: "1. Purpose" — the body face, bold, black. */
@@ -2794,7 +2795,8 @@ html[data-theme=dark]{
   color:var(--doc-ink)!important;
   border:0!important;
   padding:0!important;
-  margin:12pt 0 2pt!important;
+  margin:var(--doc-head-before,12pt) 0 var(--doc-head-after,2pt)!important;
+  text-align:left!important;
 }
 
 /* Numbered paragraphs read inline, flush left, like the reference. */
@@ -2814,6 +2816,9 @@ html[data-theme=dark]{
   margin:0 0 4pt 1.4em!important;
 }
 .wd-pages .sheet .doc-subclause .doc-num,.wd-pages .sheet .doc-subclause .doc-body{display:block!important}
+/* Deeper levels step in by the same measure: (ii) under (a), (A) under (ii). */
+.wd-pages .sheet .doc-subclause.doc-level-2{margin-left:3.3em!important}
+.wd-pages .sheet .doc-subclause.doc-level-3{margin-left:5.2em!important}
 
 /* Blanks: a fill-in line instead of a highlighted token. */
 .wd-pages .sheet .placeholder{
@@ -2831,6 +2836,9 @@ html[data-theme=dark]{
   cursor:text;
 }
 .wd-pages .sheet .placeholder:empty::before{content:"\00a0"}
+
+/* The playbook's FD Note: bold italic, highlighted on a draft (R10.3/R10.4). */
+.wd-pages .sheet .fd-note{font-weight:700!important;font-style:italic;background:#fff3a3;padding:0 2px;border-radius:2px;color:var(--doc-ink)!important}
 
 /* Drafter's notes stay quiet and clearly separate from the contract text. */
 .wd-pages .sheet .doc-notes-title{

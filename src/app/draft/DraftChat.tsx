@@ -26,7 +26,7 @@ import { track } from "@/lib/track";
 import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
 import DraftReady from "./DraftReady";
-import { SKIPPED, splitNotes } from "@/lib/prompt";
+import { SKIPPED, fdNotes, splitNotes } from "@/lib/prompt";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 
 /* ────────────────────────────────────────────────────── the catalogue */
@@ -2716,7 +2716,13 @@ function Chat({
      used to be typeset at the foot of the page, and went into the Word file
      with it. It is split off here: the page and the download get the
      document; the notes are shown beside it, in the conversation. */
-  const { body: documentBody, notes: drafterNotes } = splitNotes(output);
+  const { body: documentBody, notes: legacyNotes } = splitNotes(output);
+  /* The playbook's own notes live IN the text as [FD Note: …] (R10.3); the
+     card lists them so the lawyer sees every one at a glance. A draft from
+     before the playbook may still carry the old foot block instead. */
+  const inlineNotes = fdNotes(documentBody);
+  const drafterNotes =
+    inlineNotes.length > 0 ? inlineNotes.map((n) => `• ${n}`).join("\n") : legacyNotes;
 
   const sheetParagraphs = documentBody
     .trim()

@@ -82,6 +82,12 @@ export default function DocumentEditor({
   const lookStyle = {
     "--doc-font": fontStack(look.font),
     "--doc-size": `${look.sizePt}pt`,
+    "--doc-title-size": `${look.titlePt}pt`,
+    "--doc-align": look.justify ? "justify" : "left",
+    "--doc-line": String(look.lineSpacing),
+    "--doc-after": `${look.spaceAfterPt}pt`,
+    "--doc-head-before": `${look.headingBeforePt}pt`,
+    "--doc-head-after": `${look.headingAfterPt}pt`,
   } as CSSProperties;
   const lookFont = FONTS.find((f) => f.label === look.font)?.label ?? FONTS[0].label;
   const lookSize = `${look.sizePt}pt`;

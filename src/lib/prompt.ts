@@ -76,10 +76,9 @@ export function playbookBlock(docType: DocType): string | null {
     "document.",
     "",
     "The playbook does not override the guardrails: the facts still come only",
-    "from THE FACTS; a missing fact is still a [[TO CONFIRM: ...]] placeholder,",
-    "never a guess; the hard rules, the treatment of skipped answers, the",
-    "required comprehensiveness and the output format (including DRAFTER'S",
-    "NOTES) still apply as written.",
+    "from THE FACTS; a missing fact is still a gap, marked as the playbook",
+    "prescribes, never a guess; the hard rules, the treatment of skipped",
+    "answers and the required comprehensiveness still apply as written.",
     "",
     "Never quote, mention or explain the playbook in the draft — it shows in",
     "what you write, not in what you say about it.",
@@ -117,6 +116,29 @@ function deferHouseStyle(systemPrompt: string): string {
         /^(\s*-\s*Plain text with blank lines between paragraphs\.)[^\n]*$/m,
         "$1 Number clauses the way the playbook and the worked examples do.",
       )
+      /* ── THE PLAYBOOK'S OWN CONVENTIONS FOR GAPS AND NOTES ────────────
+         The built-in prompt asked for [[TO CONFIRM: …]] placeholders and a
+         DRAFTER'S NOTES block at the foot. The firm's playbook has its own:
+         [●] for a missing fact and an [FD Note: …] in the text. Two
+         conventions is one too many, so with a playbook live the built-in
+         ones are rewritten to the playbook's, and the foot block is not
+         asked for at all — the notes card reads the FD Notes instead. */
+      .replace(
+        /^(\s*-\s*Do not invent facts\.)[\s\S]*?(?=\n\s*-\s|\n\s*\n)/m,
+        "$1 A fact you need and do not have is a gap, marked exactly as the playbook prescribes ([●], with an FD Note where the playbook asks for one). Never guess a name, an amount, a date, a registration number, a contract reference or a statutory provision.",
+      )
+      .replace(
+        /^(\s*-\s*Do not cite legislation, case law or rules unless it was supplied)[\s\S]*?(?=\n\s*-\s|\n\s*\n)/m,
+        "$1 to you in this prompt, in the playbook or in the source document. Otherwise mark the gap and add an FD Note, as the playbook prescribes.",
+      )
+      .replace(/^\s*-\s*End with a line "---" followed by a short block headed "DRAFTER'S NOTES:"[\s\S]*?(?=\n\s*-\s|\n\s*\n|(?![\s\S]))/m, "")
+      .replace(/raise it in DRAFTER'S NOTES/g, "say so in an FD Note")
+      .replace(/say so in DRAFTER'S NOTES/g, "say so in an FD Note")
+      .replace(
+        /List every skipped question in DRAFTER'S NOTES under a line reading\s*"Not yet answered:"/,
+        'List every skipped question in one FD Note at the top of the document, reading "[FD Note: Not yet answered: …]",',
+      )
+      .replace(/\[\[TO CONFIRM[^\]]*\]\]/g, "[●] (with an FD Note where the playbook asks for one)")
   );
 }
 
@@ -135,9 +157,10 @@ const EMPHASIS_INSTRUCTION = [
   "Where the firm's playbook or worked examples set text in bold — defined terms,",
   "party names, headings — write it between double asterisks: **Confidential",
   "Information**. Italics, where they use them, between single underscores:",
-  "_oral_. Use these marks exactly where the precedents use emphasis and",
-  "nowhere else. They are the only markup permitted; everything else is plain",
-  "text.",
+  "_oral_. Use these marks exactly where the playbook and precedents use",
+  "emphasis and nowhere else. They are the only markup permitted; everything",
+  "else is plain text. Highlighting, colour, headers, footers, page numbers and",
+  "cover pages are applied by the application, not written into the text.",
 ].join("\n");
 
 /**
@@ -311,4 +334,17 @@ export function splitNotes(text: string): { body: string; notes: string | null }
   body = body.replace(/\n[\s*_-]{3,}\s*$/, "").trimEnd();
   const notes = text.slice(at).replace(/^[\s*#_-]+/, "").trim();
   return { body, notes };
+}
+
+/** Every [FD Note: …] in a draft, in order — the playbook's notes for the
+ *  reviewing lawyer, which the conversation shows as a card. */
+export function fdNotes(text: string): string[] {
+  const out: string[] = [];
+  const re = /\[\s*FD Note:\s*([^\]]*)\]/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const t = m[1].trim();
+    if (t) out.push(t);
+  }
+  return out;
 }
