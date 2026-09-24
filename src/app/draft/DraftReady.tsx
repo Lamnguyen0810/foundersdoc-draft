@@ -109,7 +109,7 @@ export interface DraftReadyProps {
  */
 function DrafterNotes({ text }: { text: string }) {
   const lines = text
-    .replace(/^DRAFTER'S NOTES:?\s*/i, "")
+    .replace(/^[\s*#_-]*DRAFTER[’'‘`]?S\s+NOTES?:?[\s*]*/i, "")
     .split(/\n+/)
     .map((l) => l.replace(/^\s*[•\-–*]\s*/, "").trim())
     .filter(Boolean);

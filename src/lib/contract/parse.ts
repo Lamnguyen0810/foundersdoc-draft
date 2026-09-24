@@ -107,7 +107,7 @@ export function parseDraft(draft: string): Block[] {
       return;
     }
 
-    if (/DRAFTER'S NOTES/.test(t)) return push("notes-title", "Drafter’s notes");
+    if (/DRAFTER[’'‘`]?S\s+NOTES?/i.test(t)) return push("notes-title", "Drafter’s notes");
 
     /* Drafter's notes arrive as a run of bullets separated by single newlines,
        so — exactly like sub-clauses — they are one block and must be split, or

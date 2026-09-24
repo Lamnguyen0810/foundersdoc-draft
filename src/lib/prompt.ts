@@ -226,11 +226,26 @@ export function skippedFields(docType: DocType, answers: Answers): string[] {
     .map((f) => f.label);
 }
 
-/** Splits the model output into the document body and the drafter's notes. */
+/**
+ * Splits the model output into the document body and the drafter's notes.
+ *
+ * The prompt asks for a "---" line and then "DRAFTER'S NOTES:". Models take
+ * liberties with both: a typographic apostrophe (DRAFTER’S), a heading in
+ * bold or with a colon missing, a "---" of a different length or none at
+ * all. The heading is the thing looked for — the LAST line that says
+ * drafter's notes, however it is punctuated — and any rule line just above
+ * it goes with the notes rather than staying on the document.
+ */
+const NOTES_HEADING = /^[\s*#_-]*DRAFTER[’'‘`]?S\s+NOTES?\b/im;
+
 export function splitNotes(text: string): { body: string; notes: string | null } {
-  const idx = text.lastIndexOf("\n---");
-  if (idx === -1) return { body: text, notes: null };
-  const after = text.slice(idx + 4);
-  if (!/DRAFTER'S NOTES/i.test(after)) return { body: text, notes: null };
-  return { body: text.slice(0, idx).trimEnd(), notes: after.trim() };
+  let at = -1;
+  const re = new RegExp(NOTES_HEADING.source, "gim");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) at = m.index;
+  if (at === -1) return { body: text, notes: null };
+  let body = text.slice(0, at).trimEnd();
+  body = body.replace(/\n[\s*_-]{3,}\s*$/, "").trimEnd();
+  const notes = text.slice(at).replace(/^[\s*#_-]+/, "").trim();
+  return { body, notes };
 }
