@@ -1,4 +1,4 @@
-import { loadDocTypes } from "@/lib/doctypes.server";
+import { forTheBrowser, loadDocTypes } from "@/lib/doctypes.server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getUser, isAdmin } from "@/lib/supabase/server";
 import { getWallet } from "@/lib/billing/credits";
@@ -23,7 +23,9 @@ export default async function DraftPage({
 }: {
   searchParams: Promise<{ type?: string }>;
 }) {
-  const { docTypes } = await loadDocTypes();
+  const { docTypes: loaded } = await loadDocTypes();
+  /* Questions and labels only — see forTheBrowser(). */
+  const { docTypes, looks } = forTheBrowser(loaded);
 
   // `/draft?type=nda` — the deep link the marketing site uses. An unknown slug
   // falls through to the catalogue rather than erroring, so a stale link on the
@@ -48,6 +50,7 @@ export default async function DraftPage({
   return (
     <DraftChat
       docTypes={docTypes}
+      looks={looks}
       presetSlug={presetSlug}
       userEmail={user?.email ?? null}
       /* Accounts exist and this person has none: the questions are open to

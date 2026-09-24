@@ -96,6 +96,34 @@ export interface DraftReadyProps {
     documentText?: string;
     detailLevel?: number;
   }[];
+  /** The DRAFTER'S NOTES the model wrote for the reviewing lawyer — every
+   *  [[TO CONFIRM]] and skipped answer — shown here, beside the page, and
+   *  never inside the document or its download. */
+  notes?: string | null;
+}
+
+/**
+ * The model's notes for the reviewing lawyer, as a card in the conversation.
+ * They used to be the last section of the document itself; the firm asked
+ * that the document be only the document. Bullets in, bullets out.
+ */
+function DrafterNotes({ text }: { text: string }) {
+  const lines = text
+    .replace(/^DRAFTER'S NOTES:?\s*/i, "")
+    .split(/\n+/)
+    .map((l) => l.replace(/^\s*[•\-–*]\s*/, "").trim())
+    .filter(Boolean);
+  if (lines.length === 0) return null;
+  return (
+    <div className="cg-notes">
+      <b>For the reviewing lawyer</b>
+      <ul>
+        {lines.map((l, i) => (
+          <li key={i}>{l}</li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function FdAvatar() {
@@ -120,6 +148,7 @@ export default function DraftReady({
   onChangeNdaDetailLevel,
   conversation = [],
   follow,
+  notes = null,
 }: DraftReadyProps) {
   const [text, setText] = useState("");
   /* The names of the five levels come from DetailSlider, which is also what
@@ -247,7 +276,7 @@ export default function DraftReady({
                 <FdAvatar />
           <div className="cg-msg">
             <p>
-              Done. I’ve drafted your <b>{docLabel}</b> on a Singapore-law precedent.{" "}
+              Done. I’ve drafted your <b>{docLabel}</b> from the firm’s playbook and precedents.{" "}
               {/* Say plainly what was and was not filled in. A draft that quietly
                   looks complete is the one that gets sent without being read. */}
               {skippedCount > 0 ? (
@@ -278,6 +307,8 @@ export default function DraftReady({
                 <small>Version 1 · click to display</small>
               </span>
             </button>
+
+            {notes && <DrafterNotes text={notes} />}
           </div>
         </div>
         )}

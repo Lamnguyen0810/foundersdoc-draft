@@ -273,6 +273,8 @@ html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 .fdadmin .playbook-editor-head .field-label { margin-bottom: 6px; }
 .fdadmin .playbook-count { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .fdadmin .playbook-count.over { color: var(--danger); font-weight: 700; }
+.fdadmin .playbook-look { margin: 0 0 8px; font-size: 11px; color: var(--muted); }
+.fdadmin .playbook-look b { color: var(--ink); font-weight: 600; }
 .fdadmin .playbook-editor textarea { min-height: 320px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.55; resize: vertical; }
 .fdadmin .playbook-file { display: grid; grid-template-columns: 34px 1fr auto; gap: 9px; align-items: center; padding: 8px 10px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .fdadmin .dropzone.slim { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 14px; margin-top: 8px; border-radius: 12px; font-size: 11px; color: var(--muted); }
