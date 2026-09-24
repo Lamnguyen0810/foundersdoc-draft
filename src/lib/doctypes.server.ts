@@ -187,6 +187,26 @@ export async function loadDocTypes(): Promise<CatalogueResult> {
       }),
     );
 
+    /* ── AND THE RULES ────────────────────────────────────────────────────
+       The playbook (044): the firm-wide rules and this type's own, live
+       versions only. Missing table or RPC — 044 not run yet — means no
+       playbook, and the draft goes out as it did before. */
+    await Promise.all(
+      docTypes.map(async (docType) => {
+        const { data: rows, error: pbErr } = await supabase.rpc("playbook_for", { p_slug: docType.slug });
+        if (pbErr) {
+          if (!/playbook_for/.test(pbErr.message)) {
+            console.error(`[doctypes] could not read the playbook for "${docType.slug}":`, pbErr.message);
+          }
+          return;
+        }
+        const rules = ((rows ?? []) as { title: string; text: string }[]).filter(
+          (r) => r.text && r.text.trim().length > 0,
+        );
+        if (rules.length > 0) docType.playbook = rules;
+      }),
+    );
+
     return { docTypes, source: "database" };
   } catch (err) {
     console.error("[doctypes] falling back to built-in catalogue:", err);

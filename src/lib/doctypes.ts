@@ -70,6 +70,10 @@ export interface DocType {
   /** Kept SEPARATE from the prompt text so that swapping in the firm's own
    *  examples changes nothing else. Never paste an example inline into a prompt. */
   examples: Example[];
+  /** The firm's rules — firm-wide first, then this type's own — as saved in
+   *  the admin console (supabase/044). Read before the examples and told to
+   *  win over them. Absent when nothing is live. */
+  playbook?: { title: string; text: string }[];
 }
 
 /** Worked examples, keyed by doc type slug. Swap these for the firm's own sanitised

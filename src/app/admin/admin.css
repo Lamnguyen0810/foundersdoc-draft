@@ -261,3 +261,33 @@ html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
    the difference between a visitor and a visit actually is. */
 .fdadmin .worked-example { margin: 14px 0 0; padding: 11px 13px; border: 1px solid var(--line); border-radius: 12px; background: var(--soft); font-size: 11.5px; line-height: 1.65; color: var(--muted); }
 .fdadmin .worked-example b { color: var(--ink); font-weight: 600; }
+
+/* ── Playbook ──────────────────────────────────────────────────────────────
+   Rules, not samples. Editor on the left, history on the right; the same
+   card, head and toolbar as the questions panel so the three read as one
+   console. */
+.fdadmin .playbook-why { margin: 0 18px 14px; padding: 12px 14px; border: 1px solid var(--line); border-left: 3px solid var(--fd-yellow); border-radius: 12px; background: var(--fd-yellow-wash); font-size: 12px; line-height: 1.6; color: var(--ink-2); }
+.fdadmin .playbook-why b { color: var(--ink); }
+.fdadmin .playbook-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; padding: 0 18px 18px; }
+.fdadmin .playbook-editor-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.fdadmin .playbook-editor-head .field-label { margin-bottom: 6px; }
+.fdadmin .playbook-count { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fdadmin .playbook-count.over { color: var(--danger); font-weight: 700; }
+.fdadmin .playbook-editor textarea { min-height: 320px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.55; resize: vertical; }
+.fdadmin .playbook-file { display: grid; grid-template-columns: 34px 1fr auto; gap: 9px; align-items: center; padding: 8px 10px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.fdadmin .dropzone.slim { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 14px; margin-top: 8px; border-radius: 12px; font-size: 11px; color: var(--muted); }
+.fdadmin .dropzone.slim .btn { height: 34px; padding: 0 12px; font-size: 12px; }
+.fdadmin .playbook-note { margin-top: 12px; }
+.fdadmin .playbook-history { border: 1px solid var(--line); border-radius: 14px; background: #FCFCFD; padding: 14px 16px; align-self: start; max-height: 560px; overflow: auto; }
+.fdadmin .playbook-history h3 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.fdadmin .playbook-history ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.fdadmin .playbook-history li { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.fdadmin .playbook-history li.live { border-color: #D1AC32; background: var(--fd-yellow-wash); }
+.fdadmin .playbook-v-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.fdadmin .playbook-v-meta { margin-top: 3px; font-size: 10px; color: var(--muted); }
+.fdadmin .playbook-v-note { margin-top: 5px; font-size: 11px; color: var(--ink-2); }
+.fdadmin .playbook-history .inline-actions { margin-top: 6px; gap: 12px; }
+.fdadmin .playbook-read { margin: 0; max-height: 60vh; overflow: auto; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.55; color: var(--ink); }
+@media (max-width: 900px) {
+  .fdadmin .playbook-grid { grid-template-columns: 1fr; }
+}
