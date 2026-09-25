@@ -305,6 +305,9 @@ export function assemble(input: TermSheetInput): Assembled {
       addr.split(/\s*[\n,]\s*/).filter(Boolean).forEach((l) => plain(l));
       continue;
     }
+    /* "Attention:" names a person; with nobody named the line is left out
+       rather than printed with a gap in it. */
+    if (line.includes("{{recipient_contact}}") && !f.recipient_contact) continue;
     plain(fill(line, f, missing));
   }
 
