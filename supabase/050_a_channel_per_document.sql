@@ -10,6 +10,7 @@
 --     draft_activity        → everything else (the NDA's Zap, as today)
 --
 -- The same goes for feedback, rules learnt and "fb undo" about a type.
+-- A term sheet's download line no longer lists NDA steps as "Skipped".
 -- Nothing changes until the second hook is saved (step 2 below), so this can
 -- be run before the Zap exists.
 --
@@ -101,7 +102,11 @@ begin
       return new;
     end if;
 
-    v_skipped := public.skipped_steps(v_draft);
+    -- The skipped-steps line is about the NDA's questions; an assembled
+    -- document (the term sheet) has none of those steps.
+    if coalesce((select engine from public.doc_types where slug = v_slug), 'chat') <> 'assembly' then
+      v_skipped := public.skipped_steps(v_draft);
+    end if;
   end if;
 
   v_message := public.draft_message(new.name, v_who, v_doc, new.created_at, v_words, v_skipped);
