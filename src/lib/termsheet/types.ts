@@ -63,6 +63,8 @@ export interface Flag {
   level: FlagLevel;
   /** S1 … S30, or "AI" for a drafted field. */
   scenario: string;
+  /** A few words for the list the user sees: "Parties in different countries". */
+  title?: string;
   reason: string;
   /** The question or field it concerns. */
   field?: string;

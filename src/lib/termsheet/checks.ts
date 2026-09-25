@@ -19,13 +19,45 @@ type Scenario = (typeof SCENARIOS)["scenarios"][number];
 
 const BY_ID: Record<string, Scenario> = Object.fromEntries(SCENARIOS.scenarios.map((s) => [s.id, s]));
 
+/**
+ * What each flag says, in one sentence, to the lawyer who reviews the term
+ * sheet before it is signed — the client's own. Taken from the playbook's
+ * own notes (§9 and drafting_scenarios.json), in plain words.
+ */
+export const LAWYER_NOTE: Record<string, string> = {
+  S4: "The kind of deal was typed in rather than chosen, so check the roles and wording fit it.",
+  S8: "The deal has more than one element (for example shares and a loan); check both are described in 2.2 and 2.3.",
+  S13: "Customer data, personal data or employees move in this deal; data-protection and employee-transfer rules differ by country.",
+  S14: "Security or a guarantee is involved; check the asset and the guarantor are named precisely. Personal guarantees need particular care.",
+  S16: "An intellectual-property line was added because this is a development project; check it suits the deal.",
+  S18: "The parties are in different countries; check the governing law and that arbitration (or the courts chosen) suits both sides.",
+  S19: "The governing law is outside FD's reference tables; confirm the arbitration seat and any local formalities. No third-party-rights statute is cited.",
+  S20: "Some answers were not in English and have been translated; check the facts carried over correctly.",
+  S22: "A binding payment (such as a break fee) was asked for; check it is enforceable.",
+  S23: "A break fee, deposit or penalty is included; some legal systems will not enforce a payment that works as a penalty.",
+  S24: "Both sides are meant to be bound by exclusivity, but paragraph 7 binds only the receiving party; it needs adapting.",
+  S25: "A non-compete or non-solicit is included as a key term; how far it can be enforced varies greatly between countries.",
+  S26: "A party is listed or regulated; stock-exchange disclosure and inside-information rules may apply, and the term sheet itself may be inside information.",
+  S28: "An answer contained instructions to the AI; they were ignored and only the facts were used.",
+};
+
+/** A few words for a flag, for the list the user sees. */
+export function titleFor(f: Flag): string {
+  if (f.title) return f.title;
+  if (f.scenario === "OTHER") return "Typed answer";
+  if (f.scenario === "AI") return "Drafted by FD AI";
+  const s = BY_ID[f.scenario];
+  return s?.name ?? "Worth checking";
+}
+
 function flag(id: string, extra: Partial<Flag> = {}): Flag {
   const s = BY_ID[id];
   const msg = "user_message" in s ? (s.user_message as string) : undefined;
   return {
     level: (s?.level as Flag["level"]) ?? "yellow",
     scenario: id,
-    reason: extra.reason ?? s?.name ?? id,
+    title: s?.name,
+    reason: extra.reason ?? LAWYER_NOTE[id] ?? s?.name ?? id,
     field: extra.field,
     user_message: extra.user_message ?? msg,
   };
@@ -113,7 +145,7 @@ export function ruleChecks(answersIn: Answers, parties: Party[], dateIso?: strin
   }
   const capCurrency = currenciesIn(str(a.Q13_amount));
   if (currencies.size === 1 && capCurrency.length === 1 && !currencies.has(capCurrency[0])) {
-    flags.push({ level: "yellow", scenario: "S6", reason: `The costs cap is in ${capCurrency[0]} while the deal is in ${Array.from(currencies)[0]}.`, field: "Q13" });
+    flags.push({ level: "yellow", scenario: "S6", title: "Two currencies", reason: `The legal-costs cap is in ${capCurrency[0]} while the deal is in ${Array.from(currencies)[0]}; check that is intended.`, field: "Q13" });
   }
 
   /* ── yellow ─────────────────────────────────────────────────────────── */
@@ -121,7 +153,7 @@ export function ruleChecks(answersIn: Answers, parties: Party[], dateIso?: strin
   // Any "Other" free-text answer (playbook §8, first row).
   for (const [k, v] of Object.entries(a)) {
     if (/_other$/.test(k) && str(v)) {
-      flags.push({ level: "yellow", scenario: "OTHER", reason: `A typed answer for ${k.replace(/_other$/, "")}: "${str(v)}"`, field: k.replace(/_other$/, "") });
+      flags.push({ level: "yellow", scenario: "OTHER", title: "Typed answer", reason: `This was typed in rather than chosen from the list: "${str(v)}". Check it reads correctly in the letter.`, field: k.replace(/_other$/, "") });
     }
   }
   if (str(a.Q1) === "other") flags.push(flag("S4", { field: "Q1" }));
@@ -137,15 +169,15 @@ export function ruleChecks(answersIn: Answers, parties: Party[], dateIso?: strin
     const chosen = str(a.Q7b);
     const reason =
       chosen === "courts"
-        ? "Parties in different countries but courts were chosen; arbitration is usually recommended."
-        : "Parties in different countries; arbitration recommended.";
+        ? `${LAWYER_NOTE.S18} Courts were chosen; arbitration is usually recommended where the parties are in different countries.`
+        : LAWYER_NOTE.S18;
     flags.push(flag("S18", { reason, field: "Q7b" }));
   }
 
   // S19 · governing law outside the lookup tables.
   const law = str(a.Q7a_state) || country;
   if (law && !ARBITRATION[law] && !THIRD_PARTY_RIGHTS_STATUTE[law]) {
-    flags.push(flag("S19", { reason: `"${law}" is not in the lookup tables: no third-party statute cited; default arbitration institution used. Please confirm the arbitration seat and any local formalities.`, field: "Q7a" }));
+    flags.push(flag("S19", { reason: `${law} law is outside FD's reference tables; confirm the arbitration seat and any local formalities. No third-party-rights statute is cited.`, field: "Q7a" }));
   }
 
   // S26 · listed or regulated party.

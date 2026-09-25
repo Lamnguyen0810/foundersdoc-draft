@@ -1379,10 +1379,17 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                         {yellow.length > 0 && (
                           <>
                             <p>
-                              I’ve marked {yellow.length === 1 ? "one point" : `${yellow.length} points`} for whoever reviews it before you sign — worth
-                              showing them this list:
+                              I’ve marked {yellow.length === 1 ? "one point" : `${yellow.length} points`} for whoever reviews it before you sign.
+                              They’re not in the letter — worth sending this list with it:
                             </p>
-                            <ul className="cg-checks">{yellow.map((f, k) => <li key={k}>{f.reason}</li>)}</ul>
+                            <ul className="ts-flags" aria-label="For your lawyer">
+                              {yellow.map((f, k) => (
+                                <li key={k} className={f.level === "red" ? "red" : ""}>
+                                  <b>{f.title ?? "Worth checking"}</b>
+                                  <span>{f.reason}</span>
+                                </li>
+                              ))}
+                            </ul>
                           </>
                         )}
                       </>
@@ -1390,49 +1397,81 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                   </div>
                 </div>
 
-                {aiForm && status !== "stopped" && (
+                {ai && status !== "stopped" && (
                   <div className="cg-turn">
                     <div className="cg-avatar" aria-hidden="true">FD</div>
                     <div className="cg-msg ts-ai">
                       <p>
-                        <b>I drafted these lines — please confirm them.</b> Everything else is the master’s approved wording.
+                        <b>These are the only lines I wrote.</b> Everything else in the letter is the firm’s approved wording
+                        filled in from your answers. Check they say what you agreed.
                       </p>
-                      <label>
-                        Heading
-                        <input className="input" value={aiForm.transaction_title} onChange={(e) => setAiEdit({ ...aiForm, transaction_title: e.target.value.toUpperCase() })} />
-                      </label>
-                      <label>
-                        2.1 The Parties propose to enter into…
-                        <input className="input" value={aiForm.transaction_description} onChange={(e) => setAiEdit({ ...aiForm, transaction_description: e.target.value })} />
-                      </label>
-                      <label>
-                        2.3 Structure
-                        <textarea className="input" rows={3} value={aiForm.structure} onChange={(e) => setAiEdit({ ...aiForm, structure: e.target.value })} />
-                      </label>
-                      {(aiForm.key_terms ?? []).map((t: KeyTerm, k: number) => (
-                        <label key={k}>
-                          Key term — {t.heading} <small>({t.source})</small>
-                          <input
-                            className="input"
-                            value={t.text}
-                            onChange={(e) => {
-                              const kt = (aiForm.key_terms ?? []).slice();
-                              kt[k] = { ...t, text: e.target.value };
-                              setAiEdit({ ...aiForm, key_terms: kt });
-                            }}
-                          />
-                        </label>
-                      ))}
-                      <div className="chips">
-                        <button type="button" className="go" disabled={!aiEdit || savingAi} onClick={() => void saveAi()}>
-                          {savingAi ? "Saving…" : aiEdit ? "Save and re-assemble" : "Confirmed"}
-                        </button>
-                        {aiEdit && (
-                          <button type="button" className="chip" onClick={() => setAiEdit(null)}>
-                            Undo changes
-                          </button>
-                        )}
-                      </div>
+                      {!aiEdit ? (
+                        <>
+                          <dl className="ts-ai-lines">
+                            <div>
+                              <dt>Heading</dt>
+                              <dd>{ai.transaction_title || "—"}</dd>
+                            </div>
+                            <div>
+                              <dt>2.1 Nature</dt>
+                              <dd>{ai.transaction_description || "—"}</dd>
+                            </div>
+                            <div>
+                              <dt>2.3 Structure</dt>
+                              <dd>{ai.structure || "—"}</dd>
+                            </div>
+                            {(ai.key_terms ?? []).map((t: KeyTerm, k: number) => (
+                              <div key={k}>
+                                <dt>{t.heading}</dt>
+                                <dd>{t.text}</dd>
+                              </div>
+                            ))}
+                          </dl>
+                          <div className="chips">
+                            <button type="button" className="chip" onClick={() => setAiEdit({ ...ai, key_terms: (ai.key_terms ?? []).map((t) => ({ ...t })) })}>
+                              Change these lines
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <label>
+                            Heading
+                            <input className="input" value={aiEdit.transaction_title} onChange={(e) => setAiEdit({ ...aiEdit, transaction_title: e.target.value.toUpperCase() })} />
+                          </label>
+                          <label>
+                            2.1 The Parties propose to enter into…
+                            <textarea className="input" rows={2} value={aiEdit.transaction_description} onChange={(e) => setAiEdit({ ...aiEdit, transaction_description: e.target.value })} />
+                          </label>
+                          <label>
+                            2.3 Structure
+                            <textarea className="input" rows={4} value={aiEdit.structure} onChange={(e) => setAiEdit({ ...aiEdit, structure: e.target.value })} />
+                          </label>
+                          {(aiEdit.key_terms ?? []).map((t: KeyTerm, k: number) => (
+                            <label key={k}>
+                              {t.heading}
+                              <textarea
+                                className="input"
+                                rows={2}
+                                value={t.text}
+                                onChange={(e) => {
+                                  const kt = (aiEdit.key_terms ?? []).slice();
+                                  kt[k] = { ...t, text: e.target.value };
+                                  setAiEdit({ ...aiEdit, key_terms: kt });
+                                }}
+                              />
+                            </label>
+                          ))}
+                          <div className="chips">
+                            <button type="button" className="go" disabled={savingAi} onClick={() => void saveAi()}>
+                              {savingAi ? "Saving…" : "Save and update the letter"}
+                            </button>
+                            <button type="button" className="chip" disabled={savingAi} onClick={() => setAiEdit(null)}>
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1549,25 +1588,18 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
         {/* ── the progress pane ── */}
         <section className="pane">
           <div className="pane-h">
-            {isDraft ? "This draft" : "Progress"}
+            {isDraft ? "Your answers" : "Progress"}
             {!isDraft && <span className="pct">{pct}%</span>}
           </div>
           <div className="studio-body">
-            {isDraft ? (
-              <div className="ts-pane">
-                <p className="k">Status</p>
-                <p>{status === "stopped" ? "Not drafted — needs a lawyer" : "Ready to download"}</p>
-                {yellow.length > 0 && (
-                  <>
-                    <p className="k">For your lawyer</p>
-                    <p className="sub">{yellow.length === 1 ? "One point is" : `${yellow.length} points are`} marked in the conversation — not in the letter.</p>
-                  </>
-                )}
-                <p className="k">Binding paragraphs</p>
-                <p className="sub">Legal Effect, and the paragraphs it lists (exclusivity, confidentiality, costs, expiry, law, general). Nothing commercial binds.</p>
-                <p className="k">Master</p>
-                <p className="sub">FD Master Term Sheet v4.0 · Drafting Playbook v1.0</p>
-              </div>
+            {isDraft && yellow.length > 0 && (
+              <p className="ts-pane-flags">
+                <i aria-hidden="true" />
+                {yellow.length === 1 ? "1 point" : `${yellow.length} points`} for your lawyer — listed in the conversation
+              </p>
+            )}
+            {isDraft && status === "stopped" ? (
+              <p className="sub">Not drafted — this one needs a lawyer.</p>
             ) : (
               <>
                 <div className="prog-h">
@@ -1575,7 +1607,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                     {answered} of {steps.length} answered
                     {skippedCount ? ` · ${skippedCount} skipped` : ""}
                   </b>
-                  <span className="eta">{finished ? "Ready to prepare" : `About ${Math.max(1, Math.ceil(pending.length * 0.5))} min`}</span>
+                  <span className="eta">{isDraft ? "Click one to change it" : finished ? "Ready to prepare" : `About ${Math.max(1, Math.ceil(pending.length * 0.5))} min`}</span>
                 </div>
                 <div className="segs" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0,1fr))` }}>
                   {steps.map((s) => {
@@ -1640,6 +1672,14 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                 Skip the rest
               </button>
               <small>Skipped questions take the usual answer — nothing is invented.</small>
+            </div>
+          )}
+          {isDraft && (
+            <div className="studio-foot">
+              <button type="button" className="btn s-gen" disabled={busy} onClick={changeAnswers}>
+                Change answers
+              </button>
+              <small>Preparing again with new answers uses one credit. Editing the letter itself is free.</small>
             </div>
           )}
         </section>
