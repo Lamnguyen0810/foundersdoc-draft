@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { generateDraftStream } from "@/lib/ai/provider";
+import { PAID_BENCHMARK, costUsd, priceFor } from "@/lib/ai/pricing";
 import {
   ModelNotFoundError,
   OverloadedError,
@@ -290,6 +291,28 @@ export async function POST(req: NextRequest) {
             acc += event.value;
             controller.enqueue(line({ t: "text", v: event.value }));
           } else if (event.type === "done") {
+            /* Every model call is logged, kept or not: the provider bills it
+               either way, and the admin's "Model requests" and the /usage
+               page read this table. Revisions were missing from it. */
+            if (isSupabaseConfigured() && user) {
+              try {
+                const { provider, model, inputTokens, outputTokens } = event.usage;
+                const supabase = await createClient();
+                const { error: usageError } = await supabase.from("usage_log").insert({
+                  user_id: user.id,
+                  draft_id: body.draftId ?? null,
+                  provider,
+                  model,
+                  input_tokens: inputTokens,
+                  output_tokens: outputTokens,
+                  cost_usd: costUsd(priceFor(model), inputTokens, outputTokens),
+                  paid_benchmark_usd: costUsd(PAID_BENCHMARK, inputTokens, outputTokens),
+                });
+                if (usageError) console.error("[/api/revise] could not log usage:", usageError.message);
+              } catch (err) {
+                console.error("[/api/revise] could not log usage:", err);
+              }
+            }
             const wordCount = acc.trim().split(/\s+/).length;
             const currentWordCount = text.trim().split(/\s+/).length;
             const levelDifference = targetDetailLevel
