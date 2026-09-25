@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { stepsFor, type Group } from "@/lib/doctypes";
+import TermQuestions from "./TermQuestions";
 
 /**
  * The questions a user answers before the first draft, per document type —
@@ -281,6 +282,30 @@ export default function Questions({
           : publishedAt[slug]
             ? `Live — published ${stamp(publishedAt[slug]!)}`
             : "Live";
+
+  /* The term sheet's questions are its questionnaire.json, built into the
+     assembler: listed as asked, not edited here. See TermQuestions. */
+  if (slug === "term") {
+    return (
+      <div className="table-card questions-card">
+        <div className="table-head">
+          <div className="source-table-title">
+            <h2>Questions before the first draft</h2>
+          </div>
+          <div className="toolbar">
+            <div className="select-wrap">
+              <select aria-label="Document type" style={{ width: 240 }} value={slug} onChange={(e) => setSlug(e.target.value)}>
+                {docTypes.map((d) => (
+                  <option key={d.slug} value={d.slug}>{d.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+        <TermQuestions />
+      </div>
+    );
+  }
 
   return (
     <div className="table-card questions-card">
