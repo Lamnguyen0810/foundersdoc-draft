@@ -102,10 +102,10 @@ export default function Review({ initial }: { initial: ReviewInitial }) {
       )}
 
       <p className="playbook-why">
-        <b>What lands here.</b> A term sheet the Drafting Playbook flags 🟡 is drafted and shown to the user, but held
-        from download until a lawyer presses <b>Release</b>. One it stops 🔴 is not drafted; the user was told a lawyer
-        will be in touch. Slack gets a line for each, with the reasons and the <b>#ref</b>. A released draft appears
-        under “show released” for thirty days.
+        <b>What lands here.</b> Term sheets the Drafting Playbook stopped 🔴 — sanctions or bribery signals, a party
+        under 18, a request to backdate, a binding obligation to complete. Nothing was drafted and nothing charged; the
+        user was pointed to a consultation. Slack gets a line for each, with the reason and the <b>#ref</b>. 🟡 points
+        are not held: they are listed beside the letter for the user’s own lawyer.
       </p>
 
       {notice && (

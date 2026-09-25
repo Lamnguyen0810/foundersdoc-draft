@@ -17,8 +17,10 @@
  *     numbers and addresses, which the NDA flow never asked for;
  *   - the letter appears at once with the AI's few lines beside it for the
  *     person to confirm (playbook §1.10), rather than a stream of text;
- *   - a draft the playbook flags is HELD: on screen, but not for download
- *     until a lawyer releases it (§8).
+ *   - what the playbook flags (§8, 🟡) is marked for the lawyer who reviews
+ *     the term sheet before it is signed — the person's own — listed beside
+ *     the letter, never written into it. Nothing is held back: the letter
+ *     downloads at once. Only a 🔴 stop is not drafted at all.
  */
 
 import Link from "next/link";
@@ -533,7 +535,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
   }
 
   async function exportDocx() {
-    if (!html || status === "held" || status === "stopped") return;
+    if (!html || status === "stopped") return;
     setExporting(true);
     try {
       const res = await fetch("/api/export", {
@@ -1305,18 +1307,16 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
               <div className="gen-left-head">
                 <div className="gen-left-title">
                   <span className="eyebrow">FD AI</span>
-                  <h2>{status === "stopped" ? "A lawyer needs to look at this" : status === "held" ? "Your term sheet — being checked" : "Your term sheet is ready"}</h2>
+                  <h2>{status === "stopped" ? "This one needs a lawyer" : "Your term sheet is ready"}</h2>
                   <p>
                     {status === "stopped"
-                      ? "Nothing has been drafted yet."
-                      : status === "held"
-                        ? "One of our lawyers is checking a couple of points before it is released for download. You can read it beside this, and confirm the lines FD AI drafted."
-                        : "Read the letter beside this, confirm the lines FD AI drafted, and download it as Word."}
+                      ? "Nothing has been drafted, and nothing has been charged."
+                      : "Read the letter beside this, confirm the lines FD AI drafted, and download it as Word."}
                   </p>
                 </div>
-                <span className={`gen-ready${status === "held" ? " is-working" : ""}`}>
+                <span className="gen-ready">
                   <i />
-                  {status === "stopped" ? "Stopped" : status === "held" ? "In review" : "Ready"}
+                  {status === "stopped" ? "Stopped" : "Ready"}
                 </span>
               </div>
 
@@ -1346,18 +1346,22 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                   <div className="cg-avatar" aria-hidden="true">FD</div>
                   <div className="cg-msg">
                     {status === "stopped" ? (
-                      <p>We need one of our lawyers to look at this before we can prepare a term sheet. Someone from Founders Doc will be in touch — nothing has been charged.</p>
+                      <>
+                        <p>This is a deal a lawyer needs to look at before a term sheet can be prepared, so I haven’t drafted one. Nothing has been charged.</p>
+                        <p>
+                          If you’d like Founders Doc to help, you can{" "}
+                          <a href="/contact">book a consultation</a>.
+                        </p>
+                      </>
                     ) : (
                       <>
                         <p>
                           Here’s your <b>{documentTitle.charAt(0) + documentTitle.slice(1).toLowerCase()}</b>, assembled from the firm’s master.{" "}
-                          {status === "held"
-                            ? "A few points need a lawyer’s eye, so it stays here until one of us releases it — usually within a working day."
-                            : "Nothing in it is invented: every number, date and party comes from your answers."}
+                          Nothing in it is invented: every number, date and party comes from your answers.
                         </p>
                         {reviewNote && (
                           <p className="ts-note">
-                            <b>From the reviewing lawyer:</b> {reviewNote}
+                            <b>A note from Founders Doc:</b> {reviewNote}
                           </p>
                         )}
                         {html && (
@@ -1373,10 +1377,13 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                           <ul className="cg-checks">{infos.map((f, k) => <li key={k}>{f.user_message}</li>)}</ul>
                         )}
                         {yellow.length > 0 && (
-                          <div className="cg-notes">
-                            <b>{status === "held" ? "What the lawyer is checking" : "Worth a look"}</b>
-                            <ul>{yellow.map((f, k) => <li key={k}>{f.reason}</li>)}</ul>
-                          </div>
+                          <>
+                            <p>
+                              I’ve marked {yellow.length === 1 ? "one point" : `${yellow.length} points`} for whoever reviews it before you sign — worth
+                              showing them this list:
+                            </p>
+                            <ul className="cg-checks">{yellow.map((f, k) => <li key={k}>{f.reason}</li>)}</ul>
+                          </>
                         )}
                       </>
                     )}
@@ -1458,7 +1465,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                 <div className="dbar">
                   <span className="dstat">
                     <i />
-                    {[`Version ${version}`, status === "held" ? "In review" : "", yellow.length ? `${yellow.length} to check` : ""].filter(Boolean).join(" · ")}
+                    {[`Version ${version}`, yellow.length ? `${yellow.length} for your lawyer` : ""].filter(Boolean).join(" · ")}
                   </span>
                   <div className="dacts">
                     <button
@@ -1484,11 +1491,10 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                     <button
                       type="button"
                       className="dbtn gold"
-                      disabled={exporting || status === "held"}
-                      title={status === "held" ? "Available once a lawyer has released it" : undefined}
+                      disabled={exporting}
                       onClick={() => void exportDocx()}
                     >
-                      {exporting ? "Preparing…" : status === "held" ? "Word after review" : "Download Word"}
+                      {exporting ? "Preparing…" : "Download Word"}
                     </button>
                     <button type="button" className="dbtn d-close" aria-label="Close document" title="Close document" onClick={() => setDocOpen(false)}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
@@ -1550,7 +1556,13 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
             {isDraft ? (
               <div className="ts-pane">
                 <p className="k">Status</p>
-                <p>{status === "stopped" ? "Stopped — a lawyer will be in touch" : status === "held" ? "Held for a lawyer’s review" : "Ready to download"}</p>
+                <p>{status === "stopped" ? "Not drafted — needs a lawyer" : "Ready to download"}</p>
+                {yellow.length > 0 && (
+                  <>
+                    <p className="k">For your lawyer</p>
+                    <p className="sub">{yellow.length === 1 ? "One point is" : `${yellow.length} points are`} marked in the conversation — not in the letter.</p>
+                  </>
+                )}
                 <p className="k">Binding paragraphs</p>
                 <p className="sub">Legal Effect, and the paragraphs it lists (exclusivity, confidentiality, costs, expiry, law, general). Nothing commercial binds.</p>
                 <p className="k">Master</p>

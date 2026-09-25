@@ -9,8 +9,8 @@ import "server-only";
  *   🔴 stop   → nothing drafted; saved as `stopped` so Slack hears and a
  *               lawyer follows up
  *   ❓ ask     → nothing drafted yet; the questions go back to the user
- *   🟡 flag   → drafted, saved as `held`: on screen for the user, but not
- *               for download until a lawyer releases it
+ *   🟡 flag   → drafted as normal; the flag is listed beside the letter for
+ *               the lawyer who reviews it before signing (the client's own)
  *   🟢        → drafted, saved as `draft`
  */
 
@@ -116,10 +116,12 @@ export function draftTitle(parties: Party[], dealLabel: string): string {
 
 /** The status the playbook gives a draft with these flags. */
 export function statusFor(flags: Flag[], missing: string[]): DraftStatus {
+  /* 🔴 is not drafted. 🟡 is marked for the person's own lawyer and holds
+     nothing back: the firm reads the playbook's "lawyer review" as the
+     review a client gets before signing, not a queue at FD. A blank the
+     assembler could not fill shows as [●] in the letter, for them to fill. */
+  void missing;
   if (flags.some((f) => f.level === "red")) return "stopped";
-  if (flags.some((f) => f.level === "yellow")) return "held";
-  /* A Law that could not be completed is not released (playbook §3). */
-  if (missing.some((m) => !/^party_/.test(m))) return "held";
   return "draft";
 }
 
@@ -164,7 +166,7 @@ export async function prepareTermSheet(req: TermSheetRequest, userId: string): P
     for (const f of ai.flags.filter((f) => f.level === "ask")) flags.push({ ...f, level: "yellow" });
   } else {
     aiFields = { transaction_title: "", transaction_description: "", structure: "", key_terms: [] };
-    flags.push({ level: "yellow", scenario: "AI", reason: "The AI was unavailable: the heading, the nature of the deal and the structure (2.1, 2.3) are left as gaps for a lawyer to fill." });
+    flags.push({ level: "yellow", scenario: "AI", reason: "FD AI could not draft the heading, the nature of the deal (2.1) or the structure (2.3); they are left as blanks to fill in." });
   }
   if (rules.addIpLine && !(aiFields.key_terms ?? []).some((t) => t.source === "S16")) {
     aiFields.key_terms = [...(aiFields.key_terms ?? []), IP_LINE];
@@ -303,7 +305,8 @@ export async function reassemble(
   const flags = [...kept, ...assembled.flags];
   const was = row.status as DraftStatus;
   const fresh = statusFor(flags, assembled.missing);
-  const status: DraftStatus = was === "held" || was === "stopped" ? was : fresh === "held" ? "held" : was;
+  /* A draft saved as `held` before the hold was dropped is simply a draft now. */
+  const status: DraftStatus = was === "stopped" || fresh === "stopped" ? "stopped" : was === "final" ? "final" : "draft";
 
   const text = blocksToText(assembled.blocks);
   const html = blocksToHtml(assembled.blocks);
