@@ -104,7 +104,7 @@
 
   /* "Read the article", defined honestly: reached the end AND stayed 30s. A
      page view on a blog post means someone clicked; this means someone read. */
-  if (/\/(nda-vs-confidentiality-agreement|before-you-sign-an-nda)/.test(location.pathname)) {
+  if (/\/(nda-vs-confidentiality-agreement|before-you-sign-an-nda|can-breaching-an-nda-be-expensive|what-is-a-term-sheet|is-a-term-sheet-legally-binding|term-sheet-checklist|term-sheet-mistakes)/.test(location.pathname)) {
     var landed = Date.now();
     var done = false;
     window.addEventListener(

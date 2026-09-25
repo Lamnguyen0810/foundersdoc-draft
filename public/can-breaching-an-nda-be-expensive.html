@@ -1738,8 +1738,11 @@
       .prose p { margin: 0 0 24px; }
       .prose strong { font-weight: 600; color: var(--ink); }
       .prose em { font-style: italic; }
-.prose p a, .prose li a, .summary p a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
-.prose p a:hover, .prose li a:hover, .summary p a:hover { color: var(--gold-deep); }
+/* Links in the article text: gold words, dark underline. The gold is a shade
+   deeper than the brand gold so it stays readable on white (4.5:1). */
+.prose p a, .prose li a, .summary p a { color: #9a6f00; font-weight: 500; text-decoration: underline; text-decoration-color: var(--ink); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+html.dark .prose p a, html.dark .prose li a, html.dark .summary p a { color: var(--gold); }
+.prose p a:hover, .prose li a:hover, .summary p a:hover { text-decoration-thickness: 2px; }
       .prose h2 { margin: 48px 0 16px; font-size: 26px; font-weight: 600; line-height: 1.3; letter-spacing: 0; scroll-margin-top: calc(var(--nav-h) + 32px); }
       .prose h2:first-of-type { margin-top: 40px; }
       .prose > :last-child { margin-bottom: 0; }
@@ -2790,7 +2793,7 @@ body.fd-clean .lead figcaption {
 <h2 id="us-7-25m">5. Comparative US example: a US$7.25 million contract royalty</h2>
 <p><em>AMS-OSRAM USA Inc. v Renesas Electronics America, Inc.</em> is a useful example of a confidentiality-agreement claim producing a substantial contract award, but only when its long procedural history is stated accurately.</p>
 <p>The dispute began when Texas Advanced Optoelectronic Solutions, Inc. (TAOS, later ams-OSRAM) alleged that Intersil Corporation (later Renesas Electronics America) used confidential ambient-light-sensor information disclosed during merger discussions. The confidentiality agreement was governed by California law.</p>
-<p>A 2015 jury originally awarded US$12 million as a reasonable royalty for breach of the <a href="/draft?type=nda">confidentiality agreement</a>. That figure was not the final operative contract award. After an earlier appeal and a retrial of monetary remedies, the district court's 2022 final judgment awarded contract reasonable-royalty damages of US$6,637,693 for Derivative Product sales plus US$613,014 for the relevant portion of Primary Product sales - a total of US$7,250,707.</p>
+<p>A 2015 jury originally awarded US$12 million as a reasonable royalty for breach of the confidentiality agreement. That figure was not the final operative contract award. After an earlier appeal and a retrial of monetary remedies, the district court's 2022 final judgment awarded contract reasonable-royalty damages of US$6,637,693 for Derivative Product sales plus US$613,014 for the relevant portion of Primary Product sales - a total of US$7,250,707.</p>
 <p>In April 2025, the US Court of Appeals for the Federal Circuit affirmed the contract damages award and the contract-related attorneys' fees award. It vacated and remanded the prejudgment-interest awards for further consideration.</p>
 <div class="authority"><strong>Primary authority:</strong> <em>AMS-OSRAM USA Inc. v Renesas Electronics America, Inc.</em>, No. 2022-2185 (Fed. Cir. 4 Apr 2025), especially pp. 8, 22-25 and 31.</div>
 <aside class="case-note"><span class="blob-tag">FD Why it matters</span><p>Large contractual awards are possible, but the governing law and valuation evidence matter. It is also unsafe to quote an early jury figure without checking what happened on appeal and in the final judgment.</p></aside>

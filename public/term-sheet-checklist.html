@@ -6,28 +6,85 @@
     <meta name="theme-color" content="#ffffff" />
     <script>
       document.documentElement.classList.add("js");
-      (function () {
-        var d = document.documentElement, t = null;
-        try { t = localStorage.getItem("fd-theme"); } catch (e) {}
-        if (t !== "light" && t !== "dark") t = "light"; // light is the default everywhere
-        d.setAttribute("data-theme", t);
-      })();
       try {
         if (sessionStorage.getItem("fd-ann")) document.documentElement.classList.add("ann-hidden");
       } catch (e) {}
       /* Article opens in light mode (pure white) regardless of device setting; the toggle still switches to dark. */
     </script>
-    <title>NDA vs Confidentiality Agreement: What is the Difference? — Founders Doc</title>
-    <meta name="description" content="Is an NDA the same as a confidentiality agreement? Usually yes in commercial practice. Learn the difference between NDAs, confidentiality clauses and duties of confidence." />
-    <meta name="keywords" content="NDA vs confidentiality agreement, non-disclosure agreement meaning, confidentiality clause, duty of confidence Singapore, NDA Singapore" />
+    <title>Term Sheet Checklist: What to Include and What to Leave Out — Founders Doc</title>
+    <meta name="description" content="A practical term sheet checklist: the 6 essential terms every term sheet needs, 6 optional terms to add, and the mistakes to avoid in cross-border deals." />
+    <meta name="keywords" content="term sheet checklist, what to include in a term sheet, term sheet template, key terms in a term sheet, term sheet clauses, how to write a term sheet" />
     <meta name="robots" content="index,follow" />
+    <link rel="canonical" href="https://foundersdoc.com/resources/term-sheet-checklist" />
     <meta property="og:type" content="article" />
-    <meta property="og:title" content="NDA vs Confidentiality Agreement: What is the Difference?" />
-    <meta property="og:description" content="Is an NDA the same as a confidentiality agreement? Usually yes in commercial practice. Learn the difference between NDAs, confidentiality clauses and duties of confidence." />
+    <meta property="og:url" content="https://foundersdoc.com/resources/term-sheet-checklist" />
+    <meta property="og:title" content="Term Sheet Checklist: What to Include and What to Leave Out" />
+    <meta property="og:description" content="A practical term sheet checklist: the 6 essential terms every term sheet needs, 6 optional terms to add, and the mistakes to avoid in cross-border deals." />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="NDA vs Confidentiality Agreement: What is the Difference?" />
-    <meta name="twitter:description" content="Is an NDA the same as a confidentiality agreement? Usually yes in commercial practice. Learn the difference between NDAs, confidentiality clauses and duties of confidence." />
-    <!-- Suggested slug: /resources/nda-vs-confidentiality-agreement/ -->
+    <meta name="twitter:title" content="Term Sheet Checklist: What to Include and What to Leave Out" />
+    <meta name="twitter:description" content="A practical term sheet checklist: the 6 essential terms every term sheet needs, 6 optional terms to add, and the mistakes to avoid in cross-border deals." />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Term Sheet Checklist: What to Include and What to Leave Out",
+  "description": "A practical term sheet checklist: the 6 essential terms every term sheet needs, 6 optional terms to add, and the mistakes to avoid in cross-border deals.",
+  "url": "https://foundersdoc.com/resources/term-sheet-checklist",
+  "datePublished": "2026-09-25",
+  "dateModified": "2026-09-25",
+  "author": {
+    "@type": "Organization",
+    "name": "Founders Doc"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "Founders Doc",
+    "url": "https://foundersdoc.com"
+  },
+  "articleSection": "Fundraising",
+  "keywords": "term sheet checklist, what to include in a term sheet, term sheet template, key terms in a term sheet, term sheet clauses, how to write a term sheet"
+}
+    </script>
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "What are the most important terms in a term sheet?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "The parties, a clear description and structure of the deal, and a statement of what is and isn't binding. Without these, the term sheet can't do its job."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Should a term sheet include the valuation?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "If it has been agreed, yes. It's one of the most important commercial terms in an investment. If it hasn't, the term sheet can still cover the essentials and leave valuation for later."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "How detailed should a term sheet be?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Detailed enough that nobody is surprised by the final agreements, but no more. If a point needs more than a couple of sentences, it probably belongs in the final agreements."
+      }
+    },
+    {
+      "@type": "Question",
+      "name": "Can I use one term sheet template for different types of deal?",
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": "Yes, if the template separates the essential terms from optional, deal-specific ones. The essentials are the same for every deal; the commercial terms change."
+      }
+    }
+  ]
+}
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -41,7 +98,6 @@
     />
     <style>
       :root {
-        color-scheme: light;
         --white: #fff;
         --grey-1: #f4f4f4;
         --grey-2: #e9e9e9;
@@ -73,7 +129,7 @@
         --rose-deep: #b5483a;
       }
       /* dark mode: same brand tokens, inverted surfaces */
-      html[data-theme="dark"] {
+      html.dark {
         --white: #131313;
         --grey-1: #1b1b1b;
         --grey-2: #2a2a2a;
@@ -92,65 +148,65 @@
         --rose-deep: #f0978a;
         color-scheme: dark;
       }
-      html[data-theme="dark"] .nav.scrolled {
+      html.dark .nav.scrolled {
         background: var(--white);
       }
       /* dark mode: anything drawn in --black sits on a dark surface, so use --ink instead */
-      html[data-theme="dark"] .links a:hover,
-      html[data-theme="dark"] .links a.on,
-      html[data-theme="dark"] .has-sub > button:hover,
-      html[data-theme="dark"] .has-sub[data-open="true"] > button,
-      html[data-theme="dark"] .has-sub > button.on,
-      html[data-theme="dark"] .nav-sub a:hover,
-      html[data-theme="dark"] .nav-sub a:focus-visible,
-      html[data-theme="dark"] .nav-sub a.on,
-      html[data-theme="dark"] .nav-sub a[aria-current="page"],
-      html[data-theme="dark"] .logo-word,
-      html[data-theme="dark"] .subtab:hover,
-      html[data-theme="dark"] .cat:hover,
-      html[data-theme="dark"] .menu a:hover {
+      html.dark .links a:hover,
+      html.dark .links a.on,
+      html.dark .has-sub > button:hover,
+      html.dark .has-sub[data-open="true"] > button,
+      html.dark .has-sub > button.on,
+      html.dark .nav-sub a:hover,
+      html.dark .nav-sub a:focus-visible,
+      html.dark .nav-sub a.on,
+      html.dark .nav-sub a[aria-current="page"],
+      html.dark .logo-word,
+      html.dark .subtab:hover,
+      html.dark .cat:hover,
+      html.dark .menu a:hover {
         color: var(--ink);
       }
-      html[data-theme="dark"] :focus-visible {
+      html.dark :focus-visible {
         outline-color: var(--ink);
       }
-      html[data-theme="dark"] .btn-white {
+      html.dark .btn-white {
         color: var(--ink);
         border-color: var(--ink);
       }
-      html[data-theme="dark"] .btn-white:hover {
+      html.dark .btn-white:hover {
         background: var(--grey-2);
       }
-      html[data-theme="dark"] .btn-black {
+      html.dark .btn-black {
         background: var(--ink);
         color: var(--black);
         border-color: var(--ink);
       }
-      html[data-theme="dark"] .burger span,
-      html[data-theme="dark"] .burger span::before,
-      html[data-theme="dark"] .burger span::after {
+      html.dark .burger span,
+      html.dark .burger span::before,
+      html.dark .burger span::after {
         background: var(--ink);
       }
-      html[data-theme="dark"] .skip {
+      html.dark .skip {
         background: var(--ink);
         color: var(--black);
       }
-      html[data-theme="dark"] .theme-btn {
+      html.dark .theme-btn {
         border-color: var(--grey-3);
       }
       /* the footer and dark post cards are always dark, so their white text must stay white */
-      html[data-theme="dark"] .foot,
-      html[data-theme="dark"] .post.dark {
+      html.dark .foot,
+      html.dark .post.dark {
         --white: #fff;
       }
-      html[data-theme="dark"] .foot .nl input {
+      html.dark .foot .nl input {
         color: #fff;
       }
-      html[data-theme="dark"] .pill {
+      html.dark .pill {
         background: #242424;
         color: var(--ink);
       }
-      html[data-theme="dark"] .pill:hover {
+      html.dark .pill:hover {
         background: #2e2e2e;
       }
       .theme-btn {
@@ -179,10 +235,10 @@
       .theme-btn .ic-moon {
         display: none;
       }
-      html[data-theme="dark"] .theme-btn .ic-moon {
+      html.dark .theme-btn .ic-moon {
         display: block;
       }
-      html[data-theme="dark"] .theme-btn .ic-sun {
+      html.dark .theme-btn .ic-sun {
         display: none;
       }
       *,
@@ -383,10 +439,10 @@
       .logo .logo-dark {
         display: none;
       }
-      html[data-theme="dark"] .logo .logo-light {
+      html.dark .logo .logo-light {
         display: none;
       }
-      html[data-theme="dark"] .logo .logo-dark {
+      html.dark .logo .logo-dark {
         display: block;
       }
       .logo-word {
@@ -1751,11 +1807,16 @@
 /* Links in the article text: gold words, dark underline. The gold is a shade
    deeper than the brand gold so it stays readable on white (4.5:1). */
 .prose p a, .prose li a, .summary p a { color: #9a6f00; font-weight: 500; text-decoration: underline; text-decoration-color: var(--ink); text-decoration-thickness: 1px; text-underline-offset: 3px; }
-html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[data-theme="dark"] .summary p a { color: var(--gold); }
+html.dark .prose p a, html.dark .prose li a, html.dark .summary p a { color: var(--gold); }
 .prose p a:hover, .prose li a:hover, .summary p a:hover { text-decoration-thickness: 2px; }
       .prose h2 { margin: 48px 0 16px; font-size: 26px; font-weight: 600; line-height: 1.3; letter-spacing: 0; scroll-margin-top: calc(var(--nav-h) + 32px); }
       .prose h2:first-of-type { margin-top: 40px; }
       .prose > :last-child { margin-bottom: 0; }
+
+      .prose ul { margin: 0 0 24px; padding-left: 0; list-style: none; }
+      .prose ul li { position: relative; padding: 0 0 0 26px; margin: 0 0 10px; }
+      .prose ul li::before { content: ""; position: absolute; left: 4px; top: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--gold); }
+      .prose ul li:last-child { margin-bottom: 0; }
 
       .table-wrap, .check, .faq-list, .sources, .disclaimer { margin: 0 0 32px; }
 
@@ -1821,8 +1882,8 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
       .n-card .tile { aspect-ratio: 16 / 10; border-radius: 16px; background: var(--grey-1); display: grid; place-items: center; overflow: hidden; }
       .n-card .tile.gold { background: var(--gold-soft); }
       .n-card .tile svg { width: 46%; height: auto; display: block; }
-      html[data-theme="dark"] .n-card .tile svg [fill="#fff"] { fill: #3a3a3a; }
-      html[data-theme="dark"] .n-card .tile svg [fill="#e9e9e9"], html[data-theme="dark"] .n-card .tile svg [fill="#d6d6d6"] { fill: #4a4a4a; }
+      html.dark .n-card .tile svg [fill="#fff"] { fill: #3a3a3a; }
+      html.dark .n-card .tile svg [fill="#e9e9e9"], html.dark .n-card .tile svg [fill="#d6d6d6"] { fill: #4a4a4a; }
       .n-card .r-tag { display: block; margin-top: 14px; font-size: 13px; line-height: 20px; }
       .n-card h2 { margin-top: 6px; font-size: 18px; font-weight: 600; line-height: 1.3; }
       .n-card:hover h2 { text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
@@ -1856,13 +1917,57 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
           transition-delay: 0s !important;
         }
       }
+
+      /* hero illustration: the pen signs the page, then lifts away */
+      @keyframes fd-pen {
+        0%, 2%   { transform: translate(0, 0); opacity: 0; }
+        6%       { transform: translate(0, 0); opacity: 1; }
+        8%       { transform: translate(0.0px, 0.0px); }
+        9.1%     { transform: translate(3.6px, -9.5px); }
+        10.2%    { transform: translate(8.2px, -18.2px); }
+        11.3%    { transform: translate(14.8px, -25.7px); }
+        12.4%    { transform: translate(24.2px, -28.0px); }
+        13.5%    { transform: translate(28.4px, -20.2px); }
+        14.5%    { transform: translate(24.0px, -11.3px); }
+        15.6%    { transform: translate(18.5px, -3.7px); }
+        16.7%    { transform: translate(28.0px, -1.6px); }
+        17.8%    { transform: translate(37.2px, -5.3px); }
+        18.9%    { transform: translate(45.3px, -11.3px); }
+        20.0%    { transform: translate(54.9px, -10.2px); }
+        21.1%    { transform: translate(63.9px, -6.0px); }
+        22.2%    { transform: translate(73.4px, -8.4px); }
+        23.3%    { transform: translate(80.5px, -15.4px); }
+        24.4%    { transform: translate(90.0px, -16.6px); }
+        25.5%    { transform: translate(99.8px, -14.4px); }
+        26.5%    { transform: translate(109.6px, -12.4px); }
+        27.6%    { transform: translate(119.6px, -11.4px); }
+        28.7%    { transform: translate(129.6px, -12.1px); }
+        29.8%    { transform: translate(139.3px, -14.4px); }
+        30.9%    { transform: translate(149.2px, -15.3px); }
+        32%      { transform: translate(158.0px, -11.0px); animation-timing-function: cubic-bezier(0.3, 0, 0.2, 1); }
+        39%      { transform: translate(156px, -54px); opacity: 1; }
+        88%      { transform: translate(156px, -54px); opacity: 1; }
+        96%      { transform: translate(156px, -54px); opacity: 0; }
+        96.01%   { transform: translate(0, 0); opacity: 0; }
+        100%     { transform: translate(0, 0); opacity: 0; }
+      }
+      @keyframes fd-sig {
+        0%, 8%   { stroke-dashoffset: 240; opacity: 1; }
+        32%, 88% { stroke-dashoffset: 0; opacity: 1; }
+        96%      { stroke-dashoffset: 0; opacity: 0; }
+        96.01%   { stroke-dashoffset: 240; opacity: 0; }
+        100%     { stroke-dashoffset: 240; opacity: 0; }
+      }
+      .pen-track { animation: fd-pen 6.5s linear infinite; will-change: transform, opacity; }
+      .sig-line { stroke-dasharray: 240; stroke-dashoffset: 0; animation: fd-sig 6.5s linear infinite; }
+      @media (prefers-reduced-motion: reduce) {
+        .pen-track { transform: translate(156px, -54px); opacity: 1; }
+        .sig-line { stroke-dashoffset: 0; opacity: 1; }
+      }
     
-      /* The Founders Doc mark: the wordmark ruled above and below. Replaces the
-         hosted PNG so the logo never depends on a file loading, and inherits
-         currentColor so one rule serves the nav and the dark footer. */
       .fd-mark {
         display: inline-block;
-        font-family: var(--sans);
+        font-family: var(--sans, Inter, Arial, sans-serif);
         font-size: 11.5px;
         font-weight: 500;
         letter-spacing: 0.3em;
@@ -1873,7 +1978,19 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
         border-bottom: 1px solid currentColor;
         white-space: nowrap;
       }
-      .foot .fd-mark { color: #fff; }
+      .foot .fd-mark, footer .fd-mark { color: #fff; }
+      /* term sheet articles: sub-headings, numbered lists, a quoted clause, tick lists */
+      .prose h3 { margin: 32px 0 12px; font-size: 20px; font-weight: 600; line-height: 1.35; scroll-margin-top: calc(var(--nav-h) + 32px); }
+      .prose h2 + h3 { margin-top: 20px; }
+      .prose ol { margin: 0 0 24px; padding: 0; list-style: none; counter-reset: ol; }
+      .prose ol li { position: relative; padding: 0 0 0 38px; margin: 0 0 12px; counter-increment: ol; }
+      .prose ol li::before { content: counter(ol); position: absolute; left: 0; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--tint-gold); color: var(--gold-deep); font-size: 13px; font-weight: 600; line-height: 24px; text-align: center; }
+      .prose blockquote { margin: 0 0 24px; padding: 20px 24px; border-left: 3px solid var(--gold); border-radius: 0 16px 16px 0; background: var(--grey-1); font-size: 17px; line-height: 28px; font-style: italic; color: var(--text-2); }
+      .prose blockquote p { margin: 0; }
+      .check .ci { color: var(--ink); }
+      .check .ci strong { font-weight: 600; }
+      .check label:has(input:checked) .ci { color: var(--grey-5); text-decoration: line-through; text-decoration-color: var(--blue-deep); }
+      .prose h3 + .check { margin-top: 4px; }
     </style>
     <script>
       document.documentElement.classList.add("js");
@@ -1897,7 +2014,7 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
           <div class="has-sub" data-open="false">
             <button type="button" aria-expanded="false" aria-haspopup="true">Services <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3.5l3 3 3-3" /></svg></button>
             <div class="nav-sub">
-              <a href="/fd-consult">FD Consult</a>
+              <a href="/#services">FD Consult</a>
               <a href="/#services">FD Legal</a>
             </div>
           </div>
@@ -1936,7 +2053,7 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
           <a href="/#lawyers">Ask a Lawyer</a>
           <div class="menu-group">
             <span>Services</span>
-            <a href="/fd-consult">FD Consult</a>
+            <a href="/#services">FD Consult</a>
             <a href="/#services">FD Legal</a>
           </div>
           <div class="menu-group">
@@ -1957,38 +2074,50 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
         <header class="post-hero">
           <div class="wrap"><div class="rd">
             <div>
-              <a class="kicker" href="/resources">Insights for founders · Contracts</a>
-              <h1>NDA vs Confidentiality Agreement: What is the Difference?</h1>
-              <p class="deck">The terms are often interchangeable. What matters is the legal source and scope of the obligations inside the agreement.</p>
-              <p class="meta"><span class="who">Founders Doc</span><span class="sep">·</span><span>Reviewed by a practising lawyer</span><span class="sep">·</span><span>8 Sep 2026</span><span class="sep">·</span><span>6 min read</span></p>
+              <a class="kicker" href="/resources">Insights for founders &middot; Fundraising</a>
+              <h1>Term Sheet Checklist: 6 Essential Terms, 6 Optional Terms and the Mistakes to Avoid</h1>
+              <p class="deck">A practical term sheet checklist: the 6 essential terms every term sheet needs, 6 optional terms to add, and the mistakes to avoid in cross-border deals.</p>
+              <p class="meta"><span class="who">Founders Doc</span><span class="sep">&middot;</span><span>25 Sep 2026</span><span class="sep">&middot;</span><span>8 min read</span></p>
             </div>
             <figure class="lead">
-              <span class="img" aria-hidden="true">
-                <svg viewBox="0 0 640 512" xmlns="http://www.w3.org/2000/svg">
-                  <defs><filter id="ds" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#7a5a10" flood-opacity="0.35"/></filter></defs>
-                  <rect width="640" height="512" fill="#f3bf4b"/>
-                  <g transform="translate(340 130) rotate(7) scale(0.78)" filter="url(#ds)">
-                    <rect width="300" height="400" rx="8" fill="#fbfaf7"/>
-                    <text x="34" y="90" font-family="Geist, Inter, sans-serif" font-weight="600" font-size="40" letter-spacing="-1" fill="#161616">Confidentiality</text>
-                    <text x="34" y="138" font-family="Geist, Inter, sans-serif" font-weight="600" font-size="40" letter-spacing="-1" fill="#161616">Agreement</text>
-                    <rect x="34" y="170" width="230" height="5" fill="#f3bf4b"/>
-                    <rect x="34" y="214" width="188" height="7" rx="3.5" fill="#d0cfca"/>
-                    <rect x="34" y="244" width="224" height="7" rx="3.5" fill="#d0cfca"/>
-                    <rect x="34" y="274" width="160" height="7" rx="3.5" fill="#d0cfca"/>
-                    <rect x="34" y="304" width="204" height="7" rx="3.5" fill="#d0cfca"/>
-                  </g>
-                  <g transform="translate(60 66) rotate(-8) scale(0.78)" filter="url(#ds)">
-                    <rect width="320" height="430" rx="8" fill="#1c1c1c"/>
-                    <text x="40" y="160" font-family="Geist, Inter, sans-serif" font-weight="700" font-size="84" letter-spacing="-3" fill="#ffffff">NDA</text>
-                    <rect x="40" y="190" width="240" height="6" fill="#f3bf4b"/>
-                    <rect x="40" y="244" width="204" height="7" rx="3.5" fill="#5a5a5a"/>
-                    <rect x="40" y="274" width="240" height="7" rx="3.5" fill="#5a5a5a"/>
-                    <rect x="40" y="304" width="172" height="7" rx="3.5" fill="#5a5a5a"/>
-                    <rect x="40" y="334" width="218" height="7" rx="3.5" fill="#5a5a5a"/>
+              <span class="img" style="background:#f4c563">
+                <svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Checklist of essential and optional term sheet clauses">
+                  <defs>
+                    <filter id="ds" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#6d4f0d" flood-opacity="0.28"/></filter>
+                    <filter id="ds-soft" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#6d4f0d" flood-opacity="0.18"/></filter>
+                    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#f6f3ea"/></linearGradient>
+                  </defs>
+                  <rect width="640" height="360" fill="#f4c563"/>
+                  <text x="34" y="78" font-family="Geist, Inter, sans-serif" font-weight="600" font-size="14" letter-spacing="3.4" fill="#8a6410">TERM SHEET CHECKLIST</text>
+                  <text x="30" y="222" font-family="Geist, Inter, sans-serif" font-weight="700" font-size="150" letter-spacing="-6" fill="#1c1c1c">6+6</text>
+                  <rect x="36" y="248" width="180" height="6" rx="3" fill="#1c1c1c"/>
+                  <text x="36" y="284" font-family="Geist, Inter, sans-serif" font-weight="600" font-size="19" letter-spacing="2.4" fill="#1c1c1c">ESSENTIAL TERMS,</text>
+                  <text x="36" y="312" font-family="Geist, Inter, sans-serif" font-weight="600" font-size="19" letter-spacing="2.4" fill="#8a6410">OPTIONAL TERMS</text>
+                  <g transform="translate(402 32) rotate(11)" filter="url(#ds-soft)"><rect width="206" height="296" rx="10" fill="#efeadd"/></g>
+                  <g transform="translate(372 26) rotate(5)" filter="url(#ds)">
+                    <rect width="214" height="296" rx="10" fill="url(#paper)"/>
+                    <text x="24" y="42" font-family="Geist, Inter, sans-serif" font-weight="700" font-size="15" letter-spacing="2.4" fill="#1c1c1c">TERM SHEET</text>
+                    <rect x="24" y="54" width="56" height="5" rx="2.5" fill="#f3bf4b"/>
+                    <rect x="24" y="80" width="16" height="16" rx="4" fill="#1c1c1c" stroke="#1c1c1c" stroke-width="2"/>
+                    <path d="M28 88l3 3 6-7" fill="none" stroke="#f3bf4b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="52" y="84" width="134" height="7" rx="3.5" fill="#dcd9d0"/>
+                    <rect x="24" y="114" width="16" height="16" rx="4" fill="#1c1c1c" stroke="#1c1c1c" stroke-width="2"/>
+                    <path d="M28 122l3 3 6-7" fill="none" stroke="#f3bf4b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="52" y="118" width="112" height="7" rx="3.5" fill="#dcd9d0"/>
+                    <rect x="24" y="148" width="16" height="16" rx="4" fill="#1c1c1c" stroke="#1c1c1c" stroke-width="2"/>
+                    <path d="M28 156l3 3 6-7" fill="none" stroke="#f3bf4b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="52" y="152" width="146" height="7" rx="3.5" fill="#dcd9d0"/>
+                    <rect x="24" y="182" width="16" height="16" rx="4" fill="#1c1c1c" stroke="#1c1c1c" stroke-width="2"/>
+                    <path d="M28 190l3 3 6-7" fill="none" stroke="#f3bf4b" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="52" y="186" width="120" height="7" rx="3.5" fill="#dcd9d0"/>
+                    <rect x="24" y="216" width="16" height="16" rx="4" fill="none" stroke="#1c1c1c" stroke-width="2"/>
+                    <rect x="52" y="220" width="138" height="7" rx="3.5" fill="#dcd9d0"/>
+                    <rect x="24" y="250" width="16" height="16" rx="4" fill="none" stroke="#1c1c1c" stroke-width="2"/>
+                    <rect x="52" y="254" width="104" height="7" rx="3.5" fill="#dcd9d0"/>
                   </g>
                 </svg>
               </span>
-              <figcaption>Two titles, usually one type of contract: what matters is the wording inside. Illustration: Founders Doc</figcaption>
+              <figcaption>Six essential terms, six optional ones. Illustration: Founders Doc</figcaption>
             </figure>
           </div></div>
         </header>
@@ -1996,97 +2125,135 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
         <div class="wrap post-body"><div class="rd">
 
           <div class="main">
-                      <aside class="summary"><span class="blob-tag">In brief</span><p>In ordinary commercial practice, "<a href="/draft?type=nda">NDA</a>" and "Confidentiality Agreement" usually describe the same type of contract. The title matters far less than the obligations inside it.</p></aside>
+          <aside class="summary"><span class="blob-tag">In brief</span><p>A good <a href="/draft?type=term">term sheet</a> is short, clear and complete in the places that matter. This term sheet checklist splits the clauses into two groups: six essential terms every term sheet needs, and six optional terms you can add, tweak or leave out depending on the deal.</p></aside>
           <div class="prose">
-            <p>One business sends you a "Non-Disclosure Agreement". Another sends a "Confidentiality Agreement". A third puts two paragraphs of confidentiality wording into a services agreement. Are these legally different?</p>
-            <p>Usually, the first two labels are interchangeable. The more useful distinction is between a standalone contractual confidentiality agreement, a confidentiality clause inside a wider contract, and a duty of confidence that may arise in equity even without a written NDA.</p>
+            <p>Use it whether you're raising investment, lending money, buying a business or setting up a partnership, in any country.</p>
+            <p><em>Need the basics first? Read <a href="/resources/what-is-a-term-sheet/">What Is a Term Sheet?</a></em></p>
 
-            <h2 id="nda-and-confidentiality-agreement-usually-the-same-thing">NDA and Confidentiality Agreement: usually the same thing</h2>
-            <p>"<a href="/draft?type=nda">NDA</a>" is simply shorthand for "non-disclosure agreement". In business usage, both NDAs and confidentiality agreements generally regulate the receipt, use, disclosure and protection of confidential information.</p>
-            <p>There is no magic legal effect created by choosing one heading over the other. A document titled "NDA" can be broad or narrow; so can a document titled "Confidentiality Agreement". Courts look at the contractual language and the surrounding legal framework, not the marketing label on page one.</p>
+            <h2 id="part-1-the-six-essential-terms">Part 1: The six essential terms</h2>
+            <p>These are the terms that make a document a <a href="/draft?type=term">term sheet</a>. If any is missing or unclear, fix it before you send the term sheet.</p>
+            <h3 id="1-parties">✅ 1. Parties</h3>
+            <div class="check" data-check>
+              <div class="check-h"><span class="cnt">0 of 5 ticked</span><span class="bar"><i></i></span><button type="button" hidden>Reset</button></div>
+              <label><input type="checkbox" /><span class="ci">Full <strong>legal name</strong> of each party (not a brand or trading name)</span></label>
+              <label><input type="checkbox" /><span class="ci">Entity type and <strong>registration number</strong>, with the local label (e.g. company number, UEN, ACN)</span></label>
+              <label><input type="checkbox" /><span class="ci">Country (or state) of incorporation and registered address</span></label>
+              <label><input type="checkbox" /><span class="ci">For individuals: full name, ID number and address</span></label>
+              <label><input type="checkbox" /><span class="ci">A clear <strong>role</strong> for each party, such as Investor, Company, Lender, Buyer or Partner</span></label>
+            </div>
+            <aside class="tip"><span class="blob-tag">FD tip</span><p>Name the entity that will actually sign the deal. A group holding company and its operating subsidiary are different parties.</p></aside>
+            <h3 id="2-the-proposed-transaction">✅ 2. The proposed transaction</h3>
+            <div class="check" data-check>
+              <div class="check-h"><span class="cnt">0 of 4 ticked</span><span class="bar"><i></i></span><button type="button" hidden>Reset</button></div>
+              <label><input type="checkbox" /><span class="ci"><strong>What the deal is</strong>, in one line (e.g. "an investment by the Investor in the Company")</span></label>
+              <label><input type="checkbox" /><span class="ci"><strong>Exactly what is being issued, sold, lent or provided</strong> (e.g. "newly issued preference shares")</span></label>
+              <label><input type="checkbox" /><span class="ci"><strong>The structure, step by step:</strong> who does what, to whom, through which instrument</span></label>
+              <label><input type="checkbox" /><span class="ci"><strong>The final agreements</strong> the deal will be documented in</span></label>
+            </div>
+            <aside class="tip"><span class="blob-tag">FD tip</span><p>A reader should understand the deal from this section alone, without reading the commercial terms.</p></aside>
+            <h3 id="3-legal-effect">✅ 3. Legal effect</h3>
+            <div class="check" data-check>
+              <div class="check-h"><span class="cnt">0 of 3 ticked</span><span class="bar"><i></i></span><button type="button" hidden>Reset</button></div>
+              <label><input type="checkbox" /><span class="ci">A clear statement of <strong>which paragraphs are binding</strong>, listed by name</span></label>
+              <label><input type="checkbox" /><span class="ci">A statement that <strong>everything else is not binding</strong></span></label>
+              <label><input type="checkbox" /><span class="ci">Confirmation that <strong>no one must proceed</strong> until the final agreements are signed</span></label>
+            </div>
+            <p>This is covered in depth in <a href="/resources/is-a-term-sheet-legally-binding/">Is a Term Sheet Legally Binding?</a></p>
+            <h3 id="4-expiry">✅ 4. Expiry</h3>
+            <div class="check" data-check>
+              <div class="check-h"><span class="cnt">0 of 3 ticked</span><span class="bar"><i></i></span><button type="button" hidden>Reset</button></div>
+              <label><input type="checkbox" /><span class="ci">A <strong>deadline for acceptance</strong> (14 days is common)</span></label>
+              <label><input type="checkbox" /><span class="ci">A <strong>long-stop date</strong> after which the term sheet ends if the deal isn't signed (often around 3 months)</span></label>
+              <label><input type="checkbox" /><span class="ci">Which clauses <strong>survive</strong> if the term sheet ends (usually confidentiality, costs, governing law)</span></label>
+            </div>
+            <h3 id="5-governing-law-and-disputes">✅ 5. Governing law and disputes</h3>
+            <div class="check" data-check>
+              <div class="check-h"><span class="cnt">0 of 3 ticked</span><span class="bar"><i></i></span><button type="button" hidden>Reset</button></div>
+              <label><input type="checkbox" /><span class="ci"><strong>One governing law.</strong> In federal countries such as the United States, Australia and Canada, choose a <strong>state or province</strong> (e.g. New York, New South Wales, Ontario), because contract law is set at that level.</span></label>
+              <label><input type="checkbox" /><span class="ci"><strong>One forum</strong> that matches it: the courts of that place, or arbitration</span></label>
+              <label><input type="checkbox" /><span class="ci">For arbitration: the <strong>institution, seat, number of arbitrators and language</strong></span></label>
+            </div>
+            <aside class="tip"><span class="blob-tag">FD tip</span><p>For parties in different countries, arbitration is often preferred because arbitral awards can be enforced in most countries under the New York Convention.</p></aside>
+            <h3 id="6-general-terms">✅ 6. General terms</h3>
+            <div class="check" data-check>
+              <div class="check-h"><span class="cnt">0 of 2 ticked</span><span class="bar"><i></i></span><button type="button" hidden>Reset</button></div>
+              <label><input type="checkbox" /><span class="ci">People who aren't parties <strong>can't enforce</strong> the term sheet</span></label>
+              <label><input type="checkbox" /><span class="ci">It can be signed in <strong>counterparts</strong> and by <strong>electronic signature</strong></span></label>
+            </div>
 
-            <h2 id="the-three-concepts-founders-should-distinguish">The three concepts founders should distinguish</h2>
+            <h2 id="part-2-the-six-optional-terms">Part 2: The six optional terms</h2>
+            <p>These are common, but not essential. Include them when they help, and leave them out when they don't.</p>
             <div class="table-wrap">
               <table>
-                <thead><tr><th scope="col">Concept</th><th scope="col">What it is</th><th scope="col">Typical example</th></tr></thead>
+                <thead><tr><th scope="col">Optional term</th><th scope="col">Include it when…</th><th scope="col">Usually binding?</th></tr></thead>
                 <tbody>
-                  <tr><td>Standalone NDA / Confidentiality Agreement</td><td>A separate contract governing confidential information and its permitted use.</td><td>An investor NDA signed before access to sensitive financial or technical information.</td></tr>
-                  <tr><td>Confidentiality clause</td><td>A confidentiality obligation within a wider contract.</td><td>A clause in an employment, consultancy, shareholders' or services agreement.</td></tr>
-                  <tr><td>Equitable duty of confidence</td><td>A legal obligation that may arise even without an express confidentiality contract.</td><td>Information received in circumstances where a reasonable person would understand it was confidential.</td></tr>
+                  <tr><td>💰 <strong>Key commercial terms</strong></td><td>Price, valuation or payment terms have been agreed</td><td>No</td></tr>
+                  <tr><td>✅ <strong>Conditions and due diligence</strong></td><td>Something must happen before closing, such as checks or approvals</td><td>No</td></tr>
+                  <tr><td>📅 <strong>Timetable</strong></td><td>There are target dates for signing and completion</td><td>No</td></tr>
+                  <tr><td>🔒 <strong>Exclusivity</strong></td><td>The side sending the term sheet needs time to do due diligence</td><td>Yes</td></tr>
+                  <tr><td>🤐 <strong>Confidentiality</strong></td><td>Almost always</td><td>Yes</td></tr>
+                  <tr><td>💸 <strong>Costs</strong></td><td>Almost always, even if it just says each side pays its own</td><td>Yes</td></tr>
                 </tbody>
               </table>
             </div>
+            <h3 id="key-commercial-terms-by-deal-type">Key commercial terms by deal type</h3>
+            <p>Include only the terms that have actually been agreed. Common examples:</p>
+            <ul>
+              <li><strong>Investment:</strong> investment amount, valuation (pre- or post-money), type of shares, board seat, information rights, founder vesting. For SAFEs: valuation cap, discount and MFN.</li>
+              <li><strong>Loan:</strong> loan amount, interest rate, term, repayment, security and guarantees.</li>
+              <li><strong>Acquisition:</strong> price, price adjustments, deferred payments or earn-out, warranties, key employees, restrictive covenants.</li>
+              <li><strong>Partnership or project:</strong> each party's contributions, governance, intellectual property, revenue sharing, term and exit.</li>
+            </ul>
+            <aside class="tip"><span class="blob-tag">FD tip</span><p>If the numbers haven't been agreed yet, leave this section out rather than filling it with guesses. A <a href="/draft?type=term">term sheet</a> with only the essential terms is still a valid term sheet.</p></aside>
 
-            <h2 id="why-the-contractual-distinction-matters-in-singapore">Why the contractual distinction matters in Singapore</h2>
-            <p>The Singapore Court of Appeal addressed the relationship between contractual and equitable confidentiality obligations in <em>Adinop Co Ltd v Rovithai Ltd and another [2019] SGCA 67</em>.</p>
-            <p>The Court explained that where there is a stipulated contractual duty of confidence, the contract provides the framework for determining whether information is confidential and how it may be used. Equity can nevertheless impose a duty of confidence in appropriate circumstances, including where no contractual confidentiality obligation exists.</p>
-            <p>The practical consequence is important: if you have signed an <a href="/draft?type=nda">NDA</a>, the definitions, Purpose, exclusions and permitted disclosures in that contract are not decorative. They can determine the scope of the contractual claim.</p>
-
-            <h2 id="what-if-there-is-no-nda">What if there is no NDA?</h2>
-            <p>The absence of a signed <a href="/draft?type=nda">NDA</a> does not necessarily mean information is legally unprotected. Singapore equity may impose a duty of confidence where information possessing the necessary quality of confidence is received in circumstances importing an obligation of confidentiality.</p>
-            <p>That said, relying only on an equitable duty can create avoidable uncertainty. A properly <a href="/draft">drafted</a> NDA lets the parties agree in advance what is confidential, the Purpose for which it may be used, who can receive it, what happens on mandatory disclosure and how long the obligations continue.</p>
-            <aside class="tip"><span class="blob-tag">FD tip</span><p>An NDA can therefore do more than repeat the law: it can create a bespoke contractual rulebook for the information exchange.</p></aside>
-
-            <h2 id="can-a-contract-protect-information-that-equity-might-not">Can a contract protect information that equity might not?</h2>
-            <p>Potentially, yes. Commercial parties can define "Confidential Information" contractually and agree how particular categories of information must be treated. The precise enforceability and interpretation will depend on the language and governing law, but the contractual definition is the starting point for the contractual claim.</p>
-            <p>This is another reason not to copy a definition blindly. If the definition is vague, overly broad or inconsistent with the intended information flow, the parties may create uncertainty rather than remove it.</p>
-
-            <h2 id="is-a-confidentiality-clause-as-good-as-a-standalone-nda">Is a confidentiality clause as good as a standalone NDA?</h2>
-            <p>It can be. The legal effect depends on the wording, not whether confidentiality occupies two paragraphs or ten pages. A confidentiality clause inside a services or employment agreement may be entirely appropriate where confidentiality is only one aspect of the relationship.</p>
-            <p>A standalone <a href="/draft?type=nda">NDA</a> is usually more useful where information must be exchanged before the main commercial contract exists, for example during fundraising, due diligence, preliminary partnership discussions or an M&amp;A process.</p>
-
-            <h2 id="nda-does-not-mean-non-compete-agreement">NDA does not mean "non-compete agreement"</h2>
-            <p>This distinction is particularly important. Some <a href="/draft?type=nda">NDAs</a> contain restrictive provisions that go beyond protecting information, including non-solicitation obligations, controls on contacting employees or customers, or other transaction protections.</p>
-            <p>Those clauses do not become confidentiality obligations simply because they are located in an NDA. They should be reviewed according to their own commercial purpose and enforceability. The VIMA model NDA, for example, includes an optional restrictive covenant concerning solicitation of certain personnel where the prospective investor is a strategic investor or competitor.</p>
-
-            <h2 id="nda-vs-confidentiality-agreement-what-should-you-actually-review">What should you actually review?</h2>
-            <p>Eight questions to work through before you sign. Tick each one off as you go.</p>
-            <div class="check" id="review-check">
-              <div class="check-h"><span class="cnt" id="check-cnt">0 of 8 reviewed</span><span class="bar"><i id="check-bar"></i></span><button type="button" id="check-reset" hidden>Reset</button></div>
-              <label><input type="checkbox" /><span class="cq">What information is covered?</span><span class="cw">The definition determines the protected subject matter.</span></label>
-              <label><input type="checkbox" /><span class="cq">What is the permitted Purpose?</span><span class="cw">Confidential information may still be misused if it is used outside the agreed Purpose.</span></label>
-              <label><input type="checkbox" /><span class="cq">Who can receive it?</span><span class="cw">Check employees, affiliates, advisers and other representatives.</span></label>
-              <label><input type="checkbox" /><span class="cq">What are the exclusions?</span><span class="cw">Public, prior-known, third-party and independently developed information are commonly addressed.</span></label>
-              <label><input type="checkbox" /><span class="cq">How long does confidentiality survive?</span><span class="cw">The agreement term and confidentiality survival period may differ.</span></label>
-              <label><input type="checkbox" /><span class="cq">What happens at the end?</span><span class="cw">Check return, destruction, backups and retained regulatory copies.</span></label>
-              <label><input type="checkbox" /><span class="cq">Are there extra restrictions?</span><span class="cw">Identify non-solicitation, contact, announcement, indemnity or other provisions.</span></label>
-              <label><input type="checkbox" /><span class="cq">What law and forum apply?</span><span class="cw">The governing law affects interpretation and remedies.</span></label>
+            <h2 id="part-3-mistakes-to-avoid">Part 3: Mistakes to avoid</h2>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th scope="col">❌ Mistake</th><th scope="col">✅ Fix</th></tr></thead>
+                <tbody>
+                  <tr><td>Trading name used as the party name</td><td>Use the full registered legal name</td></tr>
+                  <tr><td>"The business" as the subject matter</td><td>Say exactly what shares, assets or services are involved</td></tr>
+                  <tr><td>No statement of what's binding</td><td>Add a clear legal effect clause</td></tr>
+                  <tr><td>Binding list doesn't match the clauses included</td><td>Update the list whenever you add or remove a binding clause</td></tr>
+                  <tr><td>No expiry or long-stop date</td><td>Add both, in the right order</td></tr>
+                  <tr><td>"Laws of the United States"</td><td>Name a state, e.g. "the laws of the State of New York"</td></tr>
+                  <tr><td>Courts of one country, law of another</td><td>Match law and forum</td></tr>
+                  <tr><td>Vague earn-out ("if the business does well")</td><td>Use a measurable target and a date</td></tr>
+                  <tr><td>Silence on intellectual property in a development project</td><td>Say who owns existing and new IP, even at a high level</td></tr>
+                  <tr><td>Guessing numbers that haven't been agreed</td><td>Leave them out, or mark them "to be agreed"</td></tr>
+                </tbody>
+              </table>
             </div>
+            <p>For the reasons behind each of these, with examples, see <a href="/resources/term-sheet-mistakes/">12 Common Term Sheet Mistakes (and How to Avoid Them)</a>.</p>
 
-            <h2 id="so-which-term-should-you-use">So which term should you use?</h2>
-            <p>For most commercial drafting, either "Non-Disclosure Agreement" or "<a href="/draft?type=nda">Confidentiality Agreement</a>" is acceptable. "Mutual Non-Disclosure Agreement" is also common where both parties will disclose protected information.</p>
-            <p>Consistency matters more than terminology. Choose a title that accurately describes the arrangement, then make sure the operative provisions reflect the intended information flow and transaction.</p>
-
-            <h2 id="the-takeaway">The takeaway</h2>
-            <p>An NDA and a confidentiality agreement are usually two names for the same type of standalone contract. The more important legal distinctions are between contractual obligations and equitable duties of confidence, and between genuine confidentiality protections and other restrictions that happen to be packaged inside the same document.</p>
-            <p>For founders, the <a href="/draft">drafting</a> question is therefore not "Is this called an NDA?" It is "What exactly am I agreeing not to disclose or use, and in what circumstances?"</p>
-            <p>Whichever title you choose, you can <a href="/draft?type=nda">draft an NDA with FD AI</a> from a few questions: one-way or mutual, with the Purpose, the information covered and the confidentiality period set by your answers.</p>
+            <h2 id="part-4-when-to-get-a-lawyer-involved">Part 4: When to get a lawyer involved</h2>
+            <p>A <a href="/draft?type=term">term sheet</a> is short, but some situations need professional advice before you sign:</p>
+            <ul>
+              <li>you're asked to make the price or completion binding, or to agree a <strong>break fee</strong>;</li>
+              <li>the deal involves <strong>security, guarantees</strong> or a <strong>personal guarantee</strong>;</li>
+              <li>a party is <strong>listed</strong> on a stock exchange or <strong>regulated</strong>;</li>
+              <li>the deal may need <strong>regulatory, competition or foreign-investment approval</strong>;</li>
+              <li><strong>personal data, customer lists or employees</strong> are being transferred;</li>
+              <li>the parties are in <strong>different countries</strong> and you're unsure about governing law.</li>
+            </ul>
 
             <h2 id="frequently-asked-questions">Frequently asked questions</h2>
             <div class="faq-list">
-            <div class="faq"><h3>Is an NDA legally different from a confidentiality agreement?</h3><p>Usually not in ordinary commercial practice. The title itself generally does not determine the legal effect; the wording of the agreement does.</p></div>
-            <div class="faq"><h3>What is the difference between an NDA and a confidentiality clause?</h3><p>An <a href="/draft?type=nda">NDA</a> is usually a standalone contract. A confidentiality clause sits inside a wider agreement such as an employment, services or shareholders' agreement.</p></div>
-            <div class="faq"><h3>Can confidential information be protected without an NDA?</h3><p>Potentially. Singapore law recognises equitable duties of confidence in appropriate circumstances even without an express contractual confidentiality clause.</p></div>
-            <div class="faq"><h3>Is a mutual NDA better than a one-way NDA?</h3><p>Not necessarily. The appropriate structure depends on whether one party or both parties will disclose confidential information.</p></div>
+            <div class="faq"><h3>What are the most important terms in a term sheet?</h3><p>The parties, a clear description and structure of the deal, and a statement of what is and isn't binding. Without these, the <a href="/draft?type=term">term sheet</a> can't do its job.</p></div>
+            <div class="faq"><h3>Should a term sheet include the valuation?</h3><p>If it has been agreed, yes. It's one of the most important commercial terms in an investment. If it hasn't, the term sheet can still cover the essentials and leave valuation for later.</p></div>
+            <div class="faq"><h3>How detailed should a term sheet be?</h3><p>Detailed enough that nobody is surprised by the final agreements, but no more. If a point needs more than a couple of sentences, it probably belongs in the final agreements.</p></div>
+            <div class="faq"><h3>Can I use one term sheet template for different types of deal?</h3><p>Yes, if the template separates the essential terms from optional, deal-specific ones. The essentials are the same for every deal; the commercial terms change.</p></div>
             </div>
-
-            <h2 id="selected-authorities-and-source-materials">Selected authorities and source materials</h2>
-            <ul class="sources">
-              <li>Adinop Co Ltd v Rovithai Ltd and another [2019] SGCA 67: <a href="https://www.elitigation.sg/gdviewer/s/2019_SGCA_67" rel="noopener noreferrer" target="_blank">elitigation.sg/gdviewer/s/2019_SGCA_67</a></li>
-              <li>PH Hydraulics &amp; Engineering Pte Ltd v Airtrust (Hong Kong) Ltd [2010] SGHC 267: <a href="https://www.elitigation.sg/gd/s/2010_SGHC_267" rel="noopener noreferrer" target="_blank">elitigation.sg/gd/s/2010_SGHC_267</a></li>
-              <li>I-Admin (Singapore) Pte Ltd v Hong Ying Ting [2020] SGCA 32: <a href="https://www.elitigation.sg/gd/s/2020_SGCA_32" rel="noopener noreferrer" target="_blank">elitigation.sg/gd/s/2020_SGCA_32</a></li>
-              <li>Singapore Academy of Law, VIMA Model Non-Disclosure Agreement: <a href="https://www.sal.org.sg/" rel="noopener noreferrer" target="_blank">sal.org.sg</a></li>
-            </ul>
-            <aside class="disclaimer"><p><b>Legal disclaimer.</b> This article is provided for general information only and does not constitute legal advice. The appropriate terms and remedies will depend on the facts, governing law and transaction involved.</p></aside>
+            <aside class="disclaimer"><p><b>Legal disclaimer.</b> This article is general information, not legal advice. Laws differ between countries, so speak to a lawyer about your specific deal.</p></aside>
           </div>
 
           <div class="post-cta">
             <div>
-              <h2>Need an NDA that covers the right things?</h2>
-              <p>FD AI drafts one from a few questions, using Founders Doc&rsquo;s own NDA playbook. Or book a consultation and talk it through with a lawyer.</p>
+              <h2>Build your term sheet from this term sheet checklist</h2>
+              <p>Founders Doc's term sheet tool follows this checklist for you. It always includes the six essential terms, lets you choose which optional terms to add, and flags common mistakes, such as a missing state for US or Australian law, before you send it.</p>
             </div>
             <div class="acts">
-              <a class="btn btn-gold" href="/draft?type=nda">Draft with FD AI</a>
+              <a class="btn btn-gold" href="/draft?type=term">Draft with FD AI</a>
               <a class="btn btn-white" href="/contact">Book a consultation</a>
             </div>
           </div>
@@ -2094,28 +2261,27 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
         </div></div>
       </article>
 
-      <!-- SAMPLE CONTENT: "Read next" links mirror the placeholder posts on the blog index — swap for live posts -->
       <section class="next">
         <div class="wrap">
           <div class="next-h"><h2>Read next</h2><a href="/resources">View all articles →</a></div>
           <div class="next-grid">
-            <a class="n-card" href="/resources/can-breaching-an-nda-be-expensive/">
-              <span class="tile" aria-hidden="true"><svg viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg"><rect x="18" y="6" width="70" height="84" rx="4" fill="#fff"/><rect x="30" y="20" width="30" height="5" rx="2.5" fill="#f3bf4b"/><rect x="30" y="36" width="46" height="4" rx="2" fill="#d6d6d6"/><rect x="30" y="48" width="40" height="4" rx="2" fill="#d6d6d6"/><rect x="30" y="60" width="46" height="4" rx="2" fill="#d6d6d6"/><rect x="72" y="14" width="34" height="76" rx="4" fill="#e9e9e9"/><rect x="82" y="30" width="16" height="4" rx="2" fill="#d6d6d6"/><rect x="82" y="42" width="16" height="4" rx="2" fill="#d6d6d6"/></svg></span>
-              <span class="r-tag">Contracts</span>
-              <h2>Can Breaching an NDA Be Expensive?</h2>
-              <span class="c-time">14 Sep 2026 · 9 min read</span>
-            </a>
-            <a class="n-card" href="/coming-soon?f=Founder%20vesting%20clauses">
-              <span class="tile" aria-hidden="true"><svg viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="66" width="20" height="18" fill="#d6d6d6"/><rect x="34" y="50" width="20" height="34" fill="#d6d6d6"/><rect x="58" y="34" width="20" height="50" fill="#f3bf4b"/><rect x="82" y="18" width="20" height="66" fill="#d6d6d6"/><rect x="6" y="84" width="108" height="2" fill="#c9c9c9"/></svg></span>
-              <span class="r-tag">Contracts</span>
-              <h2>Founder vesting: the clauses investors actually read</h2>
-              <span class="c-time">29 Jul 2026 · 6 min read</span>
-            </a>
-            <a class="n-card" href="/coming-soon?f=Data%20room%20checklist">
-              <span class="tile gold" aria-hidden="true"><svg viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="14" width="44" height="34" rx="4" fill="#fff"/><rect x="66" y="14" width="44" height="34" rx="4" fill="#fff"/><rect x="10" y="54" width="44" height="34" rx="4" fill="#fff"/><rect x="66" y="54" width="44" height="34" rx="4" fill="#f3bf4b"/><rect x="18" y="24" width="18" height="4" rx="2" fill="#f3bf4b"/><rect x="74" y="24" width="18" height="4" rx="2" fill="#f3bf4b"/><rect x="18" y="64" width="18" height="4" rx="2" fill="#f3bf4b"/><rect x="74" y="64" width="18" height="4" rx="2" fill="#fff"/></svg></span>
+            <a class="n-card" href="/resources/what-is-a-term-sheet/">
+              <span class="tile" aria-hidden="true"><svg viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg"><rect x="30" y="8" width="60" height="76" rx="4" fill="#fff"/><rect x="38" y="18" width="30" height="5" rx="2.5" fill="#f3bf4b"/><rect x="38" y="32" width="6" height="4" rx="1" fill="#c9962a"/><rect x="48" y="32" width="32" height="4" rx="2" fill="#d6d6d6"/><rect x="38" y="44" width="6" height="4" rx="1" fill="#c9962a"/><rect x="48" y="44" width="26" height="4" rx="2" fill="#d6d6d6"/><rect x="38" y="56" width="6" height="4" rx="1" fill="#c9962a"/><rect x="48" y="56" width="30" height="4" rx="2" fill="#d6d6d6"/><rect x="38" y="68" width="6" height="4" rx="1" fill="#c9962a"/><rect x="48" y="68" width="22" height="4" rx="2" fill="#d6d6d6"/></svg></span>
               <span class="r-tag">Fundraising</span>
-              <h2>Due diligence data rooms: the five folders lawyers open first</h2>
-              <span class="c-time">3 Jun 2026 · 5 min read</span>
+              <h2>What Is a Term Sheet? A Plain-English Guide for Founders, Investors and Business Owners</h2>
+              <span class="c-time">25 Sep 2026 &middot; 7 min read</span>
+            </a>
+            <a class="n-card" href="/resources/is-a-term-sheet-legally-binding/">
+              <span class="tile gold" aria-hidden="true"><svg viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg"><rect x="22" y="8" width="60" height="76" rx="4" fill="#fff"/><rect x="30" y="18" width="30" height="5" rx="2.5" fill="#f3bf4b"/><rect x="28" y="30" width="48" height="9" rx="2" fill="#f3bf4b"/><rect x="30" y="47" width="40" height="4" rx="2" fill="#d6d6d6"/><rect x="28" y="56" width="48" height="9" rx="2" fill="#f3bf4b"/><rect x="30" y="73" width="34" height="4" rx="2" fill="#d6d6d6"/><rect x="84" y="46" width="20" height="16" rx="3" fill="#1c1c1c"/><path d="M88 47v-4a6 6 0 0 1 12 0v4" fill="none" stroke="#1c1c1c" stroke-width="3"/></svg></span>
+              <span class="r-tag">Fundraising</span>
+              <h2>Is a Term Sheet Legally Binding? Binding vs Non-Binding Terms Explained</h2>
+              <span class="c-time">25 Sep 2026 &middot; 7 min read</span>
+            </a>
+            <a class="n-card" href="/resources/term-sheet-mistakes/">
+              <span class="tile" aria-hidden="true"><svg viewBox="0 0 120 90" xmlns="http://www.w3.org/2000/svg"><rect x="30" y="8" width="60" height="76" rx="4" fill="#fff"/><rect x="38" y="18" width="30" height="5" rx="2.5" fill="#f3bf4b"/><rect x="38" y="32" width="40" height="4" rx="2" fill="#d6d6d6"/><rect x="38" y="44" width="34" height="4" rx="2" fill="#d6d6d6"/><ellipse cx="57" cy="46" rx="24" ry="7" fill="none" stroke="#c2412d" stroke-width="2"/><rect x="38" y="58" width="38" height="4" rx="2" fill="#d6d6d6"/><rect x="38" y="70" width="26" height="4" rx="2" fill="#d6d6d6"/></svg></span>
+              <span class="r-tag">Fundraising</span>
+              <h2>12 Common Term Sheet Mistakes (and How to Avoid Them)</h2>
+              <span class="c-time">25 Sep 2026 &middot; 8 min read</span>
             </a>
           </div>
         </div>
@@ -2127,7 +2293,7 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
       <div class="wrap">
         <div class="grid">
           <div>
-            <a class="logo" href="/" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
+            <a class="logo" href="#top" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
             <p class="about">
               Contracts for founders everywhere, reviewed and drafted by Jessica, our AI, and the practising
               lawyers behind her.
@@ -2136,9 +2302,9 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
           <div>
             <h4>Quick links</h4>
             <ul>
-              <li><a href="/">Home</a></li>
+              <li><a href="#top">Home</a></li>
               <li><a href="/about">About us</a></li>
-              <li><a href="/coming-soon?f=All%20services">Our services</a></li>
+              <li><a href="/#services">Our services</a></li>
               <li><a href="/resources">Blog</a></li>
               <li><a href="/coming-soon?f=Courses">Courses</a></li>
               <li><a href="/podcast">Podcast</a></li>
@@ -2152,7 +2318,6 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
               <li><a href="https://foundersdoc.com/terms-conditions/">Terms &amp; conditions</a></li>
               <li><a href="https://foundersdoc.com/privacy-policy/">Privacy policy</a></li>
               <li><a href="https://foundersdoc.com/community-guidelines/">Community guidelines</a></li>
-              <li><a href="/terms-of-service">FD Consult: Platform Terms of Service</a></li>
             </ul>
           </div>
           <div>
@@ -2439,18 +2604,13 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
           rootEl = document.documentElement,
           themeMeta = document.querySelector('meta[name="theme-color"]');
         function syncTheme() {
-          var dark = rootEl.getAttribute("data-theme") === "dark";
+          var dark = rootEl.classList.contains("dark");
           if (themeMeta) themeMeta.setAttribute("content", dark ? "#131313" : "#ffffff");
-          if (tbtn) {
-            tbtn.setAttribute("aria-pressed", String(dark));
-            tbtn.setAttribute("aria-label", dark ? "Switch to light mode" : "Switch to dark mode");
-          }
+          if (tbtn) tbtn.setAttribute("aria-pressed", String(dark));
         }
         if (tbtn) {
           tbtn.addEventListener("click", function () {
-            var next = rootEl.getAttribute("data-theme") === "dark" ? "light" : "dark";
-            rootEl.setAttribute("data-theme", next);
-            try { localStorage.setItem("fd-theme", next); } catch (e) {}
+            rootEl.classList.toggle("dark");
             syncTheme();
           });
           syncTheme();
@@ -2481,21 +2641,6 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
           spy();
         }
 
-        // Review checklist: progress bar and count
-        var cbs = Array.prototype.slice.call(document.querySelectorAll("#review-check input")),
-          cCnt = document.getElementById("check-cnt"),
-          cBar = document.getElementById("check-bar"),
-          cReset = document.getElementById("check-reset");
-        function syncCheck() {
-          var n = cbs.filter(function (c) { return c.checked; }).length;
-          if (cCnt) cCnt.textContent = n === cbs.length ? "All " + n + " reviewed" : n + " of " + cbs.length + " reviewed";
-          if (cBar) cBar.style.width = (100 * n / cbs.length) + "%";
-          if (cReset) cReset.hidden = n === 0;
-        }
-        cbs.forEach(function (c) { c.addEventListener("change", syncCheck); });
-        if (cReset) cReset.addEventListener("click", function () { cbs.forEach(function (c) { c.checked = false; }); syncCheck(); });
-        if (cbs.length) syncCheck();
-
         // Newsletter: validate client-side. Point the form at your email provider (e.g. Mailchimp) via the `action` attribute when ready.
         var form = document.getElementById("nl-form"),
           msg = document.getElementById("nl-msg"),
@@ -2513,6 +2658,21 @@ html[data-theme="dark"] .prose p a, html[data-theme="dark"] .prose li a, html[da
           });
         }
       })();
+    </script>
+    <script>
+      /* Tick lists: each list keeps its own count. Nothing is saved. */
+      document.querySelectorAll("[data-check]").forEach(function (box) {
+        var cbs = Array.prototype.slice.call(box.querySelectorAll("input")),
+          cnt = box.querySelector(".cnt"), bar = box.querySelector(".bar i"), reset = box.querySelector(".check-h button");
+        function sync() {
+          var n = cbs.filter(function (c) { return c.checked; }).length;
+          cnt.textContent = n === cbs.length ? "All " + n + " ticked" : n + " of " + cbs.length + " ticked";
+          bar.style.width = (100 * n / cbs.length) + "%";
+          reset.hidden = n === 0;
+        }
+        cbs.forEach(function (c) { c.addEventListener("change", sync); });
+        reset.addEventListener("click", function () { cbs.forEach(function (c) { c.checked = false; }); sync(); });
+      });
     </script>
   <script defer src="/fd-track.js"></script>
 </body>
