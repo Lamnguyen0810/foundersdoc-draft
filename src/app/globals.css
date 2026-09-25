@@ -3566,18 +3566,17 @@ html[data-theme=dark]{
 .ts-screen .chip.rec{border-color:var(--gold)}
 .ts-screen .txt .sub{margin:6px 0 0;font-size:13px;color:var(--tx-3);line-height:1.5}
 .ts-screen .later{margin:8px 0 0;font-size:12.5px;color:var(--tx-3)}
-.ts-screen .ts-edit{margin-left:10px;font-size:11.5px}
 .ts-intro p{margin:0 0 10px}
 .ts-intro p:last-child{margin-bottom:0}
-.ts-more{margin:12px 0 4px;padding:12px 14px;border:1px solid var(--rule);border-radius:12px;background:var(--bg);font-size:13.5px}
-.ts-more b{display:block;margin:10px 0 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--tx-2)}
-.ts-more ul{margin:0;padding-left:18px;display:grid;gap:3px}
+.ts-intro ul.ts-list{margin:0 0 10px;padding-left:20px;display:grid;gap:4px}
+.ts-intro ul.ts-list li::marker{color:var(--gold)}
+.ts-intro p b{font-weight:600}
 .ts-disclaimer{margin-top:12px!important;font-size:12.5px;color:var(--tx-3)}
 .ts-parties{display:grid;gap:14px;max-width:640px}
 .ts-party{border:1px solid var(--rule);border-radius:14px;padding:14px 16px;background:var(--card);display:grid;gap:10px}
 .ts-party-h{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .ts-party-h b{font-size:13.5px}
-.ts-party-h .segs{display:flex;gap:6px}
+.ts-party-h .ts-kind{display:flex;gap:6px}
 .ts-party-h .chip{padding:5px 11px;font-size:12.5px}
 .ts-party label{display:grid;gap:4px;font-size:12px;color:var(--tx-2)}
 .ts-party label .input{width:100%}
@@ -3585,18 +3584,26 @@ html[data-theme=dark]{
 .ts-party .ts-check{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--tx-2)}
 .ts-summary{margin-top:10px}
 .ts-summary dt{color:var(--tx-3)}
-.ts-steps{display:grid;gap:4px;margin-top:10px}
-.ts-step{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--tx-3);padding:5px 8px;border-radius:8px}
-.ts-step .n{width:20px;height:20px;border-radius:50%;border:1px solid var(--rule-2);display:grid;place-items:center;font-size:10.5px}
-.ts-step.done{color:var(--tx-2)}
-.ts-step.done .n{background:var(--gold);border-color:var(--gold);color:#141416}
-.ts-step.on{color:var(--tx);background:var(--bg-2);font-weight:600}
+/* The list on the right: a heading per section, its questions beneath, one
+   line each. Built on the NDA's .inst so the two read as one product. */
+.ts-notes{display:grid;gap:10px}
+.ts-group-h{margin:0 0 2px;padding:0 10px;font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--tx-3)}
+.ts-inst{padding:4px 10px;grid-template-columns:20px minmax(0,1fr);align-items:center}
+.ts-inst i{width:20px;height:20px;font-size:10.5px}
+/* One line per question: its name, and the answer after it in grey. */
+.ts-inst > div{display:flex;align-items:baseline;gap:8px;min-width:0}
+.ts-inst b{font-size:12.5px;flex:none}
+.ts-inst small{font-size:11px;margin:0;min-width:0;flex:1}
+.ts-inst.done,.ts-inst.skp{cursor:pointer}
+.ts-inst.done:hover,.ts-inst.skp:hover{background:var(--bg-2)}
+.ts-inst.later{opacity:.45}
 .ts-pane .k{margin:12px 0 4px}
 .ts-pane .sub{font-size:12.5px;color:var(--tx-3);line-height:1.5;margin:0}
 .ts-ai{display:grid;gap:10px;width:100%}
 .ts-ai label{display:grid;gap:4px;font-size:12px;color:var(--tx-2)}
 .ts-ai label small{color:var(--tx-3)}
-.ts-ai .input{width:100%;font-size:13.5px}
+.ts-ai .input{width:100%!important;box-sizing:border-box;font-size:13.5px}
+.ts-ai label{width:100%}
 .ts-note{padding:10px 12px;border-left:3px solid var(--gold);background:var(--bg);border-radius:8px;font-size:13.5px}
 .ts-screen .gen-compose .hint{margin-top:8px}
 .ts-screen .strip .dname{font-weight:500}

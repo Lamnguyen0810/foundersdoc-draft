@@ -22,7 +22,7 @@
  */
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import DocumentEditor from "./DocumentEditor";
 import { track } from "@/lib/track";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
@@ -91,6 +91,79 @@ const emptyParty = (kind: Party["kind"] = "company"): Party => ({ kind, name: ""
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
+const PARTIES_Q = "Who are the parties? Full legal names, numbers and registered addresses, as they will appear in the letter.";
+
+type Msg = { who: "fd" | "me"; text: string; label?: string; skipped?: boolean };
+/** Which steps have been answered or skipped, by step key. */
+type Settled = Record<string, "done" | "skp">;
+
+const stepKey = (s: Step) => (s.kind === "parties" ? "parties" : s.q.id);
+
+/** The steps for these answers, in the order they are asked: the parties come straight after Q2. */
+function stepsFor(a: Answers): Step[] {
+  const out: Step[] = [];
+  for (const q of questionsFor(a)) {
+    out.push({ kind: "q", q });
+    if (q.id === PARTIES_AFTER) out.push({ kind: "parties" });
+  }
+  return out;
+}
+
+/**
+ * The name a step goes by — in the list on the right and on the answer
+ * bubble — as each NDA step has a name. Short, because the question itself
+ * is already in the conversation.
+ */
+function shortLabel(s: Step, deal: string): string {
+  if (s.kind === "parties") return "Parties";
+  const byDeal = (m: Record<string, string>) => m[deal] ?? m.default;
+  switch (s.q.id) {
+    case "Q1": return "Type of deal";
+    case "Q2": return "Your side";
+    case "Q3": return "The deal in a sentence";
+    case "Q4": return byDeal({ investment: "What the investor receives", loan: "Kind of loan", acquisition: "What is being bought", project: "What the project involves", default: "Subject matter" });
+    case "Q5": return "Agreements to sign";
+    case "Q6a": return "Time to accept";
+    case "Q6b": return "When it lapses";
+    case "Q7a": return "Governing law";
+    case "Q7a_state": return "State or province";
+    case "Q7b": return "Disputes";
+    case "Q8a": return byDeal({ project: "Contributions agreed", default: "Numbers agreed" });
+    case "Q8b": return byDeal({ investment: "Investment amount", loan: "Loan amount", acquisition: "Price", project: "Contributions", default: "Price or value" });
+    case "Q8c": return byDeal({ investment: "Valuation", loan: "Interest and term", acquisition: "How the price is set", project: "Revenue and costs", default: "Pricing" });
+    case "Q8d": return byDeal({ loan: "Repayment", default: "Payment" });
+    case "Q8e": return "Other key terms";
+    case "Q9": return "Conditions";
+    case "Q10a": return "Signing target";
+    case "Q10b": return "Completion date";
+    case "Q11": return "Exclusivity";
+    case "Q12": return "Confidentiality";
+    case "Q13": return "Legal costs";
+    default: return s.q.section;
+  }
+}
+
+/** The heading a step sits under in the list. The questionnaire has two runs
+ *  called "Timing"; the second is about signing and closing, and says so. */
+function groupOf(s: Step): string {
+  if (s.kind === "parties") return "Parties";
+  if (s.q.id === "Q10a" || s.q.id === "Q10b") return "Signing and closing";
+  return s.q.section;
+}
+
+/** What "Skip the rest" cannot answer for anyone: who the parties are, what
+ *  the deal is, and which law — there is no usual answer to those. */
+const MUST_ASK = new Set(["Q1", "Q2", "parties", "Q3", "Q4", "Q7a", "Q7a_state"]);
+
+/** The usual answer for a skipped question that has no default of its own. */
+const SKIP_VALUE: Record<string, unknown> = { Q7b: "recommend", Q8a: "no", Q10b: "unsure", Q5: ["suggest"], Q8e: [] };
+
+function allSettled(a: Answers): Settled {
+  const out: Settled = {};
+  for (const s of stepsFor(a)) out[stepKey(s)] = "done";
+  return out;
+}
+
 /** The label shown for an answer, for the conversation and the summary. */
 function answerLabel(q: Question, a: Answers): string {
   const v = a[q.id];
@@ -113,11 +186,12 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
   const [parties, setParties] = useState<Party[]>(() =>
     resume && Array.isArray(resume.answers._parties) ? (resume.answers._parties as Party[]) : [emptyParty(), emptyParty()],
   );
-  const [idx, setIdx] = useState(0);
+  const [settled, setSettled] = useState<Settled>(() => (resume ? allSettled(fromSaved(resume.answers)) : {}));
+  const [msgs, setMsgs] = useState<Msg[]>([]);
   const [typed, setTyped] = useState("");
   const [multi, setMulti] = useState<string[]>([]);
   const [listItems, setListItems] = useState<string[]>([]);
-  const [pendingDetail, setPendingDetail] = useState<{ key: string; label: string } | null>(null);
+  const [pendingDetail, setPendingDetail] = useState<{ key: string; label: string; q: Question; value: string } | null>(null);
   const [basis, setBasis] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -152,20 +226,19 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
   const [fbDone, setFbDone] = useState<string | null>(null);
 
   /* ── the steps, from the answers ────────────────────────────────────── */
-  const steps = useMemo<Step[]>(() => {
-    const out: Step[] = [];
-    for (const q of questionsFor(answers)) {
-      out.push({ kind: "q", q });
-      if (q.id === PARTIES_AFTER) out.push({ kind: "parties" });
-    }
-    return out;
-  }, [answers]);
+  const steps = useMemo<Step[]>(() => stepsFor(answers), [answers]);
 
-  const roles = rolesFor(str(answers.Q1) || "other");
-  const step = steps[idx];
-  const finished = idx >= steps.length;
-  const answered = steps.filter((s) => (s.kind === "q" ? answers[s.q.id] !== undefined : partiesComplete(parties))).length;
-  const pct = steps.length ? Math.round((Math.min(idx, steps.length) / steps.length) * 100) : 0;
+  const deal = str(answers.Q1) || "other";
+  const roles = rolesFor(deal);
+  /* The question being asked is the first one not yet answered or skipped.
+     Branching can add a question behind the ones already settled; it is
+     simply asked next. */
+  const pending = steps.filter((s) => !settled[stepKey(s)]);
+  const step = stage === "questions" ? pending[0] : undefined;
+  const finished = pending.length === 0;
+  const answered = steps.filter((s) => settled[stepKey(s)] === "done").length;
+  const skippedCount = steps.filter((s) => settled[stepKey(s)] === "skp").length;
+  const pct = steps.length ? Math.round(((answered + skippedCount) / steps.length) * 100) : 0;
 
   /* Restore a hand-off (a visitor who signed up mid-flow) or a stash. Read
      after mount, not during render: the server never saw the storage, and a
@@ -177,13 +250,14 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
         const handoff = localStorage.getItem(HANDOFF_KEY);
         const raw = handoff ?? sessionStorage.getItem(STASH_KEY);
         if (!raw) return;
-        const s = JSON.parse(raw) as { answers: Answers; parties: Party[]; idx: number; stage: Stage };
+        const s = JSON.parse(raw) as { answers: Answers; parties: Party[]; settled?: Settled; msgs?: Msg[]; stage: Stage };
         /* Nothing answered yet is nothing to restore — and the intro is
            worth reading once. */
-        if (!s || !s.answers || (Object.keys(s.answers).length === 0 && !(s.idx > 0))) return;
+        if (!s || !s.answers || Object.keys(s.answers).length === 0) return;
         setAnswers(s.answers);
         setParties(s.parties?.length >= 2 ? s.parties : [emptyParty(), emptyParty()]);
-        setIdx(s.idx ?? 0);
+        setSettled(s.settled ?? {});
+        setMsgs(Array.isArray(s.msgs) ? s.msgs : []);
         if (handoff && !guest) {
           localStorage.removeItem(HANDOFF_KEY);
           setStage("review");
@@ -200,15 +274,15 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
   useEffect(() => {
     if (resume || stage === "drafted") return;
     try {
-      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, parties, idx, stage }));
+      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, parties, settled, msgs, stage }));
     } catch {
       /* private mode */
     }
-  }, [answers, parties, idx, stage, resume]);
+  }, [answers, parties, settled, msgs, stage, resume]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [idx, stage, asks, error]);
+  }, [msgs.length, stage, asks, error]);
 
   /* ── answering ──────────────────────────────────────────────────────── */
 
@@ -220,25 +294,102 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
     setBasis("");
   };
 
-  const setAnswer = useCallback((q: Question, value: unknown, extras: Record<string, unknown> = {}) => {
-    setAnswers((a) => {
-      const next: Answers = { ...a, [q.id]: value, ...extras };
-      /* Changing the deal changes the questions that depend on it. */
-      if (q.id === "Q1" && a.Q1 !== value) {
-        for (const k of Object.keys(next)) if (/^(Q2|Q4|Q5|Q8[b-e])(_|$)/.test(k)) delete next[k];
-      }
-      if (q.id === "Q4" && a.Q4 !== value) {
-        for (const k of Object.keys(next)) if (/^Q5(_|$)/.test(k)) delete next[k];
-      }
-      return next;
-    });
-  }, []);
+  const say = (...m: Msg[]) => setMsgs((prev) => [...prev, ...m]);
 
-  const advance = useCallback(() => {
+  /** The answers with this one in, and what it makes stale: a new kind of
+   *  deal asks again about everything that depended on the old one. */
+  function withAnswer(a: Answers, q: Question, value: unknown, extras: Record<string, unknown>): { next: Answers; stale: string[] } {
+    const next: Answers = { ...a, [q.id]: value, ...extras };
+    const stale: string[] = [];
+    const clear = (re: RegExp, ids: string[]) => {
+      for (const k of Object.keys(next)) if (re.test(k) && !(k in extras)) delete next[k];
+      stale.push(...ids);
+    };
+    if (q.id === "Q1" && a.Q1 !== undefined && a.Q1 !== value) clear(/^(Q2|Q4|Q5|Q8[b-e])(_|$)/, ["Q2", "Q4", "Q5", "Q8b", "Q8c", "Q8d", "Q8e"]);
+    if (q.id === "Q4" && a.Q4 !== undefined && a.Q4 !== value) clear(/^Q5(_|$)/, ["Q5"]);
+    return { next, stale };
+  }
+
+  /** Answer (or skip) a question: the conversation records it as the NDA's
+   *  does, and the next unsettled question comes up. */
+  const settle = (q: Question, value: unknown, extras: Record<string, unknown>, skipped: boolean) => {
+    setError(null);
+    const { next, stale } = withAnswer(answers, q, value, extras);
+    if (Object.keys(settled).length === 0) track("draft_started", { doc_type: "term", total_steps: steps.length });
+    setAnswers(next);
+    setSettled((st) => {
+      const n: Settled = { ...st, [q.id]: skipped ? "skp" : "done" };
+      for (const k of stale) delete n[k];
+      return n;
+    });
+    say(
+      { who: "fd", text: q.text },
+      {
+        who: "me",
+        label: shortLabel({ kind: "q", q }, str(next.Q1) || "other"),
+        text: skipped ? "Skipped for now" : answerLabel(q, next) || "None",
+        skipped,
+      },
+    );
+    if (q.id === "Q2" && typeof value === "string") prefillMine(value);
     resetInput();
-    setIdx((i) => i + 1);
-    if (idx === 0) track("draft_started", { doc_type: "term", total_steps: steps.length });
-  }, [idx, steps.length]);
+  };
+
+  const settleParties = () => {
+    setSettled((st) => ({ ...st, parties: "done" }));
+    say({ who: "fd", text: PARTIES_Q }, { who: "me", label: "Parties", text: parties.map((p) => p.name).filter(Boolean).join(" · ") });
+    resetInput();
+  };
+
+  /** Go back to an answered or skipped step — from the list on the right,
+   *  as on the NDA. */
+  function revisit(s: Step) {
+    const k = stepKey(s);
+    if (!settled[k] || busy) return;
+    setSettled((st) => {
+      const n = { ...st };
+      delete n[k];
+      return n;
+    });
+    resetInput();
+    setAsks([]);
+    say({ who: "fd", text: `Let’s go back to ${shortLabel(s, deal).toLowerCase()}.` });
+    setStage("questions");
+    setDocOpen(false);
+  }
+
+  /** The usual answer for everything still open, except what only the
+   *  person can say. */
+  function skipRest() {
+    const a: Answers = { ...answers };
+    const st: Settled = { ...settled };
+    /* Skipping can change what is asked (no numbers agreed → no amount), so
+       the list is read again until it stops changing. */
+    for (let pass = 0; pass < 4; pass++) {
+      for (const s of stepsFor(a)) {
+        const k = stepKey(s);
+        if (st[k] || MUST_ASK.has(k) || s.kind !== "q") continue;
+        const v = a[k];
+        if (v === undefined || v === null || v === "") a[k] = s.q.defaultValue ?? SKIP_VALUE[k] ?? "";
+        st[k] = "skp";
+      }
+    }
+    const left = stepsFor(a).filter((s) => !st[stepKey(s)]);
+    track("draft_with_what_i_have", { doc_type: "term", count: Object.keys(st).length - Object.keys(settled).length, total_steps: steps.length });
+    setAnswers(a);
+    setSettled(st);
+    resetInput();
+    say(
+      { who: "me", label: "Skip the rest", text: "Use the usual answers", skipped: true },
+      {
+        who: "fd",
+        text: left.length
+          ? `I’ve used the usual answer for the rest. Before I can prepare it, I still need: ${left.map((s) => shortLabel(s, deal).toLowerCase()).join(", ")}.`
+          : "I’ve used the usual answer for everything you skipped — you can change any of them from the list on the right.",
+      },
+    );
+    if (left.length === 0) setStage("review");
+  }
 
   /* The person's own side of the letter, from their company profile, the
      moment they say which side they are on. */
@@ -262,24 +413,16 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
     });
   };
 
-  const commit = (q: Question, value: unknown, extras: Record<string, unknown> = {}) => {
-    setError(null);
-    setAnswer(q, value, extras);
-    if (q.id === "Q2" && typeof value === "string") prefillMine(value);
-    advance();
-  };
+  const commit = (q: Question, value: unknown, extras: Record<string, unknown> = {}) => settle(q, value, extras, false);
 
-  const skip = (q: Question) => {
-    setAnswer(q, q.defaultValue ?? "");
-    advance();
-  };
+  const skip = (q: Question) => settle(q, q.defaultValue ?? SKIP_VALUE[q.id] ?? "", {}, true);
 
   /* ── preparing the term sheet ───────────────────────────────────────── */
 
   async function prepare() {
     if (guest) {
       try {
-        localStorage.setItem(HANDOFF_KEY, JSON.stringify({ answers, parties, idx, stage: "review" }));
+        localStorage.setItem(HANDOFF_KEY, JSON.stringify({ answers, parties, settled, msgs, stage: "review" }));
       } catch {
         /* the sign-up still works; the answers just do not follow */
       }
@@ -464,8 +607,8 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
 
   const changeAnswers = () => {
     setStage("questions");
-    setIdx(steps.length);
     setDocOpen(false);
+    say({ who: "fd", text: "Pick any answer in the list on the right to change it, then review and prepare again." });
   };
 
   /* ── the answer UI for the current step ─────────────────────────────── */
@@ -530,13 +673,11 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
             <div className="chips">
               {chipsFor(q, opts, (o) => {
                 if (o.needs_detail) {
-                  setAnswer(q, o.value);
-                  setPendingDetail({ key: `${q.id}_detail`, label: "Describe it briefly" });
+                  setPendingDetail({ key: `${q.id}_detail`, label: "Describe it briefly", q, value: o.value });
                   return;
                 }
                 if (o.needs_amount) {
-                  setAnswer(q, o.value);
-                  setPendingDetail({ key: `${q.id}_amount`, label: "The limit, e.g. SGD 15,000" });
+                  setPendingDetail({ key: `${q.id}_amount`, label: "The limit, e.g. SGD 15,000", q, value: o.value });
                   return;
                 }
                 commit(q, o.value);
@@ -750,12 +891,8 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
 
   function finishDetail() {
     if (!pendingDetail || !typed.trim()) return;
-    const value = pendingDetail.key.endsWith("_amount") ? moneyOrText(typed) : typed.trim();
-    const extras = { [pendingDetail.key]: value };
-    setAnswers((a) => ({ ...a, ...extras }));
-    setPendingDetail(null);
-    setTyped("");
-    setIdx((i) => i + 1);
+    const detail = pendingDetail.key.endsWith("_amount") ? moneyOrText(typed) : typed.trim();
+    commit(pendingDetail.q, pendingDetail.value, { [pendingDetail.key]: detail });
   }
 
   /* ── parties ────────────────────────────────────────────────────────── */
@@ -774,7 +911,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
       <div className="ts-party" key={i}>
         <div className="ts-party-h">
           <b>{heading}</b>
-          <span className="segs">
+          <span className="ts-kind">
             <button type="button" className={`chip${p.kind === "company" ? " on" : ""}`} onClick={() => set({ kind: "company" })}>
               Company
             </button>
@@ -875,7 +1012,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
               + Add another party
             </button>
           )}
-          <button type="button" className="go" disabled={!ok} onClick={advance} title={ok ? undefined : "Every party needs its full name, number and address"}>
+          <button type="button" className="go" disabled={!ok} onClick={settleParties} title={ok ? undefined : "Every party needs its full name, number and address"}>
             Continue
           </button>
         </div>
@@ -887,7 +1024,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
 
   const summary = steps
     .filter((s): s is { kind: "q"; q: Question } => s.kind === "q")
-    .map((s) => ({ id: s.q.id, label: s.q.text, value: answerLabel(s.q, answers) }))
+    .map((s) => ({ id: s.q.id, label: shortLabel(s, deal), value: answerLabel(s.q, answers) }))
     .filter((x) => x.value);
 
   const yellow = flags.filter((f) => f.level === "yellow" || f.level === "red");
@@ -979,68 +1116,67 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
           <div className="convo">
             <div className="chat" ref={threadRef}>
               <div className="chat-in">
-                {stage === "intro" && (
-                  <div className="m">
-                    <div className="av">FD</div>
-                    <div>
-                      <div className="txt ts-intro">
-                        <Markdown text={INTRO.short} />
-                        {learnMore && (
-                          <div className="ts-more">
-                            <p>{INTRO.learn_more.when_used.replace(/\*/g, "")}</p>
-                            <b>Usually binding</b>
-                            <ul>{INTRO.learn_more.usually_binding.map((x) => <li key={x}>{x}</li>)}</ul>
-                            <b>Usually not binding</b>
-                            <ul>{INTRO.learn_more.usually_not_binding.map((x) => <li key={x}>{x}</li>)}</ul>
-                            <b>After the term sheet</b>
-                            <p>{INTRO.learn_more.after_the_term_sheet}</p>
-                            <b>Good to know</b>
-                            <ul>{INTRO.learn_more.good_to_know.map((x) => <li key={x}>{x}</li>)}</ul>
-                          </div>
-                        )}
-                        <p className="ts-disclaimer">{INTRO.disclaimer}</p>
-                      </div>
-                      <div className="ans">
-                        <div className="chips">
+                {/* The intro stays at the top of the conversation, as the first
+                    thing FD AI said. "Learn more" carries on in the same voice
+                    and the same type — it is more of the message, not a box. */}
+                <div className="m">
+                  <div className="av">FD</div>
+                  <div>
+                    <div className="txt ts-intro">
+                      <Markdown text={INTRO.short} />
+                      {learnMore && (
+                        <>
+                          <p>{INTRO.learn_more.when_used.replace(/\*/g, "")}</p>
+                          <p><b>What is usually binding</b></p>
+                          <ul className="ts-list">{INTRO.learn_more.usually_binding.map((x) => <li key={x}>{x}</li>)}</ul>
+                          <p><b>What is usually not binding</b></p>
+                          <ul className="ts-list">{INTRO.learn_more.usually_not_binding.map((x) => <li key={x}>{x}</li>)}</ul>
+                          <p><b>After the term sheet.</b> {INTRO.learn_more.after_the_term_sheet}</p>
+                          <p><b>Good to know</b></p>
+                          <ul className="ts-list">{INTRO.learn_more.good_to_know.map((x) => <li key={x}>{x}</li>)}</ul>
+                        </>
+                      )}
+                      <p className="ts-disclaimer">{INTRO.disclaimer}</p>
+                    </div>
+                    <div className="ans">
+                      <div className="chips">
+                        {stage === "intro" && (
                           <button type="button" className="go" onClick={() => setStage("questions")}>
                             Start
                           </button>
-                          <button type="button" className="chip" onClick={() => setLearnMore((v) => !v)}>
-                            {learnMore ? "Less" : "Learn more"}
-                          </button>
-                        </div>
+                        )}
+                        <button type="button" className="chip" onClick={() => setLearnMore((v) => !v)}>
+                          {learnMore ? "Show less" : "Learn more"}
+                        </button>
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
 
-                {stage !== "intro" &&
-                  steps.slice(0, Math.min(idx, steps.length)).map((s, k) => (
-                    <div key={k}>
-                      <div className="m">
-                        <div className="av">FD</div>
-                        <div>
-                          <div className="txt">{s.kind === "q" ? s.q.text : "Who are the parties? Full legal names, numbers and registered addresses, as they will appear in the letter."}</div>
-                        </div>
-                      </div>
-                      <div className="m me">
-                        <div className="txt">
-                          <b>{s.kind === "q" ? s.q.section : "Parties"}</b>
-                          {s.kind === "q" ? answerLabel(s.q, answers) || "Skipped" : parties.map((p) => p.name || "…").join(" · ")}
-                          <button type="button" className="alt-link ts-edit" onClick={() => { resetInput(); setIdx(k); }}>
-                            edit
-                          </button>
-                        </div>
+                {msgs.map((m, k) =>
+                  m.who === "fd" ? (
+                    <div className="m" key={k}>
+                      <div className="av">FD</div>
+                      <div>
+                        <div className="txt">{m.text}</div>
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    <div className="m me" key={k}>
+                      <div className={`txt${m.skipped ? " skipped" : ""}`}>
+                        <b>{m.label}</b>
+                        {m.text}
+                      </div>
+                    </div>
+                  ),
+                )}
 
                 {stage === "questions" && step && (
                   <div className="m">
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        {step.kind === "q" ? step.q.text : "Who are the parties? Full legal names, numbers and registered addresses, as they will appear in the letter."}
+                        {step.kind === "q" ? step.q.text : PARTIES_Q}
                         {step.kind === "q" && step.q.help && <p className="sub">{step.q.help}</p>}
                         {step.kind === "parties" && <p className="sub">The side sending the term sheet is party 1. Your own details are filled in from your profile where you have one.</p>}
                       </div>
@@ -1114,7 +1250,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                       <div className="txt">
                         <b style={{ fontWeight: 500 }}>Before I prepare it, a couple of things:</b>
                         <ul className="cg-checks">{asks.map((q) => <li key={q}>{q}</li>)}</ul>
-                        <p className="sub">Use “edit” on the answer above, or the parties step, then review again.</p>
+                        <p className="sub">Pick the answer in the list on the right to change it, then review again.</p>
                       </div>
                       <div className="ans">
                         <div className="chips">
@@ -1425,14 +1561,53 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                 <div className="prog-h">
                   <b className="cnt">
                     {answered} of {steps.length} answered
+                    {skippedCount ? ` · ${skippedCount} skipped` : ""}
                   </b>
-                  <span className="eta">{finished ? "Ready to prepare" : `About ${Math.max(1, Math.ceil((steps.length - idx) * 0.5))} min`}</span>
+                  <span className="eta">{finished ? "Ready to prepare" : `About ${Math.max(1, Math.ceil(pending.length * 0.5))} min`}</span>
                 </div>
-                <div className="ts-steps">
-                  {steps.map((s, k) => (
-                    <div key={k} className={`ts-step${k === idx ? " on" : ""}${k < idx ? " done" : ""}`}>
-                      <span className="n">{k + 1}</span>
-                      <span>{s.kind === "q" ? s.q.section : "Parties"}</span>
+                <div className="segs" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0,1fr))` }}>
+                  {steps.map((s) => {
+                    const st = settled[stepKey(s)];
+                    return <i key={stepKey(s)} className={st ?? (s === step ? "now" : "")} />;
+                  })}
+                </div>
+                {/* One heading per section, its questions beneath; what has
+                    not been reached yet is faded. An answered or skipped one
+                    can be clicked to change it, as on the NDA. */}
+                <div className="notes ts-notes">
+                  {groupSteps(steps).map((g, gi) => (
+                    <div className="ts-group" key={`${g.name}-${gi}`}>
+                      <p className="ts-group-h">{g.name}</p>
+                      {g.items.map((s) => {
+                        const k = stepKey(s);
+                        const st = settled[k] ?? (s === step ? "now" : "");
+                        const n = steps.indexOf(s) + 1;
+                        const value =
+                          st === "done"
+                            ? s.kind === "q"
+                              ? answerLabel(s.q, answers)
+                              : parties.map((p) => p.name).filter(Boolean).join(" · ")
+                            : st === "skp"
+                              ? "Skipped"
+                              : "";
+                        return (
+                          <div
+                            key={k}
+                            className={`inst ts-inst ${st || "later"}`}
+                            role={st === "done" || st === "skp" ? "button" : undefined}
+                            tabIndex={st === "done" || st === "skp" ? 0 : undefined}
+                            title={st === "done" || st === "skp" ? `${value ? `${value} — ` : ""}click to change` : undefined}
+                            onClick={() => (st === "done" || st === "skp") && revisit(s)}
+                            onKeyDown={(e) => e.key === "Enter" && (st === "done" || st === "skp") && revisit(s)}
+                          >
+                            <i>{st === "done" ? "✓" : n}</i>
+                            <div>
+                              <b>{shortLabel(s, deal)}</b>
+                              {value && <small>{value}</small>}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
@@ -1441,10 +1616,18 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
           </div>
           {!isDraft && (
             <div className="studio-foot">
-              <button type="button" className="btn s-gen" disabled={busy || stage === "intro"} onClick={() => (finished ? setStage("review") : setIdx(steps.length))} title={finished ? undefined : "Skip the remaining questions"}>
-                {finished ? "Review answers" : "Skip the rest"}
+              <button
+                type="button"
+                className="btn s-gen"
+                disabled={busy || !finished || stage === "intro"}
+                onClick={() => (stage === "review" ? void prepare() : setStage("review"))}
+              >
+                {busy ? "Preparing…" : stage === "review" ? (guest ? "Sign up and prepare" : "Prepare term sheet") : "Review answers"}
               </button>
-              <small>Skipped questions take the usual answer; you can change any of them before preparing.</small>
+              <button type="button" className="btn btn-quiet s-skipall" disabled={busy || finished || stage === "intro"} onClick={skipRest}>
+                Skip the rest
+              </button>
+              <small>Skipped questions take the usual answer — nothing is invented.</small>
             </div>
           )}
         </section>
@@ -1454,6 +1637,18 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
 }
 
 /* ── helpers ──────────────────────────────────────────────────────────── */
+
+/** Consecutive steps under the same heading, together. */
+function groupSteps(steps: Step[]): { name: string; items: Step[] }[] {
+  const out: { name: string; items: Step[] }[] = [];
+  for (const s of steps) {
+    const name = groupOf(s);
+    const last = out[out.length - 1];
+    if (last && last.name === name) last.items.push(s);
+    else out.push({ name, items: [s] });
+  }
+  return out;
+}
 
 function partiesComplete(ps: Party[]): boolean {
   if (ps.length < 2) return false;
