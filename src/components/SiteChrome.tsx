@@ -437,13 +437,13 @@ export function SiteFooter() {
             <h4>Useful links</h4>
             <ul>
               <li>
-                <a href="https://foundersdoc.com/terms-conditions/">Terms &amp; conditions</a>
+                <a href="/terms-of-service">Terms &amp; conditions</a>
               </li>
               <li>
-                <a href="https://foundersdoc.com/privacy-policy/">Privacy policy</a>
+                <a href="/privacy-policy">Privacy policy</a>
               </li>
               <li>
-                <a href="https://foundersdoc.com/community-guidelines/">Community guidelines</a>
+                <a href="/community-guidelines">Community guidelines</a>
               </li>
             </ul>
           </div>

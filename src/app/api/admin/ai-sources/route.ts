@@ -57,7 +57,9 @@ async function handleUpload(req: NextRequest) {
 
   const docType = String(form.get("docType") ?? "").trim();
   const jurisdiction = String(form.get("jurisdiction") ?? "Singapore").trim() || "Singapore";
-  const folderId = String(form.get("folderId") ?? "").trim() || null;
+  /* "" (the default) files the upload in its document type's folder;
+     "none" leaves it Unfiled; anything else is a folder id. */
+  const folderChoice = String(form.get("folderId") ?? "").trim();
   const permitted = String(form.get("permitted") ?? "") === "1";
   const files = form.getAll("files").filter((f): f is File => f instanceof File);
 
@@ -65,6 +67,8 @@ async function handleUpload(req: NextRequest) {
   if (files.length === 0) return NextResponse.json({ error: "No files were selected." }, { status: 400 });
 
   const supabase = await createClient();
+  const folderId =
+    folderChoice === "none" ? null : folderChoice || (await folderForType(supabase, docType, user?.id ?? null));
   const results: {
     filename: string;
     ok: boolean;
@@ -163,4 +167,38 @@ async function handleUpload(req: NextRequest) {
 
   const added = results.filter((r) => r.ok).length;
   return NextResponse.json({ added, results });
+}
+
+/** The folder each document type's samples live in. Others: the label, plural. */
+const TYPE_FOLDERS: Record<string, string> = { nda: "NDAs", term: "Term Sheets" };
+
+/**
+ * The document type's folder, made the first time it is needed. Never
+ * blocks an upload: if the folder cannot be found or made, the file is
+ * saved Unfiled, as it always was.
+ */
+async function folderForType(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  slug: string,
+  userId: string | null,
+): Promise<string | null> {
+  try {
+    let name = TYPE_FOLDERS[slug];
+    if (!name) {
+      const { data: dt } = await supabase.from("doc_types").select("label").eq("slug", slug).maybeSingle();
+      const label = (dt as { label?: string } | null)?.label?.trim();
+      if (!label) return null;
+      name = (label.endsWith("s") ? label : `${label}s`).slice(0, 60);
+    }
+    const { data: found } = await supabase.from("ai_folders").select("id").eq("name", name).maybeSingle();
+    if (found) return (found as { id: string }).id;
+    const { data: made } = await supabase
+      .from("ai_folders")
+      .insert({ name, created_by: userId })
+      .select("id")
+      .single();
+    return (made as { id: string } | null)?.id ?? null;
+  } catch {
+    return null;
+  }
 }

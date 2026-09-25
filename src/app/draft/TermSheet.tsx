@@ -1339,7 +1339,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
             <div className="composer">
               <p className="fine">
                 A draft term sheet, assembled from Founders Doc’s master — reviewed by a qualified lawyer before use.{" "}
-                <a href="https://foundersdoc.com/terms-conditions/">Terms</a>
+                <a href="/terms-of-service">Terms</a>
               </p>
             </div>
           </div>

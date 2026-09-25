@@ -40,7 +40,23 @@ const RESOURCE_ARTICLES = [
   "term-sheet-mistakes",
 ];
 
+/**
+ * Pages the old WordPress site had and every footer still links to. Until
+ * each has a real page, a visitor lands somewhere sensible instead of a 404:
+ * the terms go to the Terms of Service, the other two to "Coming soon".
+ * Temporary (307) so search engines don't treat the stand-in as the page.
+ * When a real page is built, delete its line here and add it to SITE_PAGES.
+ */
+const STAND_INS = [
+  { source: "/terms-conditions", destination: "/terms-of-service" },
+  { source: "/privacy-policy", destination: "/coming-soon?f=Our%20privacy%20policy" },
+  { source: "/community-guidelines", destination: "/coming-soon?f=Our%20community%20guidelines" },
+];
+
 const nextConfig: NextConfig = {
+  async redirects() {
+    return STAND_INS.map((r) => ({ ...r, permanent: false }));
+  },
   async rewrites() {
     return {
       beforeFiles: [

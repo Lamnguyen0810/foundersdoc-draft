@@ -869,10 +869,11 @@ function UploadModal({
             <div>
               <label className="field-label">Folder</label>
               <select style={{ width: "100%" }} value={folderId} onChange={(e) => setFolderId(e.target.value)}>
-                <option value="">Unfiled</option>
+                <option value="">By document type (NDAs, Term Sheets…)</option>
                 {folders.map((f) => (
                   <option key={f.id} value={f.id}>{f.name}</option>
                 ))}
+                <option value="none">Unfiled</option>
               </select>
             </div>
           </div>
