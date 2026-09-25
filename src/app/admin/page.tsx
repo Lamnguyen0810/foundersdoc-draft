@@ -53,7 +53,7 @@ import { nameFallback } from "@/lib/draft-name";
 export const metadata = { title: "Admin — FDAI" };
 export const dynamic = "force-dynamic";
 
-type Tab = "overview" | "weekly-report" | "documents" | "users" | "credits" | "ai-files" | "logs";
+type Tab = "overview" | "weekly-report" | "documents" | "users" | "credits" | "ai-files" | "review" | "logs";
 
 /* The design's six sections, in its order. Overview and Logs are in the
    sidebar because the design has them there; their panels say plainly that
@@ -68,6 +68,9 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "users", label: "Users" },
   { id: "credits", label: "Credits & plans" },
   { id: "ai-files", label: "AI files" },
+  /* Stopped term sheets. Rarely used now that 🟡 points go to the user's own
+     lawyer, so it lives on its own tab rather than in the AI files flow. */
+  { id: "review", label: "Review queue" },
   { id: "logs", label: "Logs" },
 ];
 
@@ -478,7 +481,9 @@ export default async function AdminPage({
       lessons: (ls.data as FeedbackInitial["lessons"] | null) ?? [],
       missing: Boolean(fb.error && /draft_feedback/.test(fb.error.message)),
     };
-    /* Term sheets held or stopped by the playbook (048). */
+  }
+  if (tab === "review") {
+    /* Term sheets the playbook stopped (048). */
     const rq = await supabase.rpc("review_queue");
     reviewInitial = {
       queue: (rq.data as ReviewInitial["queue"] | null) ?? [],
@@ -775,7 +780,7 @@ export default async function AdminPage({
             <h1>Admin Dashboard</h1>
           </div>
           <div className="hero-actions">
-            <div className={tab === "ai-files" || tab === "weekly-report" ? "period-group is-hidden" : "period-group"}>
+            <div className={tab === "ai-files" || tab === "review" || tab === "weekly-report" ? "period-group is-hidden" : "period-group"}>
               <span className="period-label">Period</span>
               <PeriodSelect tab={tab} days={days} q={q} ranges={RANGES} />
               <Link className="btn refresh-btn" href={tabHref(tab, days, q)}>
@@ -1562,6 +1567,8 @@ export default async function AdminPage({
               </>
             )}
 
+            {tab === "review" && <Review initial={reviewInitial} />}
+
             {tab === "ai-files" && (
               <>
                 {libraryMissing && (
@@ -1585,8 +1592,6 @@ export default async function AdminPage({
                 />
                 {/* Rules, beneath the samples they override. */}
                 <Playbook docTypes={catalogue.map((d) => ({ slug: d.slug, label: d.label }))} initial={playbook} />
-                {/* Term sheets waiting for a lawyer's release. */}
-                <Review initial={reviewInitial} />
                 {/* What the lawyers said about drafts, and the rules made from it. */}
                 <Feedback docTypes={catalogue.map((d) => ({ slug: d.slug, label: d.label }))} initial={feedbackInitial} />
                 {stepsMissing && !libraryMissing && (
