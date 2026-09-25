@@ -52,6 +52,11 @@ export async function POST(req: NextRequest) {
   const text = field(body, "text", "message", "raw_text");
   const who = field(body, "user_name", "user", "real_name", "username", "name");
   const link = field(body, "permalink", "link", "url");
+  /* The channel's document type, when each type has its own channel: the
+     term sheet's Zap posts to …/api/feedback/slack?doc=term. A #ref in the
+     message still wins; this only fills in a type the message did not name. */
+  const docParam = (new URL(req.url).searchParams.get("doc") ?? field(body, "doc", "doc_type")).toLowerCase();
+  const doc = /^[a-z0-9_-]{1,64}$/.test(docParam) ? docParam : "";
 
   if (UNDO.test(text)) {
     /* undo_last_lesson does not take the secret, so it is checked here. */
@@ -77,6 +82,13 @@ export async function POST(req: NextRequest) {
     const bad = /bad secret/i.test(error.message);
     if (!bad) console.error("[feedback/slack]", error.message);
     return NextResponse.json({ error: bad ? "Bad secret." : "Could not save." }, { status: bad ? 401 : 500 });
+  }
+  if (doc) {
+    await supabaseAdmin()
+      .from("draft_feedback")
+      .update({ doc_type_slug: doc })
+      .eq("id", data as string)
+      .is("doc_type_slug", null);
   }
   /* Now learn from it. Awaited, so Zapier's call carries the answer; a
      failure here leaves the feedback queued for a person, never lost. */

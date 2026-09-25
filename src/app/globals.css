@@ -3608,3 +3608,21 @@ html[data-theme=dark]{
 .ts-screen .gen-compose .hint{margin-top:8px}
 .ts-screen .strip .dname{font-weight:500}
 .ts-screen .cg-user .cg-bubble{max-width:100%}
+
+/* Points for the client's own lawyer: yellow, listed beside the letter,
+   never inside it. */
+.ts-flags{list-style:none;margin:8px 0 12px;padding:0;display:grid;gap:8px}
+.ts-flags li{display:grid;gap:2px;padding:9px 12px 9px 30px;border-radius:10px;background:var(--gold-tint);border:1px solid rgba(243,191,75,.45);position:relative;font-size:13.5px;line-height:1.5}
+.ts-flags li::before{content:"";position:absolute;left:11px;top:14px;width:9px;height:9px;border-radius:50%;background:var(--gold)}
+.ts-flags li.red{background:rgba(220,38,38,.07);border-color:rgba(220,38,38,.35)}
+.ts-flags li.red::before{background:#dc2626}
+.ts-flags b{font-weight:600;font-size:13px}
+.ts-flags span{color:var(--tx-2)}
+.ts-pane-flags{display:flex;align-items:center;gap:8px;margin:0 0 12px;padding:8px 10px;border-radius:10px;background:var(--gold-tint);font-size:12.5px;color:var(--tx)}
+.ts-pane-flags i{width:8px;height:8px;border-radius:50%;background:var(--gold);flex:none}
+/* The lines FD AI wrote, read first; edited only when asked. */
+.ts-ai-lines{margin:6px 0 10px;display:grid;gap:8px;width:100%}
+.ts-ai-lines div{width:100%;box-sizing:border-box}
+.ts-ai-lines div{padding:8px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--bg)}
+.ts-ai-lines dt{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--tx-3);margin-bottom:2px}
+.ts-ai-lines dd{margin:0;font-size:13.5px;line-height:1.5;color:var(--tx)}

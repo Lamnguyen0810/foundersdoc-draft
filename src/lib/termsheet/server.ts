@@ -19,7 +19,7 @@ import { PAID_BENCHMARK, costUsd, priceFor } from "@/lib/ai/pricing";
 import { tidyTypedName } from "@/lib/draft-name";
 import { aiStep, STOP_MESSAGE, TERM_SLUG, type AiUsage } from "./ai";
 import { assemble, type Assembled } from "./assemble";
-import { ruleChecks } from "./checks";
+import { ruleChecks, titleFor } from "./checks";
 import { applyDefaults, type Answers } from "./conditions";
 import { formatDate, todaySingapore, toIso } from "./format";
 import { blocksToHtml, blocksToText, wordCount } from "./render";
@@ -161,9 +161,15 @@ export async function prepareTermSheet(req: TermSheetRequest, userId: string): P
   let aiFields: AiFields;
   if (ai) {
     aiFields = { ...ai.fields, key_terms: ai.key_terms, conditions_other: ai.conditions_other };
-    flags.push(...ai.flags.filter((f) => f.level !== "ask"));
-    /* An AI "ask" that came with fields anyway is a question for the lawyer, not a stop. */
-    for (const f of ai.flags.filter((f) => f.level === "ask")) flags.push({ ...f, level: "yellow" });
+    /* The client's lawyer sees these. Anything about FD AI itself — its
+       playbook, its files — is the firm's business, not theirs, and is
+       left out (it is in the server log). */
+    const aboutUs = (f: Flag) => /\b(playbook|system prompt|output contract|json)\b/i.test(f.reason);
+    for (const f of ai.flags) if (aboutUs(f)) console.warn("[termsheet] AI flag about itself:", f.reason);
+    const aiFlags = ai.flags.filter((f) => !aboutUs(f) && f.level !== "green");
+    flags.push(...aiFlags.filter((f) => f.level !== "ask"));
+    /* An AI "ask" that came with fields anyway is a point for the lawyer, not a stop. */
+    for (const f of aiFlags.filter((f) => f.level === "ask")) flags.push({ ...f, level: "yellow" });
   } else {
     aiFields = { transaction_title: "", transaction_description: "", structure: "", key_terms: [] };
     flags.push({ level: "yellow", scenario: "AI", reason: "FD AI could not draft the heading, the nature of the deal (2.1) or the structure (2.3); they are left as blanks to fill in." });
@@ -176,6 +182,17 @@ export async function prepareTermSheet(req: TermSheetRequest, userId: string): P
   const input: TermSheetInput = { answers, parties, ai: aiFields, date: dateIso, documentTitle: req.documentTitle };
   const assembled = assemble(input);
   flags.push(...assembled.flags);
+  for (const f of flags) f.title = titleFor(f);
+  /* The rules and the AI can both spot the same thing; say it once. */
+  const seen = new Set<string>();
+  const unique = flags.filter((f) => {
+    const k = f.scenario === "OTHER" || f.scenario === "AI" ? `${f.scenario}:${f.field}:${f.reason}` : f.scenario;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  flags.length = 0;
+  flags.push(...unique);
   const status = statusFor(flags, assembled.missing);
   const title = draftTitle(parties, assembled.dealLabel);
 

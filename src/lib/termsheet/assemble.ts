@@ -172,7 +172,13 @@ export function vetKeyTerms(ai: KeyTerm[] | undefined, a: Answers, parties: Part
     if (!heading || !text) continue;
     const ok = (validSources.has(source) || source === "S16") && numbersAreFromAnswers(text, corpus);
     if (!ok) {
-      flags.push({ level: "yellow", scenario: "AI", reason: `A key-term line ("${heading}") was not used: it did not trace to an answer or it introduced a figure that is not in the answers.`, field: source || "key_terms" });
+      flags.push({
+        level: "green",
+        scenario: "AI",
+        reason: `A key-term line ("${heading}") was left out: it did not match your answers.`,
+        user_message: `I left out a “${heading}” line I had drafted, because it didn’t match your answers exactly — your own words are used instead.`,
+        field: source || "key_terms",
+      });
       continue;
     }
     if (seen.has(source) && source !== "S16") continue;
@@ -247,7 +253,7 @@ export function assemble(input: TermSheetInput): Assembled {
   f.arbitral_institution = arb.institution;
   f.arbitration_seat = arb.seat.replace(/\{\{governing_law\}\}/g, law);
   if (arb.review && law) {
-    flags.push({ level: "yellow", scenario: "S19", reason: `${arb.review} (${law})`, field: "Q7a" });
+    flags.push({ level: "yellow", scenario: "S19", title: "Arbitration seat", reason: `No arbitration centre is set for ${law} law, so the ICC is used with the seat in ${law}; confirm the institution and name a city.`, field: "Q7a" });
   }
   const statute = THIRD_PARTY_RIGHTS_STATUTE[law];
   if (statute) f.third_party_rights_statute = statute;
@@ -259,7 +265,7 @@ export function assemble(input: TermSheetInput): Assembled {
     forum = allInOneCountry && countryOf(p1) === lawCountry ? "courts" : "arbitration";
   }
   if (!["courts", "arbitration"].includes(forum)) {
-    flags.push({ level: "yellow", scenario: "S19", reason: `Dispute resolution "${str(a.Q7b_other) || forum}" needs a lawyer's wording; the arbitration option is used meanwhile.`, field: "Q7b" });
+    flags.push({ level: "yellow", scenario: "OTHER", title: "Disputes", reason: `Disputes were described as "${str(a.Q7b_other) || forum}"; the standard arbitration wording is used for now and should be adapted.`, field: "Q7b" });
     forum = "arbitration";
   }
 
@@ -373,7 +379,7 @@ export function assemble(input: TermSheetInput): Assembled {
   for (const k of ["transaction_title", "transaction_description", "structure"] as const) {
     if (f[k]) flags.push({ level: "green", scenario: "AI", reason: `${k.replace(/_/g, " ")} was drafted by the AI — please confirm it.`, field: k });
   }
-  if (!SUBJECT[q4] && f.subject_matter) flags.push({ level: "yellow", scenario: "S4", reason: `The subject matter was typed ("${f.subject_matter}") and needs a lawyer's eye.`, field: "Q4" });
+  if (!SUBJECT[q4] && f.subject_matter) flags.push({ level: "yellow", scenario: "OTHER", title: "Subject matter", reason: `The subject matter was typed in ("${f.subject_matter}"); check paragraph 2.2 describes it precisely.`, field: "Q4" });
 
   return {
     blocks,
