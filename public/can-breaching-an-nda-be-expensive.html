@@ -1738,8 +1738,8 @@
       .prose p { margin: 0 0 24px; }
       .prose strong { font-weight: 600; color: var(--ink); }
       .prose em { font-style: italic; }
-.prose p a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
-.prose p a:hover { color: var(--gold-deep); }
+.prose p a, .prose li a, .summary p a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--gold); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+.prose p a:hover, .prose li a:hover, .summary p a:hover { color: var(--gold-deep); }
       .prose h2 { margin: 48px 0 16px; font-size: 26px; font-weight: 600; line-height: 1.3; letter-spacing: 0; scroll-margin-top: calc(var(--nav-h) + 32px); }
       .prose h2:first-of-type { margin-top: 40px; }
       .prose > :last-child { margin-bottom: 0; }
@@ -2751,12 +2751,12 @@ body.fd-clean .lead figcaption {
 </nav>
 <div class="prose">
 <h2 id="no-automatic-payout">1. Yes, breaching an NDA can be expensive - but there is no automatic payout</h2>
-<p>A non-disclosure agreement is a contract. If it is binding and its confidentiality obligations are breached, the innocent party may have a contractual claim. But liability for breach and the amount of money recoverable are separate questions.</p>
+<p>A <a href="/draft?type=nda">non-disclosure agreement</a> is a contract. If it is binding and its confidentiality obligations are breached, the innocent party may have a contractual claim. But liability for breach and the amount of money recoverable are separate questions.</p>
 <p>Singapore contract law starts from a compensatory principle: damages ordinarily aim to place the claimant, so far as money can do so, in the position it would have been in if the contract had been performed. The Court of Appeal has repeatedly emphasised that ordinary contractual damages are assessed by reference to the claimant's loss, rather than by simply punishing the party in breach.</p>
 <div class="authority"><strong>Authority:</strong> <em>Turf Club Auto Emporium Pte Ltd v Yeo Boong Hua</em> [2018] SGCA 44, especially [123]-[125].</div>
 <p>That means a claimant generally needs evidence linking the breach to a legally recoverable loss. The fact that confidential information was important, commercially sensitive or expensive to create does not by itself establish a particular damages figure.</p>
 <h2 id="contract-and-confidence">2. In Singapore, contract and breach of confidence are related but distinct</h2>
-<p>A confidentiality dispute may involve more than one legal basis. The NDA itself creates contractual duties. Separately, Singapore's equitable law of confidence can protect information that has the necessary quality of confidence and is received or acquired in circumstances importing an obligation of confidence.</p>
+<p>A confidentiality dispute may involve more than one legal basis. The <a href="/draft?type=nda">NDA</a> itself creates contractual duties. Separately, Singapore's equitable law of confidence can protect information that has the necessary quality of confidence and is received or acquired in circumstances importing an obligation of confidence.</p>
 <p>In <em>I-Admin (Singapore) Pte Ltd v Hong Ying Ting</em>, the Court of Appeal adopted a modified approach to breach of confidence. Once the claimant establishes the confidential quality of the information and the relevant obligation of confidence, a breach of confidence is presumed, subject to the defendant showing that its conscience was not affected. The court also recognised that wrongful access or acquisition can matter even if conventional proof of actual commercial use is difficult.</p>
 <div class="authority"><strong>Authority:</strong> <em>I-Admin (Singapore) Pte Ltd v Hong Ying Ting</em> [2020] SGCA 32 at [58]-[63].</div>
 <p>This distinction matters. A court may find a contractual breach, an equitable breach of confidence, both, or neither. The available remedies can differ depending on which cause of action is established and what the evidence shows.</p>
@@ -2790,7 +2790,7 @@ body.fd-clean .lead figcaption {
 <h2 id="us-7-25m">5. Comparative US example: a US$7.25 million contract royalty</h2>
 <p><em>AMS-OSRAM USA Inc. v Renesas Electronics America, Inc.</em> is a useful example of a confidentiality-agreement claim producing a substantial contract award, but only when its long procedural history is stated accurately.</p>
 <p>The dispute began when Texas Advanced Optoelectronic Solutions, Inc. (TAOS, later ams-OSRAM) alleged that Intersil Corporation (later Renesas Electronics America) used confidential ambient-light-sensor information disclosed during merger discussions. The confidentiality agreement was governed by California law.</p>
-<p>A 2015 jury originally awarded US$12 million as a reasonable royalty for breach of the confidentiality agreement. That figure was not the final operative contract award. After an earlier appeal and a retrial of monetary remedies, the district court's 2022 final judgment awarded contract reasonable-royalty damages of US$6,637,693 for Derivative Product sales plus US$613,014 for the relevant portion of Primary Product sales - a total of US$7,250,707.</p>
+<p>A 2015 jury originally awarded US$12 million as a reasonable royalty for breach of the <a href="/draft?type=nda">confidentiality agreement</a>. That figure was not the final operative contract award. After an earlier appeal and a retrial of monetary remedies, the district court's 2022 final judgment awarded contract reasonable-royalty damages of US$6,637,693 for Derivative Product sales plus US$613,014 for the relevant portion of Primary Product sales - a total of US$7,250,707.</p>
 <p>In April 2025, the US Court of Appeals for the Federal Circuit affirmed the contract damages award and the contract-related attorneys' fees award. It vacated and remanded the prejudgment-interest awards for further consideration.</p>
 <div class="authority"><strong>Primary authority:</strong> <em>AMS-OSRAM USA Inc. v Renesas Electronics America, Inc.</em>, No. 2022-2185 (Fed. Cir. 4 Apr 2025), especially pp. 8, 22-25 and 31.</div>
 <aside class="case-note"><span class="blob-tag">FD Why it matters</span><p>Large contractual awards are possible, but the governing law and valuation evidence matter. It is also unsafe to quote an early jury figure without checking what happened on appeal and in the final judgment.</p></aside>
@@ -2813,13 +2813,13 @@ body.fd-clean .lead figcaption {
 <p>Parties sometimes try to avoid valuation disputes by including a liquidated-damages clause. Under Singapore law, however, a sum payable upon breach can be unenforceable if it is a penalty.</p>
 <p>In <em>Denka Advantech Pte Ltd v Seraya Energy Pte Ltd</em>, the Court of Appeal retained the traditional <em>Dunlop</em> approach. The central inquiry is whether the stipulated amount is a genuine pre-estimate of the likely loss, assessed in the circumstances existing when the contract was made. A clause that is extravagant when compared with the greatest loss that could reasonably have been anticipated risks being penal rather than compensatory.</p>
 <div class="authority"><strong>Primary authority:</strong> <em>Denka Advantech Pte Ltd v Seraya Energy Pte Ltd</em> [2020] SGCA 119, especially [151]-[156] and [281].</div>
-<p>So a clause saying "any breach of confidentiality automatically costs S$1 million" is not made safe merely by calling the figure "liquidated damages". The amount and drafting need a defensible relationship to likely loss.</p>
+<p>So a clause saying "any breach of confidentiality automatically costs S$1 million" is not made safe merely by calling the figure "liquidated damages". The amount and <a href="/draft">drafting</a> need a defensible relationship to likely loss.</p>
 <h2 id="practical-lessons">10. Practical lessons for founders and businesses</h2>
 <ul>
 <li><strong>Define Confidential Information carefully.</strong> Avoid relying only on sweeping labels. Identify categories that can later be proved.</li>
 <li><strong>State the permitted purpose.</strong> A clear use restriction can be as important as a non-disclosure obligation.</li>
 <li><strong>Control onward disclosure.</strong> Address employees, advisers, affiliates and other representatives expressly.</li>
-<li><strong>Preserve evidence.</strong> Keep records of what was disclosed, when, to whom, under which version of the NDA and for what purpose.</li>
+<li><strong>Preserve evidence.</strong> Keep records of what was disclosed, when, to whom, under which version of the <a href="/draft?type=nda">NDA</a> and for what purpose.</li>
 <li><strong>Do not assume a large contractual sum will be enforced.</strong> Liquidated-damages drafting must be considered against Singapore's penalty rule where Singapore law applies.</li>
 <li><strong>Act quickly if disclosure is threatened.</strong> If secrecy can still be preserved, injunctive relief may be more valuable than a damages claim years later.</li>
 <li><strong>Separate the legal claims.</strong> Contract, breach of confidence, trade-secret law in foreign jurisdictions and other causes of action may overlap factually, but their elements and remedies should not be casually combined.</li>
@@ -2848,7 +2848,7 @@ body.fd-clean .lead figcaption {
 <p>FD AI drafts one from a few questions, using Founders Doc&rsquo;s own NDA playbook. Or book a consultation and talk it through with a lawyer.</p>
 </div>
 <div class="acts">
-<a class="btn btn-gold" href="/draft?type=nda">Draft your NDA with FD AI</a>
+<a class="btn btn-gold" href="/draft?type=nda">Draft with FD AI</a>
 <a class="btn btn-white" href="/contact">Book a consultation</a>
 </div>
 </div>
