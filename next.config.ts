@@ -24,12 +24,20 @@ const SITE_PAGES = [
   "nda-vs-confidentiality-agreement",
   "before-you-sign-an-nda",
   "can-breaching-an-nda-be-expensive",
+  "what-is-a-term-sheet",
+  "is-a-term-sheet-legally-binding",
+  "term-sheet-checklist",
+  "term-sheet-mistakes",
 ];
 
 const RESOURCE_ARTICLES = [
   "nda-vs-confidentiality-agreement",
   "before-you-sign-an-nda",
   "can-breaching-an-nda-be-expensive",
+  "what-is-a-term-sheet",
+  "is-a-term-sheet-legally-binding",
+  "term-sheet-checklist",
+  "term-sheet-mistakes",
 ];
 
 const nextConfig: NextConfig = {
