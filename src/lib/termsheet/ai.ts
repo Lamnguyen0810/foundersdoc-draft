@@ -14,7 +14,8 @@ import "server-only";
  *
  * The playbook itself comes from the dashboard (playbook_for('term')): the
  * firm uploads it and can change it without a deploy. The lessons learnt
- * from feedback come with it. This file carries no drafting rules of its
+ * from feedback come with it, and so do the sample term sheets uploaded
+ * under AI files (ai_examples_for('term')), for house wording only. This file carries no drafting rules of its
  * own beyond the output contract.
  */
 
@@ -74,6 +75,30 @@ async function loadPlaybook(): Promise<Playbook> {
     return { text, lessons: ((lessons ?? []) as { rule: string }[]).map((l) => l.rule) };
   } catch {
     return { text: "", lessons: [] };
+  }
+}
+
+/** Sample term sheets are cut to this many characters, all together. */
+const MAX_SAMPLE_CHARS = 16_000;
+
+/**
+ * The firm's sample term sheets, from AI files (Document type "Term Sheet",
+ * status Ready). They show the model the house wording for the few lines it
+ * writes. Facts never come from them: assemble.ts drops any number that is
+ * not in the answers, and the prompt says so too. None uploaded: no samples.
+ */
+async function loadSamples(): Promise<string> {
+  try {
+    const db = await createClient();
+    const { data } = await db.rpc("ai_examples_for", { p_slug: TERM_SLUG });
+    let text = ((data ?? []) as { title: string; text: string }[])
+      .filter((r) => r.text && r.text.trim())
+      .map((r) => `--- SAMPLE: ${r.title} ---\n${r.text.trim()}\n--- END SAMPLE ---`)
+      .join("\n\n");
+    if (text.length > MAX_SAMPLE_CHARS) text = text.slice(0, MAX_SAMPLE_CHARS) + "\n[… samples cut here for length]";
+    return text;
+  } catch {
+    return "";
   }
 }
 
@@ -137,7 +162,7 @@ export interface AiStepInput {
  */
 export async function aiStep(input: AiStepInput): Promise<AiStepOutput> {
   const a = applyDefaults(input.answers);
-  const playbook = await loadPlaybook();
+  const [playbook, samples] = await Promise.all([loadPlaybook(), loadSamples()]);
 
   const system = [
     "You draft the free-text slots of a term sheet for a law firm, following the firm's playbook below to the letter. You do not draft the term sheet itself: the approved master wording, the rules and the lookup tables do that. You only supply the fields, key-term lines and flags asked for, as JSON.",
@@ -145,6 +170,13 @@ export async function aiStep(input: AiStepInput): Promise<AiStepOutput> {
     playbook.text ? `THE FIRM'S TERM SHEET PLAYBOOK\n${playbook.text}` : "THE FIRM'S TERM SHEET PLAYBOOK\n(not uploaded yet — apply the output contract and the scenarios below)",
     ...(playbook.lessons.length
       ? ["", "LESSONS FROM REVIEW (later ones win where two differ)", ...playbook.lessons.map((l, i) => `${i + 1}. ${l}`)]
+      : []),
+    ...(samples
+      ? [
+          "",
+          "THE FIRM'S SAMPLE TERM SHEETS — for house wording and tone only. Never take a party, number, date, right or term from them: every fact comes from THE ANSWERS.",
+          samples,
+        ]
       : []),
     "",
     "SCENARIOS TO WATCH FOR (the back end has already checked the rule-based ones)",
