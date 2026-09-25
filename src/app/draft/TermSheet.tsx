@@ -157,6 +157,17 @@ function groupOf(s: Step): string {
  *  the deal is, and which law — there is no usual answer to those. */
 const MUST_ASK = new Set(["Q1", "Q2", "parties", "Q3", "Q4", "Q7a", "Q7a_state"]);
 
+/** Which step fixes each question the checks can ask (drafting_scenarios.json). */
+const FIX_STEP: Record<string, string> = {
+  S5: "parties",
+  S12: "parties",
+  S17: "Q7a",
+  S7: "Q6a",
+  S6: "Q8b",
+  S15: "Q8c",
+  S3: "Q1",
+};
+
 /** The usual answer for a skipped question that has no default of its own. */
 const SKIP_VALUE: Record<string, unknown> = { Q7b: "recommend", Q8a: "no", Q10b: "unsure", Q5: ["suggest"], Q8e: [] };
 
@@ -197,7 +208,9 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
   const [basis, setBasis] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [asks, setAsks] = useState<string[]>([]);
+  /* Questions to settle before the term sheet can be prepared, each with
+     the step that fixes it where there is one. */
+  const [asks, setAsks] = useState<{ text: string; step?: string; scenario?: string }[]>([]);
   const [paywalled, setPaywalled] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
 
@@ -334,6 +347,17 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
       },
     );
     if (q.id === "Q2" && typeof value === "string") prefillMine(value);
+    /* Existing shares are bought from someone, and the seller must be a
+       party (playbook S12). Ask for them now, not after "Prepare". */
+    if (q.id === "Q4" && value === "existing_shares" && !parties.some((p) => /sell/i.test(p.role ?? ""))) {
+      setParties((ps) => [...ps, { ...emptyParty(), role: "Seller" }]);
+      setSettled((st) => {
+        const n2 = { ...st };
+        delete n2.parties;
+        return n2;
+      });
+      say({ who: "fd", text: "Existing shares are bought from their current owner, so the seller needs to be a party too. I’ve added a row for them." });
+    }
     resetInput();
   };
 
@@ -345,6 +369,18 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
 
   /** Go back to an answered or skipped step — from the list on the right,
    *  as on the NDA. */
+  /** Go straight to the step that fixes a question from the checks. */
+  function fixAsk(ask: { step?: string; scenario?: string }) {
+    const s = steps.find((x) => stepKey(x) === ask.step);
+    if (!s) return;
+    /* The seller of existing shares has to be a party: open the parties
+       with a row ready for them. */
+    if (ask.scenario === "S12" && !parties.some((p) => /sell/i.test(p.role ?? ""))) {
+      setParties((ps) => [...ps, { ...emptyParty(), role: "Seller" }]);
+    }
+    revisit(s);
+  }
+
   function revisit(s: Step) {
     const k = stepKey(s);
     if (!settled[k] || busy) return;
@@ -453,12 +489,12 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
         return;
       }
       if (j.kind === "ask") {
-        setAsks((j.questions as Flag[]).map((f) => f.user_message ?? f.reason));
+        setAsks((j.questions as Flag[]).map((f) => ({ text: f.user_message ?? f.reason, step: FIX_STEP[f.scenario] ?? f.field, scenario: f.scenario })));
         setStage("questions");
         return;
       }
       if (j.kind === "questions") {
-        setAsks(j.questions as string[]);
+        setAsks((j.questions as string[]).map((text) => ({ text })));
         setStage("questions");
         return;
       }
@@ -1250,13 +1286,22 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        <b style={{ fontWeight: 500 }}>Before I prepare it, a couple of things:</b>
-                        <ul className="cg-checks">{asks.map((q) => <li key={q}>{q}</li>)}</ul>
-                        <p className="sub">Pick the answer in the list on the right to change it, then review again.</p>
+                        <b style={{ fontWeight: 500 }}>
+                          Before I prepare it, {asks.length === 1 ? "one thing to sort out" : "a couple of things to sort out"}:
+                        </b>
+                        <ul className="cg-checks">{asks.map((q) => <li key={q.text}>{q.text}</li>)}</ul>
+                        <p className="sub">Nothing has been charged. Fix it below, and I’ll bring you back here to prepare it.</p>
                       </div>
                       <div className="ans">
                         <div className="chips">
-                          <button type="button" className="go" onClick={() => { setAsks([]); setStage("review"); }}>
+                          {asks
+                            .filter((q) => q.step && steps.some((x) => stepKey(x) === q.step))
+                            .map((q) => (
+                              <button key={`fix-${q.text}`} type="button" className="go" onClick={() => fixAsk(q)}>
+                                {q.scenario === "S12" ? "Add the seller" : `Change ${shortLabel(steps.find((x) => stepKey(x) === q.step)!, deal).toLowerCase()}`}
+                              </button>
+                            ))}
+                          <button type="button" className="chip" onClick={() => { setAsks([]); setStage("review"); }}>
                             Review again
                           </button>
                         </div>
