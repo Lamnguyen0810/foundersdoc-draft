@@ -131,10 +131,7 @@ export function normaliseSettings(
  */
 export function prefillAnswers(s: UserSettings): Record<string, string> {
   if (!s.use_company || !s.company.name.trim()) return {};
-  const out: Record<string, string> = { party_a: s.company.name.trim() };
-  const details: string[] = [];
-  if (s.company.uen.trim()) details.push(`UEN ${s.company.uen.trim()}`);
-  if (s.company.address.trim()) details.push(`registered office at ${s.company.address.trim()}`);
-  if (details.length) out.party_details = `${s.company.name.trim()}: ${details.join(", ")}`;
-  return out;
+  /* The NDA asks for names only (party_details was retired in 053); the
+     term sheet reads UEN and address itself, from loadCompanyProfile. */
+  return { party_a: s.company.name.trim() };
 }

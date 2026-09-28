@@ -27,6 +27,7 @@ import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSl
 import DocumentEditor from "./DocumentEditor";
 import DraftReady from "./DraftReady";
 import { SKIPPED, fdNotes, splitNotes, stripNotes } from "@/lib/prompt";
+import { answerLocally, isQuestion } from "@/lib/draft-help";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 
 /* ────────────────────────────────────────────────────── the catalogue */
@@ -1503,6 +1504,8 @@ function Chat({
       steps.map(() => undefined),
   );
   const [typedAnswer, setTypedAnswer] = useState("");
+  /* A question typed into the chat is being answered by /api/ask. */
+  const [asking, setAsking] = useState(false);
 
   // source document
   const [sourceText, setSourceText] = useState(resume?.sourceText ?? restore?.sourceText ?? "");
@@ -1894,12 +1897,22 @@ function Chat({
       }
 
       setTypedAnswer("");
-      setI(idx + 1);
+      /* On to the first question still open. In a straight run that is the
+         next one; after going back to change an earlier answer it is where
+         the person was, not the question after the one they changed. */
+      let nextI = steps.length;
+      for (let k = 0; k < steps.length; k++) {
+        if (k !== idx && status[k] === undefined) {
+          nextI = k;
+          break;
+        }
+      }
+      setI(nextI);
     },
     // summarise reads current answers/attachments; recreating the callback each
     // render is cheaper than threading them through and getting a stale echo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [i, steps, answers, attachments],
+    [i, steps, answers, attachments, status],
   );
 
   /** Skip everything still outstanding, then draft. */
@@ -1941,8 +1954,10 @@ function Chat({
     if (!mustChooseDetail) setTimeout(() => void generate(), 40);
   }
 
-  /** Re-open a question that was skipped earlier. */
+  /** Re-open a question, skipped or answered, to answer it again. Answers
+   *  already given stay filled in; the rest of the form is untouched. */
   function revisit(k: number) {
+    if (k === i || busy) return;
     setStatus((prev) => {
       const next = [...prev];
       next[k] = undefined;
@@ -1955,10 +1970,86 @@ function Chat({
     });
     setMsgs((prev) => [
       ...prev,
-      { who: "fd", text: `Let’s go back to ${steps[k].name.toLowerCase()}.` },
+      {
+        who: "fd",
+        text:
+          status[k] === "done"
+            ? `Let’s change your answer on ${steps[k].name.toLowerCase()}. Your other answers are kept.`
+            : `Let’s go back to ${steps[k].name.toLowerCase()}.`,
+      },
     ]);
     setView("chat");
     setI(k);
+  }
+
+  /**
+   * A question typed into the chat, answered instead of saved as an answer.
+   * The form's own help and the glossary first (lib/draft-help.ts, free);
+   * the model only for what they cannot answer, and only when signed in.
+   */
+  async function ask(q: string) {
+    setTypedAnswer("");
+    setMsgs((prev) => [...prev, { who: "me", text: q }]);
+    const local = answerLocally(q, {
+      question: step?.question,
+      fields: step?.fields,
+      allFields: steps.flatMap((s) => s.fields),
+    });
+    if (local) {
+      setMsgs((prev) => [...prev, { who: "fd", text: local }]);
+      track("chat_question", { doc_type: docType.slug, source: "help" });
+      return;
+    }
+    if (guest) {
+      setMsgs((prev) => [
+        ...prev,
+        {
+          who: "fd",
+          text:
+            "I can explain any question on this form — try asking about one of them. For anything else, sign in and I’ll answer, or book a consultation with a Founders Doc lawyer.",
+        },
+      ]);
+      return;
+    }
+    setAsking(true);
+    let text = "";
+    try {
+      const res = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          question: q,
+          doc: docType.label,
+          onScreen: step?.question ?? "",
+          help: (step?.fields ?? []).map((f) => [f.label, f.help].filter(Boolean).join(": ")).join(" | "),
+        }),
+      });
+      const j = (await res.json().catch(() => null)) as { answer?: string; error?: string } | null;
+      text = j?.answer ?? j?.error ?? "";
+    } catch {
+      text = "";
+    } finally {
+      setAsking(false);
+    }
+    setMsgs((prev) => [
+      ...prev,
+      { who: "fd", text: text || "I couldn’t answer that just now. Carry on with the form — anything you’re unsure of can be skipped and confirmed later." },
+    ]);
+    track("chat_question", { doc_type: docType.slug, source: "ai" });
+  }
+
+  /** What the message box does with what was typed: a question is asked, an
+   *  answer is saved against the question on screen. */
+  function sendTyped() {
+    const t = typedAnswer.trim();
+    if (!t || asking) return;
+    if (!step || isQuestion(t)) {
+      void ask(t);
+      return;
+    }
+    const f = step.fields[step.fields.length - 1];
+    if (f) setAnswer(f.key, t);
+    commit(false, i, t);
   }
 
   async function upload(file: File) {
@@ -2854,6 +2945,15 @@ function Chat({
               ),
             )}
 
+            {asking && (
+              <div className="m">
+                <div className="av">FD</div>
+                <div>
+                  <div className="txt" style={{ color: "var(--grey-5)" }}>Thinking…</div>
+                </div>
+              </div>
+            )}
+
             {step && (
               <div className="m">
                 <div className="av">FD</div>
@@ -2929,17 +3029,13 @@ function Chat({
             </button>
             <textarea
               rows={1}
-              placeholder={step ? "Use the options above, or type here" : "Ready to generate"}
+              placeholder={step ? "Answer above or here — or ask me a question" : "Ask me a question, or generate"}
               value={typedAnswer}
               onChange={(e) => setTypedAnswer(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (step && typedAnswer.trim()) {
-                    const f = step.fields[step.fields.length - 1];
-                    if (f) setAnswer(f.key, typedAnswer.trim());
-                    commit(false, i, typedAnswer.trim());
-                  }
+                  sendTyped();
                 }
               }}
             />
@@ -2947,13 +3043,8 @@ function Chat({
               type="button"
               className="ic send"
               title="Send"
-              disabled={!step || !typedAnswer.trim()}
-              onClick={() => {
-                if (!step || !typedAnswer.trim()) return;
-                const f = step.fields[step.fields.length - 1];
-                if (f) setAnswer(f.key, typedAnswer.trim());
-                commit(false, i, typedAnswer.trim());
-              }}
+              disabled={!typedAnswer.trim() || asking}
+              onClick={sendTyped}
             >
               ↑
             </button>
@@ -3400,7 +3491,9 @@ function Chat({
                 <div
                   key={s.id}
                   className={`inst ${st}`}
-                  onClick={() => st === "skp" && revisit(k)}
+                  onClick={() => (st === "skp" || st === "done") && revisit(k)}
+                  title={st === "done" ? "Tap to change this answer" : st === "skp" ? "Tap to answer" : undefined}
+                  style={st === "done" || st === "skp" ? { cursor: "pointer" } : undefined}
                 >
                   <i>{st === "done" ? "✓" : k + 1}</i>
                   <div>

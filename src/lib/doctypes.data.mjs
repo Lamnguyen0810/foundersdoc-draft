@@ -83,11 +83,8 @@ HARD RULES
   [[TO CONFIRM: third party rights provision for this jurisdiction]].
 - If a party's registration number or registered address is missing, insert
   [[TO CONFIRM: ...]] — never construct a plausible one.
-- "Party details required in your jurisdiction", when answered, is the source for the
-  Parties clause and the signature blocks. Reproduce registration numbers, addresses,
-  signatory names and any local-law particulars exactly as written — do not reformat a
-  registration number, translate an address or drop a particular you do not recognise.
-  Where it is blank, or covers only one party, fall back to [[TO CONFIRM: ...]] as above.
+- Where the answers give a registration number, address or signatory for a party, reproduce
+  it exactly as written. Anything not given comes back as [[TO CONFIRM: ...]] as above.
 
 SKIPPED ANSWERS
 - The user may skip any question. A skipped answer arrives as "(skipped — not answered)".
@@ -142,13 +139,6 @@ export const NDA_DATA = {
       type: "text",
       required: true,
       placeholder: "Kestrel Analytics",
-      group: "Parties",
-    },
-    {
-      key: "party_details",
-      label: "Party details required in your jurisdiction",
-      type: "textarea",
-      required: false,
       group: "Parties",
     },
     {

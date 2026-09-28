@@ -38,6 +38,7 @@ export const EVENTS = {
   paywall_hit: "Someone ran out of credits mid-draft",
   signup_gate: "A visitor without an account pressed Generate (or attach) and was sent to sign up",
   draft_feedback: "Somebody sent the firm feedback on a draft from the document view",
+  chat_question: "A question was typed into the drafting chat (source: form help or AI)",
 
   // ── accounts ─────────────────────────────────────────────────────────────
   waitlist_joined: "Someone joined the FD AI waitlist",
