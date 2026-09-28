@@ -2580,6 +2580,7 @@ function Chat({
           fileName,
           includeNotes: false,
           docTypeSlug: docType.slug,
+          draftId,
         }),
       });
       if (!res.ok) {
