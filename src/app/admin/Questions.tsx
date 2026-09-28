@@ -359,7 +359,7 @@ export default function Questions({
           <ul>
             <li>No non-solicitation clause (staff, customers or suppliers) and no non-compete — the NDA covers confidentiality only.</li>
             <li>Not tied to a country: the governing law and courts are left blank for the user to fill in, unless they name a country under “Anything else”. No statute or regulator is named.</li>
-            <li>Party names only — no “party details required in your jurisdiction”.</li>
+            <li>Party names, plus an optional box for any other details (address, registration number, who signs) — used exactly as written.</li>
             <li>One short signature block per party: Signature, Name, Title, Date.</li>
             <li>Every gap comes with a reminder: what is missing, which question it belongs to and what to put.</li>
             <li>The four standard exceptions are always included.</li>

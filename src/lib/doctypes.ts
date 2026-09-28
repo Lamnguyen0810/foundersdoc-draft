@@ -116,7 +116,8 @@ export const DEFAULT_GROUP_TEXT: Record<string, { title: string; question: strin
   },
   Parties: {
     title: "Who’s involved",
-    question: "Who are the parties? Just provide each person’s or organisation’s name.",
+    question:
+      "Who are the parties? Their names are enough — add any other details (an address, a registration number, who will sign) in the box below if you want them in the NDA.",
   },
   "The deal": {
     title: "The deal",
