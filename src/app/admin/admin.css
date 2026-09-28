@@ -402,3 +402,19 @@ html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 .fdadmin .fixed-rules h3 { margin: 0 0 6px; font-size: 13px; color: var(--ink); }
 .fdadmin .fixed-rules p { margin: 0 0 8px; color: var(--muted); }
 .fdadmin .fixed-rules ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--text); }
+
+/* ── Give feedback now (admin → Feedback & lessons) ─────────────────────── */
+.fdadmin .fb-now { margin: 0 18px 16px; padding: 14px 16px; border: 1px solid #EAD9A0; border-radius: 12px; background: var(--fd-yellow-wash); display: grid; gap: 10px; }
+.fdadmin .fb-now-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.fdadmin .fb-now-head h3 { margin: 0; font-size: 14px; color: var(--ink); }
+.fdadmin .fb-now-head span { font-size: 12px; color: var(--muted); }
+.fdadmin .fb-now-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 220px); gap: 12px; }
+.fdadmin .fb-now label { display: grid; gap: 4px; }
+.fdadmin .fb-now select, .fdadmin .fb-now .input { width: 100%; }
+.fdadmin .fb-now-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.fdadmin .fb-now-foot .feedback-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.fdadmin .fb-now-result { padding: 10px 12px; border-radius: 10px; font-size: 13px; }
+.fdadmin .fb-now-result p { margin: 4px 0 0; }
+.fdadmin .fb-now-result.ok { background: #EDF8F2; border: 1px solid #D8EBDD; color: var(--success); }
+.fdadmin .fb-now-result.warn { background: #FFF6E5; border: 1px solid #F0DDAA; color: #7a5a10; }
+@media (max-width: 700px) { .fdadmin .fb-now-row { grid-template-columns: 1fr; } }

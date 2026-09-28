@@ -6,11 +6,17 @@
  *   POST { action:"dismiss", feedbackId }
  *   POST { action:"toggle", lessonId, live }
  *   POST { action:"edit", lessonId, rule }
+ *   POST { action:"submit", scope, ref?, message, direct? }
+ *        feedback typed on the dashboard, learnt from at once — the urgent
+ *        way, with no wait for Zapier to read Slack. `direct` saves the
+ *        admin's own words as the rule, without asking FD AI.
  *
  * Admin only; the SQL functions check again.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, isAdmin } from "@/lib/supabase/server";
+import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
+import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
+import { learnFromFeedback } from "@/lib/learn";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { FEEDBACK_COLUMNS, LESSON_COLUMNS, type FeedbackRow, type LessonRow } from "@/lib/feedback";
 
@@ -88,6 +94,66 @@ export async function POST(req: NextRequest) {
     const { error } = await supabase.from("playbook_lessons").update({ rule }).eq("id", lessonId);
     if (error) return fail(error, "Could not change that rule.");
     return NextResponse.json({ ok: true });
+  }
+
+  if (body?.action === "submit") {
+    const message = typeof body.message === "string" ? body.message.trim().slice(0, 4000) : "";
+    const scope = typeof body.scope === "string" && SCOPE.test(body.scope) ? body.scope : "*";
+    const ref = typeof body.ref === "string" ? (/([0-9a-f]{6})/i.exec(body.ref)?.[1] ?? "").toLowerCase() : "";
+    const direct = body.direct === true;
+    if (!message) return NextResponse.json({ error: "Say what should change." }, { status: 400 });
+    if (!isAdminClientConfigured()) {
+      return NextResponse.json({ error: "SUPABASE_SECRET_KEY is not set in Vercel, so feedback cannot be saved from here." }, { status: 503 });
+    }
+    const db = supabaseAdmin();
+    const user = await getUser();
+
+    /* "#9e546c" from a download message: the draft it is about. The 6
+       characters are the start of its id; any admin may name any draft. */
+    let draftId: string | null = null;
+    let slug: string | null = scope === "*" ? null : scope;
+    if (ref) {
+      const { data: hits } = await db
+        .from("drafts")
+        .select("id,doc_types(slug)")
+        .gte("id", `${ref}00-0000-0000-0000-000000000000`)
+        .lte("id", `${ref}ff-ffff-ffff-ffff-ffffffffffff`)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      const hit = (hits?.[0] ?? null) as { id: string; doc_types: { slug: string } | { slug: string }[] | null } | null;
+      if (!hit) return NextResponse.json({ error: `No draft has the reference #${ref}.` }, { status: 400 });
+      draftId = hit.id;
+      const dt = Array.isArray(hit.doc_types) ? hit.doc_types[0] : hit.doc_types;
+      if (!slug && dt?.slug) slug = dt.slug;
+    }
+
+    const { data: row, error: insError } = await db
+      .from("draft_feedback")
+      .insert({
+        draft_id: draftId,
+        doc_type_slug: slug,
+        user_id: user?.id ?? null,
+        user_email: user?.email ?? "Admin",
+        message,
+        source: "app",
+      })
+      .select("id")
+      .single();
+    if (insError || !row) return fail(insError ?? { message: "no row" }, "Could not save the feedback.");
+    const feedbackId = (row as { id: string }).id;
+
+    if (direct) {
+      /* The admin's words are the rule — no model in between. */
+      const { data, error } = await supabase.rpc("add_lesson", { p_scope: slug ?? "*", p_rule: message, p_feedback: feedbackId });
+      if (error) return fail(error, "Saved the feedback, but could not make it a rule.");
+      return NextResponse.json({ ok: true, id: feedbackId, learnt: true, rule: (data as LessonRow).rule, scope: slug ?? "*" });
+    }
+
+    const learnt = await learnFromFeedback(feedbackId).catch((err: unknown) => {
+      console.error("[admin/feedback] learn failed:", err);
+      return { learnt: false, reason: "FD AI could not be reached" };
+    });
+    return NextResponse.json({ ok: true, id: feedbackId, ...learnt });
   }
 
   return NextResponse.json({ error: "Unknown action." }, { status: 400 });

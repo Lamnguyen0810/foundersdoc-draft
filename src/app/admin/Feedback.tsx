@@ -43,6 +43,48 @@ export default function Feedback({
   const [writing, setWriting] = useState<{ feedback: FeedbackRow | null; scope: string; rule: string } | null>(null);
   const [editing, setEditing] = useState<{ id: string; rule: string } | null>(null);
 
+  /* Feedback typed here: learnt from at once, no wait for Zapier. */
+  const [fbScope, setFbScope] = useState<string>(docTypes[0]?.slug ?? FIRM_WIDE);
+  const [fbRef, setFbRef] = useState("");
+  const [fbText, setFbText] = useState("");
+  const [fbDirect, setFbDirect] = useState(false);
+  const [fbResult, setFbResult] = useState<
+    | { learnt: true; rule: string; scope: string }
+    | { learnt: false; reason: string; feedbackId: string; message: string; scope: string }
+    | null
+  >(null);
+
+  async function submitFeedback() {
+    if (busy || !fbText.trim()) return;
+    setBusy(true);
+    setNotice(null);
+    setFbResult(null);
+    try {
+      const res = await fetch("/api/admin/feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "submit", scope: fbScope, ref: fbRef, message: fbText, direct: fbDirect }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean; error?: string; id?: string; learnt?: boolean; rule?: string; scope?: string; reason?: string;
+      };
+      if (!res.ok || !j.ok || !j.id) {
+        setNotice({ text: j.error ?? "Could not send that.", tone: "err" });
+        return;
+      }
+      setFbResult(
+        j.learnt && j.rule
+          ? { learnt: true, rule: j.rule, scope: j.scope ?? fbScope }
+          : { learnt: false, reason: j.reason ?? "no reason given", feedbackId: j.id, message: fbText.trim(), scope: fbScope },
+      );
+      setFbText("");
+      setFbRef("");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const label = (slug: string | null) =>
     slug === FIRM_WIDE || !slug ? "Every document" : (docTypes.find((d) => d.slug === slug)?.label ?? slug);
 
@@ -112,8 +154,9 @@ export default function Feedback({
       )}
 
       <p className="playbook-why">
-        <b>How the drafter learns.</b> An admin presses <b>Feedback</b> beside a draft, or types a message beginning{" "}
-        <b>fb:</b> in the Slack drafts channel (with the draft’s <b>#ref</b> from the download message to name it).
+        <b>How the drafter learns.</b> An admin gives feedback here (instant), presses <b>Feedback</b> beside a draft, or
+        sends <b>fb #ref: …</b> in the Slack drafts channel (read by Zapier every few minutes, with the draft’s <b>#ref</b>
+        from the download message).
         FD AI reads the comment against that draft, the playbook and the rules already learnt, and writes one rule —
         live from the next draft, announced in Slack, listed on the right with an edit and a switch. Feedback it
         cannot turn into a rule (praise, a question, something a guardrail forbids) waits here for a person.
@@ -124,6 +167,84 @@ export default function Feedback({
           {notice.text}
         </p>
       )}
+
+      {/* ── Give feedback now ─────────────────────────────────────────── */}
+      <div className="fb-now">
+        <div className="fb-now-head">
+          <h3>Give feedback now</h3>
+          <span>Learnt straight away — no waiting for Zapier. For anything less urgent, “fb #ref: …” in Slack works too.</span>
+        </div>
+        <div className="fb-now-row">
+          <label>
+            <span className="field-label">About</span>
+            <select value={fbScope} onChange={(e) => setFbScope(e.target.value)} disabled={busy}>
+              {docTypes.map((d) => (
+                <option key={d.slug} value={d.slug}>{d.label}</option>
+              ))}
+              <option value={FIRM_WIDE}>Every document</option>
+            </select>
+          </label>
+          <label>
+            <span className="field-label">Draft ref (optional)</span>
+            <input className="input" placeholder="#9e546c" value={fbRef} onChange={(e) => setFbRef(e.target.value)} disabled={busy} />
+          </label>
+        </div>
+        <label>
+          <span className="field-label">What should change?</span>
+          <textarea
+            rows={3}
+            value={fbText}
+            placeholder="e.g. The FD Note should not appear in the preview draft."
+            onChange={(e) => setFbText(e.target.value)}
+            disabled={busy}
+          />
+        </label>
+        <div className="fb-now-foot">
+          <label className="feedback-toggle">
+            <input type="checkbox" checked={fbDirect} onChange={(e) => setFbDirect(e.target.checked)} disabled={busy} /> Use my words
+            exactly as the rule (skip FD AI)
+          </label>
+          <button className="btn yellow" type="button" disabled={busy || missing || !fbText.trim()} onClick={() => void submitFeedback()}>
+            {busy ? "Learning…" : "Send and learn now"}
+          </button>
+        </div>
+        {fbResult?.learnt && (
+          <div className="fb-now-result ok">
+            <b>✓ Rule saved — it applies from the next draft ({label(fbResult.scope)}).</b>
+            <p>“{fbResult.rule}”</p>
+          </div>
+        )}
+        {fbResult && !fbResult.learnt && (
+          <div className="fb-now-result warn">
+            <b>Saved, but FD AI did not turn it into a rule.</b>
+            <p>Reason: {fbResult.reason}.</p>
+            <div className="inline-actions">
+              <button
+                className="btn"
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  const ok = await post(
+                    { action: "lesson", scope: fbResult.scope, rule: fbResult.message, feedbackId: fbResult.feedbackId },
+                    "Rule saved — it applies from the next draft.",
+                  );
+                  if (ok) setFbResult({ learnt: true, rule: fbResult.message, scope: fbResult.scope });
+                }}
+              >
+                Use my words as the rule
+              </button>
+              <button
+                className="link-btn"
+                type="button"
+                disabled={busy}
+                onClick={() => setWriting({ feedback: feedback.find((f) => f.id === fbResult.feedbackId) ?? null, scope: fbResult.scope, rule: fbResult.message })}
+              >
+                Reword it first
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="feedback-grid">
         <div className="feedback-col">
