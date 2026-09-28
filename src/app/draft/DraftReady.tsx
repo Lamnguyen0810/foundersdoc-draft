@@ -87,6 +87,8 @@ export interface DraftReadyProps {
     label?: string;
     skipped?: boolean;
   }[];
+  /** 0–1: how much of the first draft has been written (drafting only). */
+  progress?: number;
   /** Follow-up turns, oldest first. */
   follow: {
     who: "me" | "fd";
@@ -106,12 +108,39 @@ export interface DraftReadyProps {
  * What the drafter says about the draft, as a colleague would.
  *
  * The model's notes (the playbook's FD Notes, or the older foot block) are
- * not in the document any more; they are said here, in plain words, as a
- * short list of things to check before the document goes out. Rule
- * references the model appended ("See R10.1.") are for the playbook's
- * benefit, not the reader's, and are left off.
+ * not in the document; they are shown here as reminders. Each is written
+ * (lib/prompt.ts, NOTES FOR THE USER) as
+ *
+ *   what is missing | Question: the form question | What to put: …, e.g. …
+ *
+ * and shown as a small card with those three parts, so the person knows
+ * what to supply, where it came from and what a good answer looks like.
+ * A note in any other shape is shown as it is. Rule references the model
+ * appended ("See R10.1.") are for the playbook's benefit and are left off.
  */
-function ThingsToCheck({ text }: { text: string }) {
+export interface Reminder {
+  what: string;
+  question?: string;
+  put?: string;
+}
+
+export function parseReminder(line: string): Reminder {
+  const parts = line.split(/\s+\|\s+|\s*\|\s*(?=(?:question|what to put)\s*:)/i).map((p) => p.trim());
+  const r: Reminder = { what: "" };
+  const rest: string[] = [];
+  for (const p of parts) {
+    const q = /^question\s*:\s*(.+)$/i.exec(p);
+    const w = /^what to put\s*:\s*(.+)$/i.exec(p);
+    if (q) r.question = q[1].replace(/^["“]|["”]$/g, "");
+    else if (w) r.put = w[1];
+    else rest.push(p);
+  }
+  r.what = rest.join(" — ") || line;
+  if (/^not on the form\.?$/i.test(r.question ?? "")) r.question = undefined;
+  return r;
+}
+
+function ThingsToCheck({ text, onFill }: { text: string; onFill: (r: Reminder) => void }) {
   const lines = text
     .replace(/^DRAFTER['’]S NOTES:?\s*/i, "")
     .split(/\n+/)
@@ -122,21 +151,70 @@ function ThingsToCheck({ text }: { text: string }) {
         .replace(/\s*\(?\bR\d+(?:\.\d+)?\)?\s*$/i, "")
         .trim(),
     )
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((l) => !/^not yet answered:?$/i.test(l));
   if (lines.length === 0) return null;
+  const items = lines.map(parseReminder);
   return (
     <>
       <p>
-        {lines.length === 1
-          ? "One thing to check before it goes out:"
-          : `A few things to check before it goes out — ${lines.length} in all:`}
+        {items.length === 1
+          ? "One thing to fill in or check before it goes out:"
+          : `${items.length} things to fill in or check before it goes out:`}
       </p>
-      <ul className="cg-checks">
-        {lines.map((l, i) => (
-          <li key={i}>{l}</li>
+      <ol className="cg-reminders">
+        {items.map((r, i) => (
+          <li key={i} className="cg-reminder">
+            <b className="cg-reminder-what">{r.what}</b>
+            {r.question && (
+              <span className="cg-reminder-row">
+                <span className="cg-reminder-k">Question</span>
+                <span>{r.question}</span>
+              </span>
+            )}
+            {r.put && (
+              <span className="cg-reminder-row">
+                <span className="cg-reminder-k">What to put</span>
+                <span>{r.put}</span>
+              </span>
+            )}
+            <button type="button" className="cg-reminder-fill" onClick={() => onFill(r)}>
+              Fill this in
+            </button>
+          </li>
         ))}
-      </ul>
+      </ol>
     </>
+  );
+}
+
+/**
+ * How far the draft has got, as a bar. The model writes the document from
+ * top to bottom, so the share of the expected length already written is a
+ * fair measure; before the first words arrive it creeps, so the page never
+ * looks stuck. It never claims 100% until the draft is actually there.
+ */
+export function DraftProgress({ value }: { value: number }) {
+  const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
+  const stage =
+    pct < 15 ? "Reading your answers and the firm’s playbook" : pct < 92 ? "Writing the clauses" : "Finishing the draft";
+  return (
+    <div
+      className="draft-progress"
+      role="progressbar"
+      aria-label="Drafting progress"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+    >
+      <div className="draft-progress-track">
+        <div className="draft-progress-fill" style={{ width: `${Math.max(pct, 3)}%` }} />
+      </div>
+      <div className="draft-progress-label">
+        <span>{stage}…</span>
+        <b>{pct}%</b>
+      </div>
+    </div>
   );
 }
 
@@ -163,6 +241,7 @@ export default function DraftReady({
   conversation = [],
   follow,
   notes = null,
+  progress = 0,
 }: DraftReadyProps) {
   const [text, setText] = useState("");
   /* The names of the five levels come from DetailSlider, which is also what
@@ -173,6 +252,7 @@ export default function DraftReady({
   const [sliderValue, setSliderValue] = useState(ndaDetailLevel);
   const sliderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+  const composeRef = useRef<HTMLTextAreaElement>(null);
 
   const ready = state === "ready";
 
@@ -281,6 +361,7 @@ export default function DraftReady({
                 <i />
                 <i />
               </p>
+              <DraftProgress value={progress} />
             </div>
           </div>
         )}
@@ -322,7 +403,23 @@ export default function DraftReady({
               </span>
             </button>
 
-            {notes && <ThingsToCheck text={notes} />}
+            {notes && (
+              <ThingsToCheck
+                text={notes}
+                onFill={(r) => {
+                  /* Start the message for them: the thing to fill in, ready
+                     for the answer. Sending it revises the draft. */
+                  setText(`${r.what.replace(/[.\s]+$/, "")}: `);
+                  requestAnimationFrame(() => {
+                    const box = composeRef.current;
+                    if (box) {
+                      box.focus();
+                      box.setSelectionRange(box.value.length, box.value.length);
+                    }
+                  });
+                }}
+              />
+            )}
           </div>
         </div>
         )}
@@ -423,6 +520,7 @@ export default function DraftReady({
             +
           </button>
           <textarea
+            ref={composeRef}
             rows={1}
             placeholder="Ask FD AI to revise or explain something…"
             value={text}

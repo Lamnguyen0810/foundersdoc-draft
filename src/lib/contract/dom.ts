@@ -21,6 +21,8 @@ const CLASS: Record<Block["kind"], string> = {
   subclause: "doc-subclause",
   "notes-title": "doc-notes-title",
   note: "doc-note",
+  "sign-head": "doc-sign doc-sign-head",
+  sign: "doc-sign",
   plain: "",
 };
 

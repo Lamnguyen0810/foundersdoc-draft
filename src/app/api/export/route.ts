@@ -3,7 +3,9 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
+  Footer,
   LineRuleType,
+  PageNumber,
   Packer,
   Paragraph,
   TabStopType,
@@ -102,7 +104,7 @@ type Style = { size?: number; color?: string; font?: string; b?: boolean };
  * underlined non-breaking spaces of the same width; text the lawyer typed
  * into it comes through underlined, exactly as it sits on the line on screen.
  */
-function runsFromHtml(fragment: string, style: Style = {}): TextRun[] {
+function runsFromHtml(fragment: string, style: Style = {}, blankWidth: number = S.PLACEHOLDER_WIDTH): TextRun[] {
   const runs: TextRun[] = [];
   const tokens = fragment
     .replace(/<br\s*\/?>/gi, "\n")
@@ -123,10 +125,13 @@ function runsFromHtml(fragment: string, style: Style = {}): TextRun[] {
 
     if (/^<span\b[^>]*\bplaceholder\b/i.test(token)) {
       const typed = decodeHtml(token.replace(/^<span\b[^>]*>/i, "").replace(/<\/span>$/i, "").replace(/<[^>]+>/g, "")).trim();
+      /* An empty blank is a row of underscores, not underlined spaces: Word
+         does not underline spaces at the end of a line, so a blank that ends
+         a paragraph ("Name: ____") vanished in the download. */
       runs.push(
-        run(typed || "\u00A0".repeat(S.PLACEHOLDER_WIDTH), {
+        run(typed || "_".repeat(blankWidth), {
           ...style,
-          u: true,
+          u: Boolean(typed),
           b: style.b || bold > 0,
           i: italics > 0,
         }),
@@ -168,24 +173,56 @@ function splitNumbered(fragment: string): { num: string; body: string } | null {
   return { num: decodeHtml(num[1].replace(/<[^>]+>/g, "")).trim(), body };
 }
 
-const single = (line: number) => ({ line, lineRule: LineRuleType.AUTO });
+/**
+ * Line spacing as the screen has it. CSS line-height 1.24 means 1.24 × the
+ * font size; Word's "multiple" means 1.24 × the FONT'S OWN line height, which
+ * for Times New Roman is already ~1.15 × its size — so every line in the
+ * download was about 15% taller than on screen, and the same text ran to an
+ * extra page. "At least" size × multiple is the CSS rule exactly, and still
+ * lets a larger run (the title) take the room it needs.
+ */
+const single = (line: number, sizePt: number = LOOK.sizePt) => ({
+  line: Math.round((line / 240) * sizePt * 20),
+  lineRule: LineRuleType.AT_LEAST,
+});
 
 function paragraphsFromHtml(html: string): Paragraph[] {
   const out: Paragraph[] = [];
-  const pattern = /<p\b([^>]*)>([\s\S]*?)<\/p>/gi;
-  let m: RegExpExecArray | null;
+  const all = Array.from(html.matchAll(/<p\b([^>]*)>([\s\S]*?)<\/p>/gi)).map((x) => ({
+    cls: /class=["']([^"']*)["']/i.exec(x[1])?.[1] ?? "",
+    fragment: x[2],
+  }));
 
-  while ((m = pattern.exec(html))) {
-    const cls = /class=["']([^"']*)["']/i.exec(m[1])?.[1] ?? "";
-    const has = (name: string) => new RegExp(`\\b${name}\\b`).test(cls);
-    const fragment = m[2];
+  for (let k = 0; k < all.length; k++) {
+    const { cls, fragment } = all[k];
+    const has = (name: string) => new RegExp(`(?:^|\\s)${name}(?:\\s|$)`).test(cls);
+    const nextCls = all[k + 1]?.cls ?? "";
+
+    /* ── signature blocks: each line its own paragraph, the block kept on
+       one page (keepNext down to its last line), the head with air above,
+       as .doc-sign / .doc-sign-head on screen. A blank to sign on is wider
+       than a blank in a sentence. */
+    if (has("doc-sign")) {
+      const head = has("doc-sign-head");
+      const nextIsLine = /(?:^|\s)doc-sign(?:\s|$)/.test(nextCls) && !/(?:^|\s)doc-sign-head(?:\s|$)/.test(nextCls);
+      out.push(
+        new Paragraph({
+          alignment: AlignmentType.LEFT,
+          keepNext: nextIsLine,
+          keepLines: true,
+          spacing: { before: head ? S.SIGN.headBefore : 0, after: head ? S.SIGN.headAfter : S.SIGN.after, ...single(bodyLine()) },
+          children: runsFromHtml(fragment, {}, S.SIGN.blank),
+        }),
+      );
+      continue;
+    }
 
     // ── the title: Calibri, blue, centred, a rule beneath
     if (has("doc-title")) {
       out.push(
         new Paragraph({
           alignment: AlignmentType.CENTER,
-          spacing: { after: S.TITLE_STYLE.after, ...single(bodyLine()) },
+          spacing: { after: S.TITLE_STYLE.after, ...single(S.TITLE_STYLE.line, LOOK.titlePt) },
           children: runsFromHtml(fragment, { size: titleSize(), b: true }),
         }),
       );
@@ -201,6 +238,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
     if (has("doc-label")) {
       out.push(
         new Paragraph({
+          keepNext: true,
           spacing: { before: S.LABEL.before, after: S.LABEL.after, ...single(bodyLine()) },
           children: runsFromHtml(fragment, { b: true }),
         }),
@@ -214,6 +252,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
       const text = parts ? `${parts.num} ${parts.body}` : fragment;
       out.push(
         new Paragraph({
+          keepNext: true,
           spacing: { before: headBefore(), after: headAfter(), ...single(bodyLine()) },
           children: runsFromHtml(text, { size: bodySize(), b: true }),
         }),
@@ -277,7 +316,7 @@ function paragraphsFromHtml(html: string): Paragraph[] {
     if (has("doc-note")) {
       out.push(
         new Paragraph({
-          spacing: { after: S.NOTE.after, ...single(S.NOTE.line) },
+          spacing: { after: S.NOTE.after, ...single(S.NOTE.line, 9.5) },
           indent: { left: S.NOTE.hanging, hanging: S.NOTE.hanging },
           tabStops: [{ type: TabStopType.LEFT, position: S.NOTE.hanging }],
           children: [
@@ -322,7 +361,7 @@ function runsFromMarks(text: string, style: { b?: boolean; size?: number } = {})
     if ("note" in piece) {
       runs.push(run(`[FD Note: ${piece.note}]`, { ...style, b: true, i: true, hl: true }));
     } else if ("placeholder" in piece) {
-      runs.push(run("\u00A0".repeat(S.PLACEHOLDER_WIDTH), { ...style, u: true }));
+      runs.push(run("_".repeat(S.PLACEHOLDER_WIDTH), style));
     } else {
       runs.push(run(piece.text, { ...style, b: style.b || piece.b, i: piece.i }));
     }
@@ -438,14 +477,46 @@ export async function POST(req: NextRequest) {
       default: {
         document: {
           run: { font: LOOK.font, size: bodySize(), color: S.INK },
-          paragraph: { alignment: bodyAlign(), spacing: { after: paraAfter(), ...single(bodyLine()) } },
+          /* keepLines: a paragraph is never split across two pages, which
+             is how the screen paginates (DocumentEditor moves a whole
+             paragraph to the next page). Without it Word broke pages in
+             different places and the download read differently. */
+          paragraph: { alignment: bodyAlign(), keepLines: true, spacing: { after: paraAfter(), ...single(bodyLine()) } },
         },
       },
+      /* The footer's own style, so the page numbers Word fills in take the
+         footer's size and colour rather than the body's. */
+      paragraphStyles: [
+        {
+          id: "FdFooter",
+          name: "FD Footer",
+          basedOn: "Normal",
+          run: { font: S.FOOTER.font, size: S.FOOTER.size, color: S.END_NOTE },
+          paragraph: { alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 } },
+        },
+      ],
     },
     sections: [
       {
-        properties: { page: { size: { width: S.PAGE.width, height: S.PAGE.height }, margin: S.PAGE.margin } },
-        // No header, no footer: there is none on the screen.
+        properties: {
+          page: { size: { width: S.PAGE.width, height: S.PAGE.height }, margin: { ...S.PAGE.margin, footer: S.FOOTER.distance } },
+        },
+        /* "Page 2 of 6", centred, small and grey, as .wd-ftr sets it at the
+           foot of every page on screen. Word fills the numbers in itself. */
+        footers: {
+          default: new Footer({
+            children: [
+              new Paragraph({
+                style: "FdFooter",
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 0, after: 0 },
+                children: [
+                  new TextRun({ children: ["Page ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES], font: S.FOOTER.font, size: S.FOOTER.size, color: S.END_NOTE }),
+                ],
+              }),
+            ],
+          }),
+        },
         children,
       },
     ],

@@ -19,9 +19,53 @@ export function isQuestion(text: string): boolean {
   const t = text.trim();
   if (!t) return false;
   if (/\?\s*$/.test(t)) return true;
-  return /^(what('?s| is| are| does| do| happens| if)|why\b|how (do|does|long|much|many|is)|explain|help\b|i don'?t (understand|know what)|not sure what|meaning of|define|tell me about|can you explain)/i.test(
+  return /^(what('?s| is| are| does| do| happens| if| about)|why\b|who\b|when\b|where\b|which\b|how\b|(can|could|would|should|will|do|does|did|is|are|am) (i|you|we|it|this|that|they|there)\b|explain|help\b|i don'?t (understand|know what)|not sure what|meaning of|define|tell me|give me|write me|show me)/i.test(
     t,
   );
+}
+
+/** Greetings, thanks and the like: answered kindly, never saved as an answer. */
+export function smallTalk(text: string, docLabel: string): string | null {
+  const t = text.trim().toLowerCase().replace(/[!.,\s]+$/g, "");
+  if (/^(hi|hello|hey|hiya|good (morning|afternoon|evening)|yo)( there)?( fd( ai)?)?$/.test(t)) {
+    return `Hello! I’m here to help you draft your ${docLabel}. Answer the question below, or ask me about anything on the form.`;
+  }
+  if (/^(thanks|thank you|thx|cheers|great|ok(ay)?|cool|nice|got it|perfect)( (so much|a lot|fd( ai)?))?$/.test(t)) {
+    return "You’re welcome. Carry on with the question below whenever you’re ready.";
+  }
+  return null;
+}
+
+/** What to say when a question has nothing to do with the document. */
+export function offTopicAnswer(docLabel: string, onScreen?: string): string {
+  return [
+    `That isn’t related to drafting your ${docLabel}, so I can’t help with it here.`,
+    "I can explain any question on this form or any term in the document.",
+    onScreen ? `When you’re ready, carry on with: “${onScreen}”` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/**
+ * Can what was typed in the message box stand as the answer to the question
+ * on screen? Only where there is exactly one place for it to go and it fits:
+ * one typed field, a number for a number, or one of the offered choices. A
+ * step with several boxes (the deal: purpose AND information) is answered in
+ * its own boxes, so a sentence typed below is taken as something said to us,
+ * not silently put into the last box.
+ */
+export function answerFor(text: string, fields: Field[]): { key: string; value: string } | null {
+  const t = text.trim();
+  if (!t || fields.length !== 1) return null;
+  const f = fields[0];
+  if (f.type === "number") return /^\d+(\.\d+)?$/.test(t) ? { key: f.key, value: t } : null;
+  if (f.type === "select") {
+    const hit = (f.options ?? []).find((o) => o.toLowerCase() === t.toLowerCase());
+    return hit ? { key: f.key, value: hit } : null;
+  }
+  if (f.type === "text" || f.type === "textarea") return { key: f.key, value: t };
+  return null;
 }
 
 /** Said about the question on screen, not about the law in general. */
