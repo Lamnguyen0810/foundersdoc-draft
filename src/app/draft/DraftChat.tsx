@@ -804,13 +804,13 @@ export default function DraftChat({
             /* The key carries whether there is a draft to restore, so the one
                render where the stash has not been read yet is replaced rather
                than kept. */
-            key={resume ? resume.id : `${chosen.slug}:${stashType === chosen ? "restored" : "new"}`}
+            key={resume && !picked ? resume.id : `${chosen.slug}:${stashType === chosen ? "restored" : "new"}`}
             docType={chosen}
             userEmail={userEmail ?? null}
             recent={recent ?? []}
             wallet={live}
             prefill={prefill ?? null}
-            resume={resumeType && resume ? resume : null}
+            resume={resumeType && resume && !picked ? resume : null}
             restore={stashType && stashType.slug === chosen.slug ? stash : null}
             isAdmin={isAdmin}
             guest={guest}
@@ -821,6 +821,18 @@ export default function DraftChat({
                  old conversation stashed would bring it back on the next
                  visit, over the top of whatever they choose now. */
               clearStash();
+              /* ── LEAVING A PAST DRAFT ─────────────────────────────────────
+                 A draft reopened from Past drafts is this page's props
+                 (/draft/<id>), not its state. Swapping to the catalogue in
+                 place kept those props, so "New draft" → NDA opened the old
+                 draft again until the page was reloaded. From a past draft,
+                 New draft is a real visit to /draft: a clean page with no
+                 draft behind it, and Back returns to the past draft. */
+              if (resume) {
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- a full page load is the point
+                window.location.assign("/draft");
+                return;
+              }
               leaveDocument();
             }}
           />
