@@ -29,6 +29,10 @@ export type BlockKind =
   | "subclause"
   | "notes-title"
   | "note"
+  /** "SIGNED for and on behalf of X" — the first line of a signature block. */
+  | "sign-head"
+  /** "Signature:", "Name:", "Title:", "Date:" — the lines beneath it. */
+  | "sign"
   | "plain";
 
 export interface Block {
@@ -52,6 +56,76 @@ export interface Block {
  * as an unformatted paragraph. Matching any newline with whatever surrounds it
  * is what was meant.
  */
+/* ── SIGNATURE BLOCKS ────────────────────────────────────────────────────
+   Each line of a signature block is a line of its own, even when the model
+   wrote the block with single newlines — flatten() would otherwise run
+   "SIGNED for and on behalf of X Signature: Name: Title:" into one sentence. */
+const SIGN_HEAD = /^(?:SIGNED|Signed|EXECUTED|Executed)\b.*\b(?:for and on behalf of|by)\b|^for and on behalf of\b/i;
+const SIGN_LINE =
+  /^(?:Signed by\b|(?:Signature|Name|Title|Designation|Position|Date|In the presence of|Witness)\s*:|\[?\s*(?:Director|Authori[sz]ed signatory)\b|_{3,}\s*$|\[●\]\s*$)/i;
+
+function signLines(raw: string): string[] | null {
+  const lines = raw
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const bare = (l: string) => l.replace(/\*\*/g, "");
+  if (!lines.length) return null;
+  const first = bare(lines[0]);
+  if (SIGN_HEAD.test(first) || lines.every((l) => SIGN_LINE.test(bare(l)))) return lines;
+  return null;
+}
+
+/**
+ * One short block per party: "SIGNED for and on behalf of X", then
+ * Signature, Name, Title, Date. The firm's precedents sign with "Signed by
+ * ____ / for and on behalf of X / ____ / [Director / Authorised signatory] /
+ * Name: / Title:", which asks for the signatory twice; the firm asked for
+ * that to go. This folds the old shape into the new one, so a draft written
+ * either way reads the same on screen and in Word.
+ */
+function tidySignatures(blocks: Block[]): Block[] {
+  const out: Block[] = [];
+  const isRule = (t: string) => /^(?:_{3,}|\[●\])$/.test(t.replace(/\*\*/g, "").trim());
+  for (let k = 0; k < blocks.length; k++) {
+    const b = blocks[k];
+    if (b.kind !== "sign" && b.kind !== "sign-head") {
+      out.push(b);
+      continue;
+    }
+    const bare = b.text.replace(/\*\*/g, "").trim();
+    /* "Signed by ____" followed by "for and on behalf of X": one head. */
+    if (/^Signed by\b/i.test(bare)) {
+      const next = blocks[k + 1];
+      const nextBare = next ? next.text.replace(/\*\*/g, "").trim() : "";
+      if (next && /^for and on behalf of\b/i.test(nextBare)) {
+        out.push({ kind: "sign-head", num: "", text: `SIGNED ${next.text.trim()}` });
+        out.push({ kind: "sign", num: "", text: "Signature: [●]" });
+        k += 1;
+        continue;
+      }
+      /* "Signed by" on its own is the signature line. */
+      out.push({ kind: "sign", num: "", text: "Signature: [●]" });
+      continue;
+    }
+    /* A bare rule or a capacity line under the head says nothing the
+       Signature and Title lines do not. */
+    if (isRule(b.text) || /^\[?\s*(?:Director|Authori[sz]ed signatory)\b[^\]]*\]?\s*$/i.test(bare)) continue;
+    /* A second Name/Title in the same block is the duplicate. */
+    const label = /^(Signature|Name|Title|Date)\s*:/i.exec(bare)?.[1]?.toLowerCase();
+    if (label) {
+      let seen = false;
+      for (let j = out.length - 1; j >= 0 && (out[j].kind === "sign" || out[j].kind === "sign-head"); j--) {
+        if (out[j].kind === "sign-head") break;
+        if (new RegExp(`^${label}\\s*:`, "i").test(out[j].text.replace(/\*\*/g, "").trim())) seen = true;
+      }
+      if (seen) continue;
+    }
+    out.push(b);
+  }
+  return out;
+}
+
 function flatten(raw: string): string {
   return raw.replace(/\s*\n\s*/g, " ").replace(/\s{2,}/g, " ").trim();
 }
@@ -87,6 +161,17 @@ export function parseDraft(draft: string): Block[] {
     // The first block is always the document's title.
     if (idx === 0) return push("title", bare);
 
+    const sign = signLines(raw);
+    if (sign) {
+      for (const line of sign) {
+        const lb = line.replace(/\*\*/g, "");
+        /* A row of underscores is a blank to sign or fill in: shown as the
+           same ruled gap as every other blank. */
+        push(SIGN_HEAD.test(lb) && !/^Signed by\b/i.test(lb) ? "sign-head" : "sign", line.replace(/_{3,}/g, "[●]"));
+      }
+      return;
+    }
+
     if (/^THIS AGREEMENT\b/.test(bare)) return push("date", t);
     /* A short line in capitals with no number — PARTIES, BACKGROUND, AGREED
        TERMS, SCHEDULE 1 — is a label: bold, its own line, not a clause. */
@@ -109,7 +194,7 @@ export function parseDraft(draft: string): Block[] {
     }
 
     // A numbered HEADING — "3. CONFIDENTIALITY" — must be caught before 3.1.
-    if (/^\d+\.\s{1,}/.test(bare) && /^[\d.]+\s+[A-Z][A-Z\s&'-]+$/.test(bare)) {
+    if (/^\d+\.\s{1,}/.test(bare) && /^[\d.]+\s+[A-Z][A-Z\s&'’,;:/()-]+$/.test(bare)) {
       const sm = bare.match(/^(\d+\.)\s+(.*)$/)!;
       /* As written. This used to title-case the heading ("3. CONFIDENTIALITY"
          → "3. Confidentiality"), which was the app's taste over the firm's:
@@ -167,7 +252,7 @@ export function parseDraft(draft: string): Block[] {
     push("plain", t);
   });
 
-  return out;
+  return tidySignatures(out);
 }
 
 /** A run of text split into literal parts, marked (bold/italic) parts and

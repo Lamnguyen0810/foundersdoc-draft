@@ -206,11 +206,26 @@ export default function DocumentEditor({
       for (const p of list) {
         pg.appendChild(p);
         if (p.offsetTop + p.offsetHeight > limit && pg.children.length > 2) {
-          const prev = p.previousElementSibling as HTMLElement | null;
-          // Don't leave a heading stranded at the foot of a page.
-          const keep = Boolean(prev && KEEP_WITH_NEXT.test(prev.className) && pg.children.length > 3);
+          /* Don't leave a heading stranded at the foot of a page, and don't
+             split a signature block: the lines that belong with this one go
+             over with it, as long as something is left behind. */
+          const carry: HTMLElement[] = [];
+          let cur: HTMLElement = p;
+          let prev = cur.previousElementSibling as HTMLElement | null;
+          while (prev && !prev.classList.contains("wd-ftr") && carry.length < 8) {
+            const heading = KEEP_WITH_NEXT.test(prev.className);
+            const signRun =
+              cur.classList.contains("doc-sign") &&
+              !cur.classList.contains("doc-sign-head") &&
+              prev.classList.contains("doc-sign");
+            if (!heading && !signRun) break;
+            carry.unshift(prev);
+            cur = prev;
+            prev = cur.previousElementSibling as HTMLElement | null;
+          }
+          const keep = carry.length > 0 && pg.children.length - carry.length > 2;
           pg = newPage();
-          if (keep && prev) pg.appendChild(prev);
+          if (keep) carry.forEach((c) => pg.appendChild(c));
           pg.appendChild(p);
         }
       }

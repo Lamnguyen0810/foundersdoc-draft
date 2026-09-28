@@ -25,9 +25,9 @@ import { stepsFor, type DocType, type Field } from "@/lib/doctypes";
 import { track } from "@/lib/track";
 import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
-import DraftReady from "./DraftReady";
+import DraftReady, { DraftProgress } from "./DraftReady";
 import { SKIPPED, fdNotes, splitNotes, stripNotes } from "@/lib/prompt";
-import { answerLocally, isQuestion } from "@/lib/draft-help";
+import { answerFor, answerLocally, isQuestion, offTopicAnswer, smallTalk } from "@/lib/draft-help";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 
 /* ────────────────────────────────────────────────────── the catalogue */
@@ -1530,6 +1530,18 @@ function Chat({
     editorExportRef.current = { html, plain };
   }, []);
   const [busy, setBusy] = useState(false);
+  /* Seconds since drafting started, for the progress bar before the first
+     words arrive. Ticks only while drafting. */
+  const [waitSec, setWaitSec] = useState(0);
+  useEffect(() => {
+    if (!busy) return;
+    const t0 = Date.now();
+    const t = setInterval(() => setWaitSec((Date.now() - t0) / 1000), 500);
+    return () => {
+      clearInterval(t);
+      setWaitSec(0);
+    };
+  }, [busy]);
   /** Immediate re-entrancy guard for generate(); see the comment there. */
   const generatingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -1989,7 +2001,12 @@ function Chat({
    */
   async function ask(q: string) {
     setTypedAnswer("");
-    setMsgs((prev) => [...prev, { who: "me", text: q }]);
+    setMsgs((prev) => [...prev, { who: "me", label: isQuestion(q) ? "Your question" : "Your message", text: q }]);
+    const chat = smallTalk(q, docType.label);
+    if (chat) {
+      setMsgs((prev) => [...prev, { who: "fd", text: chat }]);
+      return;
+    }
     const local = answerLocally(q, {
       question: step?.question,
       fields: step?.fields,
@@ -2013,6 +2030,7 @@ function Chat({
     }
     setAsking(true);
     let text = "";
+    let offTopic = false;
     try {
       const res = await fetch("/api/ask", {
         method: "POST",
@@ -2024,8 +2042,9 @@ function Chat({
           help: (step?.fields ?? []).map((f) => [f.label, f.help].filter(Boolean).join(": ")).join(" | "),
         }),
       });
-      const j = (await res.json().catch(() => null)) as { answer?: string; error?: string } | null;
-      text = j?.answer ?? j?.error ?? "";
+      const j = (await res.json().catch(() => null)) as { answer?: string; error?: string; offTopic?: boolean } | null;
+      offTopic = Boolean(j?.offTopic);
+      text = offTopic ? offTopicAnswer(docType.label, step?.question) : (j?.answer ?? j?.error ?? "");
     } catch {
       text = "";
     } finally {
@@ -2035,7 +2054,7 @@ function Chat({
       ...prev,
       { who: "fd", text: text || "I couldn’t answer that just now. Carry on with the form — anything you’re unsure of can be skipped and confirmed later." },
     ]);
-    track("chat_question", { doc_type: docType.slug, source: "ai" });
+    track("chat_question", { doc_type: docType.slug, source: offTopic ? "off_topic" : "ai" });
   }
 
   /** What the message box does with what was typed: a question is asked, an
@@ -2043,13 +2062,13 @@ function Chat({
   function sendTyped() {
     const t = typedAnswer.trim();
     if (!t || asking) return;
-    if (!step || isQuestion(t)) {
+    const fit = step && !isQuestion(t) ? answerFor(t, step.fields) : null;
+    if (!step || !fit) {
       void ask(t);
       return;
     }
-    const f = step.fields[step.fields.length - 1];
-    if (f) setAnswer(f.key, t);
-    commit(false, i, t);
+    setAnswer(fit.key, fit.value);
+    commit(false, i, fit.value);
   }
 
   async function upload(file: File) {
@@ -2845,6 +2864,18 @@ function Chat({
   const drafterNotes =
     inlineNotes.length > 0 ? inlineNotes.map((n) => `• ${n}`).join("\n") : legacyNotes;
 
+  /* The progress bar: the share of the expected length written so far. The
+     length follows the comprehensiveness chosen (about 650 to 2,000 words,
+     six characters a word with spaces and marks), and the first ~15% is the
+     wait before the model starts writing. */
+  const expectedChars =
+    (docType.slug === "nda" ? [650, 900, 1150, 1500, 2000][Math.min(5, Math.max(1, ndaDetailLevel)) - 1] : 1500) * 6.2;
+  const draftProgress = !busy
+    ? 1
+    : output
+      ? Math.min(0.97, 0.15 + (0.82 * output.length) / expectedChars)
+      : 0.15 * (1 - Math.exp(-waitSec / 10));
+
   const sheetParagraphs = documentBody
     .trim()
     .split(/\n\s*\n/)
@@ -2949,7 +2980,13 @@ function Chat({
               <div className="m">
                 <div className="av">FD</div>
                 <div>
-                  <div className="txt" style={{ color: "var(--grey-5)" }}>Thinking…</div>
+                  <div className="txt">
+                    <span className="cg-typing" role="status" aria-label="FD AI is answering">
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -3081,6 +3118,7 @@ function Chat({
           fileName={currentFileName}
           initialVersion={documentVersions[0]}
           ndaDetailLevel={ndaDetailLevel}
+          progress={draftProgress}
           error={error}
           paywalled={paywalled}
           onChangeNdaDetailLevel={(level) =>
@@ -3231,7 +3269,13 @@ function Chat({
         {busy || revising || !output ? (
           <div className="dscroll">
             <div className="sheet" ref={sheetRef}>
-              {output ? sheetParagraphs : <p>{busy ? "Drafting…" : "Nothing drafted yet."}</p>}
+              {output ? (
+                sheetParagraphs
+              ) : busy ? (
+                <DraftProgress value={draftProgress} />
+              ) : (
+                <p>Nothing drafted yet.</p>
+              )}
             </div>
           </div>
         ) : (

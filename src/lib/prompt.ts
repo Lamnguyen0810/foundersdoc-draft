@@ -164,6 +164,48 @@ const EMPHASIS_INSTRUCTION = [
 ].join("\n");
 
 /**
+ * How a note is worded. Every note is shown to the founder beside the draft
+ * as a reminder card (DraftReady): what is missing, which question on the
+ * form it belongs to, and what to put. A note that just says "[●] to be
+ * confirmed" leaves them guessing, so each one carries all three, in a shape
+ * the card can read. Placed last so it is the final word on wording; where
+ * the notes go (inline FD Notes or the foot block) is left as it was.
+ */
+export const NOTES_INSTRUCTION = [
+  "NOTES FOR THE USER",
+  "Every note you write — each [FD Note: …] and each line under DRAFTER'S NOTES —",
+  "is shown to the founder beside the draft as a reminder of something to fill in",
+  "or check. Write one item per note, in plain English, in exactly this form:",
+  "  <what is missing or needs checking, and where in the document> | Question: <the question on the form it belongs to, copied word for word from THE FACTS, or \"Not on the form\"> | What to put: <what to provide, with a short example>",
+  "For example:",
+  "  [FD Note: The other party's registration number is missing from the Parties clause | Question: Other party’s name or organisation name | What to put: their company registration number from the registry, e.g. UEN 202045678M]",
+  "Give every skipped question its own note in this form instead of one \"Not yet",
+  "answered\" list. Keep each part under 25 words and never put a square bracket",
+  "inside a note. This governs how notes are worded and overrides any other",
+  "instruction on that; it does not change where notes are placed.",
+].join("\n");
+
+/**
+ * The signature blocks. The precedents sign with "Signed by ____ for and on
+ * behalf of X ____ [Director / Authorised signatory] Name: Title:", which
+ * asks for the signatory twice. The firm asked for one short block per party.
+ */
+export const EXECUTION_INSTRUCTION = [
+  "SIGNATURE BLOCKS",
+  "End the document with one signature block per party, in this form and nothing more:",
+  "  SIGNED for and on behalf of **<PARTY NAME>**",
+  "  Signature: [●]",
+  "  Name: [●]",
+  "  Title: [●]",
+  "  Date: [●]",
+  "Each line is its own paragraph. Where THE FACTS give the signatory's name or title,",
+  "write it in place of the [●]. Do not add a separate \"Signed by\" line, a capacity",
+  "line such as [Director / Authorised signatory], or a second Name line. This layout",
+  "is the firm's current instruction and overrides the signature blocks in the",
+  "playbook and the worked examples.",
+].join("\n");
+
+/**
  * The lessons: rules the firm wrote from feedback on earlier drafts. They
  * come after the playbook and carry the same authority — each is a
  * correction the playbook did not yet make explicit.
@@ -195,6 +237,10 @@ export function buildSystem(docType: DocType, style: DraftingStyle = "standard_l
     ...(register ? ["", register] : []),
     ...(playbook ? ["", playbook] : []),
     ...(lessons ? ["", lessons] : []),
+    "",
+    EXECUTION_INSTRUCTION,
+    "",
+    NOTES_INSTRUCTION,
   ].join("\n");
   if (docType.examples.length === 0) {
     return head;

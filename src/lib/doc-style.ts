@@ -102,7 +102,8 @@ export const SUBCLAUSE = {
    non-breaking spaces. 7.5em at 10.5pt is 79pt; a Cambria space is about
    2.7pt, so 29 of them. If the lawyer typed into the gap on screen, the text
    is underlined instead. */
-export const PLACEHOLDER_WIDTH = 29;
+/* Written as underscores (6pt each in a 12pt serif): 79pt is 13. */
+export const PLACEHOLDER_WIDTH = 13;
 
 /* .doc-notes-title: Calibri 10pt bold, --doc-head, 1px #d9d9d9 rule above
    with 8pt of air, margin 20pt 0 4pt. */
@@ -124,3 +125,11 @@ export const NOTE = {
 
 /* .doc-end-note: Calibri 8.5pt, #8a8a8a, centred, margin 22pt 0 0. */
 export const END_NOTE_STYLE = { size: pt(8.5), before: tw(22) } as const;
+
+/* .doc-sign: margin 0 0 5pt; .doc-sign-head: margin 18pt 0 10pt; a blank in
+   a signature block is 14em wide (.doc-sign .placeholder) — 28 underscores
+   at 12pt. */
+export const SIGN = { after: tw(5), headBefore: tw(18), headAfter: tw(10), blank: 28 } as const;
+
+/* .wd-ftr: Calibri 8.5pt, #8a8a8a, centred, 30px above the foot of the page. */
+export const FOOTER = { font: "Calibri", size: pt(8.5), distance: tw(px(30)) } as const;
