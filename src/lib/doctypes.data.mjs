@@ -147,6 +147,7 @@ export const NDA_DATA = {
       label: "Any other details about the parties (optional)",
       type: "textarea",
       required: false,
+      placeholder: "Provide more information about the parties for the draft (optional)",
       help: "Only what you want in the NDA — an address, a registration or ID number, who will sign. Say which party each detail belongs to. Leave blank if names are enough.",
       group: "Parties",
     },
