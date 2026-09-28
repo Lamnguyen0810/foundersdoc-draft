@@ -80,92 +80,108 @@ interface Entry {
   answer: string;
 }
 
-/* The terms the NDA form and its drafts use. Plain English, general. */
+/* The terms the NDA form and its drafts use. Plain British English, general
+   information, checked line by line (060). Order matters: the first entry
+   whose words match is the answer. */
 const GLOSSARY: Entry[] = [
   {
     words: /\b(mutual|one[- ]?way|unilateral|bilateral|direction)\b/i,
     answer:
-      "Mutual means both sides share confidential information and both must protect it. One-way means only one side discloses: choose \"we disclose\" if you are sharing your information, or \"we receive\" if the other side is sharing theirs. If in doubt and both sides will share anything sensitive, pick Mutual.",
+      "Mutual means both sides will share confidential information, so both must protect it. One-way means only one side shares: choose “we disclose” if you are sharing your information, or “we receive” if the other side is sharing theirs. If both sides might share anything sensitive, choose Mutual.",
   },
   {
     words: /\bresidual/i,
     answer:
-      "A residuals clause lets the receiving side use general ideas and know-how its people remember after seeing your information, as long as they did not keep copies. It favours the receiver, so the usual answer is No unless you are the one receiving and the other side has agreed to it.",
+      "A residuals clause would let the other side use general ideas and know-how its people remember from your information. It favours the side receiving the information, so FD AI’s NDA does not include one.",
   },
   {
-    words: /\btrade secrets?\b|\bfor ever\b|\bforever\b/i,
+    words: /\bperpetual|\btrade secrets?\b|\bfor ever\b|\bforever\b|no time limit/i,
     answer:
-      "Trade secrets (a formula, source code, a customer list with real value) can stay protected for as long as they remain secret, instead of for a fixed number of years. Saying Yes keeps that longer protection for trade secrets while the rest of the information follows the normal period.",
+      "Perpetual means the information must stay confidential with no time limit, even after the agreement ends. It suits trade secrets, such as a formula, source code or a valuable customer list. For most other information, a fixed number of years (two to five is common) is usual.",
   },
   {
     words: /\bsurviv|after (it|the agreement) ends|how long .*(secret|confidential)|confidentiality period/i,
     answer:
-      "There are two clocks. The agreement's term is how long the parties may exchange information under it. The survival period is how long the confidentiality duty lasts after that ends. Two years' term and three years' survival are common starting points; longer suits more sensitive information.",
+      "There are two periods. The term is how long the two sides may share information under the NDA. The confidentiality period is how long the information must be kept confidential after the agreement ends: a number of years, or Perpetual for no time limit. A two-year term and three years afterwards are common starting points.",
   },
   {
     words: /\bterm\b(?! ?sheet)|how long does the agreement last|\bduration\b/i,
     answer:
-      "The term is how long the NDA stays open for new information to be shared under it, usually one to three years. Information already shared stays protected for the survival period after the term ends.",
+      "The term is how long the NDA stays open for sharing new information, usually one to three years. Information already shared stays protected for the confidentiality period after the term ends.",
+  },
+  {
+    words: /\b(owns?|ownership) (the )?(rights?|ip|work)\b|\bownership\b|intellectual property|\bip\b|rights to/i,
+    answer:
+      "This asks whether anything the other side creates using your information (such as a design, a report or software) should belong to you. It is uncommon in an NDA, so choose No unless it matters for your deal.",
+  },
+  {
+    words: /\bpersonal data|data protection|\bpdpa\b|\bgdpr\b/i,
+    answer:
+      "Choose Yes if either side will share information about individuals, such as customer or employee details. A data protection clause is then added to the NDA.",
   },
   {
     words: /\bpurpose\b|working on together/i,
     answer:
-      "The Purpose is the reason the information is being shared, for example \"to evaluate a possible distribution partnership\". It matters because the other side may use your information only for that purpose, so a specific description protects you better than a vague one.",
+      "The purpose is the reason the information is being shared, for example “to discuss a possible distribution partnership”. The other side may use your information only for this purpose, so a specific description protects you better than a vague one.",
   },
   {
     words: /\bconfidential information\b|what (kind of )?information|information categor/i,
     answer:
-      "List the types of information you expect to share, such as pricing, customer lists, financials, product plans or source code. The NDA defines what is protected using this, so naming the real categories avoids arguments later about whether something was covered.",
+      "List the kinds of information you expect to share, such as pricing, customer lists, financial figures, product plans or source code. The NDA uses this to define what is protected, so naming the real categories helps avoid disputes later.",
+  },
+  {
+    words: /\b(party|parties|registration number|uen|address|who will sign|signatory)\b/i,
+    answer:
+      "The names of the two sides are enough. If you want more in the NDA, such as a registered address, a registration number or the person who will sign, add it in the optional box under the names. Anything missing is marked in the draft for you to fill in later.",
   },
   {
     words: /\b(poach|non[- ]?solicit|solicit|staff|employees|hire|hiring)\b/i,
     answer:
-      "FD AI’s NDA covers confidentiality only, so it does not include a non-solicitation clause (stopping the other side hiring your staff or approaching your customers). Whether such a restriction can be enforced depends on the country and the facts; if you need one, book a consultation with a Founders Doc lawyer.",
+      "FD AI’s NDA covers confidentiality only, so it does not include a non-solicitation clause (one that stops the other side hiring your staff or approaching your customers). Whether such a clause can be enforced depends on the country and the facts. If you need one, book a consultation with a Founders Doc lawyer.",
   },
   {
     words: /\bnon[- ]?compete|compet/i,
     answer:
-      "FD AI never adds a non-compete to an NDA. Restricting someone from competing is a different, heavily scrutinised kind of clause; if you need one, book a consultation with a Founders Doc lawyer.",
+      "FD AI never adds a non-compete clause to an NDA. Stopping someone from competing with you is a different kind of restriction that courts look at closely. If you need one, book a consultation with a Founders Doc lawyer.",
   },
   {
     words: /\b(governing law|jurisdiction|which law|which country|courts?)\b/i,
     answer:
-      "The NDA isn’t tied to one country. The governing-law clause is left as a blank for you to fill in: the country whose law decides what the NDA means, and whose courts would hear a dispute — usually where you are based. If you already know it, write it under “Anything else” and it will be used.",
+      "The NDA is not tied to one country. The governing-law clause is left blank for you to fill in: the country whose law applies to the NDA and whose courts would hear a dispute, usually where you are based. If you already know it, write it under “Anything else” and it will be used.",
   },
   {
     words: /\b(comprehensive|comprehensiveness|how long should|length|detail(ed)?|concise|standard|thorough|maximum)\b/i,
     answer:
-      "Comprehensiveness sets how full the first NDA is, from a short, plain version to a detailed one with fuller definitions and procedures. It changes the level of detail, not the commercial position. Standard suits most early conversations.",
+      "Comprehensiveness sets how much detail the first NDA has, from a short, plain version to the fullest one with detailed definitions and procedures. It changes the level of detail, not what is agreed. Standard suits most deals.",
   },
   {
     words: /\bskip|later|to confirm\b|don'?t know yet/i,
     answer:
-      "You can skip any question. Anything skipped comes back in the draft as [[TO CONFIRM]], so nothing is invented, and you can tap it in the list on the right to answer it later.",
+      "You can skip any question. Anything you skip is marked in the draft for you to fill in later, so nothing is made up. You can also tap the question in the list on the right to answer it at any time.",
   },
   {
     words: /\b(go back|change (my|an) answer|edit (my|an) answer|wrong answer|made a mistake)\b/i,
     answer:
-      "Tap any question in the list on the right to answer it again. Your other answers are kept, and you come back to where you were.",
+      "Tap any question in the list on the right to see it or answer it again. Your other answers are kept.",
   },
   {
     words: /\b(upload|existing (nda|document)|attach|my own (nda|document))\b/i,
     answer:
-      "At the last step you can attach an existing NDA or term sheet (Word, PDF or text). FD AI works from it and keeps your answers where they differ. You can also press + beside the message box at any time.",
+      "At the last step you can attach an existing NDA or term sheet (Word, PDF or text). FD AI uses it as a starting point and follows your answers wherever they differ. You can also press + beside the message box at any time.",
   },
   {
     words: /\b(lawyer|review|advice|legal advice|safe to sign|binding)\b/i,
     answer:
-      "FD AI prepares a first draft from the firm's playbook; it is not legal advice about your situation. Have it reviewed before you sign. If you want a Founders Doc lawyer to look at it, book a consultation from the FD Consult page.",
+      "FD AI prepares a first draft based on the firm’s playbook. It is not legal advice about your situation, so have it reviewed before you sign. If you would like a Founders Doc lawyer to look at it, book a consultation on the FD Consult page.",
   },
   {
     words: /\b(cost|price|pay|credit|free|charge)\b/i,
     answer:
-      "Each new draft uses one credit, and your balance is shown in the side panel. You are charged only when a draft is produced; if something fails, the credit is returned. Plans and top-ups are on the Billing page.",
+      "Each new draft uses one credit, and your balance is shown in the side panel. A credit is used only when a draft is produced; if something goes wrong, it is returned. Plans and top-ups are on the Billing page.",
   },
   {
     words: /\b(word|docx|download|pdf|export)\b/i,
-    answer:
-      "When the draft is ready you can edit it on screen and download it as a Word document.",
+    answer: "When the draft is ready, you can edit it on screen and download it as a Word document.",
   },
 ];
 

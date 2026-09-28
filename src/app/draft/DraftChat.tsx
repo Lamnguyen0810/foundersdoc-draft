@@ -25,10 +25,11 @@ import { stepsFor, type DocType, type Field } from "@/lib/doctypes";
 import { track } from "@/lib/track";
 import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
-import DraftReady, { DraftProgress } from "./DraftReady";
+import DraftReady from "./DraftReady";
 import { SKIPPED, fdNotes, splitNotes, stripNotes } from "@/lib/prompt";
 import { answerFor, answerLocally, isQuestion, offTopicAnswer, smallTalk } from "@/lib/draft-help";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
+import { SOURCE_EXPLANATION, explainField } from "@/lib/explain";
 
 /* ────────────────────────────────────────────────────── the catalogue */
 
@@ -1414,6 +1415,42 @@ function DraftName({
  * assume their answers are gone. They are not — see THE GUEST'S DRAFT — and
  * the block says so before they have to wonder.
  */
+/**
+ * The "i" beside a question: tap to read what it means, tap again to close.
+ * A span, not a button, because it sits inside the question's <label> and a
+ * button there would become the thing the label points at.
+ */
+function InfoTip({ text, label }: { text: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  const toggle = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen((o) => !o);
+  };
+  return (
+    <>
+      <span
+        role="button"
+        tabIndex={0}
+        className={`q-info${open ? " on" : ""}`}
+        aria-expanded={open}
+        aria-label={`What “${label}” means`}
+        title="What this means"
+        onClick={toggle}
+        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && toggle(e)}
+      >
+        i
+      </span>
+      {open && (
+        <span className="q-info-text" onClick={(e) => e.preventDefault()}>
+          {text}
+        </span>
+      )}
+    </>
+  );
+}
+
 function GuestBlock({ where }: { where: "rail" | "catalogue" }) {
   return (
     <div className={`guest-block guest-${where}`}>
@@ -2008,7 +2045,7 @@ function Chat({
         who: "fd",
         text:
           status[k] === "done"
-            ? `Here’s your answer on ${name}. Change it, or press “That’s right” to keep it — your other answers are kept.`
+            ? `Here’s your answer on ${name}. Change it, or press “Next” to keep it — your other answers are kept.`
             : status[k] === "skp"
               ? `Let’s go back to ${name}.`
               : `Let’s look at ${name}.`,
@@ -2810,9 +2847,33 @@ function Chat({
             <label key={f.key}>
               <span className="field-label">
                 {f.label}
-                {f.required && <span className="req">*</span>}
+                <InfoTip text={explainField(docType.slug, f)} label={f.label} />
               </span>
-              {f.type === "select" ? (
+              {f.key === "survival_years" ? (
+                /* A number of years, or no time limit at all. */
+                <span className="yrs">
+                  <input
+                    className="input"
+                    type="number"
+                    min={1}
+                    max={99}
+                    placeholder="Years"
+                    value={answers[f.key] === "Perpetual" || answers[f.key] === SKIPPED ? "" : (answers[f.key] ?? "")}
+                    disabled={answers[f.key] === "Perpetual"}
+                    onChange={(e) => setAnswer(f.key, e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className={`chip${answers[f.key] === "Perpetual" ? " on" : ""}`}
+                    aria-pressed={answers[f.key] === "Perpetual"}
+                    onClick={() =>
+                      setAnswer(f.key, answers[f.key] === "Perpetual" ? (f.defaultValue ?? "3") : "Perpetual")
+                    }
+                  >
+                    Perpetual
+                  </button>
+                </span>
+              ) : f.type === "select" ? (
                 <select
                   className="input"
                   value={answers[f.key] ?? ""}
@@ -2841,7 +2902,6 @@ function Chat({
                   onChange={(e) => setAnswer(f.key, e.target.value)}
                 />
               )}
-              {f.help && <span className="field-help">{f.help}</span>}
             </label>
           ))}
         </div>
@@ -2852,7 +2912,7 @@ function Chat({
             disabled={!ready(s)}
             onClick={() => commit(false)}
           >
-            {isExtra ? "Add this →" : "That’s right →"}
+            {isExtra ? "Add this →" : "Next →"}
           </button>
           {isExtra ? (
             <button type="button" className="chip" onClick={() => commit(true)}>
@@ -3021,7 +3081,13 @@ function Chat({
               <div className="m">
                 <div className="av">FD</div>
                 <div>
-                  <div className="txt">{step.question}</div>
+                  <div className="txt">
+                    {step.question}
+                    {step.kind === "chips" && step.fields[0] && (
+                      <InfoTip text={explainField(docType.slug, step.fields[0])} label={step.name} />
+                    )}
+                    {step.kind === "source" && <InfoTip text={SOURCE_EXPLANATION} label={step.name} />}
+                  </div>
                   <div className="ans">{stepAnswerUI(step)}</div>
                 </div>
               </div>
@@ -3295,13 +3361,7 @@ function Chat({
         {busy || revising || !output ? (
           <div className="dscroll">
             <div className="sheet" ref={sheetRef}>
-              {output ? (
-                sheetParagraphs
-              ) : busy ? (
-                <DraftProgress value={draftProgress} />
-              ) : (
-                <p>Nothing drafted yet.</p>
-              )}
+              {output ? sheetParagraphs : <p>{busy ? "Drafting…" : "Nothing drafted yet."}</p>}
             </div>
           </div>
         ) : (
@@ -3597,7 +3657,6 @@ function Chat({
           >
             Skip the rest and draft
           </button>
-          <small>Skipped answers become [[TO CONFIRM]] in the draft</small>
         </div>
       </section>
 

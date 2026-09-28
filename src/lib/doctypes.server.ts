@@ -59,8 +59,11 @@ const RETIRED_FIELD_KEYS = new Set(["our_client", "party_a_address", "party_b_ad
  *                  confidentiality only and never has a non-solicit.
  *   jurisdiction — "Which country's law?": the NDA is not tied to a
  *                  country; the governing law is left for the user to fill.
+ *   residuals, trade_secret_tail — "Let them use what they remember?" and
+ *                  "Protect trade secrets for ever?" (060): taken out; the
+ *                  survival period can now be Perpetual instead.
  */
-const RETIRED_NDA_KEYS = new Set(["non_solicit", "jurisdiction"]);
+const RETIRED_NDA_KEYS = new Set(["non_solicit", "jurisdiction", "residuals", "trade_secret_tail"]);
 
 /** Every retired question key for one document type — for the admin
  *  Questions editor, so it shows the form exactly as the drafting screen
@@ -99,6 +102,13 @@ function fromRow(row: DocTypeRow): DocType {
           label: "Your name or organisation name",
           placeholder: "Meridian Logistics",
         };
+      }
+      /* 060: clearer wording, before the SQL that stores it is run. */
+      if (field.key === "ip_assignment") {
+        return { ...field, label: "Do you own the rights to anything created using the information you provide?" };
+      }
+      if (field.key === "survival_years") {
+        return { ...field, label: "How long must information stay confidential after the agreement ends? (years)" };
       }
       if (field.key === "party_b") {
         return {
