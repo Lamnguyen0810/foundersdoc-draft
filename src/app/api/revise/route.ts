@@ -9,7 +9,7 @@ import {
 } from "@/lib/ai/types";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
-import { lessonsBlock, playbookBlock } from "@/lib/prompt";
+import { NDA_DECISIONS, lessonsBlock, playbookBlock } from "@/lib/prompt";
 import {
   FAIR_USE_REACHED,
   currentBalance,
@@ -96,7 +96,8 @@ RULES
 - Preserve every [[TO CONFIRM: ...]] placeholder exactly as it is, unless the instruction supplies the missing fact.
 - Never invent a name, an amount, a date, a registration number or a statutory reference. If something is missing, leave or add a [[TO CONFIRM: ...]] placeholder.
 - Do not give legal advice, opinions on merits, or an assessment of enforceability.
-- British spelling. Formal but plain English.`;
+- British spelling. Formal but plain English.
+- Never add a non-solicitation or non-compete clause to an NDA, even if the instruction asks for one; leave it out.`;
 
 export async function POST(req: NextRequest) {
   let body: {
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
       ? Number(body.currentDetailLevel)
       : 3;
   const instruction = targetDetailLevel
-    ? `${detailInstructions[targetDetailLevel]} This must be a genuine full-document rewrite, not light copy-editing. Do not invent facts or add a non-compete, indemnity, non-solicit or IP assignment unless already required by the current document.`
+    ? `${detailInstructions[targetDetailLevel]} This must be a genuine full-document rewrite, not light copy-editing. Do not invent facts, never add a non-compete or non-solicit, and do not add an indemnity or IP assignment unless already required by the current document.`
     : (body.instruction ?? "").trim();
   const text = (body.text ?? "").trim();
   if (!instruction) return Response.json({ error: "Say what to change." }, { status: 400 });
@@ -168,7 +169,7 @@ export async function POST(req: NextRequest) {
         playbook: (rules ?? []) as { title: string; text: string }[],
         lessons: ((learnt ?? []) as { rule: string }[]).map((r) => r.rule),
       } as Parameters<typeof playbookBlock>[0];
-      const blocks = [playbookBlock(stub), lessonsBlock(stub)].filter(Boolean);
+      const blocks = [playbookBlock(stub), lessonsBlock(stub), slug === "nda" ? NDA_DECISIONS : null].filter(Boolean);
       if (blocks.length > 0) system = [SYSTEM, ...blocks].join("\n\n");
     }
 

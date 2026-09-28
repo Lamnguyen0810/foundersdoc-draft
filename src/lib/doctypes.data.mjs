@@ -52,11 +52,12 @@ Background/Recitals (2-3 lettered paragraphs establishing the Permitted Purpose)
 1 Definitions (Confidential Information; Representatives; Permitted Purpose) ·
 2 Confidentiality undertakings · 3 Exceptions · 4 Compelled disclosure ·
 5 No licence, no representation, no obligation to proceed · 6 Return and destruction ·
-7 Term and survival · [Non-solicitation, only if the form requires one] ·
+7 Term and survival ·
 [Personal data, only if the form says personal data will be exchanged] ·
 [IP assignment, only if the form requires one] ·
 Remedies · General (entire agreement, variation, waiver, severance, assignment,
-third party rights, counterparts) · Governing law and jurisdiction · Signature blocks.
+third party rights, counterparts) · Governing law and jurisdiction (the country left as a
+[[TO CONFIRM: governing law]] unless the answers name one) · Signature blocks.
 
 DIRECTION
 - Mutual: every obligation is reciprocal. Use "Discloser" and "Recipient" as roles a
@@ -64,7 +65,7 @@ DIRECTION
 - One-way, we disclose: obligations run one way, but keep the standard exceptions in
   clause 3 intact. Do not remove them to strengthen our client's position.
 - One-way, we receive: keep the exceptions generous, keep the term short, and do not
-  include a non-solicit, an IP assignment or an indemnity unless the form asks for one.
+  include an IP assignment or an indemnity unless the form asks for one.
 
 HARD RULES
 - The four standard exceptions (public domain, prior possession, third-party receipt,
@@ -72,15 +73,15 @@ HARD RULES
   them anyway and raise it in DRAFTER'S NOTES.
 - Never add a non-competition clause to an NDA. If the facts appear to call for one,
   say so in DRAFTER'S NOTES; do not draft it.
-- Add a non-solicitation clause only if the form requires one, and always with carve-outs
-  for general advertisements and unsolicited approaches.
+- Never add a non-solicitation clause (staff, customers or suppliers). The NDA covers
+  confidentiality only; if the answers ask for one, leave it out and say so in DRAFTER'S NOTES.
 - Never state a liquidated damages figure unless one is supplied in the special terms.
 - Never assert that a clause is enforceable. Restraints are assessed on reasonableness;
   that is the reviewing lawyer's call, not yours.
-- Use the correct third-party-rights statute for the governing law: Contracts (Rights of
-  Third Parties) Act 2001 for Singapore, Contracts (Rights of Third Parties) Act 1999 for
-  England and Wales. If the jurisdiction is neither, write
-  [[TO CONFIRM: third party rights provision for this jurisdiction]].
+- The NDA is not tied to any one country. Do not cite a statute, regulator or local rule
+  by name; write third-party rights and any data protection clause in general terms
+  ("applicable law", "applicable data protection laws"). Leave the governing law and courts
+  as [[TO CONFIRM: governing law]] unless the answers name a country.
 - If a party's registration number or registered address is missing, insert
   [[TO CONFIRM: ...]] — never construct a plausible one.
 - Where the answers give a registration number, address or signatory for a party, reproduce
@@ -105,7 +106,7 @@ COMPREHENSIVENESS
   definitions, confidentiality procedures, representative controls, compelled-disclosure
   mechanics, return or destruction steps, remedies and general provisions where relevant.
 - Comprehensiveness changes drafting detail, not the commercial position. Never invent facts,
-  add a non-compete, indemnity, non-solicit, IP assignment or other aggressive term merely
+  add a non-compete, non-solicit, indemnity, IP assignment or other aggressive term merely
   because the user selected Comprehensive.
 - If comprehensiveness is not provided, use Balanced. Length is not a measure of protection.`;
 
@@ -195,20 +196,6 @@ export const NDA_DATA = {
       group: "Terms",
     },
     {
-      key: "non_solicit",
-      label: "Stop them poaching your staff?",
-      type: "select",
-      options: [
-        "None",
-        "Employees only, 12 months",
-        "Employees only, 24 months",
-      ],
-      required: true,
-      defaultValue: "None",
-      help: "The most common cause of counterparty push-back. Explicit choice, so the model never adds one on its own.",
-      group: "Terms",
-    },
-    {
       key: "ip_assignment",
       label: "You own anything they create from your info?",
       type: "select",
@@ -225,14 +212,6 @@ export const NDA_DATA = {
       required: true,
       defaultValue: "No",
       help: "Yes adds a data protection clause.",
-      group: "Terms",
-    },
-    {
-      key: "jurisdiction",
-      label: "Which country's law?",
-      type: "text",
-      required: true,
-      defaultValue: "Singapore",
       group: "Terms",
     },
     {

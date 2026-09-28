@@ -3228,6 +3228,13 @@ html[data-theme=dark]{
 .gd-scale span.on b{color:var(--tx);font-weight:700}
 .gd-scale span.on em{color:var(--tx);font-weight:600}
 
+/* What the chosen level is for, updated as the slider moves. */
+.gd-guide{margin:13px 0 0;padding:10px 14px;border-radius:10px;background:var(--bg-2);border-left:3px solid var(--gold,#f3bf4b);display:grid;gap:4px}
+.gd-guide p{margin:0;font-size:13px;line-height:1.5;color:var(--tx-2)}
+.gd-guide p b{color:var(--tx);font-weight:600}
+.gd-guide small{font-size:11.5px;color:var(--tx-3)}
+.gd-flat .gd-guide{margin-top:8px;padding:7px 11px}
+.gd-flat .gd-guide p{font-size:12px}
 .gd-length{
   display:inline-block;margin:13px 0 0;padding:7px 14px;
   border-radius:9px;background:var(--bg-2);
