@@ -53,10 +53,20 @@ interface DocTypeRow {
  */
 const RETIRED_FIELD_KEYS = new Set(["our_client", "party_a_address", "party_b_address", "party_details"]);
 
+/**
+ * Retired from the NDA only (054), by the firm's decision:
+ *   non_solicit  — "Stop them poaching your staff?": the NDA covers
+ *                  confidentiality only and never has a non-solicit.
+ *   jurisdiction — "Which country's law?": the NDA is not tied to a
+ *                  country; the governing law is left for the user to fill.
+ */
+const RETIRED_NDA_KEYS = new Set(["non_solicit", "jurisdiction"]);
+
 function fromRow(row: DocTypeRow): DocType {
   const rowExamples = row.examples ?? [];
   const fields = (row.fields ?? [])
     .filter((f) => !RETIRED_FIELD_KEYS.has(f.key))
+    .filter((f) => row.slug !== "nda" || !RETIRED_NDA_KEYS.has(f.key))
     .map((field) => {
       if (row.slug !== "nda") return field;
       if (field.key === "party_a") {
@@ -105,9 +115,12 @@ function fromRow(row: DocTypeRow): DocType {
      form down; anything unreadable simply falls back to first-appearance
      order, exactly as before. */
   const groups = Array.isArray(row.groups)
-    ? row.groups.filter(
-        (g): g is Group => Boolean(g) && typeof g.name === "string" && g.name.trim().length > 0,
-      )
+    ? row.groups
+        .filter((g): g is Group => Boolean(g) && typeof g.name === "string" && g.name.trim().length > 0)
+        /* The NDA is no longer tied to Singapore (054). */
+        .map((g) =>
+          typeof g.question === "string" ? { ...g, question: g.question.replace("sensible Singapore defaults", "sensible defaults") } : g,
+        )
     : [];
 
   return {

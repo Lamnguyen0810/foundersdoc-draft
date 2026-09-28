@@ -118,9 +118,9 @@ const GLOSSARY: Entry[] = [
       "List the types of information you expect to share, such as pricing, customer lists, financials, product plans or source code. The NDA defines what is protected using this, so naming the real categories avoids arguments later about whether something was covered.",
   },
   {
-    words: /\b(poach|non[- ]?solicit|solicit|staff|employees)\b/i,
+    words: /\b(poach|non[- ]?solicit|solicit|staff|employees|hire|hiring)\b/i,
     answer:
-      "A non-solicitation clause stops the other side from recruiting your employees for a set time, often 12 months. It is optional and goes beyond confidentiality, so include it only if you are worried about losing staff through the relationship.",
+      "FD AI’s NDA covers confidentiality only, so it does not include a non-solicitation clause (stopping the other side hiring your staff or approaching your customers). Whether such a restriction can be enforced depends on the country and the facts; if you need one, book a consultation with a Founders Doc lawyer.",
   },
   {
     words: /\bnon[- ]?compete|compet/i,
@@ -128,9 +128,9 @@ const GLOSSARY: Entry[] = [
       "FD AI never adds a non-compete to an NDA. Restricting someone from competing is a different, heavily scrutinised kind of clause; if you need one, book a consultation with a Founders Doc lawyer.",
   },
   {
-    words: /\b(governing law|jurisdiction|which law|courts?)\b/i,
+    words: /\b(governing law|jurisdiction|which law|which country|courts?)\b/i,
     answer:
-      "Governing law is the country whose law decides what the NDA means; the courts named are where a dispute would be heard. Pick the place where you are based or where the other side can most easily be held to account.",
+      "The NDA isn’t tied to one country. The governing-law clause is left as a blank for you to fill in: the country whose law decides what the NDA means, and whose courts would hear a dispute — usually where you are based. If you already know it, write it under “Anything else” and it will be used.",
   },
   {
     words: /\b(comprehensive|comprehensiveness|how long should|length|detail(ed)?|concise|standard|thorough|maximum)\b/i,

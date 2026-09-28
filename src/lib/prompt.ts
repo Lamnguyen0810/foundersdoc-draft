@@ -186,6 +186,35 @@ export const NOTES_INSTRUCTION = [
 ].join("\n");
 
 /**
+ * Two decisions the firm has made about every NDA, stated after the
+ * playbook, the lessons and the worked examples so that none of them can
+ * bring either back (the master NDA had a non-solicit; the prompt stored in
+ * the database still names Singapore statutes).
+ */
+export const NDA_DECISIONS = [
+  "FIRM DECISIONS FOR EVERY NDA",
+  "These override the task above, the playbook, the lessons and the worked examples.",
+  "- No non-solicitation clause. The NDA covers confidentiality only. Never include a",
+  "  clause restricting either party from soliciting, hiring or poaching the other's",
+  "  staff, customers or suppliers — even where the playbook, the master NDA or a worked",
+  "  example has one, and even if the answers ask for one. If they do, leave it out and",
+  "  add one note: the request was left out | Question: Anything else | What to put: speak",
+  "  to a Founders Doc lawyer about a separate agreement. Never a non-compete either.",
+  "- Not tied to any country. The form does not ask for a governing law. Write the",
+  "  governing-law and jurisdiction clause in general terms with the country as a gap",
+  "  (marked as gaps are marked elsewhere in this prompt): the Agreement is governed by",
+  "  the laws of [gap] and the Parties submit to the exclusive jurisdiction of the courts",
+  "  of [gap]. If the answers (for example \"Anything else\") name a country, use it",
+  "  instead. When it is a gap, add one note: the governing law is not chosen | Question:",
+  "  Not on the form | What to put: the country whose law applies and whose courts hear",
+  "  disputes, e.g. Singapore.",
+  "- Nothing else country-specific: do not cite a statute, regulator or local rule by",
+  "  name (for example a Contracts (Rights of Third Parties) Act or a data protection act).",
+  "  Write the third-party-rights clause and any data protection clause in general terms:",
+  "  \"applicable law\", \"applicable data protection laws\".",
+].join("\n");
+
+/**
  * The signature blocks. The precedents sign with "Signed by ____ for and on
  * behalf of X ____ [Director / Authorised signatory] Name: Title:", which
  * asks for the signatory twice. The firm asked for one short block per party.
@@ -237,6 +266,7 @@ export function buildSystem(docType: DocType, style: DraftingStyle = "standard_l
     ...(register ? ["", register] : []),
     ...(playbook ? ["", playbook] : []),
     ...(lessons ? ["", lessons] : []),
+    ...(docType.slug === "nda" ? ["", NDA_DECISIONS] : []),
     "",
     EXECUTION_INSTRUCTION,
     "",

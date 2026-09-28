@@ -25,6 +25,16 @@ export const DETAIL_LENGTHS = [
   "about 1,500–2,200 words",
 ] as const;
 
+/** What each level is for, in a line — shown under the slider as it moves,
+ *  so the choice is made on what the NDA will contain, not on a number. */
+export const DETAIL_GUIDE = [
+  "The essentials only: what is confidential, the standard exceptions and how long it lasts. For a quick, low-risk first conversation.",
+  "A short, plain NDA with the usual practical protections. Suits most early-stage chats.",
+  "The firm’s standard NDA: full definitions, handling rules and general clauses. Right for most deals.",
+  "Adds fuller rules on who may see the information, forced disclosure and returning it. For sensitive information.",
+  "Every protection spelt out in full. For highly sensitive information, or when the other side has its own lawyers.",
+] as const;
+
 export type DetailLevel = 1 | 2 | 3 | 4 | 5;
 
 /** Anything at all, clamped to a level that exists. */
@@ -66,9 +76,9 @@ export default function DetailSlider({
           Comprehensiveness
           <i
             className="gd-info"
-            title={`Level ${level} of 5 — ${DETAIL_LABELS[level - 1]}. ${
+            title={`How much detail the NDA is written with. Level ${level} of 5 — ${DETAIL_LABELS[level - 1]}, ${
               DETAIL_LENGTHS[level - 1]
-            }. Changes drafting detail, never the commercial position.`}
+            }. ${DETAIL_GUIDE[level - 1]} It never changes what is agreed.`}
             aria-hidden="true"
           >
             i
@@ -115,7 +125,17 @@ export default function DetailSlider({
         ))}
       </div>
 
-      {!flat && <p className="gd-length">{DETAIL_LENGTHS[level - 1]}</p>}
+      <div className="gd-guide" aria-live="polite">
+        <p>
+          <b>
+            {DETAIL_LABELS[level - 1]}
+            {level === 3 ? " (recommended)" : ""}
+            {!flat ? ` · ${DETAIL_LENGTHS[level - 1]}` : ""}
+          </b>{" "}
+          {DETAIL_GUIDE[level - 1]}
+        </p>
+        {!flat && <small>This changes how much detail is written, never what is agreed.</small>}
+      </div>
     </div>
   );
 }
