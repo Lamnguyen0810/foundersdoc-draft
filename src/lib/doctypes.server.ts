@@ -44,11 +44,14 @@ interface DocTypeRow {
  *
  *   our_client       — which side we act for is implied by the answers.
  *   party_*_address — the streamlined parties step asks for names only.
+ *   party_details   — "Party details required in your jurisdiction": unclear,
+ *                     and the form is not tied to a set of jurisdictions; the
+ *                     names are the party details (053 removes it for good).
  *
  * Party-name labels are also normalised below so older Supabase field JSON
  * cannot bring back the former UEN wording.
  */
-const RETIRED_FIELD_KEYS = new Set(["our_client", "party_a_address", "party_b_address"]);
+const RETIRED_FIELD_KEYS = new Set(["our_client", "party_a_address", "party_b_address", "party_details"]);
 
 function fromRow(row: DocTypeRow): DocType {
   const rowExamples = row.examples ?? [];
