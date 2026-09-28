@@ -329,3 +329,76 @@ html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 .fdadmin .review-letter .doc-subclause { margin-left: 3em; }
 .fdadmin .review-letter .placeholder::before { content: "________"; text-decoration: underline; }
 .fdadmin .review-open textarea { width: 100%; font: inherit; font-size: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; }
+
+/* ── Blog (055): write an article onto the website ──────────────────────── */
+.fdadmin .blog-admin { display: grid; gap: 18px; }
+.fdadmin .blog-notice { padding: 12px 16px; border-radius: 12px; font-size: 13px; border: 1px solid var(--line); background: #fff; }
+.fdadmin .blog-notice.ok { border-color: #D8EBDD; background: #EDF8F2; color: var(--success); }
+.fdadmin .blog-notice.bad { border-color: #F0CBC8; background: #FFF1F0; color: var(--danger); }
+.fdadmin .blog-notice a { color: var(--ink); font-weight: 600; text-decoration: underline; }
+.fdadmin .blog-row-title { display: flex; align-items: center; gap: 12px; }
+.fdadmin .blog-row-title img, .fdadmin .blog-thumb-empty { width: 64px; height: 36px; border-radius: 6px; object-fit: cover; flex: none; background: var(--fd-yellow-soft); }
+.fdadmin .blog-row-title span { display: grid; gap: 2px; }
+.fdadmin .blog-row-title small { color: var(--muted); font-size: 11px; }
+.fdadmin .blog-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.fdadmin .link-btn.danger { color: var(--danger); }
+.fdadmin .blog-steps { display: grid; gap: 0; }
+.fdadmin .blog-step { padding: 18px 20px 22px; border-top: 1px solid var(--line); }
+.fdadmin .blog-step h3 { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; font-size: 14px; color: var(--ink); }
+.fdadmin .blog-step h3 span { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--fd-yellow); color: var(--ink); font-size: 12px; }
+.fdadmin .blog-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; margin-top: 14px; }
+.fdadmin .blog-fields label { display: grid; gap: 4px; }
+.fdadmin .blog-fields .blog-wide { grid-column: 1 / -1; }
+.fdadmin .blog-fields .input { width: 100%; }
+.fdadmin .blog-slug { display: flex; align-items: center; gap: 6px; }
+.fdadmin .blog-slug span { color: var(--muted); font-size: 13px; }
+.fdadmin .blog-err { color: var(--danger); font-size: 11.5px; }
+.fdadmin .blog-help { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+.fdadmin .blog-photo { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.fdadmin .blog-photo img, .fdadmin .blog-photo-empty { width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; object-fit: cover; border: 1px solid var(--line); }
+.fdadmin .blog-photo-empty { display: grid; place-items: center; padding: 16px; text-align: center; font-size: 12px; color: var(--muted); background: var(--fd-yellow-wash); }
+.fdadmin .blog-photo-side { display: grid; gap: 10px; justify-items: start; }
+.fdadmin .blog-photo-side label { display: grid; gap: 4px; width: 100%; }
+.fdadmin .blog-photo-side .input { width: 100%; }
+.fdadmin .blog-linkbar { position: sticky; top: 8px; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 12px; background: var(--soft-2); }
+.fdadmin .blog-linkbar.on { border: 1px solid #D4B24B; background: var(--fd-yellow-wash); box-shadow: var(--shadow); }
+.fdadmin .blog-linkbar select, .fdadmin .blog-linkbar .input { height: 36px; font-size: 12.5px; }
+.fdadmin .blog-linkbar .btn { height: 36px; }
+.fdadmin .blog-sel { font-size: 13px; color: var(--muted); margin-right: 4px; }
+.fdadmin .blog-linkbar.on .blog-sel { color: var(--ink); }
+.fdadmin .blog-links { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.fdadmin .blog-links li { display: inline-flex; align-items: center; gap: 6px; padding: 6px 6px 6px 12px; border-radius: 999px; border: 1px solid #EAD9A0; background: var(--fd-yellow-soft); font-size: 12px; }
+.fdadmin .blog-links li.missing { border-color: #F0CBC8; background: #FFF1F0; }
+.fdadmin .blog-links small { color: var(--muted); }
+.fdadmin .blog-links button { width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.07); font-size: 14px; line-height: 1; }
+.fdadmin .blog-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--muted); }
+.fdadmin .blog-suggest button { padding: 5px 10px; border-radius: 999px; border: 1px dashed #D4B24B; background: #fff; font-size: 12px; color: var(--ink); }
+.fdadmin .blog-preview-wrap { margin-top: 16px; border: 1px solid var(--line); border-radius: 14px; background: #fff; max-height: 720px; overflow: auto; }
+.fdadmin .blog-preview-head { padding: 26px 34px 0; max-width: 760px; margin: 0 auto; }
+.fdadmin .blog-preview-head img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px; margin-bottom: 18px; }
+.fdadmin .blog-preview-head h1 { margin: 0; font-size: 28px; line-height: 1.2; color: var(--ink); letter-spacing: -0.02em; }
+.fdadmin .blog-preview-head .deck { margin: 10px 0 0; font-size: 16px; color: var(--muted); }
+.fdadmin .blog-preview { padding: 10px 34px 34px; max-width: 760px; margin: 0 auto; font-size: 16px; line-height: 1.7; color: #1c1c1c; cursor: text; }
+.fdadmin .blog-preview h2 { font-size: 22px; margin: 28px 0 8px; color: var(--ink); }
+.fdadmin .blog-preview h3 { font-size: 18px; margin: 22px 0 6px; color: var(--ink); }
+.fdadmin .blog-preview p { margin: 0 0 14px; }
+.fdadmin .blog-preview ul, .fdadmin .blog-preview ol { margin: 0 0 14px; padding-left: 22px; }
+.fdadmin .blog-preview ul { list-style: disc; }
+.fdadmin .blog-preview ol { list-style: decimal; }
+.fdadmin .blog-preview li { margin: 0 0 6px; }
+.fdadmin .blog-preview table { border-collapse: collapse; margin: 0 0 16px; font-size: 14px; }
+.fdadmin .blog-preview th, .fdadmin .blog-preview td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; }
+.fdadmin .blog-preview blockquote { margin: 0 0 14px; padding-left: 14px; border-left: 3px solid var(--fd-yellow); color: var(--muted); }
+/* Linked words as on the website: yellow text, dark underline. */
+.fdadmin .blog-preview a { color: #B8860B; font-weight: 600; text-decoration: underline; text-decoration-color: #111; text-underline-offset: 3px; cursor: default; }
+.fdadmin .blog-preview ::selection { background: #FFE08A; }
+@media (max-width: 900px) {
+  .fdadmin .blog-fields { grid-template-columns: 1fr; }
+  .fdadmin .blog-photo { grid-template-columns: 1fr; }
+}
+
+/* ── Rules FD AI always applies (Questions, NDA) ────────────────────────── */
+.fdadmin .fixed-rules { margin: 0 14px 14px; padding: 14px 16px; border: 1px solid #EAD9A0; border-left: 3px solid var(--fd-yellow); border-radius: 12px; background: var(--fd-yellow-wash); font-size: 12.5px; }
+.fdadmin .fixed-rules h3 { margin: 0 0 6px; font-size: 13px; color: var(--ink); }
+.fdadmin .fixed-rules p { margin: 0 0 8px; color: var(--muted); }
+.fdadmin .fixed-rules ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; color: var(--text); }

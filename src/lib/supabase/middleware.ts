@@ -32,6 +32,9 @@ const PUBLIC_PATHS = [
   // Feedback typed in Slack arrives from Zapier with a shared secret, which
   // the route and the database both check. No browser, no session.
   "/api/feedback/slack",
+  // The published blog posts, for the cards on the public blog page (055).
+  // Read-only, and row-level security returns published rows only.
+  "/api/blog",
 ];
 
 /** The static marketing pages, served from `public/` (see next.config.ts). */

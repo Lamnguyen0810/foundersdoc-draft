@@ -62,6 +62,18 @@ const RETIRED_FIELD_KEYS = new Set(["our_client", "party_a_address", "party_b_ad
  */
 const RETIRED_NDA_KEYS = new Set(["non_solicit", "jurisdiction"]);
 
+/** Every retired question key for one document type — for the admin
+ *  Questions editor, so it shows the form exactly as the drafting screen
+ *  asks it. */
+export function retiredFieldKeys(slug: string): Set<string> {
+  return new Set([...RETIRED_FIELD_KEYS, ...(slug === "nda" ? RETIRED_NDA_KEYS : [])]);
+}
+
+/** A step's wording as the drafting screen shows it (054). */
+export function tidyStepQuestion(q: string): string {
+  return typeof q === "string" ? q.replace("sensible Singapore defaults", "sensible defaults") : q;
+}
+
 function fromRow(row: DocTypeRow): DocType {
   const rowExamples = row.examples ?? [];
   const fields = (row.fields ?? [])
@@ -118,9 +130,7 @@ function fromRow(row: DocTypeRow): DocType {
     ? row.groups
         .filter((g): g is Group => Boolean(g) && typeof g.name === "string" && g.name.trim().length > 0)
         /* The NDA is no longer tied to Singapore (054). */
-        .map((g) =>
-          typeof g.question === "string" ? { ...g, question: g.question.replace("sensible Singapore defaults", "sensible defaults") } : g,
-        )
+        .map((g) => ({ ...g, question: tidyStepQuestion(g.question) }))
     : [];
 
   return {

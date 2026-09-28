@@ -352,6 +352,21 @@ export default function Questions({
         )}
       </div>
 
+      {slug === "nda" && (
+        <div className="fixed-rules">
+          <h3>Rules FD AI always applies to NDAs</h3>
+          <p>Set in the code by the firm’s decisions. They win over the playbook, the samples and anything a user types.</p>
+          <ul>
+            <li>No non-solicitation clause (staff, customers or suppliers) and no non-compete — the NDA covers confidentiality only.</li>
+            <li>Not tied to a country: the governing law and courts are left blank for the user to fill in, unless they name a country under “Anything else”. No statute or regulator is named.</li>
+            <li>Party names only — no “party details required in your jurisdiction”.</li>
+            <li>One short signature block per party: Signature, Name, Title, Date.</li>
+            <li>Every gap comes with a reminder: what is missing, which question it belongs to and what to put.</li>
+            <li>The four standard exceptions are always included.</li>
+          </ul>
+        </div>
+      )}
+
       {notice && (
         <p className="empty" role="status" style={{ textAlign: "left", padding: "0 14px 10px", color: notice.tone === "ok" ? "var(--success)" : "var(--danger)" }}>
           {notice.text}
