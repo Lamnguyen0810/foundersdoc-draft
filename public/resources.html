@@ -1545,6 +1545,9 @@
           emptyMsg = document.getElementById("empty"),
           activeCat = "all";
         function applyFilters() {
+          /* Read afresh each time: cards for articles published from the admin
+             console arrive after the page has loaded (see the end of the page). */
+          articles = Array.prototype.slice.call(document.querySelectorAll("[data-cat]"));
           var q = search && search.value ? search.value.trim().toLowerCase() : "", shown = 0, shownCards = 0;
           articles.forEach(function (a) {
             var okCat = activeCat === "all" || a.getAttribute("data-cat") === activeCat,
@@ -1579,6 +1582,7 @@
         });
         if (search) search.addEventListener("input", applyFilters);
         applyFilters();
+        window.fdApplyFilters = applyFilters;
         Array.prototype.forEach.call(document.querySelectorAll(".topics button"), function (t) {
           t.addEventListener("click", function () {
             var c = document.querySelector('.cat[data-filter="' + t.getAttribute("data-topic") + '"]');
@@ -1643,6 +1647,63 @@
             form.reset();
           });
         }
+      })();
+    </script>
+    <script>
+      /* Articles published from the admin console (Admin → Blog). They live in
+         the database, not in this file, so their cards are added here: newest
+         first, before the articles written into the page. */
+      (function () {
+        var grid = document.querySelector(".insights-grid");
+        if (!grid || !window.fetch) return;
+        fetch("/api/blog", { headers: { accept: "application/json" } })
+          .then(function (r) { return r.ok ? r.json() : { posts: [] }; })
+          .then(function (data) {
+            var posts = (data && data.posts) || [];
+            var have = {};
+            Array.prototype.forEach.call(grid.querySelectorAll("a[href]"), function (a) {
+              have[a.getAttribute("href").replace(/\/$/, "")] = true;
+            });
+            var first = grid.firstElementChild;
+            posts.forEach(function (p) {
+              if (have[p.href.replace(/\/$/, "")]) return;
+              var a = document.createElement("a");
+              a.className = "m-card";
+              a.setAttribute("data-cat", p.category);
+              a.href = p.href;
+              var thumb = document.createElement("span");
+              thumb.className = "thumb";
+              if (p.hero_url) {
+                var img = document.createElement("img");
+                img.alt = p.hero_alt || "";
+                img.loading = "lazy";
+                img.src = p.hero_url;
+                thumb.appendChild(img);
+              }
+              var eb = document.createElement("span");
+              eb.className = "eyebrow";
+              eb.textContent = p.categoryLabel;
+              var h = document.createElement("h3");
+              h.textContent = p.title;
+              var foot = document.createElement("span");
+              foot.className = "foot-row";
+              var meta = document.createElement("span");
+              meta.textContent = p.date + " \u00b7 " + p.read_minutes + " min read";
+              var arr = document.createElement("span");
+              arr.className = "arr";
+              arr.setAttribute("aria-hidden", "true");
+              arr.textContent = "\u2192";
+              foot.appendChild(meta);
+              foot.appendChild(arr);
+              a.appendChild(thumb);
+              a.appendChild(eb);
+              a.appendChild(h);
+              a.appendChild(foot);
+              grid.insertBefore(a, first);
+            });
+            if (posts.length && window.fdApplyFilters) window.fdApplyFilters();
+          })
+          .catch(function () {});
       })();
     </script>
   </body>

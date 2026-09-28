@@ -2,7 +2,9 @@ import type React from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
-import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
+import BlogAdmin, { type BlogRow } from "./BlogAdmin";
+import { retiredFieldKeys, tidyStepQuestion } from "@/lib/doctypes.server";
 import CreditsPanel, { type Action } from "./CreditsPanel";
 import { ago, day, fmt, stamp } from "./parts";
 import FilterSelect from "./FilterSelect";
@@ -53,7 +55,7 @@ import { nameFallback } from "@/lib/draft-name";
 export const metadata = { title: "Admin — FDAI" };
 export const dynamic = "force-dynamic";
 
-type Tab = "overview" | "weekly-report" | "documents" | "users" | "credits" | "ai-files" | "review" | "logs";
+type Tab = "overview" | "weekly-report" | "documents" | "users" | "credits" | "ai-files" | "blog" | "review" | "logs";
 
 /* The design's six sections, in its order. Overview and Logs are in the
    sidebar because the design has them there; their panels say plainly that
@@ -68,6 +70,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "users", label: "Users" },
   { id: "credits", label: "Credits & plans" },
   { id: "ai-files", label: "AI files" },
+  /* Articles written here go live on the blog without a deploy (055). */
+  { id: "blog", label: "Blog" },
   /* Stopped term sheets. Rarely used now that 🟡 points go to the user's own
      lawyer, so it lives on its own tab rather than in the AI files flow. */
   { id: "review", label: "Review queue" },
@@ -445,15 +449,25 @@ export default async function AdminPage({
         slug: string; label: string; fields: FieldRow[] | null; groups?: GroupRow[] | null;
         draft?: { fields?: FieldRow[]; groups?: GroupRow[] } | null; draft_saved_at?: string | null; published_at?: string | null;
       }[]
-    ).map((d) => ({
+    ).map((d) => {
+      /* The editor shows the form as the drafting screen asks it: questions
+         the code has retired (party details, poaching, country — 053/054)
+         are left out even before the SQL that deletes them has been run,
+         and would not be published back. */
+      const retired = retiredFieldKeys(d.slug);
+      const live = (f: FieldRow) => !retired.has(f.key);
+      const tidy = (g: GroupRow[] | null | undefined) =>
+        g ? g.map((x) => ({ ...x, question: tidyStepQuestion(x.question) })) : null;
+      return {
       slug: d.slug,
       label: d.label,
-      fields: d.fields ?? [],
-      groups: d.groups ?? null,
-      draft: d.draft && Array.isArray(d.draft.fields) ? { fields: d.draft.fields, groups: d.draft.groups ?? null } : null,
+      fields: (d.fields ?? []).filter(live),
+      groups: tidy(d.groups),
+      draft: d.draft && Array.isArray(d.draft.fields) ? { fields: d.draft.fields.filter(live), groups: tidy(d.draft.groups) } : null,
       draftSavedAt: d.draft_saved_at ?? null,
       publishedAt: d.published_at ?? null,
-    }));
+      };
+    });
 
     /* ── THE PLAYBOOK, FOR THE FIRST DOCUMENT TYPE ─────────────────────────
        Read here so the panel opens filled. Other scopes are fetched when
@@ -481,6 +495,14 @@ export default async function AdminPage({
       lessons: (ls.data as FeedbackInitial["lessons"] | null) ?? [],
       missing: Boolean(fb.error && /draft_feedback/.test(fb.error.message)),
     };
+  }
+  /* ── Blog: articles written here (055) ─────────────────────────────── */
+  let blogPosts: BlogRow[] = [];
+  let blogMissing = false;
+  if (tab === "blog") {
+    const res = await supabase.from("blog_posts").select("*").order("updated_at", { ascending: false }).limit(200);
+    blogMissing = Boolean(res.error && /blog_posts/.test(res.error.message));
+    blogPosts = (res.data as BlogRow[] | null) ?? [];
   }
   if (tab === "review") {
     /* Term sheets the playbook stopped (048). */
@@ -780,7 +802,7 @@ export default async function AdminPage({
             <h1>Admin Dashboard</h1>
           </div>
           <div className="hero-actions">
-            <div className={tab === "ai-files" || tab === "review" || tab === "weekly-report" ? "period-group is-hidden" : "period-group"}>
+            <div className={tab === "ai-files" || tab === "blog" || tab === "review" || tab === "weekly-report" ? "period-group is-hidden" : "period-group"}>
               <span className="period-label">Period</span>
               <PeriodSelect tab={tab} days={days} q={q} ranges={RANGES} />
               <Link className="btn refresh-btn" href={tabHref(tab, days, q)}>
@@ -1568,6 +1590,10 @@ export default async function AdminPage({
             )}
 
             {tab === "review" && <Review initial={reviewInitial} />}
+
+            {tab === "blog" && (
+              <BlogAdmin posts={blogPosts} missing={blogMissing} supabaseUrl={supabaseUrl()} supabaseKey={supabasePublishableKey()} />
+            )}
 
             {tab === "ai-files" && (
               <>
