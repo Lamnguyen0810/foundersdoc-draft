@@ -32,7 +32,7 @@ import type { RecentDraft } from "./history";
 import { SKIPPED, fdNotes, splitNotes, stripNotes } from "@/lib/prompt";
 import { answerFor, answerLocally, isQuestion, offTopicAnswer, smallTalk } from "@/lib/draft-help";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
-import { SOURCE_EXPLANATION, explainField } from "@/lib/explain";
+import { PERPETUAL, SKIP_LABEL, SOURCE_ATTACH, SOURCE_EXPLANATION, SOURCE_FRESH, explainField } from "@/lib/explain";
 
 /* ────────────────────────────────────────────────────── the catalogue */
 
@@ -1393,7 +1393,7 @@ function GuestBlock({ where }: { where: "rail" | "catalogue" }) {
     <div className={`guest-block guest-${where}`}>
       <b>No account needed to start</b>
       <p>
-        Answer the questions now. Create a free account when you press Generate — your
+        Answer the questions now. Create a free account when you press “Generate draft” — your
         answers come with you.
       </p>
       <div className="guest-actions">
@@ -2544,6 +2544,8 @@ function Chat({
           includeNotes: false,
           docTypeSlug: docType.slug,
           draftId,
+          layout: look.layout,
+          look,
         }),
       });
       if (!res.ok) {
@@ -2732,7 +2734,7 @@ function Chat({
           </div>
           <div className="chips">
             <button type="button" className="chip later" onClick={() => commit(true)}>
-              Skip for now
+              {SKIP_LABEL}
             </button>
             {i > 0 && (
               <button type="button" className="chip early" onClick={draftWithWhatIHave}>
@@ -2753,13 +2755,13 @@ function Chat({
             onClick={() => fileRef.current?.click()}
             disabled={uploading}
           >
-            {uploading ? "Reading…" : "➕ Attach a document"}
+            {uploading ? "Reading…" : `➕ ${SOURCE_ATTACH}`}
           </button>
           <button type="button" className="chip" onClick={() => commit(false)}>
-            No — start fresh
+            {SOURCE_FRESH}
           </button>
           <button type="button" className="chip later" onClick={() => commit(true)}>
-            Skip for now
+            {SKIP_LABEL}
           </button>
         </div>
       );
@@ -2796,7 +2798,7 @@ function Chat({
                       setAnswer(f.key, answers[f.key] === "Perpetual" ? (f.defaultValue ?? "3") : "Perpetual")
                     }
                   >
-                    Perpetual
+                    {PERPETUAL}
                   </button>
                 </span>
               ) : f.type === "select" ? (
@@ -2846,7 +2848,7 @@ function Chat({
             </button>
           ) : (
             <button type="button" className="chip later" onClick={() => commit(true)}>
-              Skip for now
+              {SKIP_LABEL}
             </button>
           )}
           {i > 0 && (
@@ -3295,6 +3297,7 @@ function Chat({
             key={`${draftId ?? "unsaved"}:v${documentVersion}`}
             text={documentBody}
             look={look}
+            layout={look.layout}
             savedHtml={savedHtml}
             onContentChange={captureEditorContent}
             onSave={saveDocument}

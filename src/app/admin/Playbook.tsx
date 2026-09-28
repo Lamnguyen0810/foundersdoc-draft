@@ -233,9 +233,10 @@ export default function Playbook({
           </div>
           <p className="playbook-look">
             Page set in <b>{look.font} {look.sizePt}pt</b>, title {look.titlePt}pt, {look.justify ? "justified" : "left-aligned"},
-            line spacing {look.lineSpacing}, {look.spaceAfterPt}pt after paragraphs, headings {look.headingBeforePt}/{look.headingAfterPt}pt
+            line spacing {look.lineSpacing}, {look.spaceAfterPt}pt after paragraphs, headings {look.headingBeforePt}/{look.headingAfterPt}pt,{" "}
+            {look.layout === "formal" ? "formal layout (hung numbers, signatures side by side)" : "letter layout"}
             {look.source === "playbook"
-              ? " — read from this playbook (a house_style block with font, body_size_pt, title_size_pt, line_spacing, space_after_pt, heading_space_before_pt, heading_space_after_pt, alignment_body — or the same in prose)."
+              ? " — read from this playbook (a house_style block with layout, font, body_size_pt, title_size_pt, line_spacing, space_after_pt, heading_space_before_pt, heading_space_after_pt, alignment_body — or the same in prose)."
               : " — the defaults. State them in the playbook to change them; the firm-wide playbook is read when this one says nothing."}
           </p>
           {file ? (

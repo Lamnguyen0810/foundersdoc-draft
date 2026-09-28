@@ -62,6 +62,12 @@ export interface DocumentLook {
   spaceAfterPt: number;
   headingBeforePt: number;
   headingAfterPt: number;
+  /** How the document is set out. "formal": the firm's contract layout —
+   *  numbers hung in a half-inch column, headings underlined, signature
+   *  blocks side by side, one-inch margins.
+   *  "letter": the plain layout the term sheet was designed in. Set by a
+   *  playbook line `layout: formal`. */
+  layout: "formal" | "letter";
   /** Where the choice came from, for the panel to say so. */
   source: "playbook" | "default";
 }
@@ -75,6 +81,7 @@ export const DEFAULT_LOOK: DocumentLook = {
   spaceAfterPt: 8,
   headingBeforePt: 12,
   headingAfterPt: 2,
+  layout: "letter",
   source: "default",
 };
 
@@ -185,11 +192,14 @@ export function documentLook(texts: (string | null | undefined)[]): DocumentLook
     const ha = num(/\bheading_space_after_pt\s*[:=]\s*(\d{1,2})/i, raw) ?? num(/\bheadings take[^\n]{0,40}?and\s*\**\s*(\d{1,2})\s*pt after/i, raw);
     if (ha !== null && look.source === "default") look.headingAfterPt = Math.min(36, ha);
 
+    const lay = /\blayout\s*[:=]\s*(formal|letter)\b/i.exec(raw);
+    if (lay && look.source === "default") look.layout = lay[1].toLowerCase() as DocumentLook["layout"];
+
     if (/\balignment_body\s*[:=]\s*justif/i.test(raw) || /\bbody text is\s*\**\s*justified/i.test(raw)) {
       if (look.source === "default") look.justify = true;
     }
 
-    if (found || body !== null) {
+    if (found || body !== null || lay) {
       look.source = "playbook";
     }
   }

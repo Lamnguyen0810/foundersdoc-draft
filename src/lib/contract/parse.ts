@@ -33,6 +33,8 @@ export type BlockKind =
   | "sign-head"
   /** "Signature:", "Name:", "Title:", "Date:" — the lines beneath it. */
   | "sign"
+  /** Signature blocks side by side: one row, up to two parties (pairSignatures). */
+  | "sign-row"
   | "plain";
 
 export interface Block {
@@ -43,6 +45,12 @@ export interface Block {
   text: string;
   /** Sub-clauses only: how deep the number sits — (a) 1, (ii) 2, (A) 3. */
   level?: 1 | 2 | 3;
+  /** A plain paragraph inside the numbered clauses — the words that carry on
+   *  a clause after its list ("and in both instances, …"). Set in line with
+   *  the clause's text rather than at the margin. */
+  cont?: boolean;
+  /** "sign-row" only: each party's lines, left then right. */
+  cols?: string[][];
 }
 
 /**
@@ -104,7 +112,13 @@ function tidySignatures(blocks: Block[]): Block[] {
         k += 1;
         continue;
       }
-      /* "Signed by" on its own is the signature line. */
+      /* "Signed by" with a name, or on its own with the name to follow,
+         heads an individual's block; "Signed by ____" is the older
+         signature line. */
+      if (!/\[●\]|_{3,}/.test(bare)) {
+        out.push({ kind: "sign-head", num: "", text: b.text });
+        continue;
+      }
       out.push({ kind: "sign", num: "", text: "Signature: [●]" });
       continue;
     }
@@ -134,7 +148,19 @@ export function parseDraft(draft: string): Block[] {
   const out: Block[] = [];
   const push = (kind: BlockKind, text: string, num = "") => out.push({ kind, num, text });
 
-  const blocks = draft.trim().split(/\n\s*\n/);
+  /* A clause whose list follows on the next lines — "1.1 … is:" then
+     "(a) …", "(b) …" with single line breaks — is two blocks: the clause,
+     and its list. Split before the first list line so the list is not
+     flattened into the clause's sentence. */
+  const blocks = draft
+    .trim()
+    .split(/\n\s*\n/)
+    .flatMap((b) => {
+      const lines = b.split("\n");
+      const at = lines.findIndex((l, k) => k > 0 && /^\s*(?:\*\*)?\((?:[a-z]|[ivx]{2,5}|[A-Z])\)\s/.test(l));
+      if (at <= 0 || signLines(b)) return [b];
+      return [lines.slice(0, at).join("\n"), lines.slice(at).join("\n")];
+    });
 
   blocks.forEach((b, idx) => {
     const raw = b.replace(/\r/g, "");
@@ -174,8 +200,13 @@ export function parseDraft(draft: string): Block[] {
 
     if (/^THIS AGREEMENT\b/.test(bare)) return push("date", t);
     /* A short line in capitals with no number — PARTIES, BACKGROUND, AGREED
-       TERMS, SCHEDULE 1 — is a label: bold, its own line, not a clause. */
-    if (/^(BETWEEN|WHEREAS|IT IS AGREED)/.test(bare) || (/^[A-Z][A-Z\s&'’:-]{1,48}$/.test(bare) && bare.split(/\s+/).length <= 5)) {
+       TERMS, SCHEDULE 1 — is a label: bold, its own line, not a clause. So
+       are "Between:" and "Whereas:" written in ordinary case. */
+    if (
+      /^(BETWEEN|WHEREAS|IT IS AGREED)/.test(bare) ||
+      /^(between|whereas|background|recitals|by and between)\s*:?$/i.test(bare) ||
+      (/^[A-Z][A-Z\s&'’:-]{1,48}$/.test(bare) && bare.split(/\s+/).length <= 5)
+    ) {
       return push("label", t);
     }
 
@@ -249,10 +280,96 @@ export function parseDraft(draft: string): Block[] {
       return;
     }
 
+    /* Words that carry on a clause after its list sit with the clause's
+       text, not at the margin — unless they are the attestation before the
+       signatures. */
+    const last = out[out.length - 1];
+    const inClauses = last && (last.kind === "clause" || last.kind === "subclause" || (last.kind === "plain" && last.cont));
+    if (inClauses && !/^(IN WITNESS|AS WITNESS|EXECUTED|SIGNED|This Agreement has been)/i.test(bare)) {
+      return out.push({ kind: "plain", num: "", text: t, cont: true });
+    }
     push("plain", t);
   });
 
-  return tidySignatures(out);
+  return pairSignatures(tidySignatures(out));
+}
+
+/* ── SIGNATURES SIDE BY SIDE ─────────────────────────────────────────────
+   The firm's layout (the HitPay template): the parties sign next to each
+   other. Each block is a rule to sign on, then "For and on behalf of", the
+   party's name in bold, Name: and Title:. The date is at the top of the
+   agreement ("made on …"), so a block has no Date line of its own, and the
+   rule is the signature, so no "Signature:" line either.
+
+   Every shape a draft may arrive in — this one, the stacked "SIGNED for and
+   on behalf of X / Signature / Name / Title / Date" the firm used before, or
+   the precedents' "Signed by" — is folded into it here, so the page and the
+   Word file show one layout whatever the model wrote. */
+
+const isNameOrTitle = (t: string) => /^(Name|Title|Designation|Position|Signature|Date)\s*:/i.test(t.replace(/\*\*/g, "").trim());
+const bold = (t: string) => (/^\*\*[\s\S]*\*\*$/.test(t.trim()) ? t.trim() : `**${t.replace(/\*\*/g, "").trim()}**`);
+
+/** A signature block's head, as its own lines: "For and on behalf of", name. */
+function headLines(text: string): string[] {
+  const t = text.trim();
+  const m = /^(?:\*\*)?\s*(?:SIGNED|EXECUTED)?\s*(for and on behalf of|by)\b\s*(?:\*\*(?=\s*$))?\s*([\s\S]*)$/i.exec(t);
+  if (!m) return [t];
+  const lead = /by/i.test(m[1]) && !/behalf/i.test(m[1]) ? "Signed by" : "For and on behalf of";
+  const name = m[2].replace(/^[:,\s]+/, "").trim();
+  return name && name !== "**" ? [lead, bold(name)] : [lead];
+}
+
+export function pairSignatures(blocks: Block[]): Block[] {
+  const out: Block[] = [];
+  let groups: string[][] = [];
+  const flush = () => {
+    for (let g = 0; g < groups.length; g += 2) {
+      out.push({ kind: "sign-row", num: "", text: "", cols: groups.slice(g, g + 2) });
+    }
+    groups = [];
+  };
+
+  for (let k = 0; k < blocks.length; k++) {
+    const b = blocks[k];
+    if (b.kind !== "sign-head" && b.kind !== "sign") {
+      flush();
+      out.push(b);
+      continue;
+    }
+    /* A block: its head (or an orphan line with none), then its lines. */
+    let cur: string[];
+    if (b.kind === "sign-head") {
+      cur = headLines(b.text);
+      /* "For and on behalf of" with the name on the next line, which the
+         shape rules may have read as a label or a paragraph. */
+      const next = blocks[k + 1];
+      if (
+        cur.length === 1 &&
+        next &&
+        (next.kind === "label" || next.kind === "plain" || next.kind === "sign") &&
+        !isNameOrTitle(next.text) &&
+        next.text.replace(/\*\*/g, "").trim().split(/\s+/).length <= 12
+      ) {
+        cur.push(bold(next.text));
+        k += 1;
+      }
+    } else {
+      cur = [];
+      k -= 1; // the orphan line is read by the loop below
+    }
+    while (blocks[k + 1]?.kind === "sign") {
+      k += 1;
+      const line = blocks[k].text.trim();
+      const bare = line.replace(/\*\*/g, "").trim();
+      if (/^Signature\s*:/i.test(bare)) continue; // the rule is the signature
+      if (/^Date\s*:\s*(\[●\])?\s*$/i.test(bare)) continue; // dated at the top
+      if (/^(?:_{3,}|\[●\])$/.test(bare)) continue;
+      cur.push(line);
+    }
+    if (cur.length) groups.push(cur);
+  }
+  flush();
+  return out;
 }
 
 /** A run of text split into literal parts, marked (bold/italic) parts and

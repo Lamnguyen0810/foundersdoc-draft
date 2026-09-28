@@ -224,25 +224,10 @@ export const NDA_DECISIONS = [
   "  \"applicable law\", \"applicable data protection laws\".",
 ].join("\n");
 
-/**
- * The signature blocks. The precedents sign with "Signed by ____ for and on
- * behalf of X ____ [Director / Authorised signatory] Name: Title:", which
- * asks for the signatory twice. The firm asked for one short block per party.
- */
-export const EXECUTION_INSTRUCTION = [
-  "SIGNATURE BLOCKS",
-  "End the document with one signature block per party, in this form and nothing more:",
-  "  SIGNED for and on behalf of **<PARTY NAME>**",
-  "  Signature: [●]",
-  "  Name: [●]",
-  "  Title: [●]",
-  "  Date: [●]",
-  "Each line is its own paragraph. Where THE FACTS give the signatory's name or title,",
-  "write it in place of the [●]. Do not add a separate \"Signed by\" line, a capacity",
-  "line such as [Director / Authorised signatory], or a second Name line. This layout",
-  "is the firm's current instruction and overrides the signature blocks in the",
-  "playbook and the worked examples.",
-].join("\n");
+/* Signature blocks and the document's layout are formatting, and formatting
+   is the playbook's (0049): its FORMATTING AND LAYOUT section says how they
+   are written, and the page and the Word file set them out from there. The
+   instruction that used to sit here, overriding the playbook, is gone. */
 
 /**
  * The lessons: rules the firm wrote from feedback on earlier drafts. They
@@ -277,8 +262,6 @@ export function buildSystem(docType: DocType, style: DraftingStyle = "standard_l
     ...(playbook ? ["", playbook] : []),
     ...(lessons ? ["", lessons] : []),
     ...(docType.slug === "nda" ? ["", NDA_DECISIONS] : []),
-    "",
-    EXECUTION_INSTRUCTION,
     "",
     NOTES_INSTRUCTION,
   ].join("\n");

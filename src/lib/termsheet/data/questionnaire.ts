@@ -228,7 +228,7 @@ export const QUESTIONNAIRE = {
         ],
         "other": []
       },
-      "help": "If more than one applies, choose the main one and mention the rest in \"Any other key terms\"."
+      "help": "If more than one applies, choose the main one and mention the rest in “Any other key terms?”."
     },
     {
       "id": "Q5",
@@ -239,7 +239,7 @@ export const QUESTIONNAIRE = {
       "other_label": "Other (please type)",
       "required": true,
       "text": "Which agreements will be signed?",
-      "help": "Not sure? Choose “Suggest for me” and we'll pick the usual ones.",
+      "help": "Not sure? Choose “Not sure, suggest for me” and we'll pick the usual ones.",
       "options_by_subject": {
         "new_shares": [
           "Subscription Agreement",

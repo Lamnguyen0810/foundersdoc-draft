@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import { draftToParagraphs, paragraphText } from "@/lib/contract/dom";
+import { draftToParagraphs, paragraphText, upgradeSaved } from "@/lib/contract/dom";
 import { DEFAULT_LOOK, fontStack, type DocumentLook } from "@/lib/playbook";
 
 /**
@@ -33,6 +33,13 @@ export interface DocumentEditorProps {
   onContentChange?: (html: string, plain: string) => void;
   /** The face and size the page is set in — from the playbook. */
   look?: DocumentLook;
+  /**
+   * "formal": the firm's contract layout (the HitPay template) — numbers
+   * hung in a half-inch column, headings underlined, signature blocks side
+   * by side. The NDA uses it; the term sheet keeps its own letter layout.
+   * /api/export is told the same, so the Word file matches.
+   */
+  layout?: "formal" | "letter";
 }
 
 /**
@@ -72,6 +79,7 @@ export default function DocumentEditor({
   savedHtml,
   onContentChange,
   look = DEFAULT_LOOK,
+  layout = "letter",
 }: DocumentEditorProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
@@ -328,6 +336,9 @@ export default function DocumentEditor({
       items = (Array.from(tmp.children) as HTMLElement[]).filter(
         (p) => !/\b(doc-notes-title|doc-note|doc-end-note)\b/.test(p.className) && (p.textContent ?? "").trim() !== "",
       );
+      /* Saved before the formal layout: headings and signatures brought up
+         to it, so an old draft opens looking like a new one. */
+      if (layout === "formal") items = upgradeSaved(document, items);
     } else {
       items = draftToParagraphs(document, text);
     }
@@ -648,7 +659,7 @@ export default function DocumentEditor({
       <div className="dscroll" ref={scrollRef}>
         {/* React renders this div and then never touches its children again —
             everything inside is built and owned by the effects above. */}
-        <div className="wd-pages" ref={pagesRef} style={lookStyle} suppressHydrationWarning />
+        <div className={`wd-pages${layout === "formal" ? " fd-formal" : ""}`} ref={pagesRef} style={lookStyle} suppressHydrationWarning />
       </div>
     </>
   );
