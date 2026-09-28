@@ -202,6 +202,10 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
   const [settled, setSettled] = useState<Settled>(() => (resume ? allSettled(fromSaved(resume.answers)) : {}));
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [typed, setTyped] = useState("");
+  /* A question opened from the list on the right, answered or not. Looking
+     at it changes nothing: its answer (or skip) stands until a new one is
+     given, and moving on leaves it as it was. */
+  const [openKey, setOpenKey] = useState<string | null>(null);
   const [multi, setMulti] = useState<string[]>([]);
   const [listItems, setListItems] = useState<string[]>([]);
   const [pendingDetail, setPendingDetail] = useState<{ key: string; label: string; q: Question; value: string } | null>(null);
@@ -249,7 +253,8 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
      Branching can add a question behind the ones already settled; it is
      simply asked next. */
   const pending = steps.filter((s) => !settled[stepKey(s)]);
-  const step = stage === "questions" ? pending[0] : undefined;
+  const opened = openKey ? steps.find((s) => stepKey(s) === openKey) : undefined;
+  const step = stage === "questions" ? (opened ?? pending[0]) : undefined;
   const finished = pending.length === 0;
   const answered = steps.filter((s) => settled[stepKey(s)] === "done").length;
   const skippedCount = steps.filter((s) => settled[stepKey(s)] === "skp").length;
@@ -346,6 +351,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
         skipped,
       },
     );
+    setOpenKey(null);
     if (q.id === "Q2" && typeof value === "string") prefillMine(value);
     /* Existing shares are bought from someone, and the seller must be a
        party (playbook S12). Ask for them now, not after "Prepare". */
@@ -363,6 +369,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
 
   const settleParties = () => {
     setSettled((st) => ({ ...st, parties: "done" }));
+    setOpenKey(null);
     say({ who: "fd", text: PARTIES_Q }, { who: "me", label: "Parties", text: parties.map((p) => p.name).filter(Boolean).join(" · ") });
     resetInput();
   };
@@ -381,17 +388,30 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
     revisit(s);
   }
 
+  /**
+   * Open any question from the list — answered, skipped or not yet reached —
+   * as on the NDA. Its answer stays until a new one is given, so the person
+   * can look, move on, and come back as often as they like.
+   */
   function revisit(s: Step) {
     const k = stepKey(s);
-    if (!settled[k] || busy) return;
-    setSettled((st) => {
-      const n = { ...st };
-      delete n[k];
-      return n;
-    });
+    if (busy) return;
+    if (stage === "questions" && step && stepKey(step) === k) return;
     resetInput();
+    /* A typed answer is put back in the box, ready to keep or change. */
+    if (s.kind === "q" && s.q.options.length === 0 && typeof answers[k] === "string") setTyped(answers[k] as string);
     setAsks([]);
-    say({ who: "fd", text: `Let’s go back to ${shortLabel(s, deal).toLowerCase()}.` });
+    const name = shortLabel(s, deal).toLowerCase();
+    say({
+      who: "fd",
+      text:
+        settled[k] === "done"
+          ? `Here’s your answer on ${name}. Change it, or answer it the same way to keep it — your other answers are kept.`
+          : settled[k] === "skp"
+            ? `Let’s go back to ${name}.`
+            : `Let’s look at ${name}.`,
+    });
+    setOpenKey(k);
     setStage("questions");
     setDocOpen(false);
   }
@@ -416,6 +436,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
     track("draft_with_what_i_have", { doc_type: "term", count: Object.keys(st).length - Object.keys(settled).length, total_steps: steps.length });
     setAnswers(a);
     setSettled(st);
+    setOpenKey(null);
     resetInput();
     say(
       { who: "me", label: "Skip the rest", text: "Use the usual answers", skipped: true },
@@ -1223,7 +1244,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                   </div>
                 )}
 
-                {stage === "questions" && finished && (
+                {stage === "questions" && finished && !opened && (
                   <div className="m">
                     <div className="av">FD</div>
                     <div>
@@ -1669,25 +1690,31 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                       <p className="ts-group-h">{g.name}</p>
                       {g.items.map((s) => {
                         const k = stepKey(s);
-                        const st = settled[k] ?? (s === step ? "now" : "");
+                        /* The question on screen is "now" whatever its state;
+                           every other one opens with a click and stays as it
+                           was if the person moves on. */
+                        const isOpen = s === step;
+                        const st = isOpen ? "now" : (settled[k] ?? "");
                         const n = steps.indexOf(s) + 1;
-                        const value =
-                          st === "done"
+                        const answer =
+                          settled[k] === "done"
                             ? s.kind === "q"
                               ? answerLabel(s.q, answers)
                               : parties.map((p) => p.name).filter(Boolean).join(" · ")
-                            : st === "skp"
+                            : settled[k] === "skp"
                               ? "Skipped"
                               : "";
+                        const value = isOpen ? (answer ? `Open now — ${answer}` : "") : answer || "Not yet — click to open";
                         return (
                           <div
                             key={k}
                             className={`inst ts-inst ${st || "later"}`}
-                            role={st === "done" || st === "skp" ? "button" : undefined}
-                            tabIndex={st === "done" || st === "skp" ? 0 : undefined}
-                            title={st === "done" || st === "skp" ? `${value ? `${value} — ` : ""}click to change` : undefined}
-                            onClick={() => (st === "done" || st === "skp") && revisit(s)}
-                            onKeyDown={(e) => e.key === "Enter" && (st === "done" || st === "skp") && revisit(s)}
+                            role={isOpen ? undefined : "button"}
+                            tabIndex={isOpen ? undefined : 0}
+                            title={isOpen ? undefined : `${answer ? `${answer} — ` : ""}click to see or change`}
+                            style={isOpen ? undefined : { cursor: "pointer" }}
+                            onClick={() => !isOpen && revisit(s)}
+                            onKeyDown={(e) => e.key === "Enter" && !isOpen && revisit(s)}
                           >
                             <i>{st === "done" ? "✓" : n}</i>
                             <div>

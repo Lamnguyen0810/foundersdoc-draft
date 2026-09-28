@@ -147,8 +147,7 @@ export const NDA_DATA = {
       label: "Any other details about the parties (optional)",
       type: "textarea",
       required: false,
-      placeholder:
-        "e.g. Meridian Logistics Pte. Ltd., UEN 201812345K, 8 Jurong Port Road, Singapore. Signing: Adeline Foo, COO.",
+      placeholder: "Provide more information about the parties for the draft (optional)",
       help: "Only what you want in the NDA — an address, a registration or ID number, who will sign. Say which party each detail belongs to. Leave blank if names are enough.",
       group: "Parties",
     },

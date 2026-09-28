@@ -84,6 +84,13 @@ function fromRow(row: DocTypeRow): DocType {
   const fields = (row.fields ?? [])
     .filter((f) => !RETIRED_FIELD_KEYS.has(f.key))
     .filter((f) => row.slug !== "nda" || !RETIRED_NDA_KEYS.has(f.key))
+    /* 057/058: the box under the party names shows a short hint, not an
+       example that read as if it were already filled in. */
+    .map((f) =>
+      row.slug === "nda" && f.key === "party_extra" && (!f.placeholder || /^e\.g\./i.test(f.placeholder))
+        ? { ...f, placeholder: "Provide more information about the parties for the draft (optional)" }
+        : f,
+    )
     .map((field) => {
       if (row.slug !== "nda") return field;
       if (field.key === "party_a") {
