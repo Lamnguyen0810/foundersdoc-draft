@@ -276,6 +276,7 @@ export async function POST(req: NextRequest) {
             system,
             user: user_message,
             signal: deadline.signal,
+            cacheKey: `fdai-draft-${docType.slug}`,
           })) {
             /* The watchdog. Checked between chunks rather than on a timer, so it
              can never fire while a chunk is half-written. */

@@ -358,6 +358,7 @@ export default function Questions({
           <p>Set in the code by the firm’s decisions. They win over the playbook, the samples and anything a user types.</p>
           <ul>
             <li>No non-solicitation clause (staff, customers or suppliers) and no non-compete — the NDA covers confidentiality only.</li>
+            <li>No residuals clause. The confidentiality period is a number of years or Perpetual (no time limit).</li>
             <li>Not tied to a country: the governing law and courts are left blank for the user to fill in, unless they name a country under “Anything else”. No statute or regulator is named.</li>
             <li>Party names, plus an optional box for any other details (address, registration number, who signs) — used exactly as written.</li>
             <li>One short signature block per party: Signature, Name, Title, Date.</li>

@@ -14,6 +14,9 @@ export interface GenerateInput {
   user: string;
   maxTokens?: number;
   temperature?: number;
+  /** Groups requests that share a long system prompt, for the provider's
+   *  prompt cache (OpenAI prompt_cache_key). Optional; ignored elsewhere. */
+  cacheKey?: string;
   /**
    * Cancels the whole generation, retries included.
    *

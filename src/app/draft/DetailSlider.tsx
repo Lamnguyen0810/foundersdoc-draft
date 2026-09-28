@@ -32,7 +32,7 @@ export const DETAIL_GUIDE = [
   "A short, plain NDA with the usual practical protections. Suits most early-stage chats.",
   "The firm’s standard NDA: full definitions, handling rules and general clauses. Right for most deals.",
   "Adds fuller rules on who may see the information, forced disclosure and returning it. For sensitive information.",
-  "Every protection spelt out in full. For highly sensitive information, or when the other side has its own lawyers.",
+  "The fullest version: every standard protection and procedure written out in detail. For highly sensitive information or high-value deals.",
 ] as const;
 
 export type DetailLevel = 1 | 2 | 3 | 4 | 5;

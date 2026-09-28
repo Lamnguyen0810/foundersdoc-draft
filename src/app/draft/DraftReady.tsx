@@ -361,8 +361,12 @@ export default function DraftReady({
                 <i />
                 <i />
               </p>
-              <DraftProgress value={progress} />
             </div>
+          </div>
+        )}
+        {!ready && (
+          <div className="cg-progress">
+            <DraftProgress value={progress} />
           </div>
         )}
 

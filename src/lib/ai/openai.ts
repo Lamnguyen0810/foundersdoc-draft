@@ -63,6 +63,11 @@ function body(input: GenerateInput, model: string, reasoning: Reasoning, stream:
     ],
     max_completion_tokens: Math.max(input.maxTokens ?? 0, DEFAULT_MAX_COMPLETION_TOKENS),
     reasoning_effort: reasoning,
+    /* The long, unchanging part of every drafting prompt (rules, playbook,
+       precedents) comes first; this key keeps requests of the same kind on
+       the same cache, so that part is read from OpenAI's prompt cache — the
+       reply starts sooner and cached input costs a tenth. */
+    ...(input.cacheKey ? { prompt_cache_key: input.cacheKey } : {}),
     /* Only accepted with reasoning off; sent otherwise, the API rejects the
        whole request rather than ignoring the field. */
     ...(reasoning === "none" ? { temperature: input.temperature ?? 0.3 } : {}),
