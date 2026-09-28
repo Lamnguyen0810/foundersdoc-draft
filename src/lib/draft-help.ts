@@ -13,6 +13,8 @@
  */
 
 import type { Field } from "./doctypes";
+import { DETAIL_LABELS } from "./detail";
+import { PERPETUAL, SKIP_LABEL, SOURCE_ATTACH, explainDirection, optionLabel } from "./explain";
 
 /** Does this look like a question to us rather than an answer to ours? */
 export function isQuestion(text: string): boolean {
@@ -77,8 +79,17 @@ function aboutThisQuestion(text: string): boolean {
 
 interface Entry {
   words: RegExp;
-  answer: string;
+  /** A sentence, or one built from the form — so that every choice, box
+   *  and button it names is spelt exactly as the screen spells it. */
+  answer: string | ((ctx: Pick<AskContext, "allFields">) => string);
 }
+
+/** A question on the form, by key. */
+const fieldOf = (ctx: Pick<AskContext, "allFields">, key: string) => ctx.allFields.find((f) => f.key === key);
+const q = (s: string) => `“${s}”`;
+/* Words on the drafting screen, as they are written there (DraftChat). */
+const GENERATE = "Generate draft";
+const DOWNLOAD = "Download Word";
 
 /* The terms the NDA form and its drafts use. Plain British English, general
    information, checked line by line (060). Order matters: the first entry
@@ -86,8 +97,7 @@ interface Entry {
 const GLOSSARY: Entry[] = [
   {
     words: /\b(mutual|one[- ]?way|unilateral|bilateral|direction)\b/i,
-    answer:
-      "Mutual means both sides will share confidential information, so both must protect it. One-way means only one side shares: choose “we disclose” if you are sharing your information, or “we receive” if the other side is sharing theirs. If both sides might share anything sensitive, choose Mutual.",
+    answer: (ctx) => explainDirection(fieldOf(ctx, "nda_direction")),
   },
   {
     words: /\bresidual/i,
@@ -96,13 +106,11 @@ const GLOSSARY: Entry[] = [
   },
   {
     words: /\bperpetual|\btrade secrets?\b|\bfor ever\b|\bforever\b|no time limit/i,
-    answer:
-      "Perpetual means the information must stay confidential with no time limit, even after the agreement ends. It suits trade secrets, such as a formula, source code or a valuable customer list. For most other information, a fixed number of years (two to five is common) is usual.",
+    answer: `${q(PERPETUAL)} means the information must stay confidential with no time limit, even after the agreement ends. It suits trade secrets, such as a formula, source code or a valuable customer list. For most other information, a fixed number of years (two to five is common) is usual.`,
   },
   {
     words: /\bsurviv|after (it|the agreement) ends|how long .*(secret|confidential)|confidentiality period/i,
-    answer:
-      "There are two periods. The term is how long the two sides may share information under the NDA. The confidentiality period is how long the information must be kept confidential after the agreement ends: a number of years, or Perpetual for no time limit. A two-year term and three years afterwards are common starting points.",
+    answer: `There are two periods. The term is how long the two sides may share information under the NDA. The confidentiality period is how long the information must be kept confidential after the agreement ends: a number of years, or ${q(PERPETUAL)} for no time limit. A two-year term and three years afterwards are common starting points.`,
   },
   {
     words: /\bterm\b(?! ?sheet)|how long does the agreement last|\bduration\b/i,
@@ -111,13 +119,13 @@ const GLOSSARY: Entry[] = [
   },
   {
     words: /\b(owns?|ownership) (the )?(rights?|ip|work)\b|\bownership\b|intellectual property|\bip\b|rights to/i,
-    answer:
-      "This asks whether anything the other side creates using your information (such as a design, a report or software) should belong to you. It is uncommon in an NDA, so choose No unless it matters for your deal.",
+    answer: (ctx) =>
+      `This asks whether anything the other side creates using your information (such as a design, a report or software) should belong to you. It is uncommon in an NDA, so choose ${q(optionLabel(fieldOf(ctx, "ip_assignment"), /^no\b/i, "No"))} unless it matters for your deal.`,
   },
   {
     words: /\bpersonal data|data protection|\bpdpa\b|\bgdpr\b/i,
-    answer:
-      "Choose Yes if either side will share information about individuals, such as customer or employee details. A data protection clause is then added to the NDA.",
+    answer: (ctx) =>
+      `Choose ${q(optionLabel(fieldOf(ctx, "personal_data"), /^yes\b/i, "Yes"))} if either side will share information about individuals, such as customer or employee details. A data protection clause is then added to the NDA.`,
   },
   {
     words: /\bpurpose\b|working on together/i,
@@ -131,8 +139,10 @@ const GLOSSARY: Entry[] = [
   },
   {
     words: /\b(party|parties|registration number|uen|address|who will sign|signatory)\b/i,
-    answer:
-      "The names of the two sides are enough. If you want more in the NDA, such as a registered address, a registration number or the person who will sign, add it in the optional box under the names. Anything missing is marked in the draft for you to fill in later.",
+    answer: (ctx) => {
+      const box = fieldOf(ctx, "party_extra")?.label;
+      return `The names of the two sides are enough. If you want more in the NDA, such as a registered address, a registration number or the person who will sign, add it in the box under the names${box ? `, ${q(box)}` : ""}. Anything missing is marked in the draft for you to fill in later.`;
+    },
   },
   {
     words: /\b(poach|non[- ]?solicit|solicit|staff|employees|hire|hiring)\b/i,
@@ -146,28 +156,24 @@ const GLOSSARY: Entry[] = [
   },
   {
     words: /\b(governing law|jurisdiction|which law|which country|courts?)\b/i,
-    answer:
-      "The NDA is not tied to one country. The governing-law clause is left blank for you to fill in: the country whose law applies to the NDA and whose courts would hear a dispute, usually where you are based. If you already know it, write it under “Anything else” and it will be used.",
+    answer: (ctx) =>
+      `The NDA is not tied to one country. The governing-law clause is left blank for you to fill in: the country whose law applies to the NDA and whose courts would hear a dispute, usually where you are based. If you already know it, write it under ${q(fieldOf(ctx, "special_terms")?.label ?? "Anything else")} and it will be used.`,
   },
   {
     words: /\b(comprehensive|comprehensiveness|how long should|length|detail(ed)?|concise|standard|thorough|maximum)\b/i,
-    answer:
-      "Comprehensiveness sets how much detail the first NDA has, from a short, plain version to the fullest one with detailed definitions and procedures. It changes the level of detail, not what is agreed. Standard suits most deals.",
+    answer: `Comprehensiveness sets how much detail the first NDA has, from ${q(DETAIL_LABELS[0])} (a short, plain version) to ${q(DETAIL_LABELS[DETAIL_LABELS.length - 1])} (the fullest, with detailed definitions and procedures). It changes the level of detail, not what is agreed. ${q(DETAIL_LABELS[2])} suits most deals.`,
   },
   {
     words: /\bskip|later|to confirm\b|don'?t know yet/i,
-    answer:
-      "You can skip any question. Anything you skip is marked in the draft for you to fill in later, so nothing is made up. You can also tap the question in the list on the right to answer it at any time.",
+    answer: `You can skip any question with ${q(SKIP_LABEL)}. Anything you skip is marked in the draft for you to fill in later, so nothing is made up. You can also tap the question in the Progress list on the right to answer it at any time.`,
   },
   {
     words: /\b(go back|change (my|an) answer|edit (my|an) answer|wrong answer|made a mistake)\b/i,
-    answer:
-      "Tap any question in the list on the right to see it or answer it again. Your other answers are kept.",
+    answer: "Tap any question in the Progress list on the right to see it or answer it again. Your other answers are kept.",
   },
   {
     words: /\b(upload|existing (nda|document)|attach|my own (nda|document))\b/i,
-    answer:
-      "At the last step you can attach an existing NDA or term sheet (Word, PDF or text). FD AI uses it as a starting point and follows your answers wherever they differ. You can also press + beside the message box at any time.",
+    answer: `At the step that asks for an existing document, choose ${q(SOURCE_ATTACH)} to attach an NDA or term sheet (Word, PDF or text). FD AI uses it as a starting point and follows your answers wherever they differ. You can also press + beside the message box at any time.`,
   },
   {
     words: /\b(lawyer|review|advice|legal advice|safe to sign|binding)\b/i,
@@ -177,13 +183,23 @@ const GLOSSARY: Entry[] = [
   {
     words: /\b(cost|price|pay|credit|free|charge)\b/i,
     answer:
-      "Each new draft uses one credit, and your balance is shown in the side panel. A credit is used only when a draft is produced; if something goes wrong, it is returned. Plans and top-ups are on the Billing page.",
+      "Each new draft uses one credit, and your balance is shown in the side panel. A credit is used only when a draft is produced; if something goes wrong, it is returned. Plans and top-ups are under “Credits” in the side panel.",
   },
   {
     words: /\b(word|docx|download|pdf|export)\b/i,
-    answer: "When the draft is ready, you can edit it on screen and download it as a Word document.",
+    answer: `When the draft is ready, you can edit it on screen and press ${q(DOWNLOAD)} to get it as a Word document. You can also press ${q(GENERATE)} again after changing an answer.`,
   },
 ];
+
+function say(e: Entry, ctx: Pick<AskContext, "allFields">): string {
+  return typeof e.answer === "function" ? e.answer(ctx) : e.answer;
+}
+
+/** Every answer the glossary can give, for this form — for checking that
+ *  each choice and button it names is spelt as the screen spells it. */
+export function glossaryAnswers(allFields: Field[]): string[] {
+  return GLOSSARY.map((e) => say(e, { allFields }));
+}
 
 function stripHtml(s: string): string {
   return s.replace(/<[^>]+>/g, "").trim();
@@ -193,7 +209,7 @@ function stripHtml(s: string): string {
 function describeField(f: Field): string {
   const bits: string[] = [];
   if (f.help) bits.push(stripHtml(f.help));
-  if (f.type === "select" && f.options?.length) bits.push(`The choices are: ${f.options.join("; ")}.`);
+  if (f.type === "select" && f.options?.length) bits.push(`The choices are: ${f.options.map(q).join(", ")}.`);
   if (f.placeholder) bits.push(`For example: ${f.placeholder}`);
   return bits.join(" ");
 }
@@ -218,12 +234,12 @@ export function answerLocally(text: string, ctx: AskContext): string | null {
   if (aboutThisQuestion(t) && ctx.question) {
     const glossHit = GLOSSARY.find((g) => g.words.test(`${ctx.question} ${(ctx.fields ?? []).map((f) => f.label).join(" ")}`));
     const own = current.map((f) => (current.length > 1 ? `${f.label}: ${describeField(f)}` : describeField(f))).join(" ");
-    const parts = [glossHit?.answer, own].filter(Boolean);
+    const parts = [glossHit ? say(glossHit, ctx) : "", own].filter(Boolean);
     if (parts.length) return parts.join(" ");
   }
 
   const hit = GLOSSARY.find((g) => g.words.test(t));
-  if (hit) return hit.answer;
+  if (hit) return say(hit, ctx);
 
   /* A key word from their question in a question on the form. */
   const words = (t.toLowerCase().match(/[a-z]{5,}/g) ?? []).filter(

@@ -133,3 +133,22 @@ export const SIGN = { after: tw(5), headBefore: tw(18), headAfter: tw(10), blank
 
 /* .wd-ftr: Calibri 8.5pt, #8a8a8a, centred, 30px above the foot of the page. */
 export const FOOTER = { font: "Calibri", size: pt(8.5), distance: tw(px(30)) } as const;
+
+/* ── THE FORMAL LAYOUT (0049) ────────────────────────────────────────────────
+   The firm's contract layout, from the HitPay one-way NDA template. Each
+   number is the Word side of a rule under `.wd-pages.fd-formal` in
+   globals.css; change them together. */
+export const FORMAL = {
+  /* One inch all round (.sheet.wd-page padding:72pt). */
+  page: { width: 11906, height: 16838, margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 } },
+  /* The half-inch column the numbers hang in (grid-template-columns:36pt). */
+  step: 720,
+  /* Signature blocks: two columns 36pt apart (column-gap:36pt), 40pt of
+     room to sign above the rule (padding-top:40pt), a .75pt rule. */
+  signGap: 720,
+  signRoom: tw(40),
+  signRule: { size: 6, space: 1 },
+  /* Page numbers: 8pt, grey, centred, the footer 0.49in from the foot of
+     the page as in the template (.wd-ftr bottom:35pt). */
+  footer: { size: pt(8), color: "595959", distance: 708 },
+} as const;

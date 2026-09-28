@@ -22,6 +22,7 @@ const CLASS: Record<Block["kind"], string> = {
   note: "doc-note",
   "sign-head": "doc-sign doc-sign-head",
   sign: "doc-sign",
+  "sign-row": "doc-sign-row",
   plain: "",
 };
 

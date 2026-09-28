@@ -8,16 +8,23 @@ import {
   PageNumber,
   Packer,
   Paragraph,
+  Table,
+  TableBorders,
+  TableCell,
+  TableLayoutType,
+  TableRow,
   TabStopType,
   TextRun,
   UnderlineType,
+  WidthType,
 } from "docx";
 import { splitNotes } from "@/lib/prompt";
-import { splitPlaceholders } from "@/lib/contract/parse";
+import { parseDraft, splitPlaceholders } from "@/lib/contract/parse";
+import { blocksToPageHtml } from "@/lib/contract/html";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
 import * as S from "@/lib/doc-style";
-import { DEFAULT_LOOK, documentLook, type DocumentLook } from "@/lib/playbook";
+import { DEFAULT_LOOK, KNOWN_FONTS, documentLook, type DocumentLook } from "@/lib/playbook";
 
 /* ── THE FACE AND SIZE, PER REQUEST ──────────────────────────────────────────
    The playbook names the typeface and body size (lib/playbook.ts); every run
@@ -93,7 +100,7 @@ function decodeHtml(value: string): string {
     .replace(/&#x([\da-f]+);/gi, (_, n: string) => String.fromCodePoint(parseInt(n, 16)));
 }
 
-type Style = { size?: number; color?: string; font?: string; b?: boolean };
+type Style = { size?: number; color?: string; font?: string; b?: boolean; u?: boolean };
 
 /**
  * Inline HTML → Word runs. Understands <b>/<strong>, <i>/<em>, <u>, <br>, and
@@ -151,7 +158,7 @@ function runsFromHtml(fragment: string, style: Style = {}, blankWidth: number = 
 
     const value = decodeHtml(token.replace(/<[^>]+>/g, ""));
     if (!value) continue;
-    runs.push(run(value, { ...style, b: style.b || bold > 0, i: italics > 0, u: underline > 0 }));
+    runs.push(run(value, { ...style, b: style.b || bold > 0, i: italics > 0, u: style.u || underline > 0 }));
   }
   return runs;
 }
@@ -404,6 +411,178 @@ function paragraphsFromText(text: string): Paragraph[] {
   return out;
 }
 
+
+/* ── THE FORMAL LAYOUT (0049) ────────────────────────────────────────────────
+   The firm's contract layout — the HitPay one-way NDA template — as the page
+   sets it under `.wd-pages.fd-formal`. Numbers hang in a half-inch column
+   with the text beside them; headings are bold with the words underlined;
+   every paragraph is followed by a blank line's worth of space; the parties
+   sign side by side. The title and the opening line are as they were. Every number is in
+   lib/doc-style.ts (FORMAL) beside the CSS rule it copies. */
+
+type FormalItem = { kind: "p"; cls: string; fragment: string } | { kind: "sign"; cols: string[][] };
+
+/** The page's HTML as its flow items: paragraphs, and rows of signatures. */
+function formalItems(html: string): FormalItem[] {
+  const items: FormalItem[] = [];
+  const re =
+    /<div\b[^>]*\bdoc-sign-row\b[^>]*>((?:\s*<div\b[^>]*\bdoc-sign-col\b[^>]*>[\s\S]*?<\/div>)*)\s*<\/div>|<p\b([^>]*)>([\s\S]*?)<\/p>/gi;
+  for (const m of html.matchAll(re)) {
+    if (m[1] !== undefined) {
+      const cols = Array.from(m[1].matchAll(/<div\b[^>]*\bdoc-sign-col\b[^>]*>([\s\S]*?)<\/div>/gi)).map((c) =>
+        Array.from(c[1].matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)).map((x) => x[1]),
+      );
+      items.push({ kind: "sign", cols });
+    } else {
+      items.push({ kind: "p", cls: /class=["']([^"']*)["']/i.exec(m[2] ?? "")?.[1] ?? "", fragment: m[3] ?? "" });
+    }
+  }
+  return items;
+}
+
+/** A row of signature blocks: a borderless table, two columns and a gap. */
+function signTable(cols: string[][]): Table {
+  const text = S.FORMAL.page.width - S.FORMAL.page.margin.left - S.FORMAL.page.margin.right;
+  const colW = Math.floor((text - S.FORMAL.signGap) / 2);
+  const none = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+  const cell = (lines: string[] | undefined, width: number) =>
+    new TableCell({
+      width: { size: width, type: WidthType.DXA },
+      margins: { top: 0, bottom: 0, left: 0, right: 0 },
+      borders: { top: none, bottom: none, left: none, right: none },
+      children: (lines?.length ? lines : [""]).map(
+        (line, k, all) =>
+          new Paragraph({
+            alignment: AlignmentType.LEFT,
+            keepNext: k < all.length - 1,
+            keepLines: true,
+            spacing: { before: k === 0 && lines?.length ? S.FORMAL.signRoom : 0, after: 0, ...single(bodyLine()) },
+            border:
+              k === 0 && lines?.length
+                ? { top: { style: BorderStyle.SINGLE, size: S.FORMAL.signRule.size, color: S.INK, space: S.FORMAL.signRule.space } }
+                : undefined,
+            children: runsFromHtml(line, {}, S.SIGN.blank - 6),
+          }),
+      ),
+    });
+  return new Table({
+    layout: TableLayoutType.FIXED,
+    width: { size: colW * 2 + S.FORMAL.signGap, type: WidthType.DXA },
+    columnWidths: [colW, S.FORMAL.signGap, colW],
+    borders: TableBorders.NONE,
+    rows: [new TableRow({ cantSplit: true, children: [cell(cols[0], colW), cell([], S.FORMAL.signGap), cell(cols[1], colW)] })],
+  });
+}
+
+function formalFromHtml(html: string): (Paragraph | Table)[] {
+  const out: (Paragraph | Table)[] = [];
+  const step = S.FORMAL.step;
+  const body = { alignment: bodyAlign(), spacing: { after: paraAfter(), ...single(bodyLine()) } };
+
+  for (const item of formalItems(html)) {
+    if (item.kind === "sign") {
+      out.push(signTable(item.cols));
+      /* Space after the row, as the page has it. */
+      out.push(new Paragraph({ spacing: { after: 0, ...single(bodyLine()) }, children: [] }));
+      continue;
+    }
+    const { cls, fragment } = item;
+    const has = (name: string) => new RegExp(`(?:^|\\s)${name}(?:\\s|$)`).test(cls);
+
+    /* The title as it always was: centred, bold, two points larger. */
+    if (has("doc-title")) {
+      out.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { after: S.TITLE_STYLE.after, ...single(S.TITLE_STYLE.line, LOOK.titlePt) },
+          children: runsFromHtml(fragment, { size: titleSize(), b: true }),
+        }),
+      );
+      continue;
+    }
+
+    if (has("doc-label")) {
+      out.push(
+        new Paragraph({
+          ...body,
+          alignment: AlignmentType.LEFT,
+          keepNext: true,
+          spacing: { ...body.spacing, before: headBefore() },
+          children: runsFromHtml(fragment, { b: true }),
+        }),
+      );
+      continue;
+    }
+
+    if (has("doc-section")) {
+      const parts = splitNumbered(fragment) ?? (() => {
+        const m = /^\s*(\d+\.)\s+([\s\S]*)$/.exec(fragment);
+        return m ? { num: m[1], body: m[2] } : null;
+      })();
+      out.push(
+        new Paragraph({
+          alignment: AlignmentType.LEFT,
+          keepNext: true,
+          spacing: { before: headBefore(), after: headAfter(), ...single(bodyLine()) },
+          indent: parts ? { left: step, hanging: step } : undefined,
+          tabStops: parts ? [{ type: TabStopType.LEFT, position: step }] : undefined,
+          children: parts
+            ? [run(`${parts.num}\t`, { b: true }), ...runsFromHtml(parts.body, { b: true, u: true })]
+            : runsFromHtml(fragment, { b: true }),
+        }),
+      );
+      continue;
+    }
+
+    const parts = splitNumbered(fragment);
+    if (parts && (has("doc-party") || has("doc-recital") || has("doc-clause") || has("doc-subclause"))) {
+      const level = has("doc-subclause") ? (has("doc-level-3") ? 3 : has("doc-level-2") ? 2 : 1) : 0;
+      const left = step * (level + 1);
+      out.push(
+        new Paragraph({
+          ...body,
+          indent: { left, hanging: step },
+          tabStops: [{ type: TabStopType.LEFT, position: left }],
+          children: [run(`${parts.num}\t`), ...runsFromHtml(parts.body)],
+        }),
+      );
+      continue;
+    }
+
+    /* Stacked signature lines from a page saved before the side-by-side
+       layout and not reopened since: kept as lines. */
+    if (has("doc-sign")) {
+      out.push(new Paragraph({ alignment: AlignmentType.LEFT, keepNext: true, spacing: { after: 0, ...single(bodyLine()) }, children: runsFromHtml(fragment, {}, S.SIGN.blank) }));
+      continue;
+    }
+
+    const children = runsFromHtml(fragment);
+    if (!children.length) continue;
+    out.push(new Paragraph({ ...body, indent: has("doc-cont") ? { left: step } : undefined, children }));
+  }
+  return out;
+}
+
+
+/** The page's look, checked: a known face, sizes and gaps within reason. */
+function pageLook(raw: Partial<DocumentLook> | undefined): DocumentLook {
+  if (!raw || typeof raw !== "object") return DEFAULT_LOOK;
+  const n = (v: unknown, lo: number, hi: number, d: number) =>
+    typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d;
+  return {
+    font: (KNOWN_FONTS as readonly string[]).includes(String(raw.font)) ? String(raw.font) : DEFAULT_LOOK.font,
+    sizePt: n(raw.sizePt, 8, 16, DEFAULT_LOOK.sizePt),
+    titlePt: n(raw.titlePt, 8, 16, DEFAULT_LOOK.titlePt),
+    justify: typeof raw.justify === "boolean" ? raw.justify : DEFAULT_LOOK.justify,
+    lineSpacing: n(raw.lineSpacing, 1, 2, DEFAULT_LOOK.lineSpacing),
+    spaceAfterPt: n(raw.spaceAfterPt, 0, 24, DEFAULT_LOOK.spaceAfterPt),
+    headingBeforePt: n(raw.headingBeforePt, 0, 36, DEFAULT_LOOK.headingBeforePt),
+    headingAfterPt: n(raw.headingAfterPt, 0, 36, DEFAULT_LOOK.headingAfterPt),
+    layout: raw.layout === "formal" ? "formal" : "letter",
+    source: "default",
+  };
+}
+
 function safeName(s: string): string {
   return (
     s
@@ -428,6 +607,11 @@ export async function POST(req: NextRequest) {
     docTypeSlug?: string;
     /** The saved draft being downloaded, for the Slack line (059). */
     draftId?: string;
+    /** "formal": the firm's contract layout (0049), as the NDA's page sets it. */
+    layout?: string;
+    /** The look the page was set in — used only where the playbook cannot be
+     *  read here, so the file still matches the screen. */
+    look?: Partial<DocumentLook>;
   };
   try {
     body = await req.json();
@@ -442,8 +626,11 @@ export async function POST(req: NextRequest) {
      (firm-wide first, then the type's own — documentLook reads the type's
      text first so a type may set its own). Missing playbook, or 044 not run:
      the default. Never a reason to refuse the download. */
-  LOOK = DEFAULT_LOOK;
-  if (isSupabaseConfigured()) {
+  /* The page's own look when it sends one — it was read from the same
+     playbook when the page opened, and the file must match the screen the
+     person is looking at. Otherwise the playbook, read here. */
+  LOOK = pageLook(body.look);
+  if (!body.look && isSupabaseConfigured()) {
     try {
       const supabase = await createClient();
       const slug = typeof body.docTypeSlug === "string" && /^[a-z0-9_-]{1,64}$/.test(body.docTypeSlug) ? body.docTypeSlug : "*";
@@ -458,10 +645,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  /* The layout is the playbook's (`layout: formal`); the page says which it
+     used, which only matters where the playbook could not be read. */
+  const formal = LOOK.layout === "formal" || body.layout === "formal";
   const html = (body.html ?? "").trim();
-  let children: Paragraph[];
+  let children: (Paragraph | Table)[];
 
-  if (html) {
+  if (formal) {
+    /* The page's HTML, or — sent only the text — the same HTML built from
+       it, so there is one road to Word for this layout. */
+    children = formalFromHtml(html || blocksToPageHtml(parseDraft(splitNotes(text).body)));
+  } else if (html) {
     /* The screen, verbatim — notes and the end line included, because they
        are on the screen. The lawyer decides what to delete before sending, and
        does it in the one place they are already looking. */
@@ -500,7 +694,9 @@ export async function POST(req: NextRequest) {
           id: "FdFooter",
           name: "FD Footer",
           basedOn: "Normal",
-          run: { font: S.FOOTER.font, size: S.FOOTER.size, color: S.END_NOTE },
+          run: formal
+            ? { font: LOOK.font, size: S.FORMAL.footer.size, color: S.FORMAL.footer.color }
+            : { font: S.FOOTER.font, size: S.FOOTER.size, color: S.END_NOTE },
           paragraph: { alignment: AlignmentType.CENTER, spacing: { before: 0, after: 0 } },
         },
       ],
@@ -508,7 +704,9 @@ export async function POST(req: NextRequest) {
     sections: [
       {
         properties: {
-          page: { size: { width: S.PAGE.width, height: S.PAGE.height }, margin: { ...S.PAGE.margin, footer: S.FOOTER.distance } },
+          page: formal
+            ? { size: { width: S.FORMAL.page.width, height: S.FORMAL.page.height }, margin: { ...S.FORMAL.page.margin, footer: S.FORMAL.footer.distance } }
+            : { size: { width: S.PAGE.width, height: S.PAGE.height }, margin: { ...S.PAGE.margin, footer: S.FOOTER.distance } },
         },
         /* "Page 2 of 6", centred, small and grey, as .wd-ftr sets it at the
            foot of every page on screen. Word fills the numbers in itself. */
@@ -520,7 +718,9 @@ export async function POST(req: NextRequest) {
                 alignment: AlignmentType.CENTER,
                 spacing: { before: 0, after: 0 },
                 children: [
-                  new TextRun({ children: ["Page ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES], font: S.FOOTER.font, size: S.FOOTER.size, color: S.END_NOTE }),
+                  formal
+                    ? new TextRun({ children: ["Page ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES], font: LOOK.font, size: S.FORMAL.footer.size, color: S.FORMAL.footer.color })
+                    : new TextRun({ children: ["Page ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES], font: S.FOOTER.font, size: S.FOOTER.size, color: S.END_NOTE }),
                 ],
               }),
             ],

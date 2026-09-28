@@ -3718,3 +3718,57 @@ html[data-theme=dark] .q-info-pop{background:#2a2b30;border-color:#3a3b41;color:
 .rail .hist-empty{margin:4px 12px;font-size:12px;color:rgba(255,255,255,.45)}
 .rail .hist-all{display:block;margin:2px 12px 6px;text-align:center;font-size:12px;color:rgba(255,255,255,.55)}
 .rail .hist-all:hover{color:#fff}
+
+/* ── 0049: the firm's contract layout (.fd-formal) ─────────────────────────
+   Taken from the HitPay one-way NDA template (Dec 2022) and translated for
+   Word in lib/doc-style.ts (FORMAL) — change one, change the other.
+   · A4, one-inch margins all round.
+   · Numbers hung in a half-inch (36pt) column: "1." beside an underlined
+     heading, "1.1" beside its text, "(a)" a half-inch further in, "(i)"
+     another half-inch.
+   · One blank line's worth of space after every paragraph (--doc-after); a
+     heading's own space above is padding, so it adds to the paragraph
+     before it exactly as Word adds "space before" to "space after".
+   · The title as it always was: bold, centred, two points larger.
+   · Signature blocks side by side, each signed on a rule. */
+.wd-pages.fd-formal .sheet.wd-page{padding:72pt!important}
+.wd-pages.fd-formal .wd-ftr{bottom:35pt;font-family:var(--doc-font,Arial,sans-serif);font-size:8pt;color:#595959}
+.wd-pages.fd-formal .sheet p{margin:0 0 var(--doc-after,12pt)!important}
+.wd-pages.fd-formal .sheet .doc-title{margin:0 0 14pt!important}
+.wd-pages.fd-formal .sheet .doc-label{margin:0 0 var(--doc-after,12pt)!important;padding-top:var(--doc-head-before,0pt)!important;text-align:left!important}
+.wd-pages.fd-formal .sheet .doc-structured{
+  display:grid!important;
+  grid-template-columns:36pt minmax(0,1fr)!important;
+  padding:0!important;
+  text-indent:0!important;
+}
+.wd-pages.fd-formal .sheet .doc-structured .doc-num,
+.wd-pages.fd-formal .sheet .doc-structured .doc-body{display:block!important;padding:0!important}
+.wd-pages.fd-formal .sheet .doc-party,
+.wd-pages.fd-formal .sheet .doc-recital,
+.wd-pages.fd-formal .sheet .doc-clause{margin:0 0 var(--doc-after,12pt)!important}
+.wd-pages.fd-formal .sheet .doc-section{
+  line-height:inherit!important;
+  text-align:left!important;
+  margin:0 0 var(--doc-head-after,12pt)!important;
+  padding-top:var(--doc-head-before,0pt)!important;
+}
+.wd-pages.fd-formal .sheet .doc-section .doc-body{text-decoration:underline;text-underline-offset:2px}
+.wd-pages.fd-formal .sheet .doc-subclause{margin:0 0 var(--doc-after,12pt) 36pt!important}
+.wd-pages.fd-formal .sheet .doc-subclause.doc-level-2{margin-left:72pt!important}
+.wd-pages.fd-formal .sheet .doc-subclause.doc-level-3{margin-left:108pt!important}
+.wd-pages.fd-formal .sheet .doc-cont{margin-left:36pt!important}
+/* Signature blocks: two to a row, a rule to sign on above each. */
+.wd-pages.fd-formal .sheet .doc-sign-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  column-gap:36pt;
+  padding-top:40pt;
+  margin:0 0 var(--doc-after,12pt);
+  break-inside:avoid;
+}
+.wd-pages.fd-formal .sheet .doc-sign-col{border-top:.75pt solid var(--doc-ink);padding-top:2pt;min-width:0}
+.wd-pages.fd-formal .sheet .doc-sign-row .doc-sign{margin:0!important;text-align:left!important}
+.wd-pages.fd-formal .sheet .doc-sign-row .placeholder{min-width:12em}
+/* Word does not hyphenate; neither does the page, so lines break alike. */
+.wd-pages.fd-formal .sheet p{hyphens:manual!important;-webkit-hyphens:manual!important}
