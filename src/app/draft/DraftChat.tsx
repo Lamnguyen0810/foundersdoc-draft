@@ -26,6 +26,9 @@ import { track } from "@/lib/track";
 import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
 import DraftReady from "./DraftReady";
+import InfoTip from "./InfoTip";
+import RailHistory from "./RailHistory";
+import type { RecentDraft } from "./history";
 import { SKIPPED, fdNotes, splitNotes, stripNotes } from "@/lib/prompt";
 import { answerFor, answerLocally, isQuestion, offTopicAnswer, smallTalk } from "@/lib/draft-help";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
@@ -379,38 +382,11 @@ export function clearStash(): void {
   stashRead = true;
 }
 
-export interface RecentDraft {
-  id: string;
-  title: string;
-  when: string;
-  /** Which document it is — so a list of six tells you six different things. */
-  docLabel?: string;
-  /** Kept at the top of the list, above the dated groups. */
-  pinned?: boolean;
-  /** "Pinned", "Today", "Previous 7 days", "August 2026" — worked out on the
-   *  server, in Singapore time, so the two renders agree. */
-  heading?: string;
-}
-
-/**
- * The list, cut into the sections the rail shows.
- *
- * The rows arrive in the right order already — pinned first, then newest
- * first — so this only has to notice where the heading changes. Pinning a
- * draft in the browser moves it without asking the server again, which is why
- * the sort is repeated here rather than trusted.
- */
-export function groupDrafts(list: RecentDraft[]): { heading: string; items: RecentDraft[] }[] {
-  const ordered = [...list].sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)));
-  const out: { heading: string; items: RecentDraft[] }[] = [];
-  for (const row of ordered) {
-    const head = row.pinned ? "Pinned" : (row.heading ?? "Earlier");
-    const last = out[out.length - 1];
-    if (last && last.heading === head) last.items.push(row);
-    else out.push({ heading: head, items: [row] });
-  }
-  return out;
-}
+/* The rail's list of past drafts lives in RailHistory, shared with the term
+   sheet's screen; its types are re-exported here for the files that already
+   import them from this one. */
+export type { RecentDraft } from "./history";
+export { groupDrafts } from "./history";
 
 /**
  * A draft that already exists, opened again.
@@ -1283,9 +1259,6 @@ const RAIL_MIN = 200;
 const RAIL_MAX = 420;
 const RAIL_KEY = "fdai.rail-width";
 
-/** How many past drafts the rail lists before "Show more". Seven is a week's
- *  worth for most people and leaves the account block on screen. */
-const RAIL_DRAFTS_SHOWN = 7;
 
 /* The width lives in this browser, not in the database: it is a preference
    about one screen on one machine, and the firm has no use for it. Reading it
@@ -1415,42 +1388,6 @@ function DraftName({
  * assume their answers are gone. They are not — see THE GUEST'S DRAFT — and
  * the block says so before they have to wonder.
  */
-/**
- * The "i" beside a question: tap to read what it means, tap again to close.
- * A span, not a button, because it sits inside the question's <label> and a
- * button there would become the thing the label points at.
- */
-function InfoTip({ text, label }: { text: string; label: string }) {
-  const [open, setOpen] = useState(false);
-  if (!text) return null;
-  const toggle = (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setOpen((o) => !o);
-  };
-  return (
-    <>
-      <span
-        role="button"
-        tabIndex={0}
-        className={`q-info${open ? " on" : ""}`}
-        aria-expanded={open}
-        aria-label={`What “${label}” means`}
-        title="What this means"
-        onClick={toggle}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && toggle(e)}
-      >
-        i
-      </span>
-      {open && (
-        <span className="q-info-text" onClick={(e) => e.preventDefault()}>
-          {text}
-        </span>
-      )}
-    </>
-  );
-}
-
 function GuestBlock({ where }: { where: "rail" | "catalogue" }) {
   return (
     <div className={`guest-block guest-${where}`}>
@@ -1610,17 +1547,6 @@ function Chat({
   /* The rail's list, held here rather than read straight from the prop, because
      renaming one has to show on the spot rather than on the next page load. */
   const [pastDrafts, setPastDrafts] = useState<RecentDraft[]>(recent);
-  /* The rail shows the last few drafts and offers the rest behind one button.
-     Twenty rows of history pushed the account block off the bottom of the
-     screen, where nobody scrolls to find it. */
-  const [showAllDrafts, setShowAllDrafts] = useState(false);
-  const shownDrafts = showAllDrafts
-    ? pastDrafts
-    : /* The one being looked at stays listed even when it is older than the
-         cut, so a draft opened from Past drafts is marked in the rail. */
-      pastDrafts.filter((r, idx) => idx < RAIL_DRAFTS_SHOWN || r.id === draftId);
-  const hiddenDrafts = pastDrafts.length - shownDrafts.length;
-  const [renamingId, setRenamingId] = useState<string | null>(null);
 
   /* How wide the rail is. Null means the width the design ships with; a number
      is the person's own choice. The dragged value leads while the pointer is
@@ -3423,114 +3349,12 @@ function Chat({
             )}
           </div>
         )}
-        {pastDrafts.length > 0 && (
-          <div className="hist-groups">
-            {groupDrafts(shownDrafts).map((group) => (
-              <section key={group.heading}>
-                <p className="k">{group.heading}</p>
-                <div className="hist">
-                  {group.items.map((r) =>
-                    renamingId === r.id ? (
-                      /* Renaming in place. Enter or clicking away keeps it,
-                         Escape abandons it — the same three keys as the strip. */
-                      <input
-                        key={r.id}
-                        className="hist-input"
-                        defaultValue={r.title}
-                        maxLength={80}
-                        autoFocus
-                        aria-label={`Rename ${r.title}`}
-                        onBlur={(e) => {
-                          const v = e.currentTarget.value;
-                          setRenamingId(null);
-                          if (v.trim() && v.trim() !== r.title) void renameDraft(r.id, v);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            e.currentTarget.blur();
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            e.currentTarget.value = r.title;
-                            e.currentTarget.blur();
-                          }
-                        }}
-                      />
-                    ) : (
-                      <div
-                        key={r.id}
-                        className={`hist-row${draftId === r.id ? " on" : ""}${
-                          r.pinned ? " is-pinned" : ""
-                        }`}
-                      >
-                        <a
-                          href={`/draft/${r.id}`}
-                          className={draftId === r.id ? "on" : undefined}
-                          aria-current={draftId === r.id ? "page" : undefined}
-                          title={r.docLabel ? `${r.title} — ${r.docLabel}` : r.title}
-                        >
-                          {/* The name in a box of its own so it can be cut with
-                              an ellipsis. A bare text node in a flex row cannot
-                              be — it simply ran past the edge of the rail. */}
-                          <span className="hist-name">{r.title}</span>
-                          <small>{r.when}</small>
-                        </a>
-                        <button
-                          type="button"
-                          className="hist-pin"
-                          aria-label={r.pinned ? `Unpin ${r.title}` : `Pin ${r.title}`}
-                          aria-pressed={Boolean(r.pinned)}
-                          title={r.pinned ? "Unpin" : "Pin to the top"}
-                          onClick={() => void togglePin(r.id, !r.pinned)}
-                        >
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path
-                              d="M14.5 3.5 20.5 9.5M16 4l-1.2 4.2-5 2.2-1.6 1.6 5.8 5.8 1.6-1.6 2.2-5L22 10M9 15l-4.5 4.5"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={1.7}
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          className="hist-rename"
-                          aria-label={`Rename ${r.title}`}
-                          title="Rename"
-                          onClick={() => setRenamingId(r.id)}
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={1.7}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M4 20h4l10-10-4-4L4 16zM14 6l4 4" />
-                          </svg>
-                        </button>
-                      </div>
-                    ),
-                  )}
-                </div>
-              </section>
-            ))}
-            {pastDrafts.length > RAIL_DRAFTS_SHOWN && (
-              <button
-                type="button"
-                className="hist-more"
-                aria-expanded={showAllDrafts}
-                onClick={() => setShowAllDrafts((v) => !v)}
-              >
-                {showAllDrafts ? "Show fewer" : `Show more (${hiddenDrafts})`}
-              </button>
-            )}
-          </div>
-        )}
+        <RailHistory
+          drafts={pastDrafts}
+          currentId={draftId}
+          onRename={(id, title) => void renameDraft(id, title)}
+          onTogglePin={(id, next) => void togglePin(id, next)}
+        />
         <div className="rail-bottom">
           {/* Admins only, and absent from the HTML everyone else receives —
               the same rule as the catalogue's Admin workspace card. */}

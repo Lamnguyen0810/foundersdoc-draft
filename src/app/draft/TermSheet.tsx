@@ -26,6 +26,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DocumentEditor from "./DocumentEditor";
+import RailHistory from "./RailHistory";
+import type { RecentDraft } from "./history";
 import { track } from "@/lib/track";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { applyDefaults, questionsFor, rolesFor, type Answers, type Option, type Question } from "@/lib/termsheet/conditions";
@@ -65,6 +67,8 @@ export interface TermSheetProps {
   isAdmin: boolean;
   company: CompanyPrefill | null;
   resume?: TermResume;
+  /** Past drafts for the rail — the same list as the NDA's screen. */
+  recent?: RecentDraft[];
 }
 
 type Stage = "intro" | "questions" | "review" | "drafted";
@@ -192,7 +196,7 @@ function answerLabel(q: Question, a: Answers): string {
 
 /* ── the component ────────────────────────────────────────────────────── */
 
-export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAdmin, company, resume }: TermSheetProps) {
+export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAdmin, company, resume, recent }: TermSheetProps) {
   const [stage, setStage] = useState<Stage>(resume ? "drafted" : "intro");
   const [learnMore, setLearnMore] = useState(false);
   const [answers, setAnswers] = useState<Answers>(() => (resume ? fromSaved(resume.answers) : {}));
@@ -221,6 +225,27 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
   /* the draft */
   const [draftId, setDraftId] = useState<string | null>(resume?.id ?? null);
   const [title, setTitle] = useState(resume?.title ?? "Term Sheet");
+  const [pastDrafts, setPastDrafts] = useState<RecentDraft[]>(recent ?? []);
+
+  /* Rename or pin a past draft from the rail. The row changes at once and the
+     write catches up; if the write fails the row goes back. */
+  async function patchPastDraft(id: string, change: { title?: string; pinned?: boolean }) {
+    const was = pastDrafts;
+    const wasTitle = title;
+    setPastDrafts((list) => list.map((d) => (d.id === id ? { ...d, ...change } : d)));
+    if (change.title && id === draftId) setTitle(change.title);
+    try {
+      const res = await fetch(`/api/drafts/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(change),
+      });
+      if (!res.ok) throw new Error("save failed");
+    } catch {
+      setPastDrafts(was);
+      if (change.title && id === draftId) setTitle(wasTitle);
+    }
+  }
   const [html, setHtml] = useState<string | null>(resume?.outputHtml ?? null);
   const [text, setText] = useState(resume?.output ?? "");
   const [status, setStatus] = useState<DraftStatus | "stopped">(resume?.status ?? "draft");
@@ -1128,6 +1153,15 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
               {wallet?.inTrial ? <small>Free week · trial credits expire</small> : <a href="/billing">{credits === 0 ? "Add credits" : "Add more"}</a>}
             </div>
           )}
+          <RailHistory
+            drafts={pastDrafts}
+            currentId={draftId}
+            onRename={(id, t) => {
+              const tidy = t.replace(/\s+/g, " ").trim().slice(0, 80);
+              if (tidy) void patchPastDraft(id, { title: tidy });
+            }}
+            onTogglePin={(id, next) => void patchPastDraft(id, { pinned: next })}
+          />
           <div className="rail-bottom">
             {isAdmin && (
               <a className="rail-admin" href="/admin">
