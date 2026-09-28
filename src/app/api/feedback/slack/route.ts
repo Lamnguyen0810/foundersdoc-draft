@@ -20,7 +20,10 @@ import { learnFromFeedback } from "@/lib/learn";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const SIGNAL = /^\s*(feedback|fb)\s*:/i;
+/* "fb: …", "feedback: …", and — as the draft messages ask — "fb #3f9a1c: …"
+   (the colon after the ref is optional). The old pattern wanted the colon
+   straight after "fb", so every "fb #ref:" message was quietly ignored. */
+const SIGNAL = /^\s*(feedback|fb)\b\s*(#[0-9a-f]{6}\b\s*:?|:)/i;
 /* "fb undo" — take back the last rule. Also "fb: undo", "fb cancel", "fb revert". */
 const UNDO = /^\s*(feedback|fb)\s*:?\s*(undo|cancel|revert|recall)\b/i;
 
@@ -96,5 +99,17 @@ export async function POST(req: NextRequest) {
     console.error("[feedback/slack] learn failed:", err);
     return { learnt: false, reason: "error" };
   });
+  /* Say so in the channel. A rule learnt is announced by the database
+     (announce_lesson); anything else would be silence, and silence reads
+     as "it did not work". 059. */
+  if (!learnt.learnt) {
+    const { error: ackError } = await supabaseAdmin().rpc("ack_slack_feedback", {
+      p_feedback: data as string,
+      p_reason: learnt.reason ?? null,
+    });
+    if (ackError && !/ack_slack_feedback|does not exist|schema cache/i.test(ackError.message)) {
+      console.error("[feedback/slack] could not acknowledge:", ackError.message);
+    }
+  }
   return NextResponse.json({ ok: true, id: data as string, ...learnt });
 }

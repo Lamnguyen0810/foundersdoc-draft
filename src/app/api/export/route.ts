@@ -419,7 +419,16 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
 
-  let body: { text?: string; html?: string; title?: string; fileName?: string; includeNotes?: boolean; docTypeSlug?: string };
+  let body: {
+    text?: string;
+    html?: string;
+    title?: string;
+    fileName?: string;
+    includeNotes?: boolean;
+    docTypeSlug?: string;
+    /** The saved draft being downloaded, for the Slack line (059). */
+    draftId?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -523,6 +532,29 @@ export async function POST(req: NextRequest) {
   });
 
   const buffer = await Packer.toBuffer(doc);
+
+  /* ── SLACK HEARS ABOUT THE DOWNLOAD (059) ─────────────────────────────
+     Announced from here, on the server, for the exact draft downloaded.
+     It used to hang off an analytics event the browser sent after the file
+     arrived — which an ad blocker, a closed tab or a flaky network could
+     stop — and the database then had to guess which draft it was. Best
+     effort: the file goes out whatever Slack does. Before 059 the RPC does
+     not exist and the old trigger still announces, so nothing is lost. */
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = await createClient();
+      const draftId =
+        typeof body.draftId === "string" && /^[0-9a-f-]{36}$/i.test(body.draftId) ? body.draftId : null;
+      const slug =
+        typeof body.docTypeSlug === "string" && /^[a-z0-9_-]{1,64}$/.test(body.docTypeSlug) ? body.docTypeSlug : null;
+      const { error } = await supabase.rpc("announce_draft_download", { p_draft: draftId, p_slug: slug });
+      if (error && !/announce_draft_download|does not exist|schema cache/i.test(error.message)) {
+        console.error("[export] could not announce the download:", error.message);
+      }
+    } catch (err) {
+      console.error("[export] could not announce the download:", err);
+    }
+  }
   const date = new Date().toISOString().slice(0, 10);
   const requestedName = body.fileName?.replace(/\.docx$/i, "");
   const filename = requestedName
