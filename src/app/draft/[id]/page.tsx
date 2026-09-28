@@ -130,6 +130,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
         isAdmin={admin}
         company={null}
         resume={termResume}
+        recent={recent}
       />
     );
   }

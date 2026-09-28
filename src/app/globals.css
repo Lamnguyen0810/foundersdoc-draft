@@ -3669,14 +3669,12 @@ html[data-theme=dark]{
 /* ── 060: the question card ─────────────────────────────────────────────── */
 /* The comprehensiveness slider on the question spans the conversation. */
 .m .ans .gd{width:100%}
-/* The "i" beside a question, and what it says when tapped. */
+/* The "i" beside a question. */
 .q-info{display:inline-grid;place-items:center;width:17px;height:17px;margin-left:7px;border-radius:50%;
   border:1px solid var(--rule);background:var(--card);color:var(--tx-3);font-size:10.5px;font-weight:700;font-style:italic;
   font-family:Georgia,"Times New Roman",serif;line-height:1;cursor:pointer;vertical-align:1px;user-select:none;transition:background .15s,color .15s,border-color .15s}
 .q-info:hover,.q-info.on{background:var(--gold,#f3bf4b);border-color:var(--gold,#f3bf4b);color:#141416}
 .q-info:focus-visible{outline:2px solid var(--gold,#f3bf4b);outline-offset:2px}
-.q-info-text{display:block;margin-top:7px;padding:9px 12px;border-radius:10px;background:var(--gold-tint,#fff8e6);
-  border-left:3px solid var(--gold,#f3bf4b);font-size:12.5px;font-weight:400;line-height:1.5;color:var(--tx-2);cursor:default}
 /* A number of years, or Perpetual. */
 .yrs{display:flex;gap:8px;align-items:center}
 .yrs .input{flex:1;min-width:0}
@@ -3686,3 +3684,37 @@ html[data-theme=dark]{
 .m .ans .gd .gd-scale span:first-child,.m .ans .gd .gd-scale span:last-child{text-align:center}
 /* A question's box keeps its own height when the one beside it opens its "i". */
 .m .ans .card>label{align-content:start}
+
+/* ── 0048: the "i" opens on hover; past drafts by type ─────────────────── */
+/* The "i" box floats over the page in grey instead of pushing the question
+   down. Placed by InfoTip.tsx (position: fixed, beside the "i"). */
+.q-info-wrap{display:inline-block;position:relative}
+.q-info-pop{position:fixed;z-index:60;width:min(320px,calc(100vw - 16px));box-sizing:border-box;
+  padding:10px 13px;border-radius:10px;background:#f1f2f4;border:1px solid #dcdee3;
+  box-shadow:0 8px 24px rgba(20,20,22,.14),0 1px 3px rgba(20,20,22,.08);
+  font-size:12.5px;font-weight:400;font-style:normal;line-height:1.5;letter-spacing:normal;text-transform:none;
+  color:#3a3b40;text-align:left;white-space:normal;cursor:default;animation:qInfoIn .12s ease-out}
+html[data-theme=dark] .q-info-pop{background:#2a2b30;border-color:#3a3b41;color:#d9dade;box-shadow:0 8px 24px rgba(0,0,0,.45)}
+@keyframes qInfoIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+.q-info-pop.above{animation-name:qInfoInUp}
+@keyframes qInfoInUp{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.q-info-pop{animation:none}}
+
+/* Filter the rail's past drafts by type. */
+.rail .hist-filter{display:flex;flex-wrap:wrap;gap:5px;padding:4px 12px 6px}
+.rail .hist-chip{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:5px;
+  padding:3px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.14);
+  font-size:11.5px;font-weight:500;color:rgba(255,255,255,.62);white-space:nowrap}
+.rail .hist-chip:hover{background:rgba(255,255,255,.06);color:#fff}
+.rail .hist-chip.on{background:var(--gold);border-color:var(--gold);color:#141416}
+.rail .hist-chip:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.rail .hist-chip:not(.t-all)::before{content:"";width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.35)}
+.rail .hist-chip.on::before{background:#141416!important}
+/* Each row's dot says what kind of document it is; the open draft stays gold. */
+.rail .hist a.t-nda::before,.rail .hist-chip.t-nda::before{background:#9fd3b0}
+.rail .hist a.t-term::before,.rail .hist-chip.t-term::before{background:#8fb3ff}
+.rail .hist a.on::before{background:var(--gold)}
+.rail .hist a::before{width:6px;height:6px}
+.rail .hist-empty{margin:4px 12px;font-size:12px;color:rgba(255,255,255,.45)}
+.rail .hist-all{display:block;margin:2px 12px 6px;text-align:center;font-size:12px;color:rgba(255,255,255,.55)}
+.rail .hist-all:hover{color:#fff}

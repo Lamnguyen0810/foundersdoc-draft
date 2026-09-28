@@ -1,7 +1,7 @@
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient } from "@/lib/supabase/server";
 import { nameFallback } from "@/lib/draft-name";
-import type { RecentDraft } from "./DraftChat";
+import type { RecentDraft } from "./history";
 
 /**
  * The "Past drafts" list in the rail.
@@ -68,11 +68,11 @@ interface Row {
   title: string | null;
   created_at: string;
   pinned: boolean | null;
-  doc_types: { label: string } | null;
+  doc_types: { label: string; slug: string } | null;
 }
 
 /** Enough to be worth grouping, few enough that the rail is not a filing cabinet. */
-const LIMIT = 24;
+const LIMIT = 40;
 
 export async function recentDrafts(): Promise<RecentDraft[]> {
   if (!isSupabaseConfigured()) return [];
@@ -80,7 +80,7 @@ export async function recentDrafts(): Promise<RecentDraft[]> {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("drafts")
-      .select("id,title,created_at,pinned,doc_types(label)")
+      .select("id,title,created_at,pinned,doc_types(label,slug)")
       .is("deleted_at", null)
       .order("pinned", { ascending: false })
       .order("created_at", { ascending: false })
@@ -96,6 +96,7 @@ export async function recentDrafts(): Promise<RecentDraft[]> {
       title: (r.title ?? "").trim() || nameFallback(r.doc_types?.label, r.created_at),
       when: when(r.created_at, now),
       docLabel: r.doc_types?.label ?? undefined,
+      docSlug: r.doc_types?.slug ?? undefined,
       pinned: Boolean(r.pinned),
       heading: r.pinned ? "Pinned" : heading(r.created_at, now),
     }));
@@ -113,7 +114,7 @@ async function withoutPinning(
   try {
     const { data } = await supabase
       .from("drafts")
-      .select("id,title,created_at,doc_types(label)")
+      .select("id,title,created_at,doc_types(label,slug)")
       .is("deleted_at", null)
       .order("created_at", { ascending: false })
       .limit(LIMIT);
@@ -123,6 +124,7 @@ async function withoutPinning(
       title: (r.title ?? "").trim() || nameFallback(r.doc_types?.label, r.created_at),
       when: when(r.created_at, now),
       docLabel: r.doc_types?.label ?? undefined,
+      docSlug: r.doc_types?.slug ?? undefined,
       pinned: false,
       heading: heading(r.created_at, now),
     }));

@@ -57,6 +57,7 @@ export default async function DraftPage({
         wallet={!guest && wallet && Number.isFinite(wallet.credits) ? { credits: wallet.credits, inTrial: wallet.inTrial, trialEndsAt: wallet.trialEndsAt } : null}
         isAdmin={admin}
         company={company}
+        recent={recent}
       />
     );
   }
