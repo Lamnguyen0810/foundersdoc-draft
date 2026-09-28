@@ -71,7 +71,12 @@ export function retiredFieldKeys(slug: string): Set<string> {
 
 /** A step's wording as the drafting screen shows it (054). */
 export function tidyStepQuestion(q: string): string {
-  return typeof q === "string" ? q.replace("sensible Singapore defaults", "sensible defaults") : q;
+  if (typeof q !== "string") return q;
+  /* 056: the parties step now has a box for other details. */
+  if (q.trim() === "Who are the parties? Just provide each person’s or organisation’s name.") {
+    return "Who are the parties? Their names are enough — add any other details (an address, a registration number, who will sign) in the box below if you want them in the NDA.";
+  }
+  return q.replace("sensible Singapore defaults", "sensible defaults");
 }
 
 function fromRow(row: DocTypeRow): DocType {
@@ -97,6 +102,15 @@ function fromRow(row: DocTypeRow): DocType {
       }
       return field;
     });
+  /* 056: the optional box for other party details. Added here when the
+     database form predates it, so the question appears before the SQL is
+     run; after it, the database copy (which an admin may have reworded) is
+     the one used. */
+  if (row.slug === "nda" && !fields.some((f) => f.key === "party_extra")) {
+    const extra = DOC_TYPES.find((d) => d.slug === "nda")?.fields.find((f) => f.key === "party_extra");
+    const at = fields.findIndex((f) => f.key === "party_b");
+    if (extra && at >= 0) fields.splice(at + 1, 0, extra);
+  }
   const builtIn = DOC_TYPES.find((docType) => docType.slug === row.slug);
   let systemPrompt = row.system_prompt;
   if (
@@ -108,7 +122,7 @@ function fromRow(row: DocTypeRow): DocType {
     const appendix = builtIn.systemPrompt.slice(builtIn.systemPrompt.indexOf(marker));
     if (appendix) systemPrompt += appendix;
   }
-  if ((row.fields ?? []).length !== fields.length) {
+  if ((row.fields ?? []).some((f) => retiredFieldKeys(row.slug).has(f.key))) {
     console.warn(
       `[doctypes] "${row.slug}" still lists retired question(s) in Supabase; ignoring them. ` +
         `Re-run supabase/002_seed_doctypes.sql to remove them from the database.`,

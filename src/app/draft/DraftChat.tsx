@@ -1929,27 +1929,30 @@ function Chat({
 
   /** Skip everything still outstanding, then draft. */
   function draftWithWhatIHave() {
-    const from = i;
     const detailIndex = steps.findIndex((item) => item.kind === "detail");
     const mustChooseDetail = detailIndex >= 0 && status[detailIndex] !== "done";
-    const stopAt = mustChooseDetail ? detailIndex : steps.length;
+    /* Every question not yet settled, wherever it is — the person may have
+       jumped about. Answered ones are left alone. */
+    const todo = steps
+      .map((_, k) => k)
+      .filter((k) => status[k] === undefined && !(mustChooseDetail && k === detailIndex));
 
     track("draft_with_what_i_have", {
       doc_type: docType.slug,
-      step: from + 1,
+      step: i + 1,
       total_steps: steps.length,
-      count: Math.max(0, stopAt - from),
+      count: todo.length,
     });
     setAnswers((prev) => {
       const next = { ...prev };
-      for (let k = from; k < stopAt; k++) {
+      for (const k of todo) {
         for (const f of steps[k].fields) if (!(next[f.key] ?? "").trim()) next[f.key] = SKIPPED;
       }
       return next;
     });
     setStatus((prev) => {
       const next = [...prev];
-      for (let k = from; k < stopAt; k++) next[k] = "skp";
+      for (const k of todo) next[k] = "skp";
       return next;
     });
     setMsgs((prev) => [
@@ -1962,37 +1965,47 @@ function Chat({
           : "Drafting from what you’ve given me. Everything you skipped comes back as [[TO CONFIRM]] so nothing is quietly invented.",
       },
     ]);
-    setI(stopAt);
+    setI(mustChooseDetail ? detailIndex : steps.length);
     if (!mustChooseDetail) setTimeout(() => void generate(), 40);
   }
 
-  /** Re-open a question, skipped or answered, to answer it again. Answers
-   *  already given stay filled in; the rest of the form is untouched. */
+  /**
+   * Open any question from the progress list — answered, skipped or not yet
+   * reached — to look at it or answer it again. Nothing is lost by looking:
+   * an answered question stays answered (and tappable) if the person moves
+   * on without changing it, and a skipped one stays skipped. Answers already
+   * given stay filled in; the rest of the form is untouched.
+   */
   function revisit(k: number) {
     if (k === i || busy) return;
-    setStatus((prev) => {
-      const next = [...prev];
-      next[k] = undefined;
-      return next;
-    });
+    const leaving = i < steps.length ? i : -1;
     setAnswers((prev) => {
       const next = { ...prev };
+      /* Leaving a skipped question without answering it: it is still skipped. */
+      if (leaving >= 0 && status[leaving] === "skp") {
+        for (const f of steps[leaving].fields) if (!(next[f.key] ?? "").trim()) next[f.key] = SKIPPED;
+      }
+      /* Opening a skipped question: empty boxes to answer in, not the marker. */
       for (const f of steps[k].fields) if (next[f.key] === SKIPPED) next[f.key] = f.defaultValue ?? "";
       return next;
     });
+    const name = steps[k].name.toLowerCase();
     setMsgs((prev) => [
       ...prev,
       {
         who: "fd",
         text:
           status[k] === "done"
-            ? `Let’s change your answer on ${steps[k].name.toLowerCase()}. Your other answers are kept.`
-            : `Let’s go back to ${steps[k].name.toLowerCase()}.`,
+            ? `Here’s your answer on ${name}. Change it, or press “That’s right” to keep it — your other answers are kept.`
+            : status[k] === "skp"
+              ? `Let’s go back to ${name}.`
+              : `Let’s look at ${name}.`,
       },
     ]);
     setView("chat");
     setI(k);
   }
+
 
   /**
    * A question typed into the chat, answered instead of saved as an answer.
@@ -3522,22 +3535,27 @@ function Chat({
           </div>
           <div className="notes">
             {steps.map((s, k) => {
-              const st = status[k] ?? (k === i ? "now" : "");
-              const sm =
-                st === "done"
+              /* The question on screen is "now" whatever its state, so the
+                 person can see where they are; every other one can be
+                 opened with a tap, and stays as it was if they move on. */
+              const open = k === i && view === "chat";
+              const st = open ? "now" : (status[k] ?? "");
+              const sm = open
+                ? status[k] === "done"
+                  ? `Open now — ${summarise(s).slice(0, 48)}`
+                  : "Answering now"
+                : st === "done"
                   ? summarise(s).slice(0, 60)
                   : st === "skp"
                     ? "Skipped — tap to answer"
-                    : st === "now"
-                      ? "Answering now"
-                      : "Not yet";
+                    : "Not yet — tap to open";
               return (
                 <div
                   key={s.id}
                   className={`inst ${st}`}
-                  onClick={() => (st === "skp" || st === "done") && revisit(k)}
-                  title={st === "done" ? "Tap to change this answer" : st === "skp" ? "Tap to answer" : undefined}
-                  style={st === "done" || st === "skp" ? { cursor: "pointer" } : undefined}
+                  onClick={() => !open && revisit(k)}
+                  title={open ? undefined : st === "done" ? "Tap to see or change this answer" : "Tap to answer"}
+                  style={open ? undefined : { cursor: "pointer" }}
                 >
                   <i>{st === "done" ? "✓" : k + 1}</i>
                   <div>
