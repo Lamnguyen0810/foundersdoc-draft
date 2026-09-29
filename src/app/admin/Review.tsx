@@ -5,7 +5,7 @@ import { stamp } from "./parts";
 import type { Flag } from "@/lib/termsheet/types";
 
 /**
- * The review queue: term sheets the playbook held (🟡) or stopped (🔴).
+ * The review queue: term sheets and employment agreements the playbook held (🟡) or stopped (🔴).
  *
  * A held draft is on the user's screen already, marked "being checked";
  * what they cannot do is download it. A lawyer reads the reasons, reads
@@ -102,10 +102,11 @@ export default function Review({ initial }: { initial: ReviewInitial }) {
       )}
 
       <p className="playbook-why">
-        <b>What lands here.</b> Term sheets the Drafting Playbook stopped 🔴 — sanctions or bribery signals, a party
-        under 18, a request to backdate, a binding obligation to complete. Nothing was drafted and nothing charged; the
-        user was pointed to a consultation. Slack gets a line for each, with the reason and the <b>#ref</b>. 🟡 points
-        are not held: they are listed beside the letter for the user’s own lawyer.
+        <b>What lands here.</b> Term sheets and employment agreements their playbook stopped 🔴 — sanctions or bribery
+        signals, a party under 18, a request to backdate, a binding obligation to complete, signs of unlawful work.
+        Nothing was drafted and nothing charged; the user was pointed to a consultation. Slack gets a line for each,
+        with the reason and the <b>#ref</b>. 🟡 points are not held: they are listed beside the letter for the user’s
+        own lawyer.
       </p>
 
       {notice && (
@@ -115,7 +116,7 @@ export default function Review({ initial }: { initial: ReviewInitial }) {
       )}
 
       {shown.length === 0 ? (
-        <div className="empty">{missing ? "" : "Nothing waiting. Held and stopped term sheets appear here."}</div>
+        <div className="empty">{missing ? "" : "Nothing waiting. Stopped term sheets and employment agreements appear here."}</div>
       ) : (
         <ol className="feedback-list" style={{ padding: "0 18px 18px" }}>
           {shown.map((r) => {

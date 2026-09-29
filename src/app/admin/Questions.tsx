@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { stepsFor, type Group } from "@/lib/doctypes";
 import TermQuestions from "./TermQuestions";
+import EmploymentQuestions from "./EmploymentQuestions";
 
 /**
  * The questions a user answers before the first draft, per document type —
@@ -283,9 +284,10 @@ export default function Questions({
             ? `Live — published ${stamp(publishedAt[slug]!)}`
             : "Live";
 
-  /* The term sheet's questions are its questionnaire.json, built into the
-     assembler: listed as asked, not edited here. See TermQuestions. */
-  if (slug === "term") {
+  /* The term sheet's and the employment agreement's questions are built
+     into their assemblers: listed as asked, not edited here. See
+     TermQuestions and EmploymentQuestions. */
+  if (slug === "term" || slug === "employment") {
     return (
       <div className="table-card questions-card">
         <div className="table-head">
@@ -302,7 +304,7 @@ export default function Questions({
             </div>
           </div>
         </div>
-        <TermQuestions />
+        {slug === "employment" ? <EmploymentQuestions /> : <TermQuestions />}
       </div>
     );
   }

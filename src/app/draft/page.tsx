@@ -4,6 +4,7 @@ import { getUser, isAdmin } from "@/lib/supabase/server";
 import { getWallet } from "@/lib/billing/credits";
 import DraftChat from "./DraftChat";
 import TermSheet from "./TermSheet";
+import Employment from "./Employment";
 import { recentDrafts } from "./recent";
 import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
 
@@ -43,14 +44,15 @@ export default async function DraftPage({
   ]);
   const guest = isSupabaseConfigured() && !user;
 
-  /* An assembled document — the term sheet — has a screen of its own. The
-     catalogue is DraftChat's; a pick there hard-navigates here with the
-     slug, and this is where the branch happens. */
+  /* An assembled document — the term sheet, the employment agreement — has
+     a screen of its own. The catalogue is DraftChat's; a pick there
+     hard-navigates here with the slug, and this is where the branch happens. */
   const preset = docTypes.find((d) => d.slug === presetSlug);
   if (preset?.engine === "assembly") {
     const company = isSupabaseConfigured() && user ? await loadCompanyProfile() : null;
+    const Screen = preset.slug === "employment" ? Employment : TermSheet;
     return (
-      <TermSheet
+      <Screen
         look={looks[preset.slug]}
         userEmail={user?.email ?? null}
         guest={guest}
