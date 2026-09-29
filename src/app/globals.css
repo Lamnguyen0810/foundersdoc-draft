@@ -3792,3 +3792,8 @@ html[data-theme=dark] .q-info-pop{background:#2a2b30;border-color:#3a3b41;color:
 }
 /* 062: years or months beside the number. */
 .yrs .yrs-unit{flex:0 0 108px}
+/* 0054: years AND months, each in its own box; the law, listed or typed. */
+.yrs .yrs-box{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
+.yrs .yrs-box .input{flex:1;min-width:52px}
+.yrs .yrs-box>span{font-size:13px;color:var(--tx-2);flex:none}
+.law{display:grid;gap:8px}

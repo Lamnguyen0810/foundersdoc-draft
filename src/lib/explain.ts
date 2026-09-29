@@ -63,7 +63,7 @@ const NDA: Record<string, (f: Explained) => string> = {
   info_categories: () =>
     "The kinds of information you expect to share, for example pricing, customer lists, financial figures, product plans or source code. Naming the real categories helps avoid disputes later about whether something was covered.",
   confidentiality_period: () =>
-    `How long the other side must keep your information confidential, counted from the date of the NDA. Type a number and choose ${q("Years")} or ${q("Months")} (two to five years is common), or choose ${q(PERPETUAL)} if the information must stay confidential with no time limit, for example trade secrets.`,
+    `How long the other side must keep your information confidential, counted from the date of the NDA. Fill in the years, the months or both, for example 1 year and 3 months (two to five years is common), or choose ${q(PERPETUAL)} if the information must stay confidential with no time limit, for example trade secrets.`,
   ip_assignment: (f) => {
     const yes = optionLabel(f, /^yes\b/i, "Yes");
     const no = optionLabel(f, /^no\b/i, "No");
@@ -72,6 +72,14 @@ const NDA: Record<string, (f: Explained) => string> = {
   personal_data: (f) => {
     const yes = optionLabel(f, /^yes\b/i, "Yes");
     return `Choose ${q(yes)} if either side will share information about individuals, such as customer or employee details. A data protection clause is then added to the NDA.`;
+  },
+  governing_law: () =>
+    `The country whose law applies to the NDA, usually where you are based. If yours is not listed, choose ${q("Other (type it)")} and type it. For the United States, Australia or Canada, type the state, for example New York, because contract law is set state by state there.`,
+  dispute_resolution: (f) => {
+    const courts = optionLabel(f, /court/i, "In the courts of that country");
+    const arb = optionLabel(f, /arbitrat/i, "By arbitration");
+    const unsure = optionLabel(f, /not sure/i, "Not sure");
+    return `${q(courts)}: a dispute goes to the courts of the country you chose. ${q(arb)}: it goes to a private arbitration centre instead, such as the Singapore International Arbitration Centre for Singapore law. Arbitration is confidential and easier to enforce abroad, so it suits parties in different countries. If unsure, choose ${q(unsure)} and the courts are used.`;
   },
   special_terms: () =>
     "Anything else you want in the NDA, in your own words: for example the country whose law should apply, a clause to add, or something to leave out. This is optional.",

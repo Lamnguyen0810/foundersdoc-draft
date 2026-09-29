@@ -110,11 +110,11 @@ const GLOSSARY: Entry[] = [
   },
   {
     words: /\bsurviv|after (it|the agreement) ends|how long .*(secret|confidential)|confidentiality period/i,
-    answer: `The confidentiality period is how long the information must be kept confidential, counted from the date of the NDA: a number of years or months, or ${q(PERPETUAL)} for no time limit. Two to five years is common.`,
+    answer: `The confidentiality period is how long the information must be kept confidential, counted from the date of the NDA: years and months, or ${q(PERPETUAL)} for no time limit. Two to five years is common.`,
   },
   {
     words: /\bterm\b(?! ?sheet)|how long does the agreement last|\bduration\b/i,
-    answer: `The NDA has one period: how long the confidentiality obligations last, counted from the date of the NDA. Type a number and choose ${q("Years")} or ${q("Months")}, or choose ${q(PERPETUAL)} for no time limit. Two to five years is common.`,
+    answer: `The NDA has one period: how long the confidentiality obligations last, counted from the date of the NDA. Fill in the years, the months or both, or choose ${q(PERPETUAL)} for no time limit. Two to five years is common.`,
   },
   {
     words: /\b(owns?|ownership) (the )?(rights?|ip|work)\b|\bownership\b|intellectual property|\bip\b|rights to/i,
@@ -155,8 +155,11 @@ const GLOSSARY: Entry[] = [
   },
   {
     words: /\b(governing law|jurisdiction|which law|which country|courts?)\b/i,
-    answer: (ctx) =>
-      `The NDA is not tied to one country. The governing-law clause is left blank for you to fill in: the country whose law applies to the NDA and whose courts would hear a dispute, usually where you are based. If you already know it, write it under ${q(fieldOf(ctx, "special_terms")?.label ?? "Anything else")} and it will be used.`,
+    answer: (ctx) => {
+      const law = fieldOf(ctx, "governing_law")?.label ?? "Which country’s law should govern the NDA?";
+      const how = fieldOf(ctx, "dispute_resolution")?.label ?? "How should a dispute be resolved?";
+      return `The governing law is the country whose law applies to the NDA, usually where you are based; you choose it at ${q(law)}. At ${q(how)} you choose whether a dispute goes to that country’s courts or to arbitration. If you skip it, the clause is left blank for you to fill in.`;
+    },
   },
   {
     words: /\b(comprehensive|comprehensiveness|how long should|length|detail(ed)?|concise|standard|thorough|maximum)\b/i,

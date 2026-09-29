@@ -6,6 +6,7 @@
  * doctypes.ts are the first two places to look — almost never the model.
  */
 
+import { ARBITRATION } from "./termsheet/data/map";
 import type { DocType, Field } from "./doctypes";
 import type { DraftingStyle } from "./settings";
 
@@ -200,18 +201,21 @@ export const NDA_DECISIONS = [
   "  example has one, and even if the answers ask for one. If they do, leave it out and",
   "  add one note: the request was left out | Question: Anything else | What to put: speak",
   "  to a Founders Doc lawyer about a separate agreement. Never a non-compete either.",
-  "- Not tied to any country. The form does not ask for a governing law. Write the",
-  "  governing-law and jurisdiction clause in general terms with the country as a gap",
-  "  (marked as gaps are marked elsewhere in this prompt): the Agreement is governed by",
-  "  the laws of [gap] and the Parties submit to the exclusive jurisdiction of the courts",
-  "  of [gap]. If the answers (for example \"Anything else\") name a country, use it",
-  "  instead. When it is a gap, add one note: the governing law is not chosen | Question:",
-  "  Not on the form | What to put: the country whose law applies and whose courts hear",
-  "  disputes, e.g. Singapore.",
+  "- Governing law and disputes. The form asks which country's law governs the NDA and how",
+  "  a dispute is resolved. Governed by the law of the country (or state) given. \"In the",
+  "  courts of that country\" or \"Not sure\": the Parties submit to the exclusive jurisdiction",
+  "  of the courts of that country. \"By arbitration\": disputes are finally resolved by",
+  "  arbitration administered by the institution and at the seat given under THE FACTS, under",
+  "  its rules then in force, in English. Where the country is the United States, Australia",
+  "  or Canada, contract law is set by state or province: name the state given, or leave the",
+  "  state as a gap. If the question was skipped, the country is a gap (marked as gaps are",
+  "  marked elsewhere in this prompt), with one note: the governing law is not chosen |",
+  "  Question: Which country's law should govern the NDA? | What to put: the country whose",
+  "  law applies, e.g. Singapore.",
   "- No residuals clause: the other side may not use what its people remember of the",
   "  information. Never include one, even where the playbook or a worked example has one.",
   "- One period. The form asks one question: how long the confidentiality obligations",
-  "  last, in years or months, or \"Perpetual\". Use that one period for the whole NDA: this",
+  "  last, in years and/or months, or \"Perpetual\". Use that one period for the whole NDA: this",
   "  Agreement and the obligations of confidentiality continue for that period from the date",
   "  of this Agreement. Do not add a separate, longer survival period after it. Where it says",
   "  \"Perpetual\", the obligations of confidentiality continue with no time limit. Treat trade",
@@ -334,6 +338,17 @@ export function buildUser(
 
   for (const field of docType.fields) {
     parts.push(formatField(field, answers[field.key] ?? ""));
+  }
+
+  /* Arbitration chosen: the institution and seat for that law, from the
+     firm's own table (the term sheet uses the same one), so the NDA names a
+     real centre rather than one the model half-remembers. */
+  const law = (answers.governing_law ?? "").trim();
+  if (/arbitration/i.test(answers.dispute_resolution ?? "") && law && law !== SKIPPED) {
+    const known = ARBITRATION[law];
+    const a = known ?? ARBITRATION.default;
+    const seat = known ? a.seat : law;
+    parts.push(`Arbitration institution and seat: ${a.institution.replace(/^the /, "The ")}, seated in ${seat}`);
   }
 
   if (sourceText && sourceText.trim() !== "") {

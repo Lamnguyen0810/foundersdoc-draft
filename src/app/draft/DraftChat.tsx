@@ -43,6 +43,9 @@ import { PERPETUAL, SKIP_LABEL, SOURCE_ATTACH, SOURCE_EXPLANATION, SOURCE_FRESH,
 type CatDoc = [string, string, string, boolean, string];
 type CatFolder = [string, CatDoc[]];
 
+/** The governing-law list's last choice, which opens a box to type in. */
+const OTHER_LAW = "__other__";
+
 /** The "All documents" folder at the root of the catalogue's tree. */
 const ALL_FOLDERS = -1;
 
@@ -1594,6 +1597,8 @@ function Chat({
   /* The draft on screen was cut off by the time limit: not saved, not
      charged, and not to be sent. It can be read, not downloaded. */
   const [cutOff, setCutOff] = useState(Boolean(resume?.unfinished));
+  /* The governing-law question's "Other": a box to type the country in. */
+  const [otherLaw, setOtherLaw] = useState(false);
   /* The saved row this draft belongs to, so edits can be written back. Null
      until the generate endpoint reports it — and it stays null when Supabase
      is not configured, in which case the Save button simply does nothing
@@ -2880,33 +2885,44 @@ function Chat({
                 <InfoTip text={explainField(docType.slug, f)} label={f.label} />
               </span>
               {f.key === "confidentiality_period" ? (
-                /* A number of years or months, or no time limit at all. */
+                /* Years and months — either or both — or no time limit. */
                 (() => {
                   const p = parsePeriod(answers[f.key] === SKIPPED ? "" : answers[f.key]);
-                  const set = (next: Partial<typeof p>) => setAnswer(f.key, formatPeriod({ ...p, ...next }));
+                  const set = (next: Partial<typeof p>) => setAnswer(f.key, formatPeriod({ ...p, ...next, perpetual: false }));
+                  const digits = (v: string, max: number) => {
+                    const n = v.replace(/\D/g, "").slice(0, 3);
+                    return n && Number(n) > max ? String(max) : n;
+                  };
                   return (
                     <span className="yrs">
-                      <input
-                        className="input"
-                        type="number"
-                        min={1}
-                        max={p.unit === "months" ? 120 : 99}
-                        placeholder="Number"
-                        aria-label="How many"
-                        value={p.perpetual ? "" : p.n}
-                        disabled={p.perpetual}
-                        onChange={(e) => set({ n: e.target.value.replace(/\D/g, "").slice(0, 3), perpetual: false })}
-                      />
-                      <select
-                        className="input yrs-unit"
-                        aria-label="Years or months"
-                        value={p.unit}
-                        disabled={p.perpetual}
-                        onChange={(e) => set({ unit: e.target.value === "months" ? "months" : "years" })}
-                      >
-                        <option value="years">Years</option>
-                        <option value="months">Months</option>
-                      </select>
+                      <span className="yrs-box">
+                        <input
+                          className="input"
+                          type="number"
+                          min={0}
+                          max={99}
+                          placeholder="0"
+                          aria-label="Years"
+                          value={p.perpetual ? "" : p.years}
+                          disabled={p.perpetual}
+                          onChange={(e) => set({ years: digits(e.target.value, 99) })}
+                        />
+                        <span>years</span>
+                      </span>
+                      <span className="yrs-box">
+                        <input
+                          className="input"
+                          type="number"
+                          min={0}
+                          max={11}
+                          placeholder="0"
+                          aria-label="Months"
+                          value={p.perpetual ? "" : p.months}
+                          disabled={p.perpetual}
+                          onChange={(e) => set({ months: digits(e.target.value, 11) })}
+                        />
+                        <span>months</span>
+                      </span>
                       <button
                         type="button"
                         className={`chip${p.perpetual ? " on" : ""}`}
@@ -2917,6 +2933,47 @@ function Chat({
                       >
                         {PERPETUAL}
                       </button>
+                    </span>
+                  );
+                })()
+              ) : f.key === "governing_law" ? (
+                /* A country from the list, or "Other" and typed. */
+                (() => {
+                  const v = answers[f.key] === SKIPPED ? "" : (answers[f.key] ?? "");
+                  const opts = f.options ?? [];
+                  const typed = otherLaw || (v !== "" && !opts.includes(v));
+                  return (
+                    <span className="law">
+                      <select
+                        className="input"
+                        value={typed ? OTHER_LAW : v}
+                        onChange={(e) => {
+                          if (e.target.value === OTHER_LAW) {
+                            setOtherLaw(true);
+                            setAnswer(f.key, "");
+                          } else {
+                            setOtherLaw(false);
+                            setAnswer(f.key, e.target.value);
+                          }
+                        }}
+                      >
+                        <option value="">— choose —</option>
+                        {opts.map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                        <option value={OTHER_LAW}>Other (type it)</option>
+                      </select>
+                      {typed && (
+                        <input
+                          className="input"
+                          placeholder="Country, or state (e.g. New York)"
+                          value={v}
+                          autoFocus={otherLaw && !v}
+                          onChange={(e) => setAnswer(f.key, e.target.value)}
+                        />
+                      )}
                     </span>
                   );
                 })()

@@ -175,7 +175,7 @@ export const NDA_DATA = {
       type: "text",
       required: true,
       defaultValue: "2 years",
-      help: "A number of years or months, or Perpetual for no time limit.",
+      help: "Years, months or both, or Perpetual for no time limit.",
       group: "Terms",
     },
     {
@@ -196,6 +196,28 @@ export const NDA_DATA = {
       defaultValue: "No",
       help: "Yes adds a data protection clause.",
       group: "Terms",
+    },
+    {
+      key: "governing_law",
+      label: "Which country’s law should govern the NDA?",
+      type: "select",
+      options: [
+        "Singapore", "Malaysia", "Indonesia", "Vietnam", "Thailand", "Philippines", "Hong Kong", "China",
+        "India", "Japan", "South Korea", "Australia", "New Zealand", "England and Wales", "Ireland",
+        "United States", "Canada", "Germany", "France", "Netherlands", "Switzerland", "United Arab Emirates",
+      ],
+      required: true,
+      help: "Usually the country where you are based. Choose Other to type another country, or a state such as New York.",
+      group: "Law and disputes",
+    },
+    {
+      key: "dispute_resolution",
+      label: "How should a dispute be resolved?",
+      type: "select",
+      options: ["In the courts of that country", "By arbitration", "Not sure"],
+      required: true,
+      help: "Courts are the default. Arbitration is private and its awards are easier to enforce abroad, which suits parties in different countries.",
+      group: "Law and disputes",
     },
     {
       key: "special_terms",

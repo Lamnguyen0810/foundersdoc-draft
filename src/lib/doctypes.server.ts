@@ -160,6 +160,18 @@ function fromRow(row: DocTypeRow): DocType {
       fields.splice(at, 0, period);
     }
   }
+  /* 064: governing law and disputes, before the SQL that stores them is
+     run — placed before "Anything else", which is always last. */
+  if (row.slug === "nda") {
+    const built = DOC_TYPES.find((d) => d.slug === "nda")?.fields ?? [];
+    for (const key of ["governing_law", "dispute_resolution"]) {
+      if (fields.some((f) => f.key === key)) continue;
+      const field = built.find((f) => f.key === key);
+      if (!field) continue;
+      const at = fields.findIndex((f) => f.key === "special_terms");
+      fields.splice(at >= 0 ? at : fields.length, 0, field);
+    }
+  }
   const builtIn = DOC_TYPES.find((docType) => docType.slug === row.slug);
   let systemPrompt = row.system_prompt;
   if (
@@ -195,6 +207,15 @@ function fromRow(row: DocTypeRow): DocType {
         /* The NDA is no longer tied to Singapore (054). */
         .map((g) => ({ ...g, question: tidyStepQuestion(g.question) }))
     : [];
+  /* 064: the law step, before "Anything else", until the SQL stores it. */
+  if (row.slug === "nda" && groups.length && !groups.some((g) => g.name === "Law and disputes")) {
+    const at = groups.findIndex((g) => g.name === "Anything else");
+    groups.splice(at >= 0 ? at : groups.length, 0, {
+      name: "Law and disputes",
+      title: "Law and disputes",
+      question: "Which country’s law should govern the NDA, and how should a dispute be resolved?",
+    });
+  }
 
   return {
     slug: row.slug,
