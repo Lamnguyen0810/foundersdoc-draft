@@ -201,17 +201,18 @@ export const NDA_DECISIONS = [
   "  example has one, and even if the answers ask for one. If they do, leave it out and",
   "  add one note: the request was left out | Question: Anything else | What to put: speak",
   "  to a Founders Doc lawyer about a separate agreement. Never a non-compete either.",
-  "- Governing law and disputes. The form asks which country's law governs the NDA and how",
-  "  a dispute is resolved. Governed by the law of the country (or state) given. \"In the",
-  "  courts of that country\" or \"Not sure\": the Parties submit to the exclusive jurisdiction",
-  "  of the courts of that country. \"By arbitration\": disputes are finally resolved by",
-  "  arbitration administered by the institution and at the seat given under THE FACTS, under",
-  "  its rules then in force, in English. Where the country is the United States, Australia",
-  "  or Canada, contract law is set by state or province: name the state given, or leave the",
-  "  state as a gap. If the question was skipped, the country is a gap (marked as gaps are",
-  "  marked elsewhere in this prompt), with one note: the governing law is not chosen |",
-  "  Question: Which country's law should govern the NDA? | What to put: the country whose",
-  "  law applies, e.g. Singapore.",
+  "- Governing law and disputes. The form asks which jurisdiction's law governs the NDA and",
+  "  how a dispute is resolved. The answer is a country (\"Singapore\") or a state or part of",
+  "  one (\"California, United States\", \"England and Wales, United Kingdom\"). The NDA is",
+  "  governed by the laws of that jurisdiction — for a state, \"the laws of the State of",
+  "  California\". \"In the courts of that jurisdiction\" or \"Not sure\": the Parties submit",
+  "  to the exclusive jurisdiction of the courts of that jurisdiction (for a US state, the",
+  "  state and federal courts located in it). \"By arbitration\": disputes are finally resolved",
+  "  by arbitration administered by the institution and at the seat given under THE FACTS,",
+  "  under its rules then in force, in English. If the question was skipped, the jurisdiction",
+  "  is a gap (marked as gaps are marked elsewhere in this prompt), with one note: the",
+  "  governing law is not chosen | Question: Which jurisdiction's law should govern the NDA? |",
+  "  What to put: the jurisdiction whose law applies, e.g. Singapore.",
   "- No residuals clause: the other side may not use what its people remember of the",
   "  information. Never include one, even where the playbook or a worked example has one.",
   "- One period. The form asks one question: how long the confidentiality obligations",
@@ -345,7 +346,9 @@ export function buildUser(
      real centre rather than one the model half-remembers. */
   const law = (answers.governing_law ?? "").trim();
   if (/arbitration/i.test(answers.dispute_resolution ?? "") && law && law !== SKIPPED) {
-    const known = ARBITRATION[law];
+    /* "California, United States": the state's own entry first, then the
+       country's, then the default (ICC, seated in the jurisdiction). */
+    const known = ARBITRATION[law] ?? ARBITRATION[law.split(",")[0].trim()];
     const a = known ?? ARBITRATION.default;
     const seat = known ? a.seat : law;
     parts.push(`Arbitration institution and seat: ${a.institution.replace(/^the /, "The ")}, seated in ${seat}`);

@@ -1,6 +1,7 @@
 import "server-only";
 import { DOC_TYPES, EXAMPLES_BY_SLUG, type DocType, type Field, type Group } from "./doctypes";
 import { documentLook, type DocumentLook } from "./playbook";
+import { JURISDICTIONS } from "./doctypes.data.mjs";
 import { isSupabaseConfigured } from "./supabase/config";
 import { createClient } from "./supabase/server";
 
@@ -89,6 +90,10 @@ export function retiredFieldKeys(slug: string): Set<string> {
 /** A step's wording as the drafting screen shows it (054). */
 export function tidyStepQuestion(q: string): string {
   if (typeof q !== "string") return q;
+  /* 065: by jurisdiction, not country. */
+  if (q.trim() === "Which country’s law should govern the NDA, and how should a dispute be resolved?") {
+    return "Which jurisdiction’s law should govern the NDA, and how should a dispute be resolved?";
+  }
   /* 062: the Terms step asks about the confidentiality obligations. */
   if (/^How long should confidentiality last, and how strict should it be\?/.test(q.trim())) {
     return "How long should the confidentiality obligations last, and how strict should they be? I’ve set sensible defaults, so change only what you need.";
@@ -127,6 +132,19 @@ function fromRow(row: DocTypeRow): DocType {
       /* 060: clearer wording, before the SQL that stores it is run. */
       if (field.key === "ip_assignment") {
         return { ...field, label: "Do you own the rights to anything created using the information you provide?" };
+      }
+      /* 065: governing law by jurisdiction — states under their country —
+         and the courts "of that jurisdiction". Before the SQL is run. */
+      if (field.key === "governing_law" && !(field.options ?? []).some((o) => o.includes(" › "))) {
+        return {
+          ...field,
+          label: "Which jurisdiction’s law should govern the NDA?",
+          options: JURISDICTIONS,
+          help: "Usually where you are based. For the United States, Australia, Canada or the United Kingdom, choose the state or part. Choose Other to type one that is not listed.",
+        };
+      }
+      if (field.key === "dispute_resolution" && (field.options ?? []).includes("In the courts of that country")) {
+        return { ...field, options: (field.options ?? []).map((o) => (o === "In the courts of that country" ? "In the courts of that jurisdiction" : o)) };
       }
       if (field.key === "nda_direction" && JSON.stringify(field.options ?? []) === JSON.stringify(OLD_DIRECTION)) {
         return { ...field, options: NEW_DIRECTION };
@@ -213,7 +231,7 @@ function fromRow(row: DocTypeRow): DocType {
     groups.splice(at >= 0 ? at : groups.length, 0, {
       name: "Law and disputes",
       title: "Law and disputes",
-      question: "Which country’s law should govern the NDA, and how should a dispute be resolved?",
+      question: "Which jurisdiction’s law should govern the NDA, and how should a dispute be resolved?",
     });
   }
 
