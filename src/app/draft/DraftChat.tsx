@@ -79,7 +79,13 @@ const CATALOGUE: CatFolder[] = [
   [
     "People",
     [
-      ["employment", "Employment Agreement", "Hire an employee in Singapore", false, "hiring job offer staff"],
+      [
+        "employment",
+        "Employment Agreement",
+        "Hire an employee — any country, from our lawyers’ master",
+        true,
+        "hiring job offer staff employee contract of employment hr",
+      ],
       ["contractor", "Contractor Agreement", "Engage a freelancer or consultant", false, "freelancer consultant independent"],
     ],
   ],
@@ -598,16 +604,22 @@ export default function DraftChat({
     track("ai_opened");
   }, []);
 
-  /* A visitor who was mid-way through a TERM SHEET when they signed up comes
-     back here, to the catalogue, because that is where sign-up returns
-     everyone. Their answers are waiting under the term sheet's own key; the
-     term sheet's screen is the one that knows how to read them. */
+  /* A visitor who was mid-way through a TERM SHEET or an EMPLOYMENT
+     AGREEMENT when they signed up comes back here, to the catalogue, because
+     that is where sign-up returns everyone. Their answers are waiting under
+     that screen's own key; that screen is the one that knows how to read
+     them. */
   useEffect(() => {
     if (guest || resume || presetSlug) return;
     try {
-      const raw = window.localStorage.getItem("fdai.term-handoff");
-      const term = docTypes.find((d) => d.engine === "assembly");
-      if (raw && term) window.location.replace(`/draft?type=${term.slug}`);
+      for (const [key, slug] of [["fdai.employment-handoff", "employment"], ["fdai.term-handoff", "term"]] as const) {
+        const raw = window.localStorage.getItem(key);
+        const type = docTypes.find((d) => d.slug === slug && d.engine === "assembly");
+        if (raw && type) {
+          window.location.replace(`/draft?type=${type.slug}`);
+          return;
+        }
+      }
     } catch {
       /* nothing to restore */
     }

@@ -6,6 +6,7 @@ import { getWallet } from "@/lib/billing/credits";
 import { nameFromAnswers } from "@/lib/draft-name";
 import DraftChat, { type ResumeDraft } from "../DraftChat";
 import TermSheet, { type TermResume } from "../TermSheet";
+import Employment from "../Employment";
 import { recentDrafts } from "../recent";
 import type { DraftStatus, Flag } from "@/lib/termsheet/types";
 
@@ -115,12 +116,13 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
 
   const answers = row.answers ?? {};
 
-  /* A term sheet reopens on its own screen, with the letter as it was saved. */
+  /* A term sheet or an employment agreement reopens on its own screen, with
+     the letter as it was saved. */
   if (docType.engine === "assembly") {
     const saved = (answers ?? {}) as Record<string, unknown>;
     const termResume: TermResume = {
       id: row.id,
-      title: (row.title ?? "").trim() || "Term Sheet",
+      title: (row.title ?? "").trim() || (docType.slug === "employment" ? "Employment Agreement" : "Term Sheet"),
       answers: saved,
       output: row.output ?? "",
       outputHtml: row.output_html,
@@ -129,8 +131,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
       reviewNote: row.review_note ?? null,
       createdAt: row.created_at,
     };
+    const Screen = docType.slug === "employment" ? Employment : TermSheet;
     return (
-      <TermSheet
+      <Screen
         look={looks[docType.slug]}
         userEmail={user?.email ?? null}
         guest={false}

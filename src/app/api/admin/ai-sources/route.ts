@@ -170,7 +170,7 @@ async function handleUpload(req: NextRequest) {
 }
 
 /** The folder each document type's samples live in. Others: the label, plural. */
-const TYPE_FOLDERS: Record<string, string> = { nda: "NDAs", term: "Term Sheets" };
+const TYPE_FOLDERS: Record<string, string> = { nda: "NDAs", term: "Term Sheets", employment: "Employment Agreements" };
 
 /**
  * The document type's folder, made the first time it is needed. Never

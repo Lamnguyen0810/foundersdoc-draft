@@ -72,7 +72,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "ai-files", label: "AI files" },
   /* Articles written here go live on the blog without a deploy (055). */
   { id: "blog", label: "Blog" },
-  /* Stopped term sheets. Rarely used now that 🟡 points go to the user's own
+  /* Stopped term sheets and employment agreements. Rarely used now that 🟡 points go to the user's own
      lawyer, so it lives on its own tab rather than in the AI files flow. */
   { id: "review", label: "Review queue" },
   { id: "logs", label: "Logs" },

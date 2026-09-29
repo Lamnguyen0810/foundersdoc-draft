@@ -297,4 +297,23 @@ export const TERM_DATA = {
     "Assembled from the FD master term sheet. The AI drafts only the fields the Term Sheet Drafting Playbook allows (upload it under Playbook → Term Sheet).",
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA];
+/**
+ * The employment agreement is built like the term sheet: the answers are put
+ * into the firm's master (FD Master Employment Agreement, GENERIC) by rule —
+ * src/lib/employment — and the model only rewords custom dismissal reasons
+ * and flags points of local employment law. Its questions are the
+ * questionnaire in src/lib/employment/data, not fields here. Supabase gets
+ * this row from 066_employment_agreement.sql, not from the seed.
+ */
+export const EMPLOYMENT_DATA = {
+  slug: "employment",
+  label: "Employment Agreement",
+  description:
+    "Hire an employee in any country. Assembled from the FD Master Employment Agreement (GENERIC) by rule from ten questions; the AI only rewords custom dismissal reasons and flags local-law points, per the Employment Drafting Playbook.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from the FD master employment agreement. The AI rewords only custom dismissal reasons and flags local-law points (upload the playbook under Playbook → Employment Agreement).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA];

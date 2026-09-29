@@ -10,7 +10,7 @@ export interface RecentDraft {
   when: string;
   /** Which document it is — so a list of six tells you six different things. */
   docLabel?: string;
-  /** The document type's slug ("nda", "term"), for the type filter. */
+  /** The document type's slug ("nda", "term", "employment"), for the type filter. */
   docSlug?: string;
   /** Kept at the top of the list, above the dated groups. */
   pinned?: boolean;
@@ -43,5 +43,6 @@ export function groupDrafts(list: RecentDraft[]): { heading: string; items: Rece
 export function shortType(slug: string | undefined, label: string | undefined): string {
   if (slug === "nda") return "NDA";
   if (slug === "term") return "Term sheet";
+  if (slug === "employment") return "Employment";
   return label ?? "Other";
 }
