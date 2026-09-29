@@ -9,23 +9,9 @@
 
 import { NextRequest } from "next/server";
 import { loadDocType } from "@/lib/doctypes.server";
-import {
-  SKIPPED,
-  buildSystem,
-  buildUser,
-  missingRequired,
-  skippedFields,
-  type Answers,
-} from "@/lib/prompt";
+import { missingRequired, skippedFields, type Answers } from "@/lib/prompt";
 import { generateDraftStream } from "@/lib/ai/provider";
 import { nameDraft } from "@/lib/draft-name";
-import { loadSettings, loadStyleReference } from "@/lib/settings.server";
-import {
-  ModelNotFoundError,
-  OverloadedError,
-  ProviderNotConfiguredError,
-  RateLimitedError,
-} from "@/lib/ai/types";
 import { PAID_BENCHMARK, costUsd, priceFor } from "@/lib/ai/pricing";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
@@ -36,6 +22,7 @@ import {
   refundCredit,
   reserveCredit,
 } from "@/lib/billing/credits";
+import { BUDGET_MS, USABLE_CHARS, draftPrompt, friendly, line, versionFileName } from "@/lib/generate/shared";
 
 export const runtime = "nodejs";
 
@@ -55,64 +42,12 @@ export const runtime = "nodejs";
  */
 export const maxDuration = 300;
 
-/**
- * Stop generating with enough time left to refund, explain and close cleanly.
- *
- * This MUST stay below whatever ceiling the platform is really enforcing, so
- * it is a setting rather than a constant: leave it alone while the function is
- * capped at 60 seconds, and raise it to 280000 once Fluid compute is on. No
- * redeploy of code needed — set GENERATE_BUDGET_MS in the Vercel dashboard.
- */
-const BUDGET_MS = (() => {
-  const raw = Number(process.env.GENERATE_BUDGET_MS);
-  // Anything absent, non-numeric, negative or absurd falls back to the value
-  // that is safe on the smallest ceiling, rather than trusting a typo.
-  if (!Number.isFinite(raw) || raw < 5_000 || raw > 290_000) return 50_000;
-  return Math.floor(raw);
-})();
-
 type Body = {
   docTypeSlug?: string;
   answers?: Answers;
   sourceText?: string;
   detailLevel?: number;
 };
-
-const DETAIL_INSTRUCTIONS = {
-  1: "Draft a concise NDA of approximately 500-800 words. Consolidate boilerplate while preserving the essential confidentiality protections, exceptions and placeholders.",
-  2: "Draft a standard NDA of approximately 750-1,050 words with the usual practical protections and procedures.",
-  3: "Draft a detailed NDA of approximately 1,000-1,400 words with complete standard definitions, confidentiality procedures and general provisions.",
-  4: "Draft a thorough NDA of approximately 1,250-1,750 words. Expand relevant definitions, handling duties, representative controls, compelled-disclosure procedure, return or destruction mechanics, remedies and general provisions.",
-  5: "Draft a maximum-detail NDA of approximately 1,500-2,200 words. Cover the relevant protections and procedures comprehensively while remaining proportionate and avoiding repetition.",
-} as const;
-
-function line(obj: unknown): Uint8Array {
-  return new TextEncoder().encode(JSON.stringify(obj) + "\n");
-}
-
-function friendly(err: unknown): string {
-  if (err instanceof ProviderNotConfiguredError) return err.message;
-  if (err instanceof RateLimitedError) return err.message;
-  if (err instanceof ModelNotFoundError) return err.message;
-  if (err instanceof OverloadedError) return err.message;
-  if (err instanceof Error) {
-    return `The drafting service returned an error. Details are in the server logs. (${err.name})`;
-  }
-  return "An unexpected error occurred while drafting.";
-}
-
-function versionFileName(answers: Answers, version: number, detailLevel: number): string {
-  const clean = (value: string | undefined) =>
-    ((value ?? "") === SKIPPED ? "" : (value ?? "").split("(")[0])
-      .replace(/[^a-zA-Z0-9 -]/g, "")
-      .trim()
-      .replace(/\s+/g, "-")
-      .slice(0, 28);
-  const parties = [clean(answers.party_a), clean(answers.party_b)].filter(Boolean);
-  const detailName = ["Concise", "Standard", "Detailed", "Thorough", "Maximum"]
-    [detailLevel - 1] ?? "Revised";
-  return ["NDA", ...parties, `V${version}`, detailName].join("-") + ".docx";
-}
 
 export async function POST(req: NextRequest) {
   let body: Body;
@@ -191,24 +126,7 @@ export async function POST(req: NextRequest) {
     Number(body.detailLevel) >= 1 && Number(body.detailLevel) <= 5
       ? (Number(body.detailLevel) as 1 | 2 | 3 | 4 | 5)
       : 3;
-  /* The person's own drafting preferences, read on the server so the browser
-     cannot ask for a style it was not given. Both are cheap reads and neither
-     is allowed to stop a draft: the settings fall back to the defaults, and a
-     style reference that cannot be loaded is simply absent. */
-  const { settings } = await loadSettings();
-  const styleReference = await loadStyleReference(docType.slug);
-
-  const system = buildSystem(docType, settings.ai.style);
-  const baseUserMessage = buildUser(docType, answers, body.sourceText, styleReference);
-  const user_message = docType.slug === "nda"
-    ? [
-        baseUserMessage,
-        "",
-        "REQUIRED COMPREHENSIVENESS",
-        DETAIL_INSTRUCTIONS[detailLevel],
-        "The selected level must materially control the length, clause coverage and procedural detail of this first draft.",
-      ].join("\n")
-    : baseUserMessage;
+  const { system, user: user_message } = await draftPrompt(docType, answers, body.sourceText, detailLevel);
 
   const startedGenerating = Date.now();
   let timedOut = false;
@@ -382,55 +300,80 @@ export async function POST(req: NextRequest) {
 
         if (timedOut) {
           const seconds = Math.round((Date.now() - startedGenerating) / 1000);
-          await refundCredit(spendId, "timed out");
           const waited = firstChunkAt
             ? `${firstChunkAt - startedGenerating}ms waiting, then ${Date.now() - firstChunkAt}ms generating`
             : "never received a first token — all of it was spent waiting on the model";
-          console.warn(
-            `[/api/generate] stopped at ${seconds}s with ${accumulated.length} chars ` +
-              `(${waited}). Credit refunded.`,
-          );
 
-          /* ── KEEP WHAT WE HAVE ────────────────────────────────────────────
-             By 50 seconds most of the document is usually written. Throwing it
-             away because the last clause did not arrive is a waste of the
-             model call AND of the person's time — they get nothing, having
-             waited a minute.
+          /* ── CONTINUE, DON'T DISCARD ──────────────────────────────────────
+             A draft cut off by the time limit used to be refunded and thrown
+             away — the person paid nothing, but the model had been paid for
+             every word of it, and a second attempt paid for them all again.
 
-             So a substantial partial draft is delivered, with the truncation
-             stated in the document itself, not just in a toast that scrolls
-             away. It is NOT saved as a finished draft and NOT charged for: it
-             is something to read, not something to send. */
-          const USABLE = 1200; // shorter than this is a fragment, not a draft
-          if (accumulated.length >= USABLE) {
-            controller.enqueue(
-              line({
-                t: "text",
-                v:
-                  "\n\n[[INCOMPLETE: generation was stopped after " +
-                  seconds +
-                  " seconds and this document is cut off here. Nothing was charged. " +
-                  "Generate again for a complete draft.]]\n",
-              }),
+             Now what was written is SAVED (marked incomplete) and the credit
+             is kept for it; the browser at once asks /api/generate/continue
+             to write the rest, from where it stopped. The words already
+             bought are never bought twice, and the person gets a whole
+             document for their one credit. Only a fragment too short to be
+             worth continuing is still refunded. */
+          let savedId: string | null = null;
+          let title = "";
+          if (user && accumulated.length >= USABLE_CHARS) {
+            const named = await naming;
+            title = named.title;
+            const inputTokens = Math.ceil((system.length + user_message.length) / 4) + named.inputTokens;
+            const outputTokens = Math.ceil(accumulated.length / 4) + named.outputTokens;
+            savedId = await persist({
+              userId: user.id,
+              slug: docType.slug,
+              title,
+              answers,
+              sourceText: body.sourceText ?? null,
+              output: accumulated,
+              provider: "unknown",
+              model: "unknown",
+              inputTokens,
+              outputTokens,
+              costUsd: 0,
+              paidBenchmarkUsd: 0,
+              detailLevel,
+              incomplete: true,
+            });
+          }
+
+          if (!savedId && !isSupabaseConfigured() && accumulated.length >= USABLE_CHARS) {
+            /* No database (local development): nothing to save, and nothing
+               was charged; the browser continues from the text it has. */
+            controller.enqueue(line({ t: "done", partial: true, continue: true, skipped, draftId: null, saved: false }));
+          } else if (savedId) {
+            await attachDraft(spendId, savedId);
+            console.warn(
+              `[/api/generate] stopped at ${seconds}s with ${accumulated.length} chars (${waited}). ` +
+                `Saved as ${savedId.slice(0, 6)} to be continued.`,
             );
             controller.enqueue(
               line({
                 t: "done",
                 partial: true,
+                continue: true,
                 skipped,
                 creditsLeft: await currentBalance(),
-                draftId: null,
-                saved: false,
+                draftId: savedId,
+                saved: true,
+                title,
               }),
             );
           } else {
+            await refundCredit(spendId, "timed out");
+            console.warn(
+              `[/api/generate] stopped at ${seconds}s with ${accumulated.length} chars (${waited}). Credit refunded.`,
+            );
             controller.enqueue(
               line({
                 t: "error",
                 v:
                   "The drafting service did not respond in time, so this was stopped and your " +
-                  "credit returned. Nothing had been written yet. This is usually the model " +
-                  "being busy rather than anything wrong with your answers — try again.",
+                  "credit returned. This is usually the model being busy rather than anything " +
+                  "wrong with your answers — try again.",
                 code: "timeout",
               }),
             );
@@ -480,6 +423,8 @@ async function persist(input: {
   costUsd: number;
   paidBenchmarkUsd: number;
   detailLevel: number;
+  /** Cut off by the time limit, to be finished by /api/generate/continue. */
+  incomplete?: boolean;
 }): Promise<string | null> {
   try {
     const supabase = await createClient();
@@ -490,19 +435,26 @@ async function persist(input: {
       .eq("slug", input.slug)
       .maybeSingle();
 
-    const { data: draft, error } = await supabase
+    const row: Record<string, unknown> = {
+      user_id: input.userId,
+      doc_type_id: dt?.id ?? null,
+      title: input.title,
+      answers: input.answers,
+      source_text: input.sourceText,
+      output: input.output,
+      status: "draft",
+    };
+    /* `continuations` counts how often an incomplete draft has been
+       continued (063); 0 marks it incomplete. Before 063 the column is
+       absent and the draft is saved without it. */
+    let { data: draft, error } = await supabase
       .from("drafts")
-      .insert({
-        user_id: input.userId,
-        doc_type_id: dt?.id ?? null,
-        title: input.title,
-        answers: input.answers,
-        source_text: input.sourceText,
-        output: input.output,
-        status: "draft",
-      })
+      .insert(input.incomplete ? { ...row, continuations: 0 } : row)
       .select("id")
       .single();
+    if (error && input.incomplete && /continuations/.test(error.message)) {
+      ({ data: draft, error } = await supabase.from("drafts").insert(row).select("id").single());
+    }
 
     if (error || !draft) {
       console.error("[/api/generate] could not save draft:", error?.message);

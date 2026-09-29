@@ -101,6 +101,18 @@ export async function POST(req: NextRequest) {
     const scope = typeof body.scope === "string" && SCOPE.test(body.scope) ? body.scope : "*";
     const ref = typeof body.ref === "string" ? (/([0-9a-f]{6})/i.exec(body.ref)?.[1] ?? "").toLowerCase() : "";
     const direct = body.direct === true;
+    /* A file given as feedback arrives already redacted — the admin blacked
+       out the private details in the browser (Redactor.tsx); the original is
+       never sent. Kept with the feedback as its excerpt, so FD AI reads it
+       when it learns from it. */
+    const rawFile = (body.file && typeof body.file === "object" ? body.file : {}) as { name?: unknown; text?: unknown };
+    const file =
+      typeof rawFile.text === "string" && rawFile.text.trim()
+        ? {
+            name: typeof rawFile.name === "string" ? rawFile.name.replace(/[\r\n]/g, " ").slice(0, 120) : "file",
+            text: rawFile.text.trim().slice(0, 30000),
+          }
+        : null;
     if (!message) return NextResponse.json({ error: "Say what should change." }, { status: 400 });
     if (!isAdminClientConfigured()) {
       return NextResponse.json({ error: "SUPABASE_SECRET_KEY is not set in Vercel, so feedback cannot be saved from here." }, { status: 503 });
@@ -135,6 +147,7 @@ export async function POST(req: NextRequest) {
         user_id: user?.id ?? null,
         user_email: user?.email ?? "Admin",
         message,
+        excerpt: file ? `[File: ${file.name} — redacted]\n${file.text}` : null,
         source: "app",
       })
       .select("id")

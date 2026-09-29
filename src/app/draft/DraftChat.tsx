@@ -31,6 +31,7 @@ import RailHistory from "./RailHistory";
 import type { RecentDraft } from "./history";
 import { SKIPPED, fdNotes, splitNotes, stripNotes } from "@/lib/prompt";
 import { answerFor, answerLocally, isQuestion, offTopicAnswer, smallTalk } from "@/lib/draft-help";
+import { formatPeriod, parsePeriod } from "@/lib/period";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { PERPETUAL, SKIP_LABEL, SOURCE_ATTACH, SOURCE_EXPLANATION, SOURCE_FRESH, explainField } from "@/lib/explain";
 
@@ -41,6 +42,9 @@ import { PERPETUAL, SKIP_LABEL, SOURCE_ATTACH, SOURCE_EXPLANATION, SOURCE_FRESH,
  *  exists in Supabase, with no code change. */
 type CatDoc = [string, string, string, boolean, string];
 type CatFolder = [string, CatDoc[]];
+
+/** The "All documents" folder at the root of the catalogue's tree. */
+const ALL_FOLDERS = -1;
 
 const CATALOGUE: CatFolder[] = [
   [
@@ -406,6 +410,8 @@ export interface ResumeDraft {
   output: string;
   outputHtml: string | null;
   createdAt: string;
+  /** Cut off by the time limit and not yet finished (063). */
+  unfinished?: boolean;
   /** Every version made, oldest first. Version 1 is the original draft. */
   versions: {
     version: number;
@@ -934,7 +940,12 @@ function Catalogue({
   onPick: (slug: string) => void;
 }) {
   const [q, setQ] = useState("");
-  const [folder, setFolder] = useState(0);
+  /* ALL (-1) is the "All documents" folder at the top of the tree — where
+     the catalogue opens, so every document is in view before any folder is
+     chosen. 0… are the folders beneath it. */
+  const [folder, setFolder] = useState(ALL_FOLDERS);
+  /* The tree's root can be folded shut, as in Windows Explorer. */
+  const [treeOpen, setTreeOpen] = useState(true);
   const [showSoon, setShowSoon] = useState(true);
   const [typed, setTyped] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -995,10 +1006,7 @@ function Catalogue({
     const next = !showSoon;
     /* Worked out before either setState, not inside the updater: an updater
        has to be pure, and React runs it twice in development to prove it. */
-    if (!next && readyOf(CATALOGUE[folder]) === 0) {
-      const firstReady = CATALOGUE.findIndex((g) => readyOf(g) > 0);
-      if (firstReady >= 0) setFolder(firstReady);
-    }
+    if (!next && folder !== ALL_FOLDERS && readyOf(CATALOGUE[folder]) === 0) setFolder(ALL_FOLDERS);
     setShowSoon(next);
   };
 
@@ -1008,8 +1016,14 @@ function Catalogue({
       for (const d of g[1]) if (visible(d) && hit(d, g)) results.push({ doc: d, group: g[0] });
     }
   }
-  const current = CATALOGUE[folder];
-  const rows = current[1].filter(visible);
+  const all = folder === ALL_FOLDERS;
+  const current: CatFolder = all ? ["All documents", CATALOGUE.flatMap((g) => g[1])] : CATALOGUE[folder];
+  /* In "All documents" each row says which folder it lives in, and the ones
+     ready to draft come first. */
+  const groupOf = (d: CatDoc) => CATALOGUE.find((g) => g[1].includes(d))?.[0] ?? "";
+  const rows = all
+    ? [...current[1].filter(visible)].sort((a, b) => Number(ready(b)) - Number(ready(a)))
+    : current[1].filter(visible);
 
   function row(d: CatDoc, group: string) {
     const rdy = ready(d);
@@ -1158,6 +1172,42 @@ function Catalogue({
           <div className="exwrap">
             <nav className="flist" aria-label="Document folders">
               {FDEFS}
+              {/* The root: every document. The folders hang beneath it,
+                  indented, with a guide line — a tree, as in File Explorer. */}
+              <div className={`frow froot${!query && all ? " on" : ""}`}>
+                <button
+                  type="button"
+                  className="ftwist"
+                  aria-label={treeOpen ? "Collapse folders" : "Expand folders"}
+                  aria-expanded={treeOpen}
+                  onClick={() => setTreeOpen((v) => !v)}
+                >
+                  <svg viewBox="0 0 12 12" aria-hidden="true">
+                    <path d="M4 2.5 7.5 6 4 9.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  className="froot-open"
+                  onClick={() => {
+                    setFolder(ALL_FOLDERS);
+                    setQ("");
+                  }}
+                >
+                  <span className="ic">
+                    <FolderIcon open={!query && all} />
+                  </span>
+                  <span className="tx">
+                    <b>All documents</b>
+                    <small>
+                      <em>{totalReady} ready</em>
+                      {showSoon && totalDocs - totalReady ? <span> · {totalDocs - totalReady} coming soon</span> : null}
+                    </small>
+                  </span>
+                </button>
+              </div>
+              {treeOpen && (
+              <div className="fsub" role="group" aria-label="Folders in All documents">
               {folderIndices.map((gi) => {
                 const g = CATALOGUE[gi];
                 const matches = g[1].filter((d) => visible(d) && (!query || hit(d, g)));
@@ -1192,6 +1242,8 @@ function Catalogue({
                   </button>
                 );
               })}
+              </div>
+              )}
             </nav>
 
             <section className="dpanel" aria-live="polite">
@@ -1218,7 +1270,11 @@ function Catalogue({
                     <span>
                       <b>{current[0]}</b>
                       <p>
-                        {readyOf(current)
+                        {all
+                          ? `Every document, in every folder. Select one to begin the drafting flow.${
+                              showSoon && totalDocs - totalReady ? " Items marked Coming soon are not draftable yet." : ""
+                            }`
+                          : readyOf(current)
                           ? `Select a document to begin the drafting flow.${
                               current[1].length - readyOf(current)
                                 ? " Items marked Coming soon are not draftable yet."
@@ -1234,7 +1290,7 @@ function Catalogue({
                     </span>
                   </div>
                   {rows.length ? (
-                    rows.map((d) => row(d, ""))
+                    rows.map((d) => row(d, all ? groupOf(d) : ""))
                   ) : (
                     <p className="empty">
                       Upcoming templates are hidden.{" "}
@@ -1535,6 +1591,9 @@ function Chat({
      next to "something went wrong" would tell a customer their document broke
      when in fact nothing broke and they simply need to buy more. */
   const [paywalled, setPaywalled] = useState(false);
+  /* The draft on screen was cut off by the time limit: not saved, not
+     charged, and not to be sent. It can be read, not downloaded. */
+  const [cutOff, setCutOff] = useState(Boolean(resume?.unfinished));
   /* The saved row this draft belongs to, so edits can be written back. Null
      until the generate endpoint reports it — and it stays null when Supabase
      is not configured, in which case the Save button simply does nothing
@@ -2131,7 +2190,7 @@ function Chat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function generate() {
+  async function generate(resumeFrom?: { draftId: string | null; text: string }) {
     /* No account: the questions were free, the draft is where the account
        is asked for. Everything typed so far goes with them. */
     if (guest) {
@@ -2147,18 +2206,21 @@ function Chat({
        updates immediately, which is exactly what a guard needs. */
     if (generatingRef.current) return;
     generatingRef.current = true;
+    setCutOff(false);
 
     const startedAt = Date.now();
-    setFollow([]);
-    setDocumentVersions([]);
-    setDocumentVersion(1);
-    versionCounterRef.current = 1;
+    if (!resumeFrom) {
+      setFollow([]);
+      setDocumentVersions([]);
+      setDocumentVersion(1);
+      versionCounterRef.current = 1;
+      setOutput("");
+      setSkippedLabels([]);
+    }
     setDocOpen(false);
     setBusy(true);
     setError(null);
     editorExportRef.current = null;
-    setOutput("");
-    setSkippedLabels([]);
     setView("draft");
 
     // Read the freshest answers rather than the closure's snapshot: the caller
@@ -2192,6 +2254,72 @@ function Chat({
     heard();
 
     try {
+      /* ── READING A STREAM ──────────────────────────────────────────────
+         The draft arrives as lines: text, pings, and a last "done" (or an
+         error). The same reader serves the first request and any
+         continuation, all appending to one document. */
+      let acc = "";
+      type Done = {
+        t: string;
+        v?: string;
+        skipped?: string[];
+        creditsLeft?: number | null;
+        draftId?: string | null;
+        partial?: boolean;
+        continue?: boolean;
+        title?: string;
+      };
+      const pump = async (stream: ReadableStream<Uint8Array>): Promise<Done | null> => {
+        const reader = stream.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let last: Done | null = null;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          heard();
+          buffer += decoder.decode(value, { stream: true });
+          let nl: number;
+          while ((nl = buffer.indexOf("\n")) !== -1) {
+            const raw = buffer.slice(0, nl).trim();
+            buffer = buffer.slice(nl + 1);
+            if (!raw) continue;
+            let msg: Done;
+            try {
+              msg = JSON.parse(raw);
+            } catch {
+              continue;
+            }
+            if (msg.t === "ping") continue; // proof of life; heard() did the work
+            if (msg.t === "text" && msg.v) {
+              acc += msg.v;
+              setOutput(acc);
+            } else if (msg.t === "error") {
+              /* Back to the conversation, so the error is read rather than
+                 the drafting pane appearing to hang. */
+              setError(msg.v ?? "Drafting failed.");
+              setView("chat");
+              return null;
+            } else if (msg.t === "done") {
+              last = msg;
+              if (msg.skipped) setSkippedLabels(msg.skipped);
+              if (msg.draftId) setDraftId(msg.draftId);
+              /* The name FD AI gave it, on screen the moment it exists. */
+              if (msg.title) setName(msg.title);
+              // The credit was spent on the server; reflect it here at once.
+              onCreditSpent(msg.creditsLeft ?? null);
+            }
+          }
+        }
+        return last;
+      };
+
+      let last: Done | null;
+      if (resumeFrom) {
+        /* "Finish drafting": carry on from the saved, cut-off draft. */
+        acc = resumeFrom.text;
+        last = { t: "done", partial: true, continue: true, draftId: resumeFrom.draftId };
+      } else {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -2220,81 +2348,55 @@ function Chat({
         setView("chat");
         return;
       }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let acc = "";
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        heard();
-        buffer += decoder.decode(value, { stream: true });
-        let nl: number;
-        while ((nl = buffer.indexOf("\n")) !== -1) {
-          const raw = buffer.slice(0, nl).trim();
-          buffer = buffer.slice(nl + 1);
-          if (!raw) continue;
-          let msg: {
-            t: string;
-            v?: string;
-            skipped?: string[];
-            creditsLeft?: number | null;
-            draftId?: string | null;
-            partial?: boolean;
-            title?: string;
-          };
-          try {
-            msg = JSON.parse(raw);
-          } catch {
-            continue;
-          }
-          if (msg.t === "ping") {
-            // Proof of life only; heard() above has already done the work.
-            continue;
-          }
-          if (msg.t === "text" && msg.v) {
-            acc += msg.v;
-            setOutput(acc);
-          } else if (msg.t === "error") {
-            /* Come back to the conversation. Without this the drafting pane
-               stays up saying "Drafting your document…" while the error sits
-               unread on a view nobody is looking at — which reads as the app
-               having hung, for as long as the person is willing to wait. The
-               HTTP-error branch above has always done this; the streamed-error
-               branch did not, and that is the difference between an error and
-               an apparent freeze. */
-            setError(msg.v ?? "Drafting failed.");
-            setView("chat");
-          } else if (msg.t === "done") {
-            setSkippedLabels(msg.skipped ?? []);
-            setDraftId(msg.draftId ?? null);
-            /* The name FD AI gave it, on screen the moment the draft exists —
-               not on the next page load. */
-            if (msg.title) setName(msg.title);
-            setSavedHtml(null); // a fresh generation replaces any saved edits
-            if (!msg.partial && acc.trim()) {
-              setDocumentVersions([{
-                documentText: acc,
-                version: 1,
-                detailLevel: initialDetailLevel,
-                fileName: fileNameFor(1, initialDetailLevel),
-              }]);
-              setDocumentVersion(1);
-              setNdaDetailLevel(initialDetailLevel);
-              versionCounterRef.current = 1;
-            }
-            if (msg.partial) {
-              /* Cut short. Say so where it cannot be missed, and do not let
-                 the credit counter tick down for a document that is not whole. */
-              setError(
-                "This draft was cut off before it finished, so it is incomplete and nothing was " +
-                  "charged. It is here to read, not to send — generate again for a full document.",
-              );
-            }
-            // The credit was spent on the server; reflect it here immediately.
-            // A partial draft was refunded, so this puts the number back up.
-            onCreditSpent(msg.creditsLeft ?? null);
-          }
+      last = await pump(res.body);
+      }
+
+      /* ── CUT OFF? CARRY ON ───────────────────────────────────────────────
+         A draft that hit the time limit was saved as far as it got; ask for
+         the rest, from where it stopped. The words already written are not
+         written (or paid for) again. A few rounds at most. */
+      for (let round = 0; last?.partial && last.continue && round < 3; round++) {
+        const more = await fetch("/api/generate/continue", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            draftId: last.draftId ?? null,
+            docTypeSlug: docType.slug,
+            answers: payload,
+            sourceText,
+            detailLevel: initialDetailLevel,
+            sofar: acc,
+          }),
+          signal: giveUp.signal,
+        });
+        if (!more.ok || !more.body) {
+          const j = (await more.json().catch(() => null)) as { error?: string } | null;
+          setError(j?.error ?? `Could not finish the draft (${more.status}).`);
+          break;
+        }
+        last = await pump(more.body);
+      }
+
+      if (last) {
+        setSavedHtml(null); // a fresh generation replaces any saved edits
+        if (!last.partial && acc.trim()) {
+          setDocumentVersions([{
+            documentText: acc,
+            version: 1,
+            detailLevel: initialDetailLevel,
+            fileName: fileNameFor(1, initialDetailLevel),
+          }]);
+          setDocumentVersion(1);
+          setNdaDetailLevel(initialDetailLevel);
+          versionCounterRef.current = 1;
+        }
+        setCutOff(Boolean(last.partial));
+        if (last.partial) {
+          setError(
+            last.draftId
+              ? "This draft is not finished yet — it is saved as far as it got. Press “Finish drafting” to write the rest; it uses no further credit."
+              : "This draft was cut off before it finished, so it is incomplete and nothing was charged. Generate again for a full document.",
+          );
         }
       }
       /* Seconds-to-draft is the number that decides whether this feels like a
@@ -2777,30 +2879,47 @@ function Chat({
                 {f.label}
                 <InfoTip text={explainField(docType.slug, f)} label={f.label} />
               </span>
-              {f.key === "survival_years" ? (
-                /* A number of years, or no time limit at all. */
-                <span className="yrs">
-                  <input
-                    className="input"
-                    type="number"
-                    min={1}
-                    max={99}
-                    placeholder="Years"
-                    value={answers[f.key] === "Perpetual" || answers[f.key] === SKIPPED ? "" : (answers[f.key] ?? "")}
-                    disabled={answers[f.key] === "Perpetual"}
-                    onChange={(e) => setAnswer(f.key, e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className={`chip${answers[f.key] === "Perpetual" ? " on" : ""}`}
-                    aria-pressed={answers[f.key] === "Perpetual"}
-                    onClick={() =>
-                      setAnswer(f.key, answers[f.key] === "Perpetual" ? (f.defaultValue ?? "3") : "Perpetual")
-                    }
-                  >
-                    {PERPETUAL}
-                  </button>
-                </span>
+              {f.key === "confidentiality_period" ? (
+                /* A number of years or months, or no time limit at all. */
+                (() => {
+                  const p = parsePeriod(answers[f.key] === SKIPPED ? "" : answers[f.key]);
+                  const set = (next: Partial<typeof p>) => setAnswer(f.key, formatPeriod({ ...p, ...next }));
+                  return (
+                    <span className="yrs">
+                      <input
+                        className="input"
+                        type="number"
+                        min={1}
+                        max={p.unit === "months" ? 120 : 99}
+                        placeholder="Number"
+                        aria-label="How many"
+                        value={p.perpetual ? "" : p.n}
+                        disabled={p.perpetual}
+                        onChange={(e) => set({ n: e.target.value.replace(/\D/g, "").slice(0, 3), perpetual: false })}
+                      />
+                      <select
+                        className="input yrs-unit"
+                        aria-label="Years or months"
+                        value={p.unit}
+                        disabled={p.perpetual}
+                        onChange={(e) => set({ unit: e.target.value === "months" ? "months" : "years" })}
+                      >
+                        <option value="years">Years</option>
+                        <option value="months">Months</option>
+                      </select>
+                      <button
+                        type="button"
+                        className={`chip${p.perpetual ? " on" : ""}`}
+                        aria-pressed={p.perpetual}
+                        onClick={() =>
+                          setAnswer(f.key, p.perpetual ? (f.defaultValue ?? "2 years") : PERPETUAL)
+                        }
+                      >
+                        {PERPETUAL}
+                      </button>
+                    </span>
+                  );
+                })()
               ) : f.type === "select" ? (
                 <select
                   className="input"
@@ -3128,6 +3247,7 @@ function Chat({
           onOpenDocument={() => setDocOpen(true)}
           onOpenVersion={({ documentText, version, detailLevel }) => {
             editorExportRef.current = null;
+            setCutOff(false);
             setOutput(documentText);
             setDocumentVersion(version);
             setNdaDetailLevel(detailLevel);
@@ -3210,14 +3330,32 @@ function Chat({
                 Feedback
               </button>
             )}
-            <button
-              type="button"
-              className="dbtn gold"
-              disabled={!output || exporting}
-              onClick={() => void exportDocx()}
-            >
-              {exporting ? "Preparing…" : "Download Word"}
-            </button>
+            {cutOff ? (
+              /* A cut-off draft is incomplete and was not charged for, so it
+                 is not offered as a file to send. Drafting again is. */
+              <button
+                type="button"
+                className="dbtn gold"
+                disabled={busy}
+                title={
+                  draftId
+                    ? "This draft stopped before the end. Finishing it uses no further credit."
+                    : "This draft was cut off before it finished. Nothing was charged."
+                }
+                onClick={() => void (draftId ? generate({ draftId, text: output }) : generate())}
+              >
+                {draftId ? "Unfinished — finish drafting" : "Incomplete — draft again"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="dbtn gold"
+                disabled={!output || exporting}
+                onClick={() => void exportDocx()}
+              >
+                {exporting ? "Preparing…" : "Download Word"}
+              </button>
+            )}
             {/* A drawn cross, not the multiplication sign: the glyph sat high
                 and small in a button the same size as the lettered ones beside
                 it, which read as an empty box rather than a way to close. */}

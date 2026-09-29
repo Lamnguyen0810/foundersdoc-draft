@@ -63,7 +63,21 @@ const RETIRED_FIELD_KEYS = new Set(["our_client", "party_a_address", "party_b_ad
  *                  "Protect trade secrets for ever?" (060): taken out; the
  *                  survival period can now be Perpetual instead.
  */
-const RETIRED_NDA_KEYS = new Set(["non_solicit", "jurisdiction", "residuals", "trade_secret_tail"]);
+const RETIRED_NDA_KEYS = new Set([
+  "non_solicit",
+  "jurisdiction",
+  "residuals",
+  "trade_secret_tail",
+  /* 062: one question — how long the confidentiality obligations last, in
+     years or months, or Perpetual — instead of the agreement's length and a
+     survival period after it. */
+  "term_years",
+  "survival_years",
+]);
+
+/** 062: the direction choices, reworded so each says who discloses. */
+const OLD_DIRECTION = ["Mutual", "One-way: we disclose", "One-way: we receive"];
+const NEW_DIRECTION = ["One-way: we disclose information", "One-way: we receive information", "Mutual: both sides disclose information"];
 
 /** Every retired question key for one document type — for the admin
  *  Questions editor, so it shows the form exactly as the drafting screen
@@ -75,6 +89,10 @@ export function retiredFieldKeys(slug: string): Set<string> {
 /** A step's wording as the drafting screen shows it (054). */
 export function tidyStepQuestion(q: string): string {
   if (typeof q !== "string") return q;
+  /* 062: the Terms step asks about the confidentiality obligations. */
+  if (/^How long should confidentiality last, and how strict should it be\?/.test(q.trim())) {
+    return "How long should the confidentiality obligations last, and how strict should they be? I’ve set sensible defaults, so change only what you need.";
+  }
   /* 056: the parties step now has a box for other details. */
   if (q.trim() === "Who are the parties? Just provide each person’s or organisation’s name.") {
     return "Who are the parties? Their names are enough — add any other details (an address, a registration number, who will sign) in the box below if you want them in the NDA.";
@@ -84,6 +102,9 @@ export function tidyStepQuestion(q: string): string {
 
 function fromRow(row: DocTypeRow): DocType {
   const rowExamples = row.examples ?? [];
+  /* Where the retired length questions sat, so the one that replaces them
+     (062) takes their place in the step. */
+  const lengthAt = (row.fields ?? []).findIndex((f) => f.key === "term_years" || f.key === "survival_years");
   const fields = (row.fields ?? [])
     .filter((f) => !RETIRED_FIELD_KEYS.has(f.key))
     .filter((f) => row.slug !== "nda" || !RETIRED_NDA_KEYS.has(f.key))
@@ -107,8 +128,8 @@ function fromRow(row: DocTypeRow): DocType {
       if (field.key === "ip_assignment") {
         return { ...field, label: "Do you own the rights to anything created using the information you provide?" };
       }
-      if (field.key === "survival_years") {
-        return { ...field, label: "How long must information stay confidential after the agreement ends? (years)" };
+      if (field.key === "nda_direction" && JSON.stringify(field.options ?? []) === JSON.stringify(OLD_DIRECTION)) {
+        return { ...field, options: NEW_DIRECTION };
       }
       if (field.key === "party_b") {
         return {
@@ -127,6 +148,17 @@ function fromRow(row: DocTypeRow): DocType {
     const extra = DOC_TYPES.find((d) => d.slug === "nda")?.fields.find((f) => f.key === "party_extra");
     const at = fields.findIndex((f) => f.key === "party_b");
     if (extra && at >= 0) fields.splice(at + 1, 0, extra);
+  }
+  /* 062: the confidentiality period, before the SQL that stores it is run. */
+  if (row.slug === "nda" && !fields.some((f) => f.key === "confidentiality_period")) {
+    const period = DOC_TYPES.find((d) => d.slug === "nda")?.fields.find((f) => f.key === "confidentiality_period");
+    if (period) {
+      /* Before the first question that followed the old ones (Do you own the
+         rights…), or at the end of the Terms step if none did. */
+      const next = lengthAt >= 0 ? (row.fields ?? []).slice(lengthAt).find((f) => fields.some((g) => g.key === f.key)) : undefined;
+      const at = next ? fields.findIndex((g) => g.key === next.key) : fields.length;
+      fields.splice(at, 0, period);
+    }
   }
   const builtIn = DOC_TYPES.find((docType) => docType.slug === row.slug);
   let systemPrompt = row.system_prompt;

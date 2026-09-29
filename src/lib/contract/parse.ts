@@ -291,7 +291,35 @@ export function parseDraft(draft: string): Block[] {
     push("plain", t);
   });
 
-  return pairSignatures(tidySignatures(out));
+  return pairSignatures(tidySignatures(defineParties(out)));
+}
+
+/* ── THE PARTIES AS A DEFINED TERM ───────────────────────────────────────
+   The firm's NDAs define the parties together straight after naming them —
+   (collectively, the "Parties" and each, a "Party") — and from then on a
+   reference to either of them is the defined term, with a capital P. A draft
+   that names the parties but forgot the definition gets it, and a lower-case
+   "the other party" becomes "the other Party". A "third party" is not a
+   Party and is left alone. */
+const DEFINES_PARTIES = /["“]\*{0,2}Parties\*{0,2}["”]/;
+const PARTY_REF = /\b(the|both|either|neither|each|other|a|any|one|such|all|relevant)(\s+)part(y|ies)\b/gi;
+
+export function capitaliseParties(text: string): string {
+  return text.replace(PARTY_REF, (_m, det: string, sp: string, end: string) => `${det}${sp}Part${end.toLowerCase()}`);
+}
+
+function defineParties(blocks: Block[]): Block[] {
+  const lastParty = blocks.reduce((at, b, k) => (b.kind === "party" && (at === -1 || at === k - 1) ? k : at), -1);
+  if (lastParty === -1) return blocks;
+  const out = [...blocks];
+  if (!out.some((b) => DEFINES_PARTIES.test(b.text))) {
+    out.splice(lastParty + 1, 0, {
+      kind: "plain",
+      num: "",
+      text: '(collectively, the "**Parties**" and each, a "**Party**")',
+    });
+  }
+  return out.map((b) => (b.kind === "title" ? b : { ...b, text: capitaliseParties(b.text) }));
 }
 
 /* ── SIGNATURES SIDE BY SIDE ─────────────────────────────────────────────
