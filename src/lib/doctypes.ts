@@ -128,6 +128,10 @@ export const DEFAULT_GROUP_TEXT: Record<string, { title: string; question: strin
     question:
       "How long should the confidentiality obligations last, and how strict should they be? I’ve set sensible defaults, so change only what you need.",
   },
+  "Law and disputes": {
+    title: "Law and disputes",
+    question: "Which country’s law should govern the NDA, and how should a dispute be resolved?",
+  },
   "Anything else": {
     title: "Anything else",
     question: "Anything else you’d like included?",
