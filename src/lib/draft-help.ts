@@ -110,12 +110,11 @@ const GLOSSARY: Entry[] = [
   },
   {
     words: /\bsurviv|after (it|the agreement) ends|how long .*(secret|confidential)|confidentiality period/i,
-    answer: `There are two periods. The term is how long the two sides may share information under the NDA. The confidentiality period is how long the information must be kept confidential after the agreement ends: a number of years, or ${q(PERPETUAL)} for no time limit. A two-year term and three years afterwards are common starting points.`,
+    answer: `The confidentiality period is how long the information must be kept confidential, counted from the date of the NDA: a number of years or months, or ${q(PERPETUAL)} for no time limit. Two to five years is common.`,
   },
   {
     words: /\bterm\b(?! ?sheet)|how long does the agreement last|\bduration\b/i,
-    answer:
-      "The term is how long the NDA stays open for sharing new information, usually one to three years. Information already shared stays protected for the confidentiality period after the term ends.",
+    answer: `The NDA has one period: how long the confidentiality obligations last, counted from the date of the NDA. Type a number and choose ${q("Years")} or ${q("Months")}, or choose ${q(PERPETUAL)} for no time limit. Two to five years is common.`,
   },
   {
     words: /\b(owns?|ownership) (the )?(rights?|ip|work)\b|\bownership\b|intellectual property|\bip\b|rights to/i,

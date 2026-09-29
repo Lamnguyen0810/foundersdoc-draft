@@ -93,7 +93,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
      things they were never asked — the draft is not reopened at all. */
   if (!docType) notFound();
 
-  const [versionRows, recent, user, wallet, admin] = await Promise.all([
+  const [versionRows, recent, user, wallet, admin, unfinished] = await Promise.all([
     supabase
       .from("draft_versions")
       .select("version_number,detail_level,file_name,instruction,output")
@@ -103,6 +103,14 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
     getUser(),
     getWallet(),
     isAdmin(),
+    /* Cut off by the time limit and not yet finished (063). Asked on its
+       own, so a database without the column simply answers "no". */
+    supabase
+      .from("drafts")
+      .select("continuations")
+      .eq("id", id)
+      .maybeSingle()
+      .then(({ data, error }) => !error && (data as { continuations?: number | null } | null)?.continuations != null),
   ]);
 
   const answers = row.answers ?? {};
@@ -148,6 +156,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
     output: row.output ?? "",
     outputHtml: row.output_html,
     createdAt: row.created_at,
+    unfinished,
     versions: ((versionRows.data ?? []) as unknown as VersionRow[]).map((v) => ({
       version: v.version_number,
       detailLevel: v.detail_level,

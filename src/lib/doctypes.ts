@@ -126,7 +126,7 @@ export const DEFAULT_GROUP_TEXT: Record<string, { title: string; question: strin
   Terms: {
     title: "How long and how strict",
     question:
-      "How long should confidentiality last, and how strict should it be? I’ve set sensible defaults — change only what you need.",
+      "How long should the confidentiality obligations last, and how strict should they be? I’ve set sensible defaults, so change only what you need.",
   },
   "Anything else": {
     title: "Anything else",

@@ -418,3 +418,10 @@ html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 .fdadmin .fb-now-result.ok { background: #EDF8F2; border: 1px solid #D8EBDD; color: var(--success); }
 .fdadmin .fb-now-result.warn { background: #FFF6E5; border: 1px solid #F0DDAA; color: #7a5a10; }
 @media (max-width: 700px) { .fdadmin .fb-now-row { grid-template-columns: 1fr; } }
+
+/* 0051: a file given as feedback, redacted first. */
+.fdadmin .fb-file { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 2px 0 10px; }
+.fdadmin .fb-file-hint { font-size: 11.5px; color: var(--muted); }
+.fdadmin .fb-file-chip { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 7px 12px; border: 1px solid var(--line, #e5e5e5); border-radius: 10px; background: #FBF7EC; }
+.fdadmin .fb-file-chip b { font-size: 12.5px; font-weight: 600; }
+.fdadmin .fb-file-chip small { font-size: 11.5px; color: var(--muted); }

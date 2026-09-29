@@ -21,6 +21,11 @@ function approxTokens(s: string): number {
 }
 
 function render(input: GenerateInput): string {
+  /* A continuation (/api/generate/continue): the rest, briefly, so the
+     cut-off-and-finish path can be tried end to end without a model. */
+  if (input.user.includes("YOUR DRAFT SO FAR")) {
+    return "\n\nMOCK CONTINUATION — a model would write the rest of the document here.\n";
+  }
   return [
     "MOCK DRAFT — NO MODEL WAS CALLED",
     "",

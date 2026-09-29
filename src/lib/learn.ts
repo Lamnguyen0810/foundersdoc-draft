@@ -142,7 +142,11 @@ export async function learnFromFeedback(feedbackId: string): Promise<LearnResult
     "",
     `FEEDBACK from ${feedback.user_email ?? "a lawyer"}:`,
     feedback.message,
-    ...(feedback.excerpt ? ["", "THE PASSAGE THEY HAD SELECTED:", feedback.excerpt] : []),
+    ...(feedback.excerpt
+      ? /^\[File: /.test(feedback.excerpt)
+        ? ["", "THE FILE THEY ATTACHED (private details redacted as [REDACTED …]):", trim(feedback.excerpt, MAX_DRAFT_CHARS)]
+        : ["", "THE PASSAGE THEY HAD SELECTED:", feedback.excerpt]
+      : []),
     "",
     "THE FIRM'S PLAYBOOK (live):",
     trim(playbookText, MAX_PLAYBOOK_CHARS) || "(none)",

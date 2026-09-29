@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FIRM_WIDE } from "@/lib/playbook";
 import type { FeedbackRow, LessonRow } from "@/lib/feedback";
 import { stamp } from "./parts";
+import Redactor from "./Redactor";
 
 /**
  * Feedback from the lawyers, and the rules made from it.
@@ -48,6 +49,34 @@ export default function Feedback({
   const [fbRef, setFbRef] = useState("");
   const [fbText, setFbText] = useState("");
   const [fbDirect, setFbDirect] = useState(false);
+  /* A file given as feedback — a marked-up draft, a lawyer's notes. It is
+     read here, redacted in the browser, and only the redacted text is sent. */
+  const [fbFile, setFbFile] = useState<{ name: string; text: string; count: number } | null>(null);
+  const [redacting, setRedacting] = useState<{ name: string; text: string } | null>(null);
+  const [reading, setReading] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  async function readFile(file: File | undefined) {
+    if (!file) return;
+    setReading(true);
+    setNotice(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/extract", { method: "POST", body: form });
+      const j = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+      if (!res.ok || !j.text?.trim()) {
+        setNotice({ text: j.error ?? "That file could not be read.", tone: "err" });
+        return;
+      }
+      setRedacting({ name: file.name, text: j.text });
+    } catch {
+      setNotice({ text: "Could not reach the server to read that file.", tone: "err" });
+    } finally {
+      setReading(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  }
   const [fbResult, setFbResult] = useState<
     | { learnt: true; rule: string; scope: string }
     | { learnt: false; reason: string; feedbackId: string; message: string; scope: string }
@@ -55,7 +84,7 @@ export default function Feedback({
   >(null);
 
   async function submitFeedback() {
-    if (busy || !fbText.trim()) return;
+    if (busy || (!fbText.trim() && !fbFile)) return;
     setBusy(true);
     setNotice(null);
     setFbResult(null);
@@ -63,7 +92,14 @@ export default function Feedback({
       const res = await fetch("/api/admin/feedback", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action: "submit", scope: fbScope, ref: fbRef, message: fbText, direct: fbDirect }),
+        body: JSON.stringify({
+          action: "submit",
+          scope: fbScope,
+          ref: fbRef,
+          message: fbText.trim() || "See the attached file.",
+          direct: fbDirect,
+          file: fbFile ? { name: fbFile.name, text: fbFile.text } : undefined,
+        }),
       });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean; error?: string; id?: string; learnt?: boolean; rule?: string; scope?: string; reason?: string;
@@ -79,6 +115,7 @@ export default function Feedback({
       );
       setFbText("");
       setFbRef("");
+      setFbFile(null);
       await reload();
     } finally {
       setBusy(false);
@@ -199,12 +236,50 @@ export default function Feedback({
             disabled={busy}
           />
         </label>
+        <div className="fb-file">
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".docx,.pdf,.txt,.md"
+            hidden
+            onChange={(e) => void readFile(e.target.files?.[0])}
+          />
+          {fbFile ? (
+            <span className="fb-file-chip">
+              <b>📎 {fbFile.name}</b>
+              <small>
+                {fbFile.count} item{fbFile.count === 1 ? "" : "s"} redacted · only the redacted text is sent
+              </small>
+              <button
+                className="link-btn"
+                type="button"
+                disabled={busy}
+                onClick={() => setRedacting({ name: fbFile.name, text: fbFile.text })}
+              >
+                Redact more
+              </button>
+              <button className="link-btn" type="button" disabled={busy} onClick={() => setFbFile(null)}>
+                Remove
+              </button>
+            </span>
+          ) : (
+            <button className="btn" type="button" disabled={busy || reading || missing} onClick={() => fileInput.current?.click()}>
+              {reading ? "Reading the file…" : "Attach a file (redacted first)"}
+            </button>
+          )}
+          <span className="fb-file-hint">Word, PDF or text. You black out the private details before anything is sent.</span>
+        </div>
         <div className="fb-now-foot">
           <label className="feedback-toggle">
             <input type="checkbox" checked={fbDirect} onChange={(e) => setFbDirect(e.target.checked)} disabled={busy} /> Use my words
             exactly as the rule (skip FD AI)
           </label>
-          <button className="btn yellow" type="button" disabled={busy || missing || !fbText.trim()} onClick={() => void submitFeedback()}>
+          <button
+            className="btn yellow"
+            type="button"
+            disabled={busy || missing || (!fbText.trim() && !fbFile) || (fbDirect && !fbText.trim())}
+            onClick={() => void submitFeedback()}
+          >
             {busy ? "Learning…" : "Send and learn now"}
           </button>
         </div>
@@ -274,7 +349,11 @@ export default function Feedback({
                       </span>
                     )}
                   </div>
-                  {f.excerpt && <blockquote className="feedback-quote">{f.excerpt}</blockquote>}
+                  {f.excerpt && (
+                    <blockquote className="feedback-quote">
+                      {f.excerpt.length > 400 ? `${f.excerpt.slice(0, 400)}…` : f.excerpt}
+                    </blockquote>
+                  )}
                   <p className="feedback-text">{f.message}</p>
                   {f.note && (
                     <p className="feedback-note">
@@ -364,6 +443,22 @@ export default function Feedback({
           )}
         </div>
       </div>
+
+      {redacting && (
+        <Redactor
+          filename={redacting.name}
+          text={redacting.text}
+          onClose={() => setRedacting(null)}
+          onDone={(text, count) => {
+            setFbFile((prev) => ({
+              name: redacting.name,
+              text,
+              count: (prev && prev.name === redacting.name ? prev.count : 0) + count,
+            }));
+            setRedacting(null);
+          }}
+        />
+      )}
 
       {writing && (
         <div className="overlay show" onClick={(e) => e.target === e.currentTarget && !busy && setWriting(null)}>

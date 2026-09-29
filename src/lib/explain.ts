@@ -62,9 +62,8 @@ const NDA: Record<string, (f: Explained) => string> = {
     "Why the information is being shared, for example “to discuss a possible distribution partnership”. The other side may use your information only for this purpose, so a specific description protects you better than a vague one.",
   info_categories: () =>
     "The kinds of information you expect to share, for example pricing, customer lists, financial figures, product plans or source code. Naming the real categories helps avoid disputes later about whether something was covered.",
-  term_years: () => "How long the NDA stays open for sharing new information, in years. One to three years is usual.",
-  survival_years: () =>
-    `How long the duty to keep the information confidential lasts after the agreement ends. Type the number of years (two to five is common), or choose ${q(PERPETUAL)} if the information must stay confidential with no time limit, for example trade secrets.`,
+  confidentiality_period: () =>
+    `How long the other side must keep your information confidential, counted from the date of the NDA. Type a number and choose ${q("Years")} or ${q("Months")} (two to five years is common), or choose ${q(PERPETUAL)} if the information must stay confidential with no time limit, for example trade secrets.`,
   ip_assignment: (f) => {
     const yes = optionLabel(f, /^yes\b/i, "Yes");
     const no = optionLabel(f, /^no\b/i, "No");
