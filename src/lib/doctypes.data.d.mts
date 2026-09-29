@@ -4,3 +4,4 @@ export declare const NDA_TASK: string;
 export declare const NDA_DATA: unknown;
 export declare const TERM_DATA: unknown;
 export declare const DOC_TYPE_DATA: unknown[];
+export declare const JURISDICTIONS: string[];

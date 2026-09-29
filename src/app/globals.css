@@ -3796,4 +3796,25 @@ html[data-theme=dark] .q-info-pop{background:#2a2b30;border-color:#3a3b41;color:
 .yrs .yrs-box{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
 .yrs .yrs-box .input{flex:1;min-width:52px}
 .yrs .yrs-box>span{font-size:13px;color:var(--tx-2);flex:none}
-.law{display:grid;gap:8px}
+
+/* 0055: the governing-law picker — jurisdictions grouped under their country. */
+.jp{position:relative;display:grid;gap:8px}
+.jp-trigger{display:flex!important;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;text-align:left;font:inherit}
+.jp-trigger.empty span{color:var(--tx-3)}
+.jp-trigger span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jp-trigger svg{width:12px;height:12px;flex:none;color:var(--tx-3)}
+.jp-pop{position:absolute;z-index:40;top:calc(100% + 6px);left:0;right:0;min-width:260px;
+  background:var(--card,#fff);border:1px solid var(--rule);border-radius:12px;
+  box-shadow:0 12px 32px rgba(20,20,22,.14);padding:8px;display:grid;gap:6px}
+.jp-search{all:unset;box-sizing:border-box;width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;font-size:13.5px;color:var(--tx)}
+.jp-search:focus{border-color:var(--gold)}
+.jp-list{max-height:280px;overflow-y:auto;overscroll-behavior:contain;display:grid;align-content:start}
+.jp-group{display:grid;margin:4px 0 2px}
+.jp-head{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--tx-3);padding:6px 10px 3px}
+.jp-opt{all:unset;box-sizing:border-box;cursor:pointer;display:block;padding:7px 10px;border-radius:7px;font-size:14px;color:var(--tx)}
+.jp-opt:hover,.jp-opt:focus-visible{background:var(--gold-tint)}
+.jp-opt.on{background:var(--gold-tint);font-weight:600}
+.jp-sub{padding-left:24px;position:relative}
+.jp-sub::before{content:"";position:absolute;left:12px;top:50%;width:5px;height:5px;border-radius:50%;background:var(--rule);transform:translateY(-50%)}
+.jp-other{border-top:1px solid var(--rule);border-radius:0 0 7px 7px;color:var(--gold-deep,#9a6b00);font-weight:500;margin-top:2px}
+.jp-none{margin:6px 10px;font-size:12.5px;color:var(--tx-3)}

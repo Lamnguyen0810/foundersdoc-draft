@@ -156,9 +156,9 @@ const GLOSSARY: Entry[] = [
   {
     words: /\b(governing law|jurisdiction|which law|which country|courts?)\b/i,
     answer: (ctx) => {
-      const law = fieldOf(ctx, "governing_law")?.label ?? "Which country’s law should govern the NDA?";
+      const law = fieldOf(ctx, "governing_law")?.label ?? "Which jurisdiction’s law should govern the NDA?";
       const how = fieldOf(ctx, "dispute_resolution")?.label ?? "How should a dispute be resolved?";
-      return `The governing law is the country whose law applies to the NDA, usually where you are based; you choose it at ${q(law)}. At ${q(how)} you choose whether a dispute goes to that country’s courts or to arbitration. If you skip it, the clause is left blank for you to fill in.`;
+      return `The governing law is the jurisdiction whose law applies to the NDA, usually where you are based; you choose it at ${q(law)}. For the United States, Australia, Canada and the United Kingdom you choose the state or part, such as California. At ${q(how)} you choose whether a dispute goes to that jurisdiction’s courts or to arbitration. If you skip it, the clause is left blank for you to fill in.`;
     },
   },
   {

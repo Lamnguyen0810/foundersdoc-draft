@@ -130,7 +130,7 @@ export const DEFAULT_GROUP_TEXT: Record<string, { title: string; question: strin
   },
   "Law and disputes": {
     title: "Law and disputes",
-    question: "Which country’s law should govern the NDA, and how should a dispute be resolved?",
+    question: "Which jurisdiction’s law should govern the NDA, and how should a dispute be resolved?",
   },
   "Anything else": {
     title: "Anything else",

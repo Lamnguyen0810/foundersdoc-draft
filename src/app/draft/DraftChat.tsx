@@ -27,6 +27,7 @@ import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSl
 import DocumentEditor from "./DocumentEditor";
 import DraftReady from "./DraftReady";
 import InfoTip from "./InfoTip";
+import JurisdictionPicker from "./JurisdictionPicker";
 import RailHistory from "./RailHistory";
 import type { RecentDraft } from "./history";
 import { SKIPPED, fdNotes, splitNotes, stripNotes } from "@/lib/prompt";
@@ -42,9 +43,6 @@ import { PERPETUAL, SKIP_LABEL, SOURCE_ATTACH, SOURCE_EXPLANATION, SOURCE_FRESH,
  *  exists in Supabase, with no code change. */
 type CatDoc = [string, string, string, boolean, string];
 type CatFolder = [string, CatDoc[]];
-
-/** The governing-law list's last choice, which opens a box to type in. */
-const OTHER_LAW = "__other__";
 
 /** The "All documents" folder at the root of the catalogue's tree. */
 const ALL_FOLDERS = -1;
@@ -1597,8 +1595,6 @@ function Chat({
   /* The draft on screen was cut off by the time limit: not saved, not
      charged, and not to be sent. It can be read, not downloaded. */
   const [cutOff, setCutOff] = useState(Boolean(resume?.unfinished));
-  /* The governing-law question's "Other": a box to type the country in. */
-  const [otherLaw, setOtherLaw] = useState(false);
   /* The saved row this draft belongs to, so edits can be written back. Null
      until the generate endpoint reports it — and it stays null when Supabase
      is not configured, in which case the Save button simply does nothing
@@ -2937,46 +2933,13 @@ function Chat({
                   );
                 })()
               ) : f.key === "governing_law" ? (
-                /* A country from the list, or "Other" and typed. */
-                (() => {
-                  const v = answers[f.key] === SKIPPED ? "" : (answers[f.key] ?? "");
-                  const opts = f.options ?? [];
-                  const typed = otherLaw || (v !== "" && !opts.includes(v));
-                  return (
-                    <span className="law">
-                      <select
-                        className="input"
-                        value={typed ? OTHER_LAW : v}
-                        onChange={(e) => {
-                          if (e.target.value === OTHER_LAW) {
-                            setOtherLaw(true);
-                            setAnswer(f.key, "");
-                          } else {
-                            setOtherLaw(false);
-                            setAnswer(f.key, e.target.value);
-                          }
-                        }}
-                      >
-                        <option value="">— choose —</option>
-                        {opts.map((o) => (
-                          <option key={o} value={o}>
-                            {o}
-                          </option>
-                        ))}
-                        <option value={OTHER_LAW}>Other (type it)</option>
-                      </select>
-                      {typed && (
-                        <input
-                          className="input"
-                          placeholder="Country, or state (e.g. New York)"
-                          value={v}
-                          autoFocus={otherLaw && !v}
-                          onChange={(e) => setAnswer(f.key, e.target.value)}
-                        />
-                      )}
-                    </span>
-                  );
-                })()
+                /* Jurisdictions by country; a state where law is set by state. */
+                <JurisdictionPicker
+                  options={f.options ?? []}
+                  label={f.label}
+                  value={answers[f.key] === SKIPPED ? "" : (answers[f.key] ?? "")}
+                  onChange={(v) => setAnswer(f.key, v)}
+                />
               ) : f.type === "select" ? (
                 <select
                   className="input"
