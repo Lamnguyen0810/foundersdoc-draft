@@ -2953,18 +2953,45 @@ function Chat({
                   onChange={(v) => setAnswer(f.key, v)}
                 />
               ) : f.type === "select" ? (
-                <select
-                  className="input"
-                  value={answers[f.key] ?? ""}
-                  onChange={(e) => setAnswer(f.key, e.target.value)}
-                >
-                  <option value="">— choose —</option>
-                  {(f.options ?? []).map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    className="input"
+                    value={answers[f.key] === SKIPPED ? "" : (answers[f.key] ?? "")}
+                    onChange={(e) => setAnswer(f.key, e.target.value)}
+                  >
+                    <option value="">— choose —</option>
+                    {(f.options ?? []).map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                  {f.key === "dispute_resolution" && /help me choose/i.test(answers[f.key] ?? "") && (
+                    /* One question that decides it. Not a <label> child that
+                       can be clicked through: the click would land on the
+                       select. */
+                    <span className="help-choose" onClick={(e) => e.preventDefault()}>
+                      <span>
+                        Courts suit most NDAs. Arbitration is private and easier to enforce abroad, so it suits parties in
+                        different countries. <b>Are you and the other side based in the same country?</b>
+                      </span>
+                      <span className="help-choose-btns">
+                        {[
+                          ["Same country", /court/i],
+                          ["Different countries", /arbitrat/i],
+                        ].map(([text, match]) => {
+                          const pick = (f.options ?? []).find((o) => (match as RegExp).test(o));
+                          return pick ? (
+                            <button key={text as string} type="button" className="chip" onClick={() => setAnswer(f.key, pick)}>
+                              {text as string} → {pick}
+                            </button>
+                          ) : null;
+                        })}
+                      </span>
+                      <small>Still not sure? Leave it — FD AI chooses and tells you why in the notes.</small>
+                    </span>
+                  )}
+                </>
               ) : f.type === "textarea" ? (
                 <textarea
                   className="input"

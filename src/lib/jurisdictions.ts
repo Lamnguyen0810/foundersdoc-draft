@@ -44,6 +44,24 @@ export function groupJurisdictions(options: string[]): JurisdictionGroup[] {
   return out;
 }
 
+/**
+ * The ones asked for most, shown first under "Popular" in this order; the
+ * rest follow A–Z. Countries, not choices: the United Kingdom and the
+ * United States bring their parts and states with them.
+ */
+export const POPULAR_COUNTRIES = ["Singapore", "United Kingdom", "United States"];
+
+/** Popular first (in POPULAR_COUNTRIES order, parts as listed), then every
+ *  other country A–Z with its parts A–Z. */
+export function orderJurisdictions(groups: JurisdictionGroup[]): { popular: JurisdictionGroup[]; rest: JurisdictionGroup[] } {
+  const popular = POPULAR_COUNTRIES.map((n) => groups.find((g) => g.name === n)).filter((g): g is JurisdictionGroup => Boolean(g));
+  const rest = groups
+    .filter((g) => !POPULAR_COUNTRIES.includes(g.name))
+    .map((g) => ({ ...g, parts: [...g.parts].sort((a, b) => a.localeCompare(b, "en-GB")) }))
+    .sort((a, b) => a.name.localeCompare(b.name, "en-GB"));
+  return { popular, rest };
+}
+
 /** The answer for a choice: "Singapore", "California, United States". */
 export function jurisdictionValue(country: string, part?: string): string {
   return part ? `${part}, ${country}` : country;

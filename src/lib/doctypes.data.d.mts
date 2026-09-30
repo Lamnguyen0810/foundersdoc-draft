@@ -6,3 +6,4 @@ export declare const TERM_DATA: unknown;
 export declare const EMPLOYMENT_DATA: unknown;
 export declare const DOC_TYPE_DATA: unknown[];
 export declare const JURISDICTIONS: string[];
+export declare const DISPUTE_OPTIONS: string[];

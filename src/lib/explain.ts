@@ -76,10 +76,10 @@ const NDA: Record<string, (f: Explained) => string> = {
   governing_law: () =>
     `The jurisdiction whose law applies to the NDA, usually where you are based. For the United States, Australia, Canada and the United Kingdom, law is set state by state (or part by part), so choose the state under its country, for example California or England and Wales. If yours is not listed, choose ${q("Other (type it)")} and type it.`,
   dispute_resolution: (f) => {
-    const courts = optionLabel(f, /court/i, "In the courts of that jurisdiction");
-    const arb = optionLabel(f, /arbitrat/i, "By arbitration");
-    const unsure = optionLabel(f, /not sure/i, "Not sure");
-    return `${q(courts)}: a dispute goes to the courts of the jurisdiction you chose. ${q(arb)}: it goes to a private arbitration centre instead, such as the Singapore International Arbitration Centre for Singapore law. Arbitration is confidential and easier to enforce abroad, so it suits parties in different countries. If unsure, choose ${q(unsure)} and the courts are used.`;
+    const courts = optionLabel(f, /court/i, "Courts");
+    const arb = optionLabel(f, /arbitrat/i, "Arbitration");
+    const help = optionLabel(f, /help|not sure/i, "Help me choose");
+    return `${q(courts)}: a dispute goes to the courts of the jurisdiction you chose. ${q(arb)}: it goes to a private arbitration centre instead, such as the Singapore International Arbitration Centre for Singapore law. Arbitration is confidential and its awards are easier to enforce abroad, so it suits parties in different countries. ${q(help)}: answer one question and FD AI suggests one.`;
   },
   special_terms: () =>
     "Anything else you want in the NDA, in your own words: for example the country whose law should apply, a clause to add, or something to leave out. This is optional.",

@@ -1,7 +1,7 @@
 import "server-only";
 import { DOC_TYPES, EXAMPLES_BY_SLUG, type DocType, type Field, type Group } from "./doctypes";
 import { documentLook, type DocumentLook } from "./playbook";
-import { JURISDICTIONS } from "./doctypes.data.mjs";
+import { DISPUTE_OPTIONS, JURISDICTIONS } from "./doctypes.data.mjs";
 import { isSupabaseConfigured } from "./supabase/config";
 import { createClient } from "./supabase/server";
 
@@ -143,8 +143,10 @@ function fromRow(row: DocTypeRow): DocType {
           help: "Usually where you are based. For the United States, Australia, Canada or the United Kingdom, choose the state or part. Choose Other to type one that is not listed.",
         };
       }
-      if (field.key === "dispute_resolution" && (field.options ?? []).includes("In the courts of that country")) {
-        return { ...field, options: (field.options ?? []).map((o) => (o === "In the courts of that country" ? "In the courts of that jurisdiction" : o)) };
+      /* 067: "Courts / Arbitration / Help me choose", before the SQL is run. */
+      if (field.key === "dispute_resolution" && (field.options ?? []).some((o) => /^(in the courts of that|by arbitration$|not sure$)/i.test(o))) {
+        const built = DOC_TYPES.find((d) => d.slug === "nda")?.fields.find((f) => f.key === "dispute_resolution");
+        return { ...field, options: DISPUTE_OPTIONS, help: built?.help ?? field.help };
       }
       if (field.key === "nda_direction" && JSON.stringify(field.options ?? []) === JSON.stringify(OLD_DIRECTION)) {
         return { ...field, options: NEW_DIRECTION };
