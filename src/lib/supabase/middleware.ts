@@ -25,10 +25,12 @@ const PUBLIC_PATHS = [
   // authenticates with a signature instead, which the route verifies before it
   // reads a single byte — see the route's own notes.
   "/api/billing/webhook",
-  // Zapier has no browser session. The weekly analytics route authenticates
-  // independently with ANALYTICS_REPORT_SECRET and returns aggregate counts
-  // only; without this exception middleware would redirect Zapier to /login.
+  // Zapier has no browser session. The weekly and daily analytics routes
+  // authenticate independently with ANALYTICS_REPORT_SECRET and return
+  // aggregate counts only; without this exception middleware would redirect
+  // Zapier to /login (a 200 with the login page, not an error).
   "/api/analytics/weekly",
+  "/api/analytics/daily",
   // Feedback typed in Slack arrives from Zapier with a shared secret, which
   // the route and the database both check. No browser, no session.
   "/api/feedback/slack",
