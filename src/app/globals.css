@@ -3032,9 +3032,10 @@ html[data-theme=dark]{
 
 /* Reminders: each thing to fill in, which question it belongs to, and what
    to put — a small card each, with a button that starts the reply. */
-/* Full width of the conversation, two tiles a row where there is room, the
-   "Fill this in" button beside the heading rather than on a line of its own. */
-.cg-reminders{list-style:none;margin:4px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:8px;width:100%;counter-reset:rem;align-items:stretch}
+/* One tile a row, each the full width of the conversation, with the
+   "Fill this in" button at the right of the heading rather than on a line
+   of its own — so a tile is two or three short lines, not four. */
+.cg-reminders{list-style:none;margin:4px 0 0;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:6px;width:100%;counter-reset:rem}
 .cg-reminder{counter-increment:rem;position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;row-gap:3px;padding:8px 10px 9px 36px;border:1px solid var(--sheet-line,#ececf0);border-left:3px solid var(--gold,#f3bf4b);border-radius:10px;background:var(--gold-tint,#fffaf0);font-size:13px;line-height:1.4;color:var(--tx)}
 .cg-reminder::before{content:counter(rem);position:absolute;left:10px;top:9px;width:18px;height:18px;border-radius:50%;background:var(--gold,#f3bf4b);color:#141416;font-size:11px;font-weight:700;display:grid;place-items:center}
 .cg-reminder-what{grid-column:1;font-weight:600;align-self:center}
@@ -3452,10 +3453,11 @@ html[data-theme=dark]{
 .gen-quick{padding-left:38px}
 #scr-chat.is-draft .gen-thread>.gen-depth-row{
   width:100%;
-  max-width:720px;
+  max-width:1040px;
   margin-inline:auto;
 }
-.gen-depth-row .gd{width:min(100%,430px);margin:2px 0 0}
+/* The card fills the conversation's width, as the messages above it do. */
+.gen-depth-row .gd,.gen-depth-row .gd.gd-flat{width:100%;max-width:none;margin:2px 0 0}
 /* The old compact slider is gone; these rules described it. */
 #scr-chat.is-draft .gen-thread>.gen-depth{margin-inline:0}
 @media(max-width:620px){
