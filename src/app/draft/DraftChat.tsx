@@ -1995,7 +1995,12 @@ function Chat({
       /* The funnel, recorded where the decision actually happens.
          `question_skipped` carries the field KEY, never what was typed — see
          the rule at the top of lib/events.ts. */
-      if (idx === 0) track("draft_started", { doc_type: docType.slug, total_steps: steps.length });
+      /* Once per draft: the first time the first question is answered or
+         skipped. Changing that answer later is not a new start (Slack
+         announces every start and counts them, supabase/069). */
+      if (idx === 0 && status[0] === undefined) {
+        track("draft_started", { doc_type: docType.slug, total_steps: steps.length });
+      }
       if (skipped) {
         for (const f of s.fields) {
           track("question_skipped", { doc_type: docType.slug, question_key: f.key, step: idx + 1 });
