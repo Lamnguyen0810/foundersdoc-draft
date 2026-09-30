@@ -1760,7 +1760,9 @@ body:has(.login-stage) {
    rhythm (same padding and label scale as .k and .nav2) so it reads as a
    member of that column rather than a bolt-on. */
 .rail-credits {
-  margin: 14px 12px 0;
+  /* Room beneath it before the All · NDA · Term sheet filter, which
+     otherwise sat against its bottom edge. */
+  margin: 14px 12px 16px;
   padding: 11px 12px;
   border: 1px solid var(--rule, #e6e6ea);
   border-left: 2px solid var(--gold, #d4a33c);
@@ -3839,3 +3841,26 @@ html[data-theme=dark] .q-info-pop{background:#2a2b30;border-color:#3a3b41;color:
 .jp-sub::before{content:"";position:absolute;left:12px;top:50%;width:5px;height:5px;border-radius:50%;background:var(--rule);transform:translateY(-50%)}
 .jp-other{border-top:1px solid var(--rule);border-radius:0 0 7px 7px;color:var(--gold-deep,#9a6b00);font-weight:500;margin-top:2px}
 .jp-none{margin:6px 10px;font-size:12.5px;color:var(--tx-3)}
+
+/* ── an answered question opened again from the progress list ─────────────
+   In the conversation: its form stands where the answer was (DraftChat,
+   editAnchor). Under a finished draft: the questions picked, in order, then
+   one Regenerate (redoBlock). */
+.m.m-edit>div>.txt{background:var(--gold-tint);border:1px solid rgba(243,191,75,.45)}
+.redo-block{display:grid;gap:14px;margin-top:6px;padding-top:14px;border-top:1px dashed var(--rule-2)}
+.redo-turn .cg-msg{width:100%}
+.redo-turn .cg-msg>p{max-width:none}
+.redo-h{font-size:11.5px!important;letter-spacing:.04em;text-transform:uppercase;color:var(--tx-3)!important}
+.redo-h b{color:var(--gold-deep);font-weight:700}
+.redo-m{display:block;width:100%;animation:none}
+.redo-m>.ans{margin-top:2px}
+.redo-note{font-size:12.5px;color:var(--tx-3)}
+.redo-foot{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-left:38px}
+.redo-foot small{flex-basis:100%;font-size:12px;color:var(--tx-3);line-height:1.45}
+@media(max-width:620px){.redo-foot{padding-left:0}}
+
+/* Changing the level beside a finished draft waits for a click: a new version costs a credit. */
+.gd-confirm{margin-top:10px;padding:10px 12px;border:1px solid var(--gold-200,#ecd9a8);background:var(--gold-50,#fdf8ec);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.gd-confirm p{margin:0;font-size:12.5px;line-height:1.45;color:var(--ink,#1c1c1c);flex:1 1 260px}
+.gd-confirm-btns{display:flex;gap:8px;flex-wrap:wrap}
+.gd-confirm-btns .btn{padding:7px 12px;font-size:12.5px}

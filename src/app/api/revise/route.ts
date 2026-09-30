@@ -12,6 +12,7 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { NDA_DECISIONS, lessonsBlock, playbookBlock } from "@/lib/prompt";
 import {
   FAIR_USE_REACHED,
+  attachDraft,
   currentBalance,
   refundCredit,
   reserveCredit,
@@ -28,11 +29,14 @@ import {
  * replaces the document with what comes back.
  *
  * ── CHARGING ───────────────────────────────────────────────────────────────
- * The first few revisions of a draft are free, because the first draft is
- * rarely right and charging for the correction is how a product feels petty.
- * After that a revision costs a credit like any other model call. The allowance
- * is a row in billing_config, so the firm can make revisions free for ever
- * without a deploy.
+ * Every revision is a new version of the document, and every new version
+ * costs one credit — a change of comprehensiveness level included. There used
+ * to be a free allowance (billing_config.free_revisions, three per draft);
+ * the firm decided a new version is a new draft and is paid for like one, so
+ * that column is no longer read.
+ *
+ * The credit comes back whenever no new version is made: the model failed,
+ * ran out of time, or could not reach the level asked for.
  */
 export const runtime = "nodejs";
 
@@ -143,16 +147,25 @@ export async function POST(req: NextRequest) {
   /* The rules the draft was written under, when 044 has been run. */
   let system = SYSTEM;
 
-  /* ── does this one cost a credit? ─────────────────────────────────────── */
+  /* ── one credit for every new version ─────────────────────────────────── */
   let spendId: string | null = null;
   let charged = false;
 
-  if (isSupabaseConfigured() && body.draftId) {
+  if (isSupabaseConfigured()) {
+    /* With accounts on, a revision is always of a saved draft of the
+       person's own. Without the id there would be nothing to charge
+       against, and no version to save. */
+    if (!body.draftId) {
+      return Response.json({ error: "This draft has not been saved yet, so it cannot be revised." }, { status: 400 });
+    }
     const supabase = await createClient();
-    const [{ data: draft }, { data: cfg }] = await Promise.all([
-      supabase.from("drafts").select("revisions,doc_types(slug)").eq("id", body.draftId).maybeSingle(),
-      supabase.from("billing_config").select("free_revisions").maybeSingle(),
-    ]);
+    /* RLS: only the person's own draft is found. */
+    const { data: draft } = await supabase
+      .from("drafts")
+      .select("id,doc_types(slug)")
+      .eq("id", body.draftId)
+      .maybeSingle();
+    if (!draft) return Response.json({ error: "That draft could not be found." }, { status: 404 });
 
     /* The firm's rules follow the document into its revisions: a rewrite
        to a different detail level must keep the same survival period, the
@@ -173,36 +186,33 @@ export async function POST(req: NextRequest) {
       if (blocks.length > 0) system = [SYSTEM, ...blocks].join("\n\n");
     }
 
-    const used = Number(draft?.revisions ?? 0);
-    const free = Number(cfg?.free_revisions ?? 3);
+    /* Taken HERE, before the model is asked, as in /api/generate — so two
+       tabs cannot both revise on the last credit. */
+    spendId = await reserveCredit();
 
-    if (used >= free) {
-      spendId = await reserveCredit();
-
-      // Same as /api/generate: a member over fair use is not out of credits.
-      if (spendId === FAIR_USE_REACHED) {
-        return Response.json(
-          {
-            error:
-              "You have reached this month's fair-use limit on the Unlimited plan. Nothing has " +
-              "been charged — get in touch and we will raise it.",
-            code: "fair_use",
-          },
-          { status: 429 },
-        );
-      }
-
-      if (!spendId) {
-        return Response.json(
-          {
-            error: `You have had ${free} free revisions of this draft. Further changes use a credit, and you have none left.`,
-            code: "no_credits",
-          },
-          { status: 402 },
-        );
-      }
-      charged = true;
+    // Same as /api/generate: a member over fair use is not out of credits.
+    if (spendId === FAIR_USE_REACHED) {
+      return Response.json(
+        {
+          error:
+            "You have reached this month's fair-use limit on the Unlimited plan. Nothing has " +
+            "been charged — get in touch and we will raise it.",
+          code: "fair_use",
+        },
+        { status: 429 },
+      );
     }
+
+    if (!spendId) {
+      return Response.json(
+        {
+          error: "Each new version of a draft uses one credit, and you have none left.",
+          code: "no_credits",
+        },
+        { status: 402 },
+      );
+    }
+    charged = true;
   }
 
   const userMessage = [
@@ -342,6 +352,19 @@ export async function POST(req: NextRequest) {
               );
               return;
             }
+            /* A request that changed nothing is not a new version, so it is
+               not paid for. */
+            if (!targetDetailLevel && acc.replace(/\s+/g, " ").trim() === text.replace(/\s+/g, " ").trim()) {
+              if (spendId) await refundCredit(spendId, "revision unchanged");
+              controller.enqueue(
+                line({
+                  t: "error",
+                  code: "revision_unchanged",
+                  v: "That request did not change the document, so no new version was made and nothing was charged.",
+                }),
+              );
+              return;
+            }
             // Persist the revision and count it.
             if (isSupabaseConfigured() && body.draftId && user) {
               try {
@@ -386,6 +409,9 @@ export async function POST(req: NextRequest) {
                 if (versionError) {
                   console.error("[/api/revise] could not save version:", versionError.message);
                 }
+                /* The credit bought this version: tie it to the draft, as
+                   /api/generate does, which also closes the refund path. */
+                if (spendId) await attachDraft(spendId, body.draftId);
               } catch (err) {
                 console.error("[/api/revise] could not save the revision:", err);
               }
