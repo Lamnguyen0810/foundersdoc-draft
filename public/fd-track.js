@@ -85,8 +85,12 @@
 
       var isLaunch = href.indexOf("/draft") === 0 || label.indexOf("launch fd ai") !== -1;
 
-      if (isConsult) send("consult_click", { source: page });
-      else if (isLaunch) send("launch_fdai_click", { source: page });
+      /* A link can name where it sits (data-source), so the NDA banner at the
+         top of the homepage is counted apart from the other Launch buttons. */
+      var source = a.getAttribute("data-source") || page;
+
+      if (isConsult) send("consult_click", { source: source });
+      else if (isLaunch) send("launch_fdai_click", { source: source });
     },
     true,
   );
