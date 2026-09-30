@@ -8,6 +8,7 @@
 
 import { ARBITRATION } from "./termsheet/data/map";
 import type { DocType, Field } from "./doctypes";
+import { noteRe, onlyMarks } from "./notes";
 import type { DraftingStyle } from "./settings";
 
 export type Answers = Record<string, string>;
@@ -443,7 +444,7 @@ export function splitNotes(text: string): { body: string; notes: string | null }
  *  reviewing lawyer, which the conversation shows as a card. */
 export function fdNotes(text: string): string[] {
   const out: string[] = [];
-  const re = /\[\s*FD Note:\s*([^\]]*)\]/gi;
+  const re = noteRe();
   let m: RegExpExecArray | null;
   while ((m = re.exec(text))) {
     const t = m[1].trim();
@@ -463,7 +464,8 @@ export function fdNotes(text: string): string[] {
  */
 export function stripNotes(text: string): string {
   return text
-    .replace(/[ \t]*\*{0,2}_?\[\s*FD Note:[^\]]*\]_?\*{0,2}[ \t]*/gi, "")
+    .replace(new RegExp(`[ \\t]*(?:${noteRe().source})[ \\t]*`, "gi"), "")
+    .replace(onlyMarks, "")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
