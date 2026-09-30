@@ -160,11 +160,24 @@ async function pageViews(
   return rows;
 }
 
-/** The latest completed day in Singapore: yesterday, midnight to midnight. */
+/** The daily report's cut-off: 5pm in Singapore, when the Zap sends it. */
+export const DAILY_CUTOFF_HOUR = 17;
+/* A scheduler that fires a few minutes early still reports the day that is
+   ending, not the one before it. */
+const DAILY_EARLY_MS = 15 * 60 * 1000;
+
+/**
+ * The latest completed 24 hours ending at 5pm Singapore time: yesterday 5pm
+ * to today 5pm. Back to back, so nothing is missed or counted twice from one
+ * report to the next — the weekly report's Friday 6pm cut-off, daily.
+ */
 export function completedDailyWindow(now = new Date()): { start: Date; end: Date } {
-  const singapore = new Date(now.getTime() + SINGAPORE_OFFSET_MS);
-  const endMs =
-    Date.UTC(singapore.getUTCFullYear(), singapore.getUTCMonth(), singapore.getUTCDate()) - SINGAPORE_OFFSET_MS;
+  const t = now.getTime() + DAILY_EARLY_MS;
+  const singapore = new Date(t + SINGAPORE_OFFSET_MS);
+  let endMs =
+    Date.UTC(singapore.getUTCFullYear(), singapore.getUTCMonth(), singapore.getUTCDate(), DAILY_CUTOFF_HOUR) -
+    SINGAPORE_OFFSET_MS;
+  if (endMs > t) endMs -= DAY_MS;
   return { start: new Date(endMs - DAY_MS), end: new Date(endMs) };
 }
 
@@ -241,15 +254,15 @@ async function reportFor(client: SupabaseClient, start: Date, end: Date): Promis
 }
 
 /* ── THE DAILY REPORT ──────────────────────────────────────────────────────
-   Yesterday in Singapore, midnight to midnight, with the day before beside it
+   The 24 hours to 5pm Singapore time, with the 24 hours before beside it
    so a number means something on its own. Same fields as the weekly report,
    so a Zap built for one can be copied for the other, plus a ready-made
    Slack message — one field to map, nothing to put in the wrong order. */
 
 export interface DailyReport extends WeeklyReport {
-  /** "Tue 29 Sep 2026". */
+  /** The day the report ends on: "Wed 30 Sep 2026". */
   day_text: string;
-  /** The same figures for the day before, for comparison. */
+  /** The same figures for the 24 hours before, for comparison. */
   previous: Omit<WeeklyReport, "period_start" | "period_end" | "period_start_text" | "period_end_text" | "period_label">;
   /** The whole report as a Slack message (Slack's own *bold* markup). */
   slack_text: string;
@@ -275,10 +288,10 @@ export async function getDailyReport(client: SupabaseClient, now = new Date()): 
     reportFor(client, start, end),
     reportFor(client, new Date(start.getTime() - DAY_MS), start),
   ]);
-  const day = dayText(start);
+  const day = dayText(end);
   const lines = [
     `*FD AI daily report · ${day}*`,
-    `_Midnight to midnight, Singapore time_`,
+    `_${inSingapore(start)} – ${inSingapore(end)}, Singapore time_`,
     ``,
     `*Drafts generated:* ${withChange(today.drafts_generated, before.drafts_generated)}`,
     `*Documents downloaded:* ${withChange(today.documents_downloaded, before.documents_downloaded)}`,
@@ -295,7 +308,7 @@ export async function getDailyReport(client: SupabaseClient, now = new Date()): 
   void _a; void _b; void _c; void _d; void _e;
   return {
     ...today,
-    period_label: `${day} (Singapore time)`,
+    period_label: `${inSingapore(start)} – ${inSingapore(end)} (Singapore time)`,
     day_text: day,
     previous,
     slack_text: lines.join("\n"),
