@@ -2197,6 +2197,194 @@
         white-space: nowrap;
       }
       .foot .fd-mark { color: #fff; }
+
+      /* ── NDA launch banner ───────────────────────────────────────────────
+         One link, above the nav, straight into the NDA questions — the
+         shortest way from the homepage to an NDA. It scrolls away with the
+         page (the nav stays sticky), so it never costs space after the
+         first screen. The cursor glides to the button and "clicks" every
+         few seconds; with reduced motion it simply sits still. */
+      .nda-bar {
+        position: relative;
+        z-index: 41;
+        display: block;
+        overflow: hidden;
+        background: var(--black);
+        color: var(--white);
+        text-decoration: none;
+        isolation: isolate;
+      }
+      .nda-bar::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background:
+          radial-gradient(60% 180% at 50% 0%, rgba(243, 191, 75, 0.22), rgba(243, 191, 75, 0) 70%),
+          linear-gradient(90deg, rgba(243, 191, 75, 0) 0%, rgba(243, 191, 75, 0.1) 50%, rgba(243, 191, 75, 0) 100%);
+        background-size: 100% 100%, 200% 100%;
+        animation: nda-sheen 6s linear infinite;
+      }
+      .nda-bar .wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        min-height: 46px;
+        max-width: var(--wrap-wide);
+        padding-top: 7px;
+        padding-bottom: 7px;
+      }
+      .nda-new {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font: 600 10.5px/1 var(--sans);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--gold);
+        padding: 6px 10px;
+        border: 1px solid rgba(243, 191, 75, 0.55);
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+      .nda-new i {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #3fd07a;
+        box-shadow: 0 0 0 0 rgba(63, 208, 122, 0.6);
+        animation: nda-pulse 2s ease-out infinite;
+      }
+      .nda-text {
+        font: 500 14px/1.35 var(--sans);
+        letter-spacing: -0.005em;
+        color: rgba(255, 255, 255, 0.92);
+      }
+      .nda-text b {
+        font-weight: 600;
+        color: var(--white);
+      }
+      .nda-text .short {
+        display: none;
+      }
+      .nda-go {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px 8px 18px;
+        border-radius: 999px;
+        background: var(--gold);
+        color: var(--black);
+        font: 600 13.5px/1 var(--display);
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        box-shadow: 0 0 0 0 rgba(243, 191, 75, 0.5);
+        transition: background 0.2s, transform 0.2s var(--ease);
+        animation: nda-press 4.8s var(--ease) infinite;
+      }
+      .nda-go::after {
+        /* the sheen across the button */
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 40%;
+        left: -60%;
+        background: linear-gradient(100deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.65) 50%, rgba(255, 255, 255, 0) 100%);
+        transform: skewX(-20deg);
+        animation: nda-shine 4.8s ease-in-out infinite;
+      }
+      .nda-go .arr {
+        transition: transform 0.2s var(--ease);
+      }
+      .nda-bar:hover .nda-go {
+        background: #e9b23a;
+      }
+      .nda-bar:hover .nda-go .arr {
+        transform: translateX(3px);
+      }
+      .nda-bar:focus-visible {
+        outline: 2px solid var(--gold);
+        outline-offset: -3px;
+      }
+      /* the pointer: glides in, clicks, fades — then again */
+      .nda-cursor {
+        position: absolute;
+        right: 6px;
+        bottom: -4px;
+        width: 20px;
+        height: 20px;
+        pointer-events: none;
+        filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
+        animation: nda-cursor 4.8s var(--ease) infinite;
+      }
+      .nda-ring {
+        position: absolute;
+        right: 12px;
+        bottom: 6px;
+        width: 26px;
+        height: 26px;
+        margin: -13px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.9);
+        opacity: 0;
+        pointer-events: none;
+        animation: nda-ring 4.8s ease-out infinite;
+      }
+      .nda-slot {
+        position: relative;
+        display: inline-flex;
+      }
+      @keyframes nda-sheen {
+        from { background-position: 0 0, 200% 0; }
+        to { background-position: 0 0, -200% 0; }
+      }
+      @keyframes nda-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(63, 208, 122, 0.6); }
+        70%, 100% { box-shadow: 0 0 0 7px rgba(63, 208, 122, 0); }
+      }
+      @keyframes nda-cursor {
+        0% { transform: translate(38px, 22px); opacity: 0; }
+        12% { opacity: 1; }
+        38% { transform: translate(-4px, -6px); }
+        44% { transform: translate(-4px, -6px) scale(0.82); }
+        50% { transform: translate(-4px, -6px) scale(1); opacity: 1; }
+        70% { transform: translate(-4px, -6px); opacity: 1; }
+        82%, 100% { transform: translate(-4px, -6px); opacity: 0; }
+      }
+      @keyframes nda-ring {
+        0%, 43% { opacity: 0; transform: translate(-10px, -12px) scale(0.3); }
+        46% { opacity: 1; }
+        62%, 100% { opacity: 0; transform: translate(-10px, -12px) scale(1.6); }
+      }
+      @keyframes nda-press {
+        0%, 42% { transform: scale(1); box-shadow: 0 0 0 0 rgba(243, 191, 75, 0.5); }
+        45% { transform: scale(0.95); }
+        50% { transform: scale(1); box-shadow: 0 0 0 0 rgba(243, 191, 75, 0.55); }
+        68%, 100% { box-shadow: 0 0 0 12px rgba(243, 191, 75, 0); }
+      }
+      @keyframes nda-shine {
+        0%, 48% { left: -60%; }
+        70%, 100% { left: 130%; }
+      }
+      @media (max-width: 860px) {
+        .nda-text .long { display: none; }
+        .nda-text .short { display: inline; }
+      }
+      @media (max-width: 560px) {
+        .nda-bar .wrap { gap: 10px; justify-content: space-between; }
+        .nda-new { display: none; }
+        .nda-text { font-size: 13px; }
+        .nda-go { padding: 8px 13px 8px 15px; font-size: 13px; }
+        .nda-text .tail { display: none; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .nda-bar::before, .nda-new i, .nda-go, .nda-go::after, .nda-ring { animation: none; }
+        .nda-cursor { animation: none; opacity: 0; }
+      }
     </style>
   </head>
   <body>
@@ -2239,6 +2427,25 @@
       <div class="intro-bar" aria-hidden="true"><i id="intro-bar"></i></div>
     </div>
 
+
+
+    <!-- NDA launch banner: straight into the NDA questions -->
+    <a class="nda-bar" href="/draft?type=nda" data-source="home-nda-banner" aria-label="NDAs are live on FD AI — draft your NDA now">
+      <div class="wrap">
+        <span class="nda-new"><i aria-hidden="true"></i>New</span>
+        <span class="nda-text">
+          <span class="long"><b>NDAs are live on FD AI.</b> Answer 8 plain questions &mdash; get a Word-ready NDA in minutes.</span>
+          <span class="short"><b>NDAs are now live.</b><span class="tail"> Draft yours in minutes.</span></span>
+        </span>
+        <span class="nda-slot">
+          <span class="nda-go">Draft your NDA <span class="arr" aria-hidden="true">&rarr;</span></span>
+          <span class="nda-ring" aria-hidden="true"></span>
+          <svg class="nda-cursor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 2.5v16.2l4.3-4 2.9 6.6 2.7-1.2-2.9-6.5 5.9-.4L5 2.5z" fill="#fff" stroke="#0f0f0f" stroke-width="1.4" stroke-linejoin="round" />
+          </svg>
+        </span>
+      </div>
+    </a>
 
     <nav class="nav" aria-label="Main">
       <div class="wrap">
