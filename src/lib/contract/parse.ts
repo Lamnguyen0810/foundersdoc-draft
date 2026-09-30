@@ -18,6 +18,8 @@
  * before the "3.1 ..." clause rule, or it is mis-filed.
  */
 
+import { noteSource, wholeNoteRe } from "../notes";
+
 export type BlockKind =
   | "title"
   | "date"
@@ -410,7 +412,7 @@ export type Piece =
 
 /** The playbook's in-text note, with or without the bold-italic marks the
  *  playbook wraps it in (R10.3): **_[FD Note: …]_** */
-const NOTE = /(\*{0,2}_?\[\s*FD Note:[^\]]*\]_?\*{0,2})/gi;
+const NOTE = new RegExp(`(${noteSource.replace("((?:", "(?:(?:")})`, "gi");
 /** A gap: the playbook's "[●]", or the older "[[TO CONFIRM: …]]". */
 const GAP = /(\[\[[^\]]+\]\]|\[●\])/g;
 /** **bold** and _italic_. An underscore inside a word is not a mark. */
@@ -429,7 +431,7 @@ export function splitPlaceholders(text: string): Piece[] {
   };
   for (const chunk of text.split(NOTE)) {
     if (chunk === "") continue;
-    const n = chunk.match(/^\*{0,2}_?\[\s*FD Note:\s*([^\]]*)\]_?\*{0,2}$/i);
+    const n = chunk.match(wholeNoteRe);
     if (n) {
       out.push({ note: n[1].trim() });
       continue;
