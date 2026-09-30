@@ -1559,6 +1559,17 @@ function Chat({
       steps.map(() => undefined),
   );
   const [typedAnswer, setTypedAnswer] = useState("");
+  /* An answered question opened again from the progress list is changed where
+     it was asked — up the conversation — rather than asked again at the foot:
+     the index of its answer bubble, which the form stands in for meanwhile. */
+  const [editAnchor, setEditAnchor] = useState<number | null>(null);
+  const anchorRef = useRef<HTMLDivElement>(null);
+  /* Questions opened from the progress list AFTER a draft exists: they open
+     under the draft, in the order picked, with one "Regenerate" beneath.
+     `redoSnapshot` is how the answers stood before, for "Cancel changes". */
+  const [redo, setRedo] = useState<number[]>([]);
+  const [redoFocus, setRedoFocus] = useState<{ k: number; n: number } | null>(null);
+  const redoSnapshot = useRef<{ answers: Record<string, string>; status: Status[] } | null>(null);
   /* A question typed into the chat is being answered by /api/ask. */
   const [asking, setAsking] = useState(false);
 
@@ -1756,9 +1767,27 @@ function Chat({
   const currentFileName = fileNameFor(documentVersion, ndaDetailLevel);
 
   useEffect(() => {
+    /* Changing an earlier answer where it was asked: stay up there. */
+    if (editAnchor !== null) return;
     const el = threadRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [msgs, i]);
+  }, [msgs, i, editAnchor]);
+
+  /* …and go up to it when it opens. */
+  useEffect(() => {
+    if (editAnchor === null) return;
+    const frame = requestAnimationFrame(() => anchorRef.current?.scrollIntoView({ block: "center", behavior: "smooth" }));
+    return () => cancelAnimationFrame(frame);
+  }, [editAnchor]);
+
+  /* A question opened under the draft: bring it into view. */
+  useEffect(() => {
+    if (!redoFocus) return;
+    const frame = requestAnimationFrame(() =>
+      document.getElementById(`redo-${redoFocus.k}`)?.scrollIntoView({ block: "start", behavior: "smooth" }),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [redoFocus]);
 
   useEffect(() => {
     if (!toast) return;
@@ -1935,16 +1964,20 @@ function Chat({
         return next;
       });
 
-      setMsgs((prev) => [
-        ...prev,
-        { who: "fd", text: s.question },
-        {
-          who: "me",
-          label: s.name,
-          text: skipped ? "Skipped for now" : summarise(s, override),
-          skipped,
-        },
-      ]);
+      const answer: Msg = {
+        who: "me",
+        label: s.name,
+        text: skipped ? "Skipped for now" : summarise(s, override),
+        skipped,
+      };
+      /* Changed where it was asked: the old answer is replaced in place. */
+      const inline = editAnchor !== null && idx === i;
+      setMsgs((prev) =>
+        inline && prev[editAnchor]?.who === "me"
+          ? prev.map((m, j) => (j === editAnchor ? answer : m))
+          : [...prev, { who: "fd", text: s.question }, answer],
+      );
+      setEditAnchor(null);
       /* The funnel, recorded where the decision actually happens.
          `question_skipped` carries the field KEY, never what was typed — see
          the rule at the top of lib/events.ts. */
@@ -1971,7 +2004,7 @@ function Chat({
     // summarise reads current answers/attachments; recreating the callback each
     // render is cheaper than threading them through and getting a stale echo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [i, steps, answers, attachments, status],
+    [i, steps, answers, attachments, status, editAnchor],
   );
 
   /** Skip everything still outstanding, then draft. */
@@ -2012,6 +2045,7 @@ function Chat({
           : "Drafting from what you’ve given me. Everything you skipped comes back as [[TO CONFIRM]] so nothing is quietly invented.",
       },
     ]);
+    setEditAnchor(null);
     setI(mustChooseDetail ? detailIndex : steps.length);
     if (!mustChooseDetail) setTimeout(() => void generate(), 40);
   }
@@ -2024,7 +2058,13 @@ function Chat({
    * given stay filled in; the rest of the form is untouched.
    */
   function revisit(k: number) {
-    if (k === i || busy) return;
+    if (busy) return;
+    /* A draft exists and is on screen: the question opens under it. */
+    if (view === "draft" && output) {
+      openRedo(k);
+      return;
+    }
+    if (k === i) return;
     const leaving = i < steps.length ? i : -1;
     setAnswers((prev) => {
       const next = { ...prev };
@@ -2036,22 +2076,146 @@ function Chat({
       for (const f of steps[k].fields) if (next[f.key] === SKIPPED) next[f.key] = f.defaultValue ?? "";
       return next;
     });
-    const name = steps[k].name.toLowerCase();
-    setMsgs((prev) => [
-      ...prev,
-      {
-        who: "fd",
-        text:
-          status[k] === "done"
-            ? `Here’s your answer on ${name}. Change it, or press “Next” to keep it — your other answers are kept.`
-            : status[k] === "skp"
-              ? `Let’s go back to ${name}.`
-              : `Let’s look at ${name}.`,
-      },
-    ]);
+    /* Asked before: open it where it was asked, and scroll up to it. */
+    let anchor = -1;
+    for (let j = msgs.length - 1; j > 0; j--) {
+      if (msgs[j].who === "me" && msgs[j].label === steps[k].name && msgs[j - 1].who === "fd" && msgs[j - 1].text === steps[k].question) {
+        anchor = j;
+        break;
+      }
+    }
+    if (anchor >= 0) {
+      setEditAnchor(anchor);
+    } else {
+      setEditAnchor(null);
+      const name = steps[k].name.toLowerCase();
+      setMsgs((prev) => [
+        ...prev,
+        { who: "fd", text: status[k] === "skp" ? `Let’s go back to ${name}.` : `Let’s look at ${name}.` },
+      ]);
+    }
     setView("chat");
     setI(k);
   }
+
+  /** After a draft: open a question under it (or bring it into view if it is
+   *  open already). Answers change as they are typed; nothing is drafted
+   *  until "Regenerate". */
+  function openRedo(k: number) {
+    if (redo.length === 0) redoSnapshot.current = { answers: { ...answers }, status: [...status] };
+    setAnswers((prev) => {
+      const next = { ...prev };
+      for (const f of steps[k].fields) if (next[f.key] === SKIPPED) next[f.key] = f.defaultValue ?? "";
+      return next;
+    });
+    setRedo((r) => (r.includes(k) ? r : [...r, k]));
+    setRedoFocus((f) => ({ k, n: (f?.n ?? 0) + 1 }));
+  }
+
+  /** Put the answers back as they were, and close the questions. */
+  function cancelRedo() {
+    const snap = redoSnapshot.current;
+    if (snap) {
+      setAnswers(snap.answers);
+      setStatus(snap.status);
+    }
+    redoSnapshot.current = null;
+    setRedo([]);
+  }
+
+  /** Draft again with the changed answers: the conversation records what
+   *  changed, and a fresh draft (one credit) is made from all the answers. */
+  function regenerate() {
+    if (busy || redo.length === 0) return;
+    const changed = redo.slice();
+    setAnswers((prev) => {
+      const next = { ...prev };
+      for (const k of changed) for (const f of steps[k].fields) if (!(next[f.key] ?? "").trim()) next[f.key] = SKIPPED;
+      return next;
+    });
+    setStatus((prev) => {
+      const next = [...prev];
+      for (const k of changed) next[k] = ready(steps[k]) ? "done" : "skp";
+      return next;
+    });
+    setMsgs((prev) => [
+      ...prev,
+      ...changed.flatMap((k): Msg[] => [
+        { who: "fd", text: steps[k].question },
+        { who: "me", label: steps[k].name, text: ready(steps[k]) ? summarise(steps[k]) : "Skipped for now", skipped: !ready(steps[k]) },
+      ]),
+    ]);
+    track("draft_regenerated_with_changes", { doc_type: docType.slug, count: changed.length });
+    redoSnapshot.current = null;
+    setRedo([]);
+    setTimeout(() => void generate(), 40);
+  }
+
+  /** A question opened under the draft: its form, changed in place. */
+  function redoUI(k: number) {
+    const s = steps[k];
+    let form: React.ReactNode;
+    if (s.kind === "chips") {
+      const f = s.fields[0];
+      form = (
+        <div className="chips">
+          {(f.options ?? []).map((o) => (
+            <button key={o} type="button" className={`chip${answers[f.key] === o ? " on" : ""}`} onClick={() => setAnswer(f.key, o)}>
+              {o}
+            </button>
+          ))}
+        </div>
+      );
+    } else if (s.kind === "detail") {
+      form = <DetailSlider value={toLevel(answers._nda_detail_level)} onChange={(next) => setAnswer("_nda_detail_level", String(next))} />;
+    } else if (s.kind === "source") {
+      form = (
+        <div className="chips">
+          <button type="button" className="chip" onClick={() => fileRef.current?.click()} disabled={uploading}>
+            {uploading ? "Reading…" : `➕ ${SOURCE_ATTACH}`}
+          </button>
+          {attachments.length > 0 && <span className="redo-note">Attached: {attachments.join(", ")}</span>}
+        </div>
+      );
+    } else {
+      form = cardFields(s);
+    }
+    return (
+      <div className="cg-turn redo-turn" key={s.id} id={`redo-${k}`}>
+        <div className="cg-avatar" aria-hidden="true">FD</div>
+        <div className="cg-msg">
+          <p className="redo-h">
+            <b>{s.name}</b> · question {k + 1} of {steps.length}
+          </p>
+          <p>{s.question}</p>
+          {/* Inside ".m .ans", so the boxes look exactly as they do when the
+              question is asked in the conversation. */}
+          <div className="m redo-m">
+            <div className="ans">{form}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const redoBlock =
+    redo.length > 0 ? (
+      <div className="redo-block">
+        {redo.map(redoUI)}
+        <div className="redo-foot">
+          <button type="button" className="btn btn-gold" disabled={busy} onClick={regenerate}>
+            {busy ? "Drafting…" : "Regenerate draft"}
+          </button>
+          <button type="button" className="chip" disabled={busy} onClick={cancelRedo}>
+            Cancel changes
+          </button>
+          <small>
+            Uses one credit and drafts again from all your answers. This version stays in Past drafts. Pick any other
+            question on the right to add it here.
+          </small>
+        </div>
+      </div>
+    ) : null;
 
 
   /**
@@ -2220,6 +2384,8 @@ function Chat({
     if (generatingRef.current) return;
     generatingRef.current = true;
     setCutOff(false);
+    setEditAnchor(null);
+    setRedo([]);
 
     const startedAt = Date.now();
     if (!resumeFrom) {
@@ -2810,6 +2976,140 @@ function Chat({
 
   /* ───────────────────────────────────────────────────── render pieces */
 
+  /** The boxes of a step that is a form: the same whether it is being
+   *  answered in the conversation or changed under a finished draft. */
+  function cardFields(s: Step) {
+    const isExtra = s.fields.every((f) => !f.required);
+    return (
+    <div className={`card${isExtra ? "" : " two"}`}>
+      {s.fields.map((f) => (
+        <label key={f.key}>
+          <span className="field-label">
+            {f.label}
+            <InfoTip text={explainField(docType.slug, f)} label={f.label} />
+          </span>
+          {f.key === "confidentiality_period" ? (
+            /* Years and months — either or both — or no time limit. */
+            (() => {
+              const p = parsePeriod(answers[f.key] === SKIPPED ? "" : answers[f.key]);
+              const set = (next: Partial<typeof p>) => setAnswer(f.key, formatPeriod({ ...p, ...next, perpetual: false }));
+              const digits = (v: string, max: number) => {
+                const n = v.replace(/\D/g, "").slice(0, 3);
+                return n && Number(n) > max ? String(max) : n;
+              };
+              return (
+                <span className="yrs">
+                  <span className="yrs-box">
+                    <input
+                      className="input"
+                      type="number"
+                      min={0}
+                      max={99}
+                      placeholder="0"
+                      aria-label="Years"
+                      value={p.perpetual ? "" : p.years}
+                      disabled={p.perpetual}
+                      onChange={(e) => set({ years: digits(e.target.value, 99) })}
+                    />
+                    <span>years</span>
+                  </span>
+                  <span className="yrs-box">
+                    <input
+                      className="input"
+                      type="number"
+                      min={0}
+                      max={11}
+                      placeholder="0"
+                      aria-label="Months"
+                      value={p.perpetual ? "" : p.months}
+                      disabled={p.perpetual}
+                      onChange={(e) => set({ months: digits(e.target.value, 11) })}
+                    />
+                    <span>months</span>
+                  </span>
+                  <button
+                    type="button"
+                    className={`chip${p.perpetual ? " on" : ""}`}
+                    aria-pressed={p.perpetual}
+                    onClick={() =>
+                      setAnswer(f.key, p.perpetual ? (f.defaultValue ?? "2 years") : PERPETUAL)
+                    }
+                  >
+                    {PERPETUAL}
+                  </button>
+                </span>
+              );
+            })()
+          ) : f.key === "governing_law" ? (
+            /* Jurisdictions by country; a state where law is set by state. */
+            <JurisdictionPicker
+              options={f.options ?? []}
+              label={f.label}
+              value={answers[f.key] === SKIPPED ? "" : (answers[f.key] ?? "")}
+              onChange={(v) => setAnswer(f.key, v)}
+            />
+          ) : f.type === "select" ? (
+            <>
+              <select
+                className="input"
+                value={answers[f.key] === SKIPPED ? "" : (answers[f.key] ?? "")}
+                onChange={(e) => setAnswer(f.key, e.target.value)}
+              >
+                <option value="">— choose —</option>
+                {(f.options ?? []).map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+              {f.key === "dispute_resolution" && /help me choose/i.test(answers[f.key] ?? "") && (
+                /* One question that decides it. Not a <label> child that
+                   can be clicked through: the click would land on the
+                   select. */
+                <span className="help-choose" onClick={(e) => e.preventDefault()}>
+                  <span>
+                    Courts suit most NDAs. Arbitration is private and easier to enforce abroad, so it suits parties in
+                    different countries. <b>Are you and the other side based in the same country?</b>
+                  </span>
+                  <span className="help-choose-btns">
+                    {[
+                      ["Same country", /court/i],
+                      ["Different countries", /arbitrat/i],
+                    ].map(([text, match]) => {
+                      const pick = (f.options ?? []).find((o) => (match as RegExp).test(o));
+                      return pick ? (
+                        <button key={text as string} type="button" className="chip" onClick={() => setAnswer(f.key, pick)}>
+                          {text as string} → {pick}
+                        </button>
+                      ) : null;
+                    })}
+                  </span>
+                  <small>Still not sure? Leave it — FD AI chooses and tells you why in the notes.</small>
+                </span>
+              )}
+            </>
+          ) : f.type === "textarea" ? (
+            <textarea
+              className="input"
+              placeholder={f.placeholder}
+              value={answers[f.key] ?? ""}
+              onChange={(e) => setAnswer(f.key, e.target.value)}
+            />
+          ) : (
+            <input
+              className="input"
+              type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+              placeholder={f.placeholder}
+              value={answers[f.key] ?? ""}
+              onChange={(e) => setAnswer(f.key, e.target.value)}
+            />
+          )}
+        </label>
+      ))}
+    </div>
+    );
+  }
+
   function stepAnswerUI(s: Step) {
     if (s.kind === "detail") {
       const level = toLevel(answers._nda_detail_level);
@@ -2885,132 +3185,7 @@ function Chat({
     const isExtra = s.fields.every((f) => !f.required);
     return (
       <>
-        <div className={`card${isExtra ? "" : " two"}`}>
-          {s.fields.map((f) => (
-            <label key={f.key}>
-              <span className="field-label">
-                {f.label}
-                <InfoTip text={explainField(docType.slug, f)} label={f.label} />
-              </span>
-              {f.key === "confidentiality_period" ? (
-                /* Years and months — either or both — or no time limit. */
-                (() => {
-                  const p = parsePeriod(answers[f.key] === SKIPPED ? "" : answers[f.key]);
-                  const set = (next: Partial<typeof p>) => setAnswer(f.key, formatPeriod({ ...p, ...next, perpetual: false }));
-                  const digits = (v: string, max: number) => {
-                    const n = v.replace(/\D/g, "").slice(0, 3);
-                    return n && Number(n) > max ? String(max) : n;
-                  };
-                  return (
-                    <span className="yrs">
-                      <span className="yrs-box">
-                        <input
-                          className="input"
-                          type="number"
-                          min={0}
-                          max={99}
-                          placeholder="0"
-                          aria-label="Years"
-                          value={p.perpetual ? "" : p.years}
-                          disabled={p.perpetual}
-                          onChange={(e) => set({ years: digits(e.target.value, 99) })}
-                        />
-                        <span>years</span>
-                      </span>
-                      <span className="yrs-box">
-                        <input
-                          className="input"
-                          type="number"
-                          min={0}
-                          max={11}
-                          placeholder="0"
-                          aria-label="Months"
-                          value={p.perpetual ? "" : p.months}
-                          disabled={p.perpetual}
-                          onChange={(e) => set({ months: digits(e.target.value, 11) })}
-                        />
-                        <span>months</span>
-                      </span>
-                      <button
-                        type="button"
-                        className={`chip${p.perpetual ? " on" : ""}`}
-                        aria-pressed={p.perpetual}
-                        onClick={() =>
-                          setAnswer(f.key, p.perpetual ? (f.defaultValue ?? "2 years") : PERPETUAL)
-                        }
-                      >
-                        {PERPETUAL}
-                      </button>
-                    </span>
-                  );
-                })()
-              ) : f.key === "governing_law" ? (
-                /* Jurisdictions by country; a state where law is set by state. */
-                <JurisdictionPicker
-                  options={f.options ?? []}
-                  label={f.label}
-                  value={answers[f.key] === SKIPPED ? "" : (answers[f.key] ?? "")}
-                  onChange={(v) => setAnswer(f.key, v)}
-                />
-              ) : f.type === "select" ? (
-                <>
-                  <select
-                    className="input"
-                    value={answers[f.key] === SKIPPED ? "" : (answers[f.key] ?? "")}
-                    onChange={(e) => setAnswer(f.key, e.target.value)}
-                  >
-                    <option value="">— choose —</option>
-                    {(f.options ?? []).map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
-                  {f.key === "dispute_resolution" && /help me choose/i.test(answers[f.key] ?? "") && (
-                    /* One question that decides it. Not a <label> child that
-                       can be clicked through: the click would land on the
-                       select. */
-                    <span className="help-choose" onClick={(e) => e.preventDefault()}>
-                      <span>
-                        Courts suit most NDAs. Arbitration is private and easier to enforce abroad, so it suits parties in
-                        different countries. <b>Are you and the other side based in the same country?</b>
-                      </span>
-                      <span className="help-choose-btns">
-                        {[
-                          ["Same country", /court/i],
-                          ["Different countries", /arbitrat/i],
-                        ].map(([text, match]) => {
-                          const pick = (f.options ?? []).find((o) => (match as RegExp).test(o));
-                          return pick ? (
-                            <button key={text as string} type="button" className="chip" onClick={() => setAnswer(f.key, pick)}>
-                              {text as string} → {pick}
-                            </button>
-                          ) : null;
-                        })}
-                      </span>
-                      <small>Still not sure? Leave it — FD AI chooses and tells you why in the notes.</small>
-                    </span>
-                  )}
-                </>
-              ) : f.type === "textarea" ? (
-                <textarea
-                  className="input"
-                  placeholder={f.placeholder}
-                  value={answers[f.key] ?? ""}
-                  onChange={(e) => setAnswer(f.key, e.target.value)}
-                />
-              ) : (
-                <input
-                  className="input"
-                  type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                  placeholder={f.placeholder}
-                  value={answers[f.key] ?? ""}
-                  onChange={(e) => setAnswer(f.key, e.target.value)}
-                />
-              )}
-            </label>
-          ))}
-        </div>
+        {cardFields(s)}
         <div className="chips">
           <button
             type="button"
@@ -3158,6 +3333,20 @@ function Chat({
                     <div className="ans" />
                   </div>
                 </div>
+              ) : k === editAnchor && step ? (
+                /* The question opened again from the list: its form stands
+                   where the answer was, until it is answered again. */
+                <div className="m m-edit" key={k} ref={anchorRef}>
+                  <div className="av">FD</div>
+                  <div>
+                    <div className="txt">
+                      {status[i] === "done"
+                        ? "Change your answer here, or press “Next” to keep it — your other answers are kept."
+                        : "Answer it here whenever you’re ready."}
+                    </div>
+                    <div className="ans">{stepAnswerUI(step)}</div>
+                  </div>
+                </div>
               ) : (
                 <div className="m me" key={k}>
                   <div className={`txt${m.skipped ? " skipped" : ""}`}>
@@ -3183,7 +3372,7 @@ function Chat({
               </div>
             )}
 
-            {step && (
+            {step && editAnchor === null && (
               <div className="m">
                 <div className="av">FD</div>
                 <div>
@@ -3328,6 +3517,7 @@ function Chat({
           follow={follow}
           conversation={msgs}
           notes={drafterNotes}
+          editing={redoBlock}
         />
 
         {/* The document is not rendered at all until it exists and the person
@@ -3636,8 +3826,11 @@ function Chat({
                  person can see where they are; every other one can be
                  opened with a tap, and stays as it was if they move on. */
               const open = k === i && view === "chat";
-              const st = open ? "now" : (status[k] ?? "");
-              const sm = open
+              const below = view === "draft" && redo.includes(k);
+              const st = open || below ? "now" : (status[k] ?? "");
+              const sm = below
+                ? "Open under the draft"
+                : open
                 ? status[k] === "done"
                   ? `Open now — ${summarise(s).slice(0, 48)}`
                   : "Answering now"

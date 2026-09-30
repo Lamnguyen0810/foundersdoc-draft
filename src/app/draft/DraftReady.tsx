@@ -87,6 +87,8 @@ export interface DraftReadyProps {
     label?: string;
     skipped?: boolean;
   }[];
+  /** Questions opened again under the draft, with their Regenerate button. */
+  editing?: React.ReactNode;
   /** 0–1: how much of the first draft has been written (drafting only). */
   progress?: number;
   /** Follow-up turns, oldest first. */
@@ -242,6 +244,7 @@ export default function DraftReady({
   follow,
   notes = null,
   progress = 0,
+  editing = null,
 }: DraftReadyProps) {
   const [text, setText] = useState("");
   /* The names of the five levels come from DetailSlider, which is also what
@@ -490,6 +493,7 @@ export default function DraftReady({
               </div>
             </div>
           )}
+          {ready && editing}
         </div>
 
         {ready && /non-disclosure/i.test(docLabel) && (

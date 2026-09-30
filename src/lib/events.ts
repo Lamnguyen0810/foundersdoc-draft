@@ -33,6 +33,7 @@ export const EVENTS = {
   draft_generated: "A draft came back from the AI",
   draft_failed: "Generation returned an error",
   draft_revised: "A draft was changed by asking FD AI",
+  draft_regenerated_with_changes: "Answers were changed under a finished draft and it was drafted again",
   draft_exported: "A draft was downloaded as Word",
   draft_abandoned: "The flow was left without generating",
   paywall_hit: "Someone ran out of credits mid-draft",
