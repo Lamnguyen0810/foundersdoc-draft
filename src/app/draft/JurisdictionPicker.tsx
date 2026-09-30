@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { groupJurisdictions, isListedJurisdiction, jurisdictionValue } from "@/lib/jurisdictions";
+import { groupJurisdictions, isListedJurisdiction, jurisdictionValue, orderJurisdictions, type JurisdictionGroup } from "@/lib/jurisdictions";
 
 /**
  * The governing-law picker: jurisdictions, grouped by country.
@@ -10,8 +10,10 @@ import { groupJurisdictions, isListedJurisdiction, jurisdictionValue } from "@/l
  * set state by state (the United States, Australia, Canada, the United
  * Kingdom) is a heading with its states indented beneath it — the heading
  * itself cannot be chosen, because "United States law" is not a thing a
- * contract can be governed by. A search box at the top narrows the list;
- * "Other" at the foot opens a box to type any jurisdiction not listed.
+ * contract can be governed by. Singapore, the United Kingdom and the United
+ * States come first under "Popular"; every other country follows A–Z. A
+ * search box at the top narrows the list; "Other" at the foot opens a box to
+ * type any jurisdiction not listed.
  */
 export default function JurisdictionPicker({
   options,
@@ -25,6 +27,7 @@ export default function JurisdictionPicker({
   label: string;
 }) {
   const groups = useMemo(() => groupJurisdictions(options), [options]);
+  const ordered = useMemo(() => orderJurisdictions(groups), [groups]);
   const listed = value !== "" && isListedJurisdiction(value, options);
   const [typing, setTyping] = useState(value !== "" && !listed);
   const [open, setOpen] = useState(false);
@@ -49,13 +52,50 @@ export default function JurisdictionPicker({
   }, [open]);
 
   const needle = q.trim().toLowerCase();
-  const shown = groups
-    .map((g) => {
-      if (!needle || g.name.toLowerCase().includes(needle)) return g;
-      const parts = g.parts.filter((p) => p.toLowerCase().includes(needle));
-      return parts.length ? { ...g, parts } : null;
-    })
-    .filter((g): g is (typeof groups)[number] => g !== null);
+  const narrow = (list: JurisdictionGroup[]) =>
+    list
+      .map((g) => {
+        if (!needle || g.name.toLowerCase().includes(needle)) return g;
+        const parts = g.parts.filter((p) => p.toLowerCase().includes(needle));
+        return parts.length ? { ...g, parts } : null;
+      })
+      .filter((g): g is JurisdictionGroup => g !== null);
+  const popular = narrow(ordered.popular);
+  const rest = narrow(ordered.rest);
+  const shown = [...popular, ...rest];
+
+  const renderGroup = (g: JurisdictionGroup) =>
+    g.parts.length ? (
+      <div className="jp-group" key={g.name}>
+        <div className="jp-head">{g.name}</div>
+        {g.parts.map((p) => {
+          const v = jurisdictionValue(g.name, p);
+          return (
+            <button
+              type="button"
+              role="option"
+              aria-selected={value === v}
+              className={`jp-opt jp-sub${value === v ? " on" : ""}`}
+              key={v}
+              onClick={() => choose(v)}
+            >
+              {p}
+            </button>
+          );
+        })}
+      </div>
+    ) : (
+      <button
+        type="button"
+        role="option"
+        aria-selected={value === g.name}
+        className={`jp-opt${value === g.name ? " on" : ""}`}
+        key={g.name}
+        onClick={() => choose(g.name)}
+      >
+        {g.name}
+      </button>
+    );
 
   const choose = (v: string) => {
     setTyping(false);
@@ -99,39 +139,10 @@ export default function JurisdictionPicker({
             }}
           />
           <div className="jp-list">
-            {shown.map((g) =>
-              g.parts.length ? (
-                <div className="jp-group" key={g.name}>
-                  <div className="jp-head">{g.name}</div>
-                  {g.parts.map((p) => {
-                    const v = jurisdictionValue(g.name, p);
-                    return (
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={value === v}
-                        className={`jp-opt jp-sub${value === v ? " on" : ""}`}
-                        key={v}
-                        onClick={() => choose(v)}
-                      >
-                        {p}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={value === g.name}
-                  className={`jp-opt${value === g.name ? " on" : ""}`}
-                  key={g.name}
-                  onClick={() => choose(g.name)}
-                >
-                  {g.name}
-                </button>
-              ),
-            )}
+            {popular.length > 0 && <p className="jp-sec">Popular</p>}
+            {popular.map(renderGroup)}
+            {rest.length > 0 && <p className="jp-sec">{popular.length ? "All jurisdictions, A–Z" : "Jurisdictions"}</p>}
+            {rest.map(renderGroup)}
             {shown.length === 0 && <p className="jp-none">Not listed — choose Other below and type it.</p>}
           </div>
           <button

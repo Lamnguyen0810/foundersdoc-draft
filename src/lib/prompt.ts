@@ -205,11 +205,16 @@ export const NDA_DECISIONS = [
   "  how a dispute is resolved. The answer is a country (\"Singapore\") or a state or part of",
   "  one (\"California, United States\", \"England and Wales, United Kingdom\"). The NDA is",
   "  governed by the laws of that jurisdiction — for a state, \"the laws of the State of",
-  "  California\". \"In the courts of that jurisdiction\" or \"Not sure\": the Parties submit",
-  "  to the exclusive jurisdiction of the courts of that jurisdiction (for a US state, the",
-  "  state and federal courts located in it). \"By arbitration\": disputes are finally resolved",
-  "  by arbitration administered by the institution and at the seat given under THE FACTS,",
-  "  under its rules then in force, in English. If the question was skipped, the jurisdiction",
+  "  California\". \"Courts\" (also \"In the courts of that jurisdiction\" or \"Not sure\" in",
+  "  older drafts): the Parties submit to the exclusive jurisdiction of the courts of that",
+  "  jurisdiction (for a US state, the state and federal courts located in it). \"Arbitration\"",
+  "  (also \"By arbitration\"): disputes are finally resolved by arbitration administered by the",
+  "  institution and at the seat given under THE FACTS, under its rules then in force, in",
+  "  English. \"Help me choose\": choose for them — the courts, unless the party details show the",
+  "  Parties are based in different countries, in which case arbitration as above — and add",
+  "  one note: courts (or arbitration) were chosen, and why in a few words | Question: How",
+  "  should a dispute be resolved? | What to put: confirm courts or arbitration. If the",
+  "  dispute question was skipped, use the courts. If the governing law was skipped, the jurisdiction",
   "  is a gap (marked as gaps are marked elsewhere in this prompt), with one note: the",
   "  governing law is not chosen | Question: Which jurisdiction's law should govern the NDA? |",
   "  What to put: the jurisdiction whose law applies, e.g. Singapore.",
@@ -345,13 +350,14 @@ export function buildUser(
      firm's own table (the term sheet uses the same one), so the NDA names a
      real centre rather than one the model half-remembers. */
   const law = (answers.governing_law ?? "").trim();
-  if (/arbitration/i.test(answers.dispute_resolution ?? "") && law && law !== SKIPPED) {
+  if (/arbitration|help me choose/i.test(answers.dispute_resolution ?? "") && law && law !== SKIPPED) {
     /* "California, United States": the state's own entry first, then the
        country's, then the default (ICC, seated in the jurisdiction). */
     const known = ARBITRATION[law] ?? ARBITRATION[law.split(",")[0].trim()];
     const a = known ?? ARBITRATION.default;
     const seat = known ? a.seat : law;
-    parts.push(`Arbitration institution and seat: ${a.institution.replace(/^the /, "The ")}, seated in ${seat}`);
+    const lead = /help me choose/i.test(answers.dispute_resolution ?? "") ? "Arbitration institution and seat, if arbitration is chosen" : "Arbitration institution and seat";
+    parts.push(`${lead}: ${a.institution.replace(/^the /, "The ")}, seated in ${seat}`);
   }
 
   if (sourceText && sourceText.trim() !== "") {

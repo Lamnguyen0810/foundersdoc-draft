@@ -160,6 +160,10 @@ export const JURISDICTIONS = [
   "British Virgin Islands",
 ];
 
+/* The dispute question's choices (067). "Help me choose" asks one question
+   on screen; left as it is, the drafter chooses (lib/prompt.ts). */
+export const DISPUTE_OPTIONS = ["Courts", "Arbitration", "Help me choose"];
+
 export const NDA_DATA = {
   slug: "nda",
   label: "Non-Disclosure Agreement",
@@ -262,9 +266,9 @@ export const NDA_DATA = {
       key: "dispute_resolution",
       label: "How should a dispute be resolved?",
       type: "select",
-      options: ["In the courts of that jurisdiction", "By arbitration", "Not sure"],
+      options: DISPUTE_OPTIONS,
       required: true,
-      help: "Courts are the default. Arbitration is private and its awards are easier to enforce abroad, which suits parties in different countries.",
+      help: "Courts suit most NDAs. Arbitration is private and its awards are easier to enforce abroad, which suits parties in different countries. Not sure? Choose Help me choose.",
       group: "Law and disputes",
     },
     {
