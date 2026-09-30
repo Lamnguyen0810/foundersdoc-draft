@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import DetailSlider, { type DetailLevel } from "./DetailSlider";
+import DetailSlider, { DETAIL_LABELS, toLevel, type DetailLevel } from "./DetailSlider";
 
 /**
  * "Your draft is ready" — the conversation beside the document.
@@ -252,19 +252,17 @@ export default function DraftReady({
      "Concise, Standard, Detailed, Thorough, Maximum" against the question's
      "Minimal, Basic, Standard, Detailed, Comprehensive" — so the summary and
      the slider directly beneath it called the same level different things. */
-  const [sliderValue, setSliderValue] = useState(ndaDetailLevel);
-  const sliderTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* A level picked on the slider waits for "Redraft" — a new version costs
+     a credit, so a nudge of the slider must not spend one. Remembered with
+     the level it was picked against, so opening another version (a new
+     ndaDetailLevel) drops a stale pick without an effect. */
+  const [picked, setPicked] = useState<{ from: number; level: DetailLevel } | null>(null);
+  const sliderValue: DetailLevel = picked && picked.from === ndaDetailLevel ? picked.level : toLevel(ndaDetailLevel);
+  const pending = sliderValue !== ndaDetailLevel;
   const threadRef = useRef<HTMLDivElement>(null);
   const composeRef = useRef<HTMLTextAreaElement>(null);
 
   const ready = state === "ready";
-
-  useEffect(
-    () => () => {
-      if (sliderTimer.current) clearTimeout(sliderTimer.current);
-    },
-    [],
-  );
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -275,12 +273,7 @@ export default function DraftReady({
   }, [conversation, follow, busy, error, paywalled]);
 
   function chooseDetailLevel(level: DetailLevel) {
-    setSliderValue(level);
-    if (sliderTimer.current) clearTimeout(sliderTimer.current);
-    sliderTimer.current = setTimeout(() => {
-      onChangeNdaDetailLevel(level);
-      sliderTimer.current = null;
-    }, 350);
+    setPicked({ from: ndaDetailLevel, level });
   }
 
   function send() {
@@ -488,7 +481,7 @@ export default function DraftReady({
             <div className="cg-turn">
                 <FdAvatar />
               <div className="cg-msg">
-                <p>You’ve used the free revisions included with this draft.</p>
+                <p>You have no credits left. Each new version of a draft uses one credit.</p>
                 <a className="btn btn-gold" href="/billing">Add credits</a>
               </div>
             </div>
@@ -505,12 +498,33 @@ export default function DraftReady({
               label="Comprehensiveness of this draft"
               onChange={chooseDetailLevel}
             />
+            {pending && (
+              <div className="gd-confirm" role="group" aria-label="Redraft at a new level">
+                <p>
+                  Redraft at level {sliderValue} — {DETAIL_LABELS[sliderValue - 1]}? This makes a new version and uses
+                  one credit. The current version stays in the thread.
+                </p>
+                <div className="gd-confirm-btns">
+                  <button
+                    type="button"
+                    className="btn btn-gold"
+                    disabled={busy}
+                    onClick={() => onChangeNdaDetailLevel(sliderValue)}
+                  >
+                    Redraft · 1 credit
+                  </button>
+                  <button type="button" className="btn" disabled={busy} onClick={() => setPicked(null)}>
+                    Keep level {ndaDetailLevel}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
         {ready && (
           <div className="gen-quick">
-            <p className="gen-section-label">Quick refinements</p>
+            <p className="gen-section-label">Quick refinements · each new version uses one credit</p>
             <div className="gen-quick-row">
               {QUICK_REFINEMENTS.map((q) => (
                 <button key={q.label} type="button" disabled={busy} onClick={() => onAsk(q.prompt)}>

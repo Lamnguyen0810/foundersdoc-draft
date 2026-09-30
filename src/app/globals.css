@@ -3858,3 +3858,9 @@ html[data-theme=dark] .q-info-pop{background:#2a2b30;border-color:#3a3b41;color:
 .redo-foot{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding-left:38px}
 .redo-foot small{flex-basis:100%;font-size:12px;color:var(--tx-3);line-height:1.45}
 @media(max-width:620px){.redo-foot{padding-left:0}}
+
+/* Changing the level beside a finished draft waits for a click: a new version costs a credit. */
+.gd-confirm{margin-top:10px;padding:10px 12px;border:1px solid var(--gold-200,#ecd9a8);background:var(--gold-50,#fdf8ec);border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.gd-confirm p{margin:0;font-size:12.5px;line-height:1.45;color:var(--ink,#1c1c1c);flex:1 1 260px}
+.gd-confirm-btns{display:flex;gap:8px;flex-wrap:wrap}
+.gd-confirm-btns .btn{padding:7px 12px;font-size:12.5px}

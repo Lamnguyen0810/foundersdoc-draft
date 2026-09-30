@@ -2702,6 +2702,7 @@ function Chat({
       let buffer = "";
       let acc = "";
       let failed = false;
+      let charged = false;
 
       for (;;) {
         const { done, value } = await reader.read();
@@ -2732,7 +2733,10 @@ function Chat({
             failed = true;
             setError(msg.v ?? "Could not revise the draft.");
           } else if (msg.t === "done") {
-            if (msg.charged) onCreditSpent(msg.creditsLeft ?? null);
+            if (msg.charged) {
+              charged = true;
+              onCreditSpent(msg.creditsLeft ?? null);
+            }
           }
         }
       }
@@ -2776,9 +2780,10 @@ function Chat({
           ...f,
           {
             who: "fd",
-            text: options?.targetDetailLevel
+            text: (options?.targetDetailLevel
               ? `Version ${nextVersion} is ready. I rewrote the NDA at comprehensiveness level ${options.targetDetailLevel} and updated the document beside the chat.`
-              : `Version ${nextVersion} is ready. I revised the NDA following your request and updated the document beside the chat.`,
+              : `Version ${nextVersion} is ready. I revised the NDA following your request and updated the document beside the chat.`)
+              + (charged ? " This version used one credit." : ""),
             version: nextVersion,
             fileName: nextFileName,
             documentText: acc,
