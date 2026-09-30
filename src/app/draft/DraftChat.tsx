@@ -1565,7 +1565,7 @@ function Chat({
   const [editAnchor, setEditAnchor] = useState<number | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
   /* Questions opened from the progress list AFTER a draft exists: they open
-     under the draft, in the order picked, with one "Regenerate" beneath.
+     under the draft, in the order picked, with one "Generate draft" beneath.
      `redoSnapshot` is how the answers stood before, for "Cancel changes". */
   const [redo, setRedo] = useState<number[]>([]);
   const [redoFocus, setRedoFocus] = useState<{ k: number; n: number } | null>(null);
@@ -1645,6 +1645,8 @@ function Chat({
   const [follow, setFollow] = useState<{
     who: "me" | "fd";
     text: string;
+    /** On an answer changed under a draft: the question's name. */
+    label?: string;
     version?: number;
     fileName?: string;
     documentText?: string;
@@ -1680,6 +1682,13 @@ function Chat({
     restore && savedVersions.length === 0 ? restore.versions : savedVersions,
   );
   const [skippedLabels, setSkippedLabels] = useState<string[]>(restore?.skipped ?? []);
+  /* Drafting again under a finished draft: the thread stays as it is and the
+     new draft is added at the bottom, so Draft 1 keeps its place. */
+  const [again, setAgain] = useState(false);
+  const draftNoRef = useRef(1);
+  /* What Draft 1 was made from, kept as it was: the answers change under it
+     afterwards, and its summary must not change with them. */
+  const [firstDraft, setFirstDraft] = useState<{ answers: { label: string; value: string }[]; skipped: number } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [acctOpen, setAcctOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -1746,6 +1755,11 @@ function Chat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [steps, status, answers, attachments],
   );
+
+  const answerSummaryRef = useRef(answerSummary);
+  useEffect(() => {
+    answerSummaryRef.current = answerSummary;
+  }, [answerSummary]);
 
   const finished = i >= steps.length;
   const step = finished ? null : steps[i];
@@ -2100,7 +2114,7 @@ function Chat({
 
   /** After a draft: open a question under it (or bring it into view if it is
    *  open already). Answers change as they are typed; nothing is drafted
-   *  until "Regenerate". */
+   *  until "Generate draft". */
   function openRedo(k: number) {
     if (redo.length === 0) redoSnapshot.current = { answers: { ...answers }, status: [...status] };
     setAnswers((prev) => {
@@ -2110,6 +2124,12 @@ function Chat({
     });
     setRedo((r) => (r.includes(k) ? r : [...r, k]));
     setRedoFocus((f) => ({ k, n: (f?.n ?? 0) + 1 }));
+  }
+
+  /** A line from FD AI at the bottom of the draft thread (not repeated if it
+   *  is already the last thing said). */
+  function note(text: string) {
+    setFollow((f) => (f.length && f[f.length - 1].who === "fd" && f[f.length - 1].text === text ? f : [...f, { who: "fd", text }]));
   }
 
   /** Put the answers back as they were, and close the questions. */
@@ -2128,6 +2148,24 @@ function Chat({
   function regenerate() {
     if (busy || redo.length === 0) return;
     const changed = redo.slice();
+    /* Nothing changed — the same level, the same answers: say so in the
+       chat rather than spend a credit on the same draft again. */
+    const snap = redoSnapshot.current;
+    if (snap) {
+      const same = (a?: string, b?: string) =>
+        (a === SKIPPED ? "" : (a ?? "").trim()) === (b === SKIPPED ? "" : (b ?? "").trim());
+      const unchanged = changed.every((k) => steps[k].fields.every((f) => same(answers[f.key], snap.answers[f.key])));
+      if (unchanged) {
+        const onlyLevel = changed.length === 1 && steps[changed[0]].kind === "detail";
+        const lvl = toLevel(answers._nda_detail_level);
+        note(
+          onlyLevel
+            ? `The draft is already at level ${lvl} — ${DETAIL_LABELS[lvl - 1]}, so there is nothing new to generate and no credit was used. Choose a different level, then press Generate draft.`
+            : "Those answers are the same as the draft already has, so there is nothing new to generate and no credit was used. Change an answer, then press Generate draft.",
+        );
+        return;
+      }
+    }
     setAnswers((prev) => {
       const next = { ...prev };
       for (const k of changed) for (const f of steps[k].fields) if (!(next[f.key] ?? "").trim()) next[f.key] = SKIPPED;
@@ -2138,17 +2176,19 @@ function Chat({
       for (const k of changed) next[k] = ready(steps[k]) ? "done" : "skp";
       return next;
     });
-    setMsgs((prev) => [
-      ...prev,
-      ...changed.flatMap((k): Msg[] => [
-        { who: "fd", text: steps[k].question },
-        { who: "me", label: steps[k].name, text: ready(steps[k]) ? summarise(steps[k]) : "Skipped for now", skipped: !ready(steps[k]) },
+    /* The changed questions and answers go under the draft, where they were
+       changed — the thread above, Draft 1 included, is left as it was. */
+    setFollow((f) => [
+      ...f,
+      ...changed.flatMap((k) => [
+        { who: "fd" as const, text: steps[k].question },
+        { who: "me" as const, label: steps[k].name, text: ready(steps[k]) ? summarise(steps[k]) : "Skipped for now" },
       ]),
     ]);
     track("draft_regenerated_with_changes", { doc_type: docType.slug, count: changed.length });
     redoSnapshot.current = null;
     setRedo([]);
-    setTimeout(() => void generate(), 40);
+    setTimeout(() => void generate(undefined, { again: true }), 40);
   }
 
   /** A question opened under the draft: its form, changed in place. */
@@ -2204,14 +2244,14 @@ function Chat({
         {redo.map(redoUI)}
         <div className="redo-foot">
           <button type="button" className="btn btn-gold" disabled={busy} onClick={regenerate}>
-            {busy ? "Drafting…" : "Regenerate draft"}
+            {busy ? "Drafting…" : "Generate draft"}
           </button>
           <button type="button" className="chip" disabled={busy} onClick={cancelRedo}>
             Cancel changes
           </button>
           <small>
-            Uses one credit and drafts again from all your answers. This version stays in Past drafts. Pick any other
-            question on the right to add it here.
+            Uses one credit. The new draft appears below, and this one stays where it is. Pick any other question on
+            the right to add it here.
           </small>
         </div>
       </div>
@@ -2367,7 +2407,13 @@ function Chat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function generate(resumeFrom?: { draftId: string | null; text: string }) {
+  async function generate(
+    resumeFrom?: { draftId: string | null; text: string },
+    opts?: { again?: boolean },
+  ) {
+    /* Drafting again under a finished draft ("Generate draft" under it): a new draft, added
+       to the bottom of the thread. Nothing already there is cleared. */
+    const isAgain = Boolean(opts?.again) && documentVersions.length > 0;
     /* No account: the questions were free, the draft is where the account
        is asked for. Everything typed so far goes with them. */
     if (guest) {
@@ -2388,11 +2434,17 @@ function Chat({
     setRedo([]);
 
     const startedAt = Date.now();
-    if (!resumeFrom) {
+    const before = output;
+    if (isAgain) {
+      setAgain(true);
+      setPaywalled(false);
+    } else if (!resumeFrom) {
       setFollow([]);
       setDocumentVersions([]);
       setDocumentVersion(1);
       versionCounterRef.current = 1;
+      draftNoRef.current = 1;
+      setFirstDraft(null);
       setOutput("");
       setSkippedLabels([]);
     }
@@ -2401,6 +2453,13 @@ function Chat({
     setError(null);
     editorExportRef.current = null;
     setView("draft");
+    /* Back to the conversation when something goes wrong — unless drafting
+       again, where the thread and Draft 1 stay on screen with the error under
+       them, and the document is put back as it was. */
+    const failView = () => {
+      if (isAgain) setOutput(before);
+      else setView("chat");
+    };
 
     // Read the freshest answers rather than the closure's snapshot: the caller
     // may have marked several fields skipped microseconds ago.
@@ -2477,7 +2536,7 @@ function Chat({
               /* Back to the conversation, so the error is read rather than
                  the drafting pane appearing to hang. */
               setError(msg.v ?? "Drafting failed.");
-              setView("chat");
+              failView();
               return null;
             } else if (msg.t === "done") {
               last = msg;
@@ -2518,13 +2577,13 @@ function Chat({
           // Whatever the rail was showing, the true answer is none.
           onCreditSpent(0);
           setPaywalled(true);
-          setView("chat");
+          failView();
           return;
         }
 
         track("draft_failed", { doc_type: docType.slug, reason: `http_${res.status}` });
         setError(j?.error ?? `Request failed (${res.status}).`);
-        setView("chat");
+        failView();
         return;
       }
       last = await pump(res.body);
@@ -2558,7 +2617,26 @@ function Chat({
 
       if (last) {
         setSavedHtml(null); // a fresh generation replaces any saved edits
-        if (!last.partial && acc.trim()) {
+        if (!last.partial && acc.trim() && isAgain) {
+          /* The new draft joins the thread below everything before it. */
+          const nextVersion = versionCounterRef.current + 1;
+          const nextFileName = fileNameFor(nextVersion, initialDetailLevel);
+          const draftNo = draftNoRef.current + 1;
+          draftNoRef.current = draftNo;
+          versionCounterRef.current = nextVersion;
+          const entry = { documentText: acc, version: nextVersion, detailLevel: initialDetailLevel, fileName: nextFileName };
+          setDocumentVersions((v) => [...v, entry]);
+          setDocumentVersion(nextVersion);
+          setNdaDetailLevel(initialDetailLevel);
+          setFollow((f) => [
+            ...f,
+            {
+              who: "fd",
+              text: `Draft ${draftNo} is ready. I drafted the ${docType.label} again from all your answers, with the changes above. This used one credit; Draft ${draftNo - 1} is still here above, and in Past drafts.`,
+              ...entry,
+            },
+          ]);
+        } else if (!last.partial && acc.trim()) {
           setDocumentVersions([{
             documentText: acc,
             version: 1,
@@ -2568,6 +2646,13 @@ function Chat({
           setDocumentVersion(1);
           setNdaDetailLevel(initialDetailLevel);
           versionCounterRef.current = 1;
+          /* Draft 1's summary, as it was made. */
+          setFirstDraft({
+            answers: answerSummaryRef.current,
+            skipped: (last.skipped ?? []).length || docType.fields.filter((f) => payload[f.key] === SKIPPED).length,
+          });
+        } else if (isAgain && !acc.trim()) {
+          setOutput(before);
         }
         setCutOff(Boolean(last.partial));
         if (last.partial) {
@@ -2587,6 +2672,7 @@ function Chat({
         words: acc.trim().split(/\s+/).length,
       });
     } catch {
+      if (isAgain) setOutput(before);
       if (giveUp.signal.aborted) {
         track("draft_failed", { doc_type: docType.slug, reason: "stalled" });
         setError(
@@ -2602,6 +2688,7 @@ function Chat({
       clearTimeout(stall);
       generatingRef.current = false;
       setBusy(false);
+      setAgain(false);
     }
   }
 
@@ -3489,16 +3576,19 @@ function Chat({
       <div className="dview">
         <DraftReady
           docLabel={docType.label}
-          state={busy || !output ? "drafting" : "ready"}
-          answers={answerSummary}
+          state={again ? "ready" : busy || !output ? "drafting" : "ready"}
+          answers={firstDraft?.answers ?? answerSummary}
           skippedCount={
-            skippedLabels.length ||
-            docType.fields.filter((field) => answers[field.key] === SKIPPED).length
+            firstDraft?.skipped ??
+            (skippedLabels.length ||
+              docType.fields.filter((field) => answers[field.key] === SKIPPED).length)
           }
           docOpen={docOpen}
           busy={busy || revising}
           onOpenDocument={() => setDocOpen(true)}
           onOpenVersion={({ documentText, version, detailLevel }) => {
+            /* Not while the next draft is still being written into the page. */
+            if (generatingRef.current) return;
             editorExportRef.current = null;
             setCutOff(false);
             setOutput(documentText);
@@ -3520,6 +3610,7 @@ function Chat({
             })
           }
           follow={follow}
+          onNote={note}
           conversation={msgs}
           notes={drafterNotes}
           editing={redoBlock}

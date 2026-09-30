@@ -3864,3 +3864,5 @@ html[data-theme=dark] .q-info-pop{background:#2a2b30;border-color:#3a3b41;color:
 .gd-confirm p{margin:0;font-size:12.5px;line-height:1.45;color:var(--ink,#1c1c1c);flex:1 1 260px}
 .gd-confirm-btns{display:flex;gap:8px;flex-wrap:wrap}
 .gd-confirm-btns .btn{padding:7px 12px;font-size:12.5px}
+.gd-confirm:not(.is-pending){background:transparent;border-style:dashed}
+.gd-confirm:not(.is-pending) p{color:var(--muted,#6b6b6b)}

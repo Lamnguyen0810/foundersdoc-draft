@@ -80,6 +80,8 @@ export interface DraftReadyProps {
   error?: string | null;
   paywalled?: boolean;
   onChangeNdaDetailLevel: (level: 1 | 2 | 3 | 4 | 5) => void;
+  /** A line from FD AI in the thread — e.g. "already at that level". */
+  onNote?: (text: string) => void;
   /** The full questionnaire transcript, retained while drafting and afterwards. */
   conversation?: {
     who: "fd" | "me";
@@ -87,7 +89,7 @@ export interface DraftReadyProps {
     label?: string;
     skipped?: boolean;
   }[];
-  /** Questions opened again under the draft, with their Regenerate button. */
+  /** Questions opened again under the draft, with their "Generate draft" button. */
   editing?: React.ReactNode;
   /** 0–1: how much of the first draft has been written (drafting only). */
   progress?: number;
@@ -95,6 +97,8 @@ export interface DraftReadyProps {
   follow: {
     who: "me" | "fd";
     text: string;
+    /** On an answer changed under a draft: the question's name. */
+    label?: string;
     version?: number;
     fileName?: string;
     documentText?: string;
@@ -240,6 +244,7 @@ export default function DraftReady({
   error,
   paywalled = false,
   onChangeNdaDetailLevel,
+  onNote,
   conversation = [],
   follow,
   notes = null,
@@ -428,7 +433,16 @@ export default function DraftReady({
           {follow.map((m, k) =>
             m.who === "me" ? (
               <div className="cg-user" key={k}>
-                <div className="cg-bubble">{m.text}</div>
+                <div className="cg-bubble">
+                  {m.label ? (
+                    <>
+                      <b>{m.label}</b>
+                      <p style={{ margin: "4px 0 0" }}>{m.text}</p>
+                    </>
+                  ) : (
+                    m.text
+                  )}
+                </div>
               </div>
             ) : (
               <div className="cg-turn" key={k}>
@@ -498,27 +512,44 @@ export default function DraftReady({
               label="Comprehensiveness of this draft"
               onChange={chooseDetailLevel}
             />
-            {pending && (
-              <div className="gd-confirm" role="group" aria-label="Redraft at a new level">
-                <p>
-                  Redraft at level {sliderValue} — {DETAIL_LABELS[sliderValue - 1]}? This makes a new version and uses
-                  one credit. The current version stays in the thread.
-                </p>
-                <div className="gd-confirm-btns">
-                  <button
-                    type="button"
-                    className="btn btn-gold"
-                    disabled={busy}
-                    onClick={() => onChangeNdaDetailLevel(sliderValue)}
-                  >
-                    Redraft · 1 credit
-                  </button>
+            {/* Choosing a level never drafts by itself: nothing happens until
+                Generate is pressed, and pressing it at the level the draft
+                already has says so in the chat instead of spending a credit. */}
+            <div className={`gd-confirm${pending ? " is-pending" : ""}`} role="group" aria-label="Generate at this level">
+              <p>
+                {pending ? (
+                  <>
+                    Generate a new version at level {sliderValue} — {DETAIL_LABELS[sliderValue - 1]}? It uses one credit;
+                    this version stays in the thread.
+                  </>
+                ) : (
+                  <>Choose a level, then press Generate. Each new version uses one credit.</>
+                )}
+              </p>
+              <div className="gd-confirm-btns">
+                <button
+                  type="button"
+                  className="btn btn-gold"
+                  disabled={busy}
+                  onClick={() => {
+                    if (pending) {
+                      onChangeNdaDetailLevel(sliderValue);
+                      return;
+                    }
+                    onNote?.(
+                      `This draft is already at level ${ndaDetailLevel} — ${DETAIL_LABELS[toLevel(ndaDetailLevel) - 1]}, so there is nothing new to generate and no credit was used. Choose a different level on the slider, then press Generate.`,
+                    );
+                  }}
+                >
+                  Generate · 1 credit
+                </button>
+                {pending && (
                   <button type="button" className="btn" disabled={busy} onClick={() => setPicked(null)}>
                     Keep level {ndaDetailLevel}
                   </button>
-                </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         )}
 
