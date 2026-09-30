@@ -2,7 +2,8 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
 const SINGAPORE_OFFSET_MS = 8 * 60 * 60 * 1000;
 const TZ = "Asia/Singapore";
 
@@ -159,11 +160,29 @@ async function pageViews(
   return rows;
 }
 
+/** The latest completed day in Singapore: yesterday, midnight to midnight. */
+export function completedDailyWindow(now = new Date()): { start: Date; end: Date } {
+  const singapore = new Date(now.getTime() + SINGAPORE_OFFSET_MS);
+  const endMs =
+    Date.UTC(singapore.getUTCFullYear(), singapore.getUTCMonth(), singapore.getUTCDate()) - SINGAPORE_OFFSET_MS;
+  return { start: new Date(endMs - DAY_MS), end: new Date(endMs) };
+}
+
 export async function getWeeklyReport(
   client: SupabaseClient,
   now = new Date(),
 ): Promise<WeeklyReport> {
   const { start, end } = completedWeeklyWindow(now);
+  const report = await reportFor(client, start, end);
+  /* En dash, and the timezone named once at the end: the reader should not
+     have to wonder whose Friday evening this is. */
+  return { ...report, period_label: `${report.period_start_text} – ${report.period_end_text} (Singapore time)` };
+}
+
+/** The figures for any window. The weekly and daily reports are the same
+ *  counts over different spans, so they cannot disagree about what a
+ *  "visitor" or a "draft" is. */
+async function reportFor(client: SupabaseClient, start: Date, end: Date): Promise<WeeklyReport> {
   const from = start.toISOString();
   const to = end.toISOString();
 
@@ -208,8 +227,6 @@ export async function getWeeklyReport(
     period_end: to,
     period_start_text: startText,
     period_end_text: endText,
-    /* En dash, and the timezone named once at the end: the reader should not
-       have to wonder whose Friday evening this is. */
     period_label: `${startText} – ${endText} (Singapore time)`,
     drafts_generated: drafts,
     documents_uploaded: uploads,
@@ -220,5 +237,67 @@ export async function getWeeklyReport(
     visitors: arrivals,
     visits: arrivals,
     waitlist_signups: waitlist,
+  };
+}
+
+/* ── THE DAILY REPORT ──────────────────────────────────────────────────────
+   Yesterday in Singapore, midnight to midnight, with the day before beside it
+   so a number means something on its own. Same fields as the weekly report,
+   so a Zap built for one can be copied for the other, plus a ready-made
+   Slack message — one field to map, nothing to put in the wrong order. */
+
+export interface DailyReport extends WeeklyReport {
+  /** "Tue 29 Sep 2026". */
+  day_text: string;
+  /** The same figures for the day before, for comparison. */
+  previous: Omit<WeeklyReport, "period_start" | "period_end" | "period_start_text" | "period_end_text" | "period_label">;
+  /** The whole report as a Slack message (Slack's own *bold* markup). */
+  slack_text: string;
+}
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function dayText(start: Date): string {
+  const sg = new Date(start.getTime() + SINGAPORE_OFFSET_MS);
+  return `${WEEKDAYS[sg.getUTCDay()]} ${sg.getUTCDate()} ${MONTHS[sg.getUTCMonth()]} ${sg.getUTCFullYear()}`;
+}
+
+/** "12 (▲ 3 on the day before)", "12 (same as the day before)". */
+function withChange(now: number, before: number): string {
+  const d = now - before;
+  if (d === 0) return `${now} (same as the day before)`;
+  return `${now} (${d > 0 ? "▲" : "▼"} ${Math.abs(d)} on the day before)`;
+}
+
+export async function getDailyReport(client: SupabaseClient, now = new Date()): Promise<DailyReport> {
+  const { start, end } = completedDailyWindow(now);
+  const [today, before] = await Promise.all([
+    reportFor(client, start, end),
+    reportFor(client, new Date(start.getTime() - DAY_MS), start),
+  ]);
+  const day = dayText(start);
+  const lines = [
+    `*FD AI daily report · ${day}*`,
+    `_Midnight to midnight, Singapore time_`,
+    ``,
+    `*Drafts generated:* ${withChange(today.drafts_generated, before.drafts_generated)}`,
+    `*Documents downloaded:* ${withChange(today.documents_downloaded, before.documents_downloaded)}`,
+    `*Documents uploaded:* ${withChange(today.documents_uploaded, before.documents_uploaded)}`,
+    `*Accounts created:* ${withChange(today.accounts_created, before.accounts_created)}`,
+    `*Waitlist sign-ups:* ${withChange(today.waitlist_signups, before.waitlist_signups)}`,
+    `*Visitors:* ${withChange(today.visitors, before.visitors)}`,
+    `*Page views:* ${withChange(today.page_views, before.page_views)}`,
+  ];
+  const {
+    period_start: _a, period_end: _b, period_start_text: _c, period_end_text: _d, period_label: _e,
+    ...previous
+  } = before;
+  void _a; void _b; void _c; void _d; void _e;
+  return {
+    ...today,
+    period_label: `${day} (Singapore time)`,
+    day_text: day,
+    previous,
+    slack_text: lines.join("\n"),
   };
 }
