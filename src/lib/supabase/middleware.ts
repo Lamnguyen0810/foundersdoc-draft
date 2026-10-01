@@ -21,6 +21,10 @@ const PUBLIC_PATHS = [
   "/api/events",
   // Joining the waitlist happens before anyone has an account, by definition.
   "/api/waitlist",
+  // Subscribing to the newsletter, from the forms on the public website.
+  // Nearly everyone using it is not signed in. Without this the form was sent
+  // to /login, which answers 200 with a page — so it looked like it worked.
+  "/api/subscribe",
   // Stripe posts here from its own servers with no cookie and no session. It
   // authenticates with a signature instead, which the route verifies before it
   // reads a single byte — see the route's own notes.
