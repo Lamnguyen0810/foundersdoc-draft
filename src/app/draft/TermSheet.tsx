@@ -713,6 +713,20 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
     ));
   }
 
+  /** "← Back": the step before this one, opened again (as from the list on
+   *  the right). Its answer is kept until a new one is given. */
+  function backButton() {
+    if (!step || busy) return null;
+    const at = steps.findIndex((x) => stepKey(x) === stepKey(step));
+    const prev = at > 0 ? steps[at - 1] : undefined;
+    if (!prev) return null;
+    return (
+      <button type="button" className="back" onClick={() => revisit(prev)}>
+        ← Back
+      </button>
+    );
+  }
+
   function questionUI(q: Question) {
     /* A detail the last chip asked for: "In instalments (describe)". */
     if (pendingDetail) {
@@ -731,6 +745,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
               }
             }}
           />
+          {backButton()}
           <button type="button" className="go" disabled={!typed.trim()} onClick={() => finishDetail()}>
             Continue
           </button>
@@ -795,13 +810,14 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                 </button>
               )}
             </div>
-            {!q.required && (
-              <p className="later">
+            <div className="chips ts-back-row">
+              {backButton()}
+              {!q.required && (
                 <button type="button" className="alt-link" onClick={() => skip(q)}>
                   Skip for now
                 </button>
-              </p>
-            )}
+              )}
+            </div>
           </>
         );
       }
@@ -825,6 +841,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                 onChange={(e) => setTyped(e.target.value)}
               />
             )}
+            {backButton()}
             <button
               type="button"
               className="go"
@@ -878,6 +895,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                 Add
               </button>
             )}
+            {backButton()}
             <button type="button" className="go" onClick={() => commit(q, listItems)}>
               {listItems.length ? "That's all" : "None"}
             </button>
@@ -898,6 +916,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                 {o.label}
               </button>
             ))}
+            {backButton()}
             <button
               type="button"
               className="go"
@@ -937,6 +956,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
             {q.type === "amount" && typed.trim() && normaliseMoney(typed) && (
               <span className="later">Will read as <b>{normaliseMoney(typed)!.text}</b></span>
             )}
+            {backButton()}
             <button
               type="button"
               className="go"
@@ -1097,6 +1117,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
               + Add another party
             </button>
           )}
+          {backButton()}
           <button type="button" className="go" disabled={!ok} onClick={settleParties} title={ok ? undefined : "Every party needs its full name, number and address"}>
             Continue
           </button>

@@ -578,6 +578,20 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
       </p>
     ) : null;
 
+  /** "← Back": the step before this one, opened again (as from the list on
+   *  the right). Its answer is kept until a new one is given. */
+  function backButton() {
+    if (!step || busy) return null;
+    const at = steps.findIndex((x) => stepKey(x) === stepKey(step));
+    const prev = at > 0 ? steps[at - 1] : undefined;
+    if (!prev) return null;
+    return (
+      <button type="button" className="back" onClick={() => revisit(prev)}>
+        ← Back
+      </button>
+    );
+  }
+
   function questionUI(q: Question) {
     switch (q.type) {
       case "jurisdiction":
@@ -590,6 +604,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                 </button>
               )}
               <JurisdictionPicker options={DEFAULT_JURISDICTIONS} value={picked} onChange={setPicked} label={q.text} />
+              {backButton()}
               <button type="button" className="go" disabled={!picked.trim()} onClick={() => commit(q, picked.trim())}>
                 Continue
               </button>
@@ -602,6 +617,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
         return (
           <>
             <div className="chips">{chipsFor(q.options, (o) => commit(q, o.value), (o) => answers[q.id] === o.value)}</div>
+            {backButton() && <div className="chips ts-back-row">{backButton()}</div>}
             {skipLink(q)}
           </>
         );
@@ -620,6 +636,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                   }),
                 (o) => multi.includes(o.value),
               )}
+              {backButton()}
               <button type="button" className="go" disabled={multi.length === 0} onClick={() => commit(q, multi)}>
                 Done
               </button>
@@ -633,6 +650,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
           <>
             <div className="chips">
               <input className="input" type="date" aria-label={q.text} value={typed} onChange={(e) => setTyped(e.target.value)} />
+              {backButton()}
               <button type="button" className="go" disabled={!typed} onClick={() => commit(q, typed)}>
                 Continue
               </button>
@@ -667,6 +685,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                 Add
               </button>
             )}
+            {backButton()}
             <button type="button" className="go" disabled={listItems.length === 0} onClick={() => commit(q, listItems)}>
               That’s all
             </button>
@@ -691,6 +710,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                 }
               }}
             />
+            {backButton()}
             <button type="button" className="go" disabled={!typed.trim()} onClick={() => commit(q, typed.trim())}>
               Continue
             </button>
@@ -765,6 +785,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
           </div>
         </div>
         <div className="chips">
+          {backButton()}
           <button type="button" className="go" disabled={!ok} onClick={() => settleStep("people")} title={ok ? undefined : "Both names are needed"}>
             Continue
           </button>
@@ -825,6 +846,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
           </div>
         </div>
         <div className="chips">
+          {backButton()}
           <button type="button" className="go" disabled={!ok} onClick={() => settleStep("job")} title={ok ? undefined : "The job title is needed"}>
             Continue
           </button>
