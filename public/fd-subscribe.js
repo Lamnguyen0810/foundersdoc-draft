@@ -1,19 +1,21 @@
 /*
  * foundersdoc.com — the mailing list, on the static pages.
  *
- * WHAT USED TO BE HERE
- *   A pop-up that opened on every visit, on every page, until people stopped
- *   reading past it. It collected 71 addresses and a lot of annoyance.
- *
- * WHAT THIS DOES INSTEAD — the pattern most sites settled on
- *   1. The footer form on every page is made real. It is already in the
- *      markup; until now it said "thanks" and saved nothing.
+ * WHAT IS ON THE PAGE
+ *   1. The footer form on every page (already in the markup; this makes it
+ *      save the address).
  *   2. At the end of each article, a box: people who read to the end are the
  *      ones who want the next one.
- *   3. One small card in the bottom corner, on the marketing pages only, after
- *      the visitor has scrolled halfway. It appears once; dismissed or used,
- *      it stays away for 60 days. Never shown to somebody who is signed in to
- *      FD AI — they are already in the firm's hands.
+ *   3. A card in the bottom-right corner. It slides in as soon as the visitor
+ *      scrolls past the first screen. Closing it leaves a small round envelope
+ *      button in its place; pressing that opens the card again.
+ *
+ * WHO SEES THE CARD
+ *   Everybody, on every visit — except somebody who has already subscribed
+ *   on this browser: they see neither the card nor the button again.
+ *   Within one visit, once the card has been closed the following pages show
+ *   only the button, so nobody is asked twice in five minutes. To have the
+ *   card open on every single page instead, set REOPEN_EACH_PAGE to true.
  *
  * All three post to /api/subscribe with the address and where it came from
  * ("Website footer", "Article", "Slide-in"), which is what Slack shows.
@@ -24,29 +26,39 @@
 (function () {
   "use strict";
 
-  var QUIET_KEY = "fd_sub_quiet_until";
-  var QUIET_DAYS = 60;
+  var REOPEN_EACH_PAGE = false;
+  var SUBSCRIBED_KEY = "fd_subscribed"; // localStorage: this browser has subscribed
+  var CLOSED_KEY = "fd_sub_closed"; // sessionStorage: closed during this visit
   var ARTICLES = /^\/(nda-vs-confidentiality-agreement|before-you-sign-an-nda|can-breaching-an-nda-be-expensive|what-is-a-term-sheet|is-a-term-sheet-legally-binding|term-sheet-checklist|term-sheet-mistakes)(\.html)?\/?$/;
 
-  function quiet(days) {
+  function get(store, key) {
     try {
-      localStorage.setItem(QUIET_KEY, String(Date.now() + days * 864e5));
-    } catch (e) {}
-  }
-  function isQuiet() {
-    try {
-      return Number(localStorage.getItem(QUIET_KEY) || 0) > Date.now();
+      return window[store].getItem(key);
     } catch (e) {
-      return true; // storage blocked: do not nag somebody we cannot remember
+      return null;
     }
   }
-  function signedIn() {
-    // Supabase keeps its session in cookies named sb-<ref>-auth-token.
-    return /(^|;\s*)sb-[^=]*auth-token/.test(document.cookie);
+  function set(store, key, value) {
+    try {
+      window[store].setItem(key, value);
+    } catch (e) {}
+  }
+  function isSubscribed() {
+    return get("localStorage", SUBSCRIBED_KEY) === "1";
+  }
+
+  var card = null;
+  var launcher = null;
+
+  /* Somebody subscribed, from any of the three forms: the corner goes quiet. */
+  function subscribed() {
+    set("localStorage", SUBSCRIBED_KEY, "1");
+    if (launcher) launcher.classList.remove("on");
+    if (card) setTimeout(function () { hideCard(); }, 2200);
   }
 
   /* One submit handler for all three forms. */
-  function wire(form, source, onDone) {
+  function wire(form, source) {
     var input = form.querySelector('input[type="email"]');
     var msg = form.querySelector(".msg");
     var honey = form.querySelector('input[name="website"]');
@@ -55,7 +67,7 @@
       e.preventDefault();
       var email = (input.value || "").trim();
       if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-        if (msg) msg.textContent = "Enter a valid email address to subscribe.";
+        if (msg) msg.textContent = "Please enter a valid email address.";
         input.focus();
         return;
       }
@@ -79,13 +91,12 @@
             return;
           }
           form.reset();
-          if (msg) msg.textContent = "You’re on the list. Thank you.";
-          quiet(QUIET_DAYS);
-          if (onDone) onDone();
+          if (msg) msg.textContent = "You’re in! 🎉 Look out for our next email.";
+          subscribed();
         })
         .catch(function () {
           if (button) button.disabled = false;
-          if (msg) msg.textContent = "We couldn’t reach the server. Please try again.";
+          if (msg) msg.textContent = "We couldn’t connect just now. Please try again.";
         });
     });
   }
@@ -112,21 +123,36 @@
     wire(form, "Website footer");
   }
 
+  var ENVELOPE =
+    '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+    '<rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg>';
+
   var CSS =
     ".fd-sub{font-family:inherit;color:#0f0f0f}" +
-    ".fd-sub h3{font-size:22px;line-height:1.25;margin:0 0 6px;font-weight:700}" +
+    ".fd-sub h3{font-size:22px;line-height:1.25;margin:0 0 8px;font-weight:700}" +
     ".fd-sub p{margin:0 0 14px;color:#4a4a4a;font-size:15px;line-height:1.5}" +
-    ".fd-sub .field{display:flex;border:1px solid #d6d6d6;border-radius:8px;overflow:hidden;background:#fff}" +
+    ".fd-sub .field{display:flex;border:1px solid #d6d6d6;border-radius:10px;overflow:hidden;background:#fff}" +
     ".fd-sub input{flex:1;border:0;padding:12px 14px;font:inherit;font-size:15px;outline:none;min-width:0;background:transparent}" +
-    ".fd-sub button{background:#f3bf4b;color:#0f0f0f;border:0;padding:0 18px;font:inherit;font-weight:700;cursor:pointer}" +
+    ".fd-sub button[type=submit]{background:#f3bf4b;color:#0f0f0f;border:0;padding:0 16px;font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}" +
+    ".fd-sub button[type=submit]:hover{background:#e9b23b}" +
     ".fd-sub button:disabled{opacity:.6}" +
     ".fd-sub .msg{margin:8px 0 0;font-size:13px;color:#4a4a4a;min-height:1em}" +
+    ".fd-sub .fine{margin:10px 0 0;font-size:12px;color:#7a7a7a}" +
+    ".fd-sub ul{list-style:none;margin:0 0 14px;padding:0}" +
+    ".fd-sub li{font-size:14px;line-height:1.5;color:#2f2f2f;padding-left:24px;position:relative;margin:4px 0}" +
+    ".fd-sub li:before{content:'✓';position:absolute;left:2px;top:0;color:#c9962a;font-weight:800}" +
     ".fd-sub-box{background:#fbeec9;border-radius:14px;padding:26px 28px;margin:40px auto 0;max-width:720px}" +
-    ".fd-sub-card{position:fixed;right:20px;bottom:20px;z-index:60;width:min(360px,calc(100vw - 40px));background:#fff;border:1px solid #e6e6e6;border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.18);padding:22px 22px 18px;transform:translateY(24px);opacity:0;transition:transform .35s ease,opacity .35s ease}" +
-    ".fd-sub-card.on{transform:none;opacity:1}" +
-    ".fd-sub-card .x{position:absolute;top:8px;right:10px;background:none;border:0;font-size:22px;line-height:1;color:#7a7a7a;cursor:pointer;padding:4px 6px}" +
-    ".fd-sub-card h3{font-size:18px;padding-right:24px}" +
-    "@media (prefers-reduced-motion:reduce){.fd-sub-card{transition:none}}";
+    ".fd-sub-card{position:fixed;right:20px;bottom:20px;z-index:60;width:min(370px,calc(100vw - 40px));background:#fff;border:1px solid #e6e6e6;border-radius:16px;box-shadow:0 18px 44px rgba(0,0,0,.2);padding:0 22px 18px;overflow:hidden;transform:translateY(24px);opacity:0;pointer-events:none;transition:transform .35s ease,opacity .35s ease}" +
+    ".fd-sub-card.on{transform:none;opacity:1;pointer-events:auto}" +
+    ".fd-sub-card .band{margin:0 -22px 16px;padding:14px 22px;background:#0f0f0f;color:#f3bf4b;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}" +
+    ".fd-sub-card .x{position:absolute;top:6px;right:8px;background:none;border:0;font-size:24px;line-height:1;color:#bdbdbd;cursor:pointer;padding:4px 8px}" +
+    ".fd-sub-card .x:hover{color:#fff}" +
+    ".fd-sub-card h3{font-size:20px}" +
+    ".fd-sub-fab{position:fixed;right:20px;bottom:20px;z-index:59;height:56px;min-width:56px;border-radius:28px;border:0;background:#f3bf4b;color:#0f0f0f;box-shadow:0 10px 26px rgba(0,0,0,.22);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;font:inherit;font-weight:700;font-size:14px;transform:scale(.6);opacity:0;pointer-events:none;transition:transform .25s ease,opacity .25s ease}" +
+    ".fd-sub-fab.on{transform:none;opacity:1;pointer-events:auto}" +
+    ".fd-sub-fab:hover{background:#e9b23b}" +
+    "@media (max-width:520px){.fd-sub-fab .lbl{display:none}.fd-sub-fab{padding:0}}" +
+    "@media (prefers-reduced-motion:reduce){.fd-sub-card,.fd-sub-fab{transition:none}}";
 
   function styles() {
     var s = document.createElement("style");
@@ -134,11 +160,12 @@
     document.head.appendChild(s);
   }
 
-  function formHtml(id) {
+  function formHtml(id, cta) {
     return (
       '<form class="fd-sub-form" novalidate><div class="field">' +
-      '<input id="' + id + '" type="email" name="email" placeholder="Email address" autocomplete="email" required />' +
-      '<button type="submit">Subscribe</button></div><p class="msg" aria-live="polite"></p></form>'
+      '<input id="' + id + '" type="email" name="email" placeholder="Your email address" autocomplete="email" required />' +
+      '<button type="submit">' + cta + "</button></div>" +
+      '<p class="msg" aria-live="polite"></p></form>'
     );
   }
 
@@ -150,65 +177,90 @@
     var box = document.createElement("section");
     box.className = "fd-sub fd-sub-box";
     box.innerHTML =
-      "<h3>Found this useful? Get the next one by email.</h3>" +
-      "<p>One short note when we publish a new guide for founders. No sales emails, and you can leave any time.</p>" +
-      formHtml("fd-sub-article");
+      "<h3>Enjoyed this guide? Get the next one free.</h3>" +
+      "<p>We’ll email you when our lawyers publish a new guide on NDAs, term sheets or hiring. " +
+      "Short, practical, and no spam.</p>" +
+      formHtml("fd-sub-article", "Send it to me") +
+      '<p class="fine">Unsubscribe any time with one click.</p>';
     article.parentNode.insertBefore(box, article.nextSibling);
     var form = box.querySelector("form");
     form.appendChild(honeypot());
     wire(form, "Article");
   }
 
-  /* 3. The corner card, once. */
-  function slideIn() {
-    if (isQuiet() || signedIn()) return;
-    if (location.pathname.indexOf("/draft") === 0) return;
-    var shown = false;
-    function maybe() {
-      if (shown) return;
-      var scrolled = window.scrollY + window.innerHeight;
-      var full = document.documentElement.scrollHeight;
-      if (full > 0 && scrolled / full < 0.5) return;
-      shown = true;
-      window.removeEventListener("scroll", maybe);
-      var card = document.createElement("aside");
-      card.className = "fd-sub fd-sub-card";
-      card.setAttribute("role", "dialog");
-      card.setAttribute("aria-label", "Subscribe to Founders Doc");
-      card.innerHTML =
-        '<button class="x" type="button" aria-label="Close">×</button>' +
-        "<h3>Founder-friendly legal know-how, by email.</h3>" +
-        "<p>A short note when we publish something worth your time. Leave any time.</p>" +
-        formHtml("fd-sub-card-email");
-      document.body.appendChild(card);
-      requestAnimationFrame(function () {
-        card.classList.add("on");
-      });
-      function close() {
-        card.classList.remove("on");
-        setTimeout(function () {
-          if (card.parentNode) card.parentNode.removeChild(card);
-        }, 350);
-      }
-      card.querySelector(".x").addEventListener("click", function () {
-        quiet(QUIET_DAYS);
-        close();
-      });
-      var form = card.querySelector("form");
-      form.appendChild(honeypot());
-      wire(form, "Slide-in", function () {
-        setTimeout(close, 1800);
-      });
+  /* 3. The corner card, and the envelope button it leaves behind. */
+  function showCard() {
+    if (launcher) launcher.classList.remove("on");
+    card.classList.add("on");
+  }
+  function hideCard() {
+    if (!card) return;
+    card.classList.remove("on");
+    if (!isSubscribed() && launcher) launcher.classList.add("on");
+  }
+
+  function corner() {
+    if (isSubscribed()) return;
+
+    card = document.createElement("aside");
+    card.className = "fd-sub fd-sub-card";
+    card.setAttribute("role", "dialog");
+    card.setAttribute("aria-label", "Get free legal tips from Founders Doc");
+    card.innerHTML =
+      '<div class="band">Free for founders</div>' +
+      '<button class="x" type="button" aria-label="Close">×</button>' +
+      "<h3>Legal tips that save you time and money 💡</h3>" +
+      "<ul><li>Plain-English guides from our lawyers</li>" +
+      "<li>NDAs, term sheets, hiring and fundraising</li>" +
+      "<li>One short email when there’s something new</li></ul>" +
+      formHtml("fd-sub-card-email", "Get the tips") +
+      '<p class="fine">No spam. Unsubscribe any time.</p>';
+    document.body.appendChild(card);
+
+    launcher = document.createElement("button");
+    launcher.type = "button";
+    launcher.className = "fd-sub-fab";
+    launcher.setAttribute("aria-label", "Get free legal tips by email");
+    launcher.innerHTML = ENVELOPE + '<span class="lbl">Free tips</span>';
+    document.body.appendChild(launcher);
+
+    card.querySelector(".x").addEventListener("click", function () {
+      set("sessionStorage", CLOSED_KEY, "1");
+      hideCard();
+    });
+    launcher.addEventListener("click", function () {
+      showCard();
+      var input = card.querySelector('input[type="email"]');
+      if (input) input.focus();
+    });
+    var form = card.querySelector("form");
+    form.appendChild(honeypot());
+    wire(form, "Slide-in");
+
+    // Closed earlier in this visit: just the button, straight away.
+    if (!REOPEN_EACH_PAGE && get("sessionStorage", CLOSED_KEY) === "1") {
+      launcher.classList.add("on");
+      return;
     }
-    window.addEventListener("scroll", maybe, { passive: true });
-    setTimeout(maybe, 45000); // a long, slow read with no scrolling still counts as interest
+
+    // Otherwise the card opens once the first screen has scrolled away.
+    var opened = false;
+    function check() {
+      if (opened) return;
+      if (window.scrollY < window.innerHeight * 0.85) return;
+      opened = true;
+      window.removeEventListener("scroll", check);
+      showCard();
+    }
+    window.addEventListener("scroll", check, { passive: true });
+    check();
   }
 
   function start() {
     styles();
     footer();
     articleBox();
-    slideIn();
+    corner();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
