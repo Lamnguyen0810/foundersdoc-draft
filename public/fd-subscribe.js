@@ -86,8 +86,10 @@
         })
         .then(function (res) {
           if (button) button.disabled = false;
-          if (!res.ok) {
-            if (msg) msg.textContent = res.j.error || "Something went wrong. Please try again.";
+          /* Only the route's own {"ok": true} counts. Anything else — an error,
+             or a redirect that ended on some other page — is not a success. */
+          if (!res.ok || !res.j || res.j.ok !== true) {
+            if (msg) msg.textContent = (res.j && res.j.error) || "Something went wrong. Please try again.";
             return;
           }
           form.reset();
