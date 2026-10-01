@@ -7,7 +7,7 @@
  *   2. At the end of each article, a box: people who read to the end are the
  *      ones who want the next one.
  *   3. A card in the bottom-right corner. It slides in as soon as the visitor
- *      scrolls past the first screen. Closing it leaves a small round envelope
+ *      scrolls past the first screen. Closing it leaves a small "Stay updated" envelope
  *      button in its place; pressing that opens the card again.
  *
  * WHO SEES THE CARD
@@ -177,10 +177,10 @@
     var box = document.createElement("section");
     box.className = "fd-sub fd-sub-box";
     box.innerHTML =
-      "<h3>Enjoyed this guide? Get the next one free.</h3>" +
-      "<p>We’ll email you when our lawyers publish a new guide on NDAs, term sheets or hiring. " +
-      "Short, practical, and no spam.</p>" +
-      formHtml("fd-sub-article", "Send it to me") +
+      "<h3>Enjoyed this? Discover more.</h3>" +
+      "<p>Be the first to hear about new FD AI features, fresh guides from our lawyers " +
+      "and what’s coming next. A short email now and then, never spam.</p>" +
+      formHtml("fd-sub-article", "Keep me updated") +
       '<p class="fine">Unsubscribe any time with one click.</p>';
     article.parentNode.insertBefore(box, article.nextSibling);
     var form = box.querySelector("form");
@@ -205,23 +205,24 @@
     card = document.createElement("aside");
     card.className = "fd-sub fd-sub-card";
     card.setAttribute("role", "dialog");
-    card.setAttribute("aria-label", "Get free legal tips from Founders Doc");
+    card.setAttribute("aria-label", "Stay updated with Founders Doc");
     card.innerHTML =
-      '<div class="band">Free for founders</div>' +
+      '<div class="band">Stay in the loop</div>' +
       '<button class="x" type="button" aria-label="Close">×</button>' +
-      "<h3>Legal tips that save you time and money 💡</h3>" +
-      "<ul><li>Plain-English guides from our lawyers</li>" +
-      "<li>NDAs, term sheets, hiring and fundraising</li>" +
-      "<li>One short email when there’s something new</li></ul>" +
-      formHtml("fd-sub-card-email", "Get the tips") +
-      '<p class="fine">No spam. Unsubscribe any time.</p>';
+      "<h3>Discover more from Founders Doc ✨</h3>" +
+      "<p>Be the first to know when we launch something new.</p>" +
+      "<ul><li>New FD AI features, as soon as they go live</li>" +
+      "<li>Fresh guides and insights from our lawyers</li>" +
+      "<li>A short email now and then, never spam</li></ul>" +
+      formHtml("fd-sub-card-email", "Keep me updated") +
+      '<p class="fine">Unsubscribe any time.</p>';
     document.body.appendChild(card);
 
     launcher = document.createElement("button");
     launcher.type = "button";
     launcher.className = "fd-sub-fab";
-    launcher.setAttribute("aria-label", "Get free legal tips by email");
-    launcher.innerHTML = ENVELOPE + '<span class="lbl">Free tips</span>';
+    launcher.setAttribute("aria-label", "Stay updated with Founders Doc");
+    launcher.innerHTML = ENVELOPE + '<span class="lbl">Stay updated</span>';
     document.body.appendChild(launcher);
 
     card.querySelector(".x").addEventListener("click", function () {
