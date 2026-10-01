@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
+import Turnstile, { turnstileOn } from "@/components/Turnstile";
 
 /**
  * Change your own password.
@@ -32,11 +33,16 @@ export default function SettingsForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  /* The bot check: Supabase asks for it on a password sign-in, which is how
+     the current password is proved here. */
+  const [captcha, setCaptcha] = useState<string | null>(null);
+  const [captchaRound, setCaptchaRound] = useState(0);
 
   const tooShort = next.length > 0 && next.length < minLength;
   const mismatch = confirm.length > 0 && next !== confirm;
   const same = next.length > 0 && next === current;
-  const ready = current.length > 0 && next.length >= minLength && next === confirm && !same;
+  const ready =
+    current.length > 0 && next.length >= minLength && next === confirm && !same && (!turnstileOn || captcha !== null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,7 +58,9 @@ export default function SettingsForm({
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password: current,
+        options: { captchaToken: captcha ?? undefined },
       });
+      setCaptchaRound((n) => n + 1);
       if (signInError) {
         setError("That current password is not right.");
         return;
@@ -122,6 +130,7 @@ export default function SettingsForm({
       {tooShort && <p className="note note-warn">That is shorter than {minLength} characters.</p>}
       {mismatch && <p className="note note-warn">The two new passwords do not match.</p>}
       {same && <p className="note note-warn">The new password is the same as the current one.</p>}
+      <Turnstile onToken={setCaptcha} round={captchaRound} action="password" />
       {error && <p className="note note-warn">{error}</p>}
       {done && (
         <p className="note note-ok">
