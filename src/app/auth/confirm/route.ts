@@ -41,7 +41,8 @@ export async function GET(req: NextRequest) {
   const rawNext = params.get("next") ?? (type === "recovery" ? "/settings" : "/draft");
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/draft";
 
-  if (!tokenHash || !type || !ALLOWED.includes(type)) return fail(req, "bad-link");
+  const code = params.get("code");
+  if (!code && (!tokenHash || !type || !ALLOWED.includes(type))) return fail(req, "bad-link");
 
   // Build the response first so the client can write the session cookie onto it.
   const response = NextResponse.redirect(new URL(next, req.url));
@@ -59,7 +60,12 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
+  /* Supabase's default email template sends ?code= (opened in the same
+     browser that signed up); the template recommended in the setup notes
+     sends ?token_hash=&type= and works on any device. Both are accepted. */
+  const { error } = code
+    ? await supabase.auth.exchangeCodeForSession(code)
+    : await supabase.auth.verifyOtp({ type: type!, token_hash: tokenHash! });
   if (error) {
     // Expired, already used, or tampered with. Say which, without saying whether
     // the address exists.

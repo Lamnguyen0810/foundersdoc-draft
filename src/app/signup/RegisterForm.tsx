@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { track } from "@/lib/track";
 import GoogleButton, { OrLine } from "@/components/GoogleButton";
+import Turnstile, { turnstileOn } from "@/components/Turnstile";
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -92,13 +93,18 @@ export default function RegisterForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [check, setCheck] = useState(false);
+  /* The bot check's one-time token (null until it arrives), and a counter
+     that fetches a fresh one after every attempt. */
+  const [captcha, setCaptcha] = useState<string | null>(null);
+  const [captchaRound, setCaptchaRound] = useState(0);
 
   const tooShort = password.length > 0 && password.length < MIN_PASSWORD_LENGTH;
   const ready =
     name.trim().length > 0 &&
     email.trim().length > 0 &&
     password.length >= MIN_PASSWORD_LENGTH &&
-    accepted;
+    accepted &&
+    (!turnstileOn || captcha !== null);
 
   async function register(e: React.FormEvent) {
     e.preventDefault();
@@ -115,8 +121,15 @@ export default function RegisterForm({
            writes the profile row, and where 037's announcement looks first when
            it writes the Slack line. The same key Google fills in, deliberately,
            so neither of them needs to know which way the person came in. */
-        options: { data: { full_name: name.trim() } },
+        options: {
+          data: { full_name: name.trim() },
+          captchaToken: captcha ?? undefined,
+          /* With "Confirm email" on, the link in the email comes back here and
+             the person lands in the workspace, signed in. */
+          emailRedirectTo: `${window.location.origin}/auth/confirm?next=%2Fdraft`,
+        },
       });
+      setCaptchaRound((n) => n + 1);
 
       if (signUpError) {
         setError(registerMessage(signUpError.message));
@@ -163,8 +176,9 @@ export default function RegisterForm({
       <div className="note note-ok" style={{ marginTop: 20 }}>
         <b>Almost there — check your email.</b>
         <p style={{ margin: "6px 0 0" }}>
-          Your account is made. Supabase is set to confirm addresses by email, so open the link we
-          have just sent to <b>{email}</b> and you are in.
+          We have sent a link to <b>{email}</b>. Open it to confirm your address — that switches
+          your account on, with your free trial credits. Nothing in your inbox? Check spam, or sign
+          in and we will offer to send it again.
         </p>
       </div>
     );
@@ -235,6 +249,8 @@ export default function RegisterForm({
           <a href="https://foundersdoc.com/terms-of-service">terms of service</a>.
         </span>
       </label>
+
+      <Turnstile onToken={setCaptcha} round={captchaRound} action="signup" />
 
       {tooShort && (
         <p className="note note-warn">That is shorter than {MIN_PASSWORD_LENGTH} characters.</p>

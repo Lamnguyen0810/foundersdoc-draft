@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { track } from "@/lib/track";
 import GoogleButton, { OrLine } from "@/components/GoogleButton";
+import Turnstile, { turnstileOn } from "@/components/Turnstile";
 
 /**
  * The Supabase URL and publishable key are passed in as props rather than read
@@ -42,9 +43,8 @@ function signInMessage(error: { message?: string; code?: string; status?: number
 
   if (is("email_not_confirmed")) {
     return (
-      "This account exists but has never been confirmed, so it cannot sign in yet — " +
-      "the password is not the problem. An administrator confirms it in Supabase → " +
-      "Authentication → Users → the three dots beside the account → Confirm email."
+      "Please confirm your email address first — open the link we sent when you signed up. " +
+      "Can't find it? Check spam, or send it again below."
     );
   }
   if (is("over_request_rate_limit") || is("over_email_send_rate_limit") || error.status === 429) {
@@ -135,6 +135,13 @@ export default function LoginForm({
   const [error, setError] = useState<string | null>(REASONS[params.get("error") ?? ""] ?? null);
   const [mode, setMode] = useState<"sign-in" | "forgot">("sign-in");
   const [sent, setSent] = useState(false);
+  /* The bot check's one-time token, refreshed after every attempt. */
+  const [captcha, setCaptcha] = useState<string | null>(null);
+  const [captchaRound, setCaptchaRound] = useState(0);
+  const waiting = turnstileOn && captcha === null;
+  /* An unconfirmed account tried to sign in: offer the email again. */
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [resent, setResent] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -142,8 +149,15 @@ export default function LoginForm({
     setError(null);
     try {
       const supabase = createBrowserClient(supabaseUrl, supabaseKey);
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: { captchaToken: captcha ?? undefined },
+      });
+      setCaptchaRound((n) => n + 1);
       if (error) {
+        setUnconfirmed(/email_not_confirmed|email not confirmed/i.test(`${error.code ?? ""} ${error.message ?? ""}`));
+        setResent(false);
         /* The REASON CODE only — never the address that was tried. A run of
            these with reason "email_not_confirmed" tells an administrator that
            an account was created without being confirmed, which is a fault in
@@ -226,8 +240,38 @@ export default function LoginForm({
       const supabase = createBrowserClient(supabaseUrl, supabaseKey);
       await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/confirm?next=%2Fsettings`,
+        captchaToken: captcha ?? undefined,
       });
+      setCaptchaRound((n) => n + 1);
       setSent(true);
+    } catch {
+      setError("Could not reach the sign-in service. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Send the confirmation email again, for an account never confirmed. */
+  async function resendConfirm() {
+    if (busy || waiting) return;
+    setBusy(true);
+    try {
+      const supabase = createBrowserClient(supabaseUrl, supabaseKey);
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+          captchaToken: captcha ?? undefined,
+          emailRedirectTo: `${window.location.origin}/auth/confirm?next=%2Fdraft`,
+        },
+      });
+      setCaptchaRound((n) => n + 1);
+      if (error) {
+        setError(signInMessage(error));
+        return;
+      }
+      setResent(true);
+      setError(null);
     } catch {
       setError("Could not reach the sign-in service. Check your connection and try again.");
     } finally {
@@ -259,8 +303,9 @@ export default function LoginForm({
                 We will send a link that lets you set a new password.
               </span>
             </label>
+            <Turnstile onToken={setCaptcha} round={captchaRound} action="reset" />
             {error && <p className="note note-warn">{error}</p>}
-            <button type="submit" disabled={busy} className="btn btn-gold" style={{ width: "100%" }}>
+            <button type="submit" disabled={busy || waiting} className="btn btn-gold" style={{ width: "100%" }}>
               {busy ? "Sending…" : "Send reset link"}
             </button>
           </>
@@ -311,10 +356,22 @@ export default function LoginForm({
         />
       </label>
 
-      {closedNote && !error && <p className="note note-ok">{closedNote}</p>}
-      {error && <p className="note note-warn">{error}</p>}
+      <Turnstile onToken={setCaptcha} round={captchaRound} action="login" />
 
-      <button type="submit" disabled={busy} className="btn btn-gold" style={{ width: "100%" }}>
+      {closedNote && !error && <p className="note note-ok">{closedNote}</p>}
+      {error && !resent && <p className="note note-warn">{error}</p>}
+      {resent && (
+        <p className="note note-ok">
+          Sent. Open the link in the email to confirm your address, then sign in.
+        </p>
+      )}
+      {unconfirmed && !resent && (
+        <button type="button" className="btn" disabled={busy || waiting} onClick={() => void resendConfirm()}>
+          Send the confirmation email again
+        </button>
+      )}
+
+      <button type="submit" disabled={busy || waiting} className="btn btn-gold" style={{ width: "100%" }}>
         {busy ? "Signing in…" : "Sign in"}
       </button>
 
