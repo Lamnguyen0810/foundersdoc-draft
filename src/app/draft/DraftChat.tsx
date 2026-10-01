@@ -3207,6 +3207,17 @@ function Chat({
     );
   }
 
+  /** "← Back": the question before this one, opened where it was asked
+   *  (as from the progress list). Nothing typed is lost either way. */
+  function backButton() {
+    if (i <= 0 || busy || view !== "chat") return null;
+    return (
+      <button type="button" className="back" onClick={() => revisit(Math.min(i, steps.length) - 1)}>
+        ← Back
+      </button>
+    );
+  }
+
   function stepAnswerUI(s: Step) {
     if (s.kind === "detail") {
       const level = toLevel(answers._nda_detail_level);
@@ -3217,6 +3228,7 @@ function Chat({
             onChange={(next) => setAnswer("_nda_detail_level", String(next))}
           />
           <div className="chips">
+            {backButton()}
             <button type="button" className="go" onClick={() => commit(false)}>
               Use this level →
             </button>
@@ -3245,6 +3257,7 @@ function Chat({
             ))}
           </div>
           <div className="chips">
+            {backButton()}
             <button type="button" className="chip later" onClick={() => commit(true)}>
               {SKIP_LABEL}
             </button>
@@ -3261,6 +3274,7 @@ function Chat({
     if (s.kind === "source") {
       return (
         <div className="chips">
+          {backButton()}
           <button
             type="button"
             className="chip"
@@ -3284,6 +3298,7 @@ function Chat({
       <>
         {cardFields(s)}
         <div className="chips">
+          {backButton()}
           <button
             type="button"
             className="go"
@@ -3495,6 +3510,7 @@ function Chat({
                   </div>
                   <div className="ans">
                     <div className="chips">
+                      {backButton()}
                       <button type="button" className="go" onClick={() => void generate()}>
                         Generate draft
                       </button>
