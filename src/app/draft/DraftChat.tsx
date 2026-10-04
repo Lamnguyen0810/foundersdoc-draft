@@ -1555,7 +1555,15 @@ function Chat({
       replayed?.status ??
       /* Only if it still describes this document type's steps — a published
          change to the questions makes an older list meaningless. */
-      (restore && restore.status.length === steps.length ? restore.status : null) ??
+      /* A saved list comes back from JSON with null where a question was
+         not yet reached (undefined does not survive JSON.stringify). Every
+         "still open?" check below is `=== undefined`, so without this a
+         reload made every unasked question look settled: the next answer
+         jumped to "That's everything", and Generate was refused with
+         "Please complete: …". */
+      (restore && restore.status.length === steps.length
+        ? restore.status.map((st) => st ?? undefined)
+        : null) ??
       steps.map(() => undefined),
   );
   const [typedAnswer, setTypedAnswer] = useState("");
@@ -3979,7 +3987,12 @@ function Chat({
             type="button"
             className="btn s-gen"
             disabled={busy}
-            onClick={() => (view === "draft" ? setView("chat") : void generate())}
+            /* Pressed before the last question: the open ones are marked
+               skipped first, as "Draft with what I have" does, so the server
+               never sees an unasked question and refuses the draft. */
+            onClick={() =>
+              view === "draft" ? setView("chat") : finished ? void generate() : draftWithWhatIHave()
+            }
           >
             {busy ? "Drafting…" : view === "draft" ? "Edit answers" : "Generate draft"}
           </button>
