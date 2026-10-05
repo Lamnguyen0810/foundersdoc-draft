@@ -5,6 +5,7 @@ import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import BlogAdmin, { type BlogRow } from "./BlogAdmin";
 import { retiredFieldKeys, tidyStepQuestion } from "@/lib/doctypes.server";
+import AiCreditPanel, { type AiCreditMeter } from "./AiCreditPanel";
 import CreditsPanel, { type Action } from "./CreditsPanel";
 import { ago, day, fmt, stamp } from "./parts";
 import FilterSelect from "./FilterSelect";
@@ -592,6 +593,12 @@ export default async function AdminPage({
       : null,
   ]);
 
+  /* The AI credit meter (078): overview only. Missing until the migration is
+     run, in which case the card says so rather than the page failing. */
+  const aiCreditRes = tab === "overview" ? await supabase.rpc("admin_ai_credit") : null;
+  const aiCredit = (aiCreditRes?.data as AiCreditMeter | null) ?? null;
+  const aiCreditError = aiCreditRes?.error?.message ?? null;
+
   /* If a migration has not been run the page still opens and names the file to
      run, rather than throwing. An admin page that 500s tells nobody anything. */
   const problems: string[] = [];
@@ -872,6 +879,19 @@ export default async function AdminPage({
                           <span>{(awaitingReview ?? 0) > 0 ? `${awaitingReview} AI file${awaitingReview === 1 ? "" : "s"} need${awaitingReview === 1 ? "s" : ""} review` : "No AI files waiting"}</span>
                           {(awaitingReview ?? 0) > 0 ? <Link className="btn" href={tabHref("ai-files", days)}>Review</Link> : <span className="badge green">Healthy</span>}
                         </div>
+                        {aiCredit && aiCredit.status !== "ok" && (
+                          <div className="attention-row">
+                            <span className={aiCredit.status === "urgent" ? "dot err" : "dot warn"} />
+                            <span>
+                              {aiCredit.status === "urgent"
+                                ? `AI credit nearly out: ${aiCredit.drafts_left ?? "?"} drafts left (US$${Number(aiCredit.balance_usd).toFixed(2)})`
+                                : aiCredit.status === "soon"
+                                  ? `AI credit running down: about ${aiCredit.drafts_left ?? "?"} drafts left`
+                                  : "AI credit meter not set up: record the last top-up"}
+                            </span>
+                            <a className="btn" href="#ai-credit">Open</a>
+                          </div>
+                        )}
                         <div className="attention-row">
                           <span className={n(ps.past_due) > 0 ? "dot err" : "dot"} />
                           <span>{n(ps.past_due) > 0 ? `${fmt(n(ps.past_due))} failed payment${n(ps.past_due) === 1 ? "" : "s"}` : "No failed payments"}</span>
@@ -896,6 +916,9 @@ export default async function AdminPage({
                       </div>
                     </div>
                   </div>
+                </div>
+                <div id="ai-credit" style={{ marginBottom: 16 }}>
+                  <AiCreditPanel meter={aiCredit} error={aiCreditError} />
                 </div>
                 <div className="table-card">
                   <div className="table-head">
