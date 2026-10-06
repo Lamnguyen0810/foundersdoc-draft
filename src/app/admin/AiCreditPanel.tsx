@@ -138,11 +138,11 @@ export default function AiCreditPanel({ meter, error }: { meter: AiCreditMeter |
 
   const st = STATUS[m.status] ?? STATUS.none;
   /* What the provider has actually charged = everything paid minus what is
-     left. Our own log only sees calls made through the site, so the gap is
-     usage from before logging began, from closed accounts, or from the key
-     being used elsewhere. */
+     left. Our own log only records calls made by logged-in users, so the gap
+     is what users who were not logged in (and closed test accounts) used. */
   const spentAll = Math.max(0, (m.paid_total_usd ?? 0) - m.balance_usd);
   const unlogged = spentAll - (m.spent_total_usd ?? 0);
+  const otherProviders = (m.by_provider ?? []).filter((p) => p.provider !== m.provider && p.drafts > 0);
   const providerName = PROVIDER_NAMES[m.provider] ?? m.provider;
   const billing = BILLING_LINKS[m.provider];
 
@@ -151,10 +151,7 @@ export default function AiCreditPanel({ meter, error }: { meter: AiCreditMeter |
       <div className="card-head">
         <div>
           <h2>AI drafting credit</h2>
-          <p>
-            Prepaid credit at {providerName}. Last top-up {sgDate(m.last_topup_at)}
-            {m.since ? ` · ${m.drafts_since.toLocaleString("en-GB")} drafts since, costing ${usd(m.spent_usd, 2)}` : ""}.
-          </p>
+          <p>Prepaid credit at {providerName}. Last top-up {sgDate(m.last_topup_at)}.</p>
         </div>
         <span className={`badge ${st.badge}`}>{st.label}</span>
       </div>
@@ -163,21 +160,17 @@ export default function AiCreditPanel({ meter, error }: { meter: AiCreditMeter |
           <div className="summary-card">
             <div className="summary-label">Balance left</div>
             <div className="summary-value">{usd(m.balance_usd)}</div>
-            <div className="summary-note">of {usd(m.topped_up_usd)} topped up{m.adjust_usd ? ` (${m.adjust_usd > 0 ? "+" : "−"}${usd(Math.abs(m.adjust_usd))} corrected)` : ""}</div>
+            <div className="summary-note">as shown by {providerName.split(" ")[0]}, minus drafts since</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Drafts left</div>
             <div className="summary-value">{approx(m.drafts_left)}</div>
-            <div className="summary-note">
-              {m.avg_cost_usd ? `at ${usd(m.avg_cost_usd, 3)} a draft, revisions included (average of ${m.avg_sample})` : "no drafts costed yet"}
-            </div>
+            <div className="summary-note">{m.avg_cost_usd ? `at ${usd(m.avg_cost_usd, 2)} a draft` : "no drafts costed yet"}</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Days left</div>
             <div className="summary-value">{approx(m.days_left)}</div>
-            <div className="summary-note">
-              {m.per_day > 0 ? `at ${m.per_day} drafts a day (last 7 days: ${m.drafts_7d})` : "no drafts in the last 7 days"}
-            </div>
+            <div className="summary-note">{m.per_day > 0 ? `at ${m.per_day} drafts a day` : "no drafts in the last 7 days"}</div>
           </div>
           <div className="summary-card">
             <div className="summary-label">Action</div>
@@ -221,79 +214,90 @@ export default function AiCreditPanel({ meter, error }: { meter: AiCreditMeter |
             <div className="summary-note" style={{ gridColumn: "1 / -1" }}>
               {open === "topup"
                 ? "Adds to the balance. The meter then counts every draft against it."
-                : "Type the credit balance the provider's billing page shows right now. The difference is stored as a correction, so the meter matches what they will actually charge."}
+                : "Type the credit balance the provider's billing page shows right now. The meter is set to match it."}
             </div>
           </div>
         )}
 
         {typeof m.paid_total_usd === "number" && (
-          <div style={{ marginTop: 18 }}>
-            <div className="summary-label" style={{ marginBottom: 6 }}>Paid to {providerName.split(" ")[0]} so far</div>
-            <div className="summary" style={{ marginBottom: 10 }}>
+          <div style={{ marginTop: 22 }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 600 }}>Paid to AI</h3>
+            <div className="summary" style={{ marginBottom: 14 }}>
               <div className="summary-card">
-                <div className="summary-label">Paid, all time</div>
+                <div className="summary-label">Paid</div>
                 <div className="summary-value">{usd(m.paid_total_usd)}</div>
-                <div className="summary-note">
-                  {m.topup_count ? `${m.topup_count} top-up${m.topup_count === 1 ? "" : "s"} since ${sgDate(m.first_topup_at ?? null)}` : "no top-ups recorded yet"}
-                </div>
+                <div className="summary-note">{m.topup_count ? `${m.topup_count} top-up${m.topup_count === 1 ? "" : "s"} since ${sgDate(m.first_topup_at ?? null)}` : "no top-ups recorded yet"}</div>
               </div>
               <div className="summary-card">
-                <div className="summary-label">Spent, all time</div>
+                <div className="summary-label">Spent</div>
                 <div className="summary-value">{usd(spentAll)}</div>
                 <div className="summary-note">
                   {unlogged > 0.005
-                    ? `${usd(m.spent_total_usd)} logged by FD AI + ${usd(unlogged)} used before logging or outside the site`
-                    : `${(m.drafts_total ?? 0).toLocaleString("en-GB")} drafts${typeof m.requests_total === "number" ? ` · ${m.requests_total.toLocaleString("en-GB")} AI requests incl. revisions and questions` : ""}`}
+                    ? `${usd(m.spent_total_usd)} by logged-in users · ${usd(unlogged)} by users not logged in`
+                    : "all by logged-in users"}
                 </div>
               </div>
               <div className="summary-card">
-                <div className="summary-label">Cost per draft</div>
-                <div className="summary-value">{m.drafts_total ? usd((m.spent_total_usd ?? 0) / m.drafts_total, 3) : "—"}</div>
+                <div className="summary-label">Left</div>
+                <div className="summary-value">{usd(m.balance_usd)}</div>
+                <div className="summary-note">{m.paid_total_usd > 0 ? `${Math.round((m.balance_usd / m.paid_total_usd) * 100)}% of what was paid` : ""}</div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Drafts made</div>
+                <div className="summary-value">{(m.drafts_total ?? 0).toLocaleString("en-GB")}</div>
                 <div className="summary-note">
-                  {m.drafts_total ? `from the ${m.drafts_total.toLocaleString("en-GB")} logged drafts` : "no logged drafts yet"}
-                  {m.paid_total_usd > 0 ? ` · ${Math.round((spentAll / m.paid_total_usd) * 100)}% of what was paid is used up` : ""}
+                  by logged-in users at {providerName.split(" ")[0]}
+                  {otherProviders.length > 0 ? ` · ${otherProviders.map((p) => `${p.drafts.toLocaleString("en-GB")} at ${PROVIDER_NAMES[p.provider]?.split(" ")[0] ?? p.provider}`).join(", ")} earlier` : ""}
                 </div>
               </div>
             </div>
+
             {m.by_month && m.by_month.length > 0 && (
-              <div>
-                <div className="simple-row" style={{ display: "grid", gridTemplateColumns: "110px 110px 110px 90px 1fr", gap: 10, fontWeight: 500 }}>
-                  <span>Month</span><span>Paid</span><span>Spent (logged)</span><span>Drafts</span><span>AI requests</span>
-                </div>
-                {m.by_month.map((row) => (
-                  <div className="simple-row" key={row.month} style={{ display: "grid", gridTemplateColumns: "110px 110px 110px 90px 1fr", gap: 10 }}>
-                    <span>{monthName(row.month)}</span>
-                    <span className={row.paid_usd > 0 ? "good" : ""}>{row.paid_usd > 0 ? usd(row.paid_usd) : "—"}</span>
-                    <span>{usd(row.spent_usd, 2)}</span>
-                    <span>{row.drafts.toLocaleString("en-GB")}</span>
-                    <span>{typeof row.requests === "number" ? row.requests.toLocaleString("en-GB") : "—"}</span>
-                  </div>
-                ))}
+              <div className="table-wrap" style={{ marginBottom: 14 }}>
+                <table style={{ minWidth: 0 }}>
+                  <thead>
+                    <tr><th>Month</th><th>Paid</th><th>Spent</th><th>Drafts</th><th>AI requests</th></tr>
+                  </thead>
+                  <tbody>
+                    {m.by_month.map((row) => (
+                      <tr key={row.month}>
+                        <td>{monthName(row.month)}</td>
+                        <td className={row.paid_usd > 0 ? "good" : ""}>{row.paid_usd > 0 ? usd(row.paid_usd) : "—"}</td>
+                        <td>{usd(row.spent_usd, 2)}</td>
+                        <td>{row.drafts.toLocaleString("en-GB")}</td>
+                        <td>{typeof row.requests === "number" ? row.requests.toLocaleString("en-GB") : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
-            {m.by_provider && m.by_provider.length > 0 && (
-              <div className="summary-note" style={{ marginTop: 8 }}>
-                Every provider ever used:{" "}
-                {m.by_provider.map((p) => `${PROVIDER_NAMES[p.provider]?.split(" ")[0] ?? p.provider} ${p.drafts.toLocaleString("en-GB")} drafts, ${usd(p.spent_usd)}`).join(" · ")}
-                {typeof m.documents_billed === "number" ? ` · billing records: ${m.documents_billed.toLocaleString("en-GB")} documents drafted` : ""}
-              </div>
-            )}
-            <div className="summary-note" style={{ marginTop: 6 }}>
-              Counts every top-up recorded here. Paid before the meter existed? Use “Record a top-up” with the date it was paid, and it is added to the total.
+            <div className="summary-note">
+              Spent per month counts logged-in users only. AI requests = drafts plus revisions, continuations and questions.
             </div>
           </div>
         )}
 
         {m.ledger.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <div className="summary-label" style={{ marginBottom: 6 }}>Recent entries</div>
-            {m.ledger.map((row, i) => (
-              <div className="simple-row" key={`${row.at}-${i}`} style={{ display: "grid", gridTemplateColumns: "110px 110px 1fr", gap: 10 }}>
-                <span>{sgDate(row.at)}</span>
-                <span className={row.amount_usd >= 0 ? "good" : "bad"}>{row.amount_usd >= 0 ? "+" : "−"}{usd(Math.abs(row.amount_usd))}</span>
-                <span>{row.kind === "topup" ? "Top-up" : "Correction"}{row.note ? ` · ${row.note}` : ""}</span>
-              </div>
-            ))}
+          <div style={{ marginTop: 22 }}>
+            <h3 style={{ margin: "0 0 10px", fontSize: 15, fontWeight: 600 }}>Top-up history</h3>
+            <div className="table-wrap">
+              <table style={{ minWidth: 0 }}>
+                <thead>
+                  <tr><th>Date</th><th>Amount</th><th>What</th><th>Note</th></tr>
+                </thead>
+                <tbody>
+                  {m.ledger.map((row, i) => (
+                    <tr key={`${row.at}-${i}`}>
+                      <td>{sgDate(row.at)}</td>
+                      <td className={row.amount_usd >= 0 ? "good" : "bad"}>{row.amount_usd >= 0 ? "+" : "−"}{usd(Math.abs(row.amount_usd))}</td>
+                      <td>{row.kind === "topup" ? "Top-up" : "Set to provider balance"}</td>
+                      <td>{row.note ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
