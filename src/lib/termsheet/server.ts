@@ -275,6 +275,7 @@ async function persist(input: {
     if (input.usage) {
       const price = priceFor(input.usage.model);
       const { error: uErr } = await supabase.from("usage_log").insert({
+        kind: "draft",
         user_id: input.userId,
         draft_id: draft.id,
         provider: input.usage.provider,
