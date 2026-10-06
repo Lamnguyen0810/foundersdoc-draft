@@ -167,6 +167,7 @@ export async function POST(req: NextRequest) {
         await supabase.from("usage_log").insert({
           user_id: user.id,
           draft_id: draftId,
+          kind: "continue",
           provider: usage.provider,
           model: usage.model,
           input_tokens: usage.inputTokens,

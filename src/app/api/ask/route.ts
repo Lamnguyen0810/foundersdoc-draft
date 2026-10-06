@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
         const { error } = await supabase.from("usage_log").insert({
           user_id: user.id,
           draft_id: null,
+          kind: "ask",
           provider: res.provider,
           model: res.model,
           input_tokens: res.inputTokens,

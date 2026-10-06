@@ -312,6 +312,7 @@ export async function POST(req: NextRequest) {
                 const { error: usageError } = await supabase.from("usage_log").insert({
                   user_id: user.id,
                   draft_id: body.draftId ?? null,
+                  kind: "revise",
                   provider,
                   model,
                   input_tokens: inputTokens,

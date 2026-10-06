@@ -477,6 +477,7 @@ async function persist(input: {
     const { error: usageError } = await supabase.from("usage_log").insert({
       user_id: input.userId,
       draft_id: draft.id,
+      kind: "draft",
       provider: input.provider,
       model: input.model,
       input_tokens: input.inputTokens,

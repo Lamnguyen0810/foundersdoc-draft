@@ -37,7 +37,11 @@ export interface AiCreditMeter {
   first_topup_at?: string | null;
   spent_total_usd?: number;
   drafts_total?: number;
-  by_month?: { month: string; paid_usd: number; spent_usd: number; drafts: number }[];
+  by_month?: { month: string; paid_usd: number; spent_usd: number; drafts: number; requests?: number }[];
+  /* From supabase/081: calls told apart from drafts, and every provider. */
+  requests_total?: number;
+  by_provider?: { provider: string; drafts: number; requests: number; spent_usd: number }[];
+  documents_billed?: number;
 }
 
 const PROVIDER_NAMES: Record<string, string> = {
@@ -159,7 +163,7 @@ export default function AiCreditPanel({ meter, error }: { meter: AiCreditMeter |
             <div className="summary-label">Drafts left</div>
             <div className="summary-value">{approx(m.drafts_left)}</div>
             <div className="summary-note">
-              {m.avg_cost_usd ? `at ${usd(m.avg_cost_usd, 3)} a draft (average of ${m.avg_sample})` : "no drafts costed yet"}
+              {m.avg_cost_usd ? `at ${usd(m.avg_cost_usd, 3)} a draft, revisions included (average of ${m.avg_sample})` : "no drafts costed yet"}
             </div>
           </div>
           <div className="summary-card">
@@ -228,9 +232,12 @@ export default function AiCreditPanel({ meter, error }: { meter: AiCreditMeter |
                 </div>
               </div>
               <div className="summary-card">
-                <div className="summary-label">Spent on drafts, all time</div>
+                <div className="summary-label">Spent, all time</div>
                 <div className="summary-value">{usd(m.spent_total_usd)}</div>
-                <div className="summary-note">{(m.drafts_total ?? 0).toLocaleString("en-GB")} drafts costed</div>
+                <div className="summary-note">
+                  {(m.drafts_total ?? 0).toLocaleString("en-GB")} drafts
+                  {typeof m.requests_total === "number" ? ` · ${m.requests_total.toLocaleString("en-GB")} AI requests incl. revisions and questions` : " costed"}
+                </div>
               </div>
               <div className="summary-card">
                 <div className="summary-label">Cost per draft, all time</div>
@@ -240,17 +247,25 @@ export default function AiCreditPanel({ meter, error }: { meter: AiCreditMeter |
             </div>
             {m.by_month && m.by_month.length > 0 && (
               <div>
-                <div className="simple-row" style={{ display: "grid", gridTemplateColumns: "110px 110px 110px 1fr", gap: 10, fontWeight: 500 }}>
-                  <span>Month</span><span>Paid</span><span>Spent</span><span>Drafts</span>
+                <div className="simple-row" style={{ display: "grid", gridTemplateColumns: "110px 110px 110px 90px 1fr", gap: 10, fontWeight: 500 }}>
+                  <span>Month</span><span>Paid</span><span>Spent</span><span>Drafts</span><span>AI requests</span>
                 </div>
                 {m.by_month.map((row) => (
-                  <div className="simple-row" key={row.month} style={{ display: "grid", gridTemplateColumns: "110px 110px 110px 1fr", gap: 10 }}>
+                  <div className="simple-row" key={row.month} style={{ display: "grid", gridTemplateColumns: "110px 110px 110px 90px 1fr", gap: 10 }}>
                     <span>{monthName(row.month)}</span>
                     <span className={row.paid_usd > 0 ? "good" : ""}>{row.paid_usd > 0 ? usd(row.paid_usd) : "—"}</span>
                     <span>{usd(row.spent_usd, 2)}</span>
                     <span>{row.drafts.toLocaleString("en-GB")}</span>
+                    <span>{typeof row.requests === "number" ? row.requests.toLocaleString("en-GB") : "—"}</span>
                   </div>
                 ))}
+              </div>
+            )}
+            {m.by_provider && m.by_provider.length > 0 && (
+              <div className="summary-note" style={{ marginTop: 8 }}>
+                Every provider ever used:{" "}
+                {m.by_provider.map((p) => `${PROVIDER_NAMES[p.provider]?.split(" ")[0] ?? p.provider} ${p.drafts.toLocaleString("en-GB")} drafts, ${usd(p.spent_usd)}`).join(" · ")}
+                {typeof m.documents_billed === "number" ? ` · billing records: ${m.documents_billed.toLocaleString("en-GB")} documents drafted` : ""}
               </div>
             )}
             <div className="summary-note" style={{ marginTop: 6 }}>
