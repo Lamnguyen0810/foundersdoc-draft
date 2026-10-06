@@ -137,6 +137,12 @@ export default function AiCreditPanel({ meter, error }: { meter: AiCreditMeter |
   if (!m) return null;
 
   const st = STATUS[m.status] ?? STATUS.none;
+  /* What the provider has actually charged = everything paid minus what is
+     left. Our own log only sees calls made through the site, so the gap is
+     usage from before logging began, from closed accounts, or from the key
+     being used elsewhere. */
+  const spentAll = Math.max(0, (m.paid_total_usd ?? 0) - m.balance_usd);
+  const unlogged = spentAll - (m.spent_total_usd ?? 0);
   const providerName = PROVIDER_NAMES[m.provider] ?? m.provider;
   const billing = BILLING_LINKS[m.provider];
 
@@ -233,22 +239,26 @@ export default function AiCreditPanel({ meter, error }: { meter: AiCreditMeter |
               </div>
               <div className="summary-card">
                 <div className="summary-label">Spent, all time</div>
-                <div className="summary-value">{usd(m.spent_total_usd)}</div>
+                <div className="summary-value">{usd(spentAll)}</div>
                 <div className="summary-note">
-                  {(m.drafts_total ?? 0).toLocaleString("en-GB")} drafts
-                  {typeof m.requests_total === "number" ? ` · ${m.requests_total.toLocaleString("en-GB")} AI requests incl. revisions and questions` : " costed"}
+                  {unlogged > 0.005
+                    ? `${usd(m.spent_total_usd)} logged by FD AI + ${usd(unlogged)} used before logging or outside the site`
+                    : `${(m.drafts_total ?? 0).toLocaleString("en-GB")} drafts${typeof m.requests_total === "number" ? ` · ${m.requests_total.toLocaleString("en-GB")} AI requests incl. revisions and questions` : ""}`}
                 </div>
               </div>
               <div className="summary-card">
-                <div className="summary-label">Cost per draft, all time</div>
+                <div className="summary-label">Cost per draft</div>
                 <div className="summary-value">{m.drafts_total ? usd((m.spent_total_usd ?? 0) / m.drafts_total, 3) : "—"}</div>
-                <div className="summary-note">{m.paid_total_usd > 0 ? `${Math.round(((m.spent_total_usd ?? 0) / m.paid_total_usd) * 100)}% of what was paid is used up` : "record a top-up to compare"}</div>
+                <div className="summary-note">
+                  {m.drafts_total ? `from the ${m.drafts_total.toLocaleString("en-GB")} logged drafts` : "no logged drafts yet"}
+                  {m.paid_total_usd > 0 ? ` · ${Math.round((spentAll / m.paid_total_usd) * 100)}% of what was paid is used up` : ""}
+                </div>
               </div>
             </div>
             {m.by_month && m.by_month.length > 0 && (
               <div>
                 <div className="simple-row" style={{ display: "grid", gridTemplateColumns: "110px 110px 110px 90px 1fr", gap: 10, fontWeight: 500 }}>
-                  <span>Month</span><span>Paid</span><span>Spent</span><span>Drafts</span><span>AI requests</span>
+                  <span>Month</span><span>Paid</span><span>Spent (logged)</span><span>Drafts</span><span>AI requests</span>
                 </div>
                 {m.by_month.map((row) => (
                   <div className="simple-row" key={row.month} style={{ display: "grid", gridTemplateColumns: "110px 110px 110px 90px 1fr", gap: 10 }}>
