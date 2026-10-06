@@ -31,6 +31,13 @@ export interface AiCreditMeter {
   status: "none" | "ok" | "soon" | "urgent";
   action: string;
   ledger: { kind: "topup" | "adjust"; amount_usd: number; note: string | null; at: string }[];
+  /* Lifetime figures, from supabase/080. Absent until that file has been run. */
+  paid_total_usd?: number;
+  topup_count?: number;
+  first_topup_at?: string | null;
+  spent_total_usd?: number;
+  drafts_total?: number;
+  by_month?: { month: string; paid_usd: number; spent_usd: number; drafts: number }[];
 }
 
 const PROVIDER_NAMES: Record<string, string> = {
@@ -66,6 +73,11 @@ function approx(n: number | null | undefined): string {
 function sgDate(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Singapore" });
+}
+
+function monthName(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
 }
 
 function todayIso(): string {
@@ -200,6 +212,49 @@ export default function AiCreditPanel({ meter, error }: { meter: AiCreditMeter |
               {open === "topup"
                 ? "Adds to the balance. The meter then counts every draft against it."
                 : "Type the credit balance the provider's billing page shows right now. The difference is stored as a correction, so the meter matches what they will actually charge."}
+            </div>
+          </div>
+        )}
+
+        {typeof m.paid_total_usd === "number" && (
+          <div style={{ marginTop: 18 }}>
+            <div className="summary-label" style={{ marginBottom: 6 }}>Paid to {providerName.split(" ")[0]} so far</div>
+            <div className="summary" style={{ marginBottom: 10 }}>
+              <div className="summary-card">
+                <div className="summary-label">Paid, all time</div>
+                <div className="summary-value">{usd(m.paid_total_usd)}</div>
+                <div className="summary-note">
+                  {m.topup_count ? `${m.topup_count} top-up${m.topup_count === 1 ? "" : "s"} since ${sgDate(m.first_topup_at ?? null)}` : "no top-ups recorded yet"}
+                </div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Spent on drafts, all time</div>
+                <div className="summary-value">{usd(m.spent_total_usd)}</div>
+                <div className="summary-note">{(m.drafts_total ?? 0).toLocaleString("en-GB")} drafts costed</div>
+              </div>
+              <div className="summary-card">
+                <div className="summary-label">Cost per draft, all time</div>
+                <div className="summary-value">{m.drafts_total ? usd((m.spent_total_usd ?? 0) / m.drafts_total, 3) : "—"}</div>
+                <div className="summary-note">{m.paid_total_usd > 0 ? `${Math.round(((m.spent_total_usd ?? 0) / m.paid_total_usd) * 100)}% of what was paid is used up` : "record a top-up to compare"}</div>
+              </div>
+            </div>
+            {m.by_month && m.by_month.length > 0 && (
+              <div>
+                <div className="simple-row" style={{ display: "grid", gridTemplateColumns: "110px 110px 110px 1fr", gap: 10, fontWeight: 500 }}>
+                  <span>Month</span><span>Paid</span><span>Spent</span><span>Drafts</span>
+                </div>
+                {m.by_month.map((row) => (
+                  <div className="simple-row" key={row.month} style={{ display: "grid", gridTemplateColumns: "110px 110px 110px 1fr", gap: 10 }}>
+                    <span>{monthName(row.month)}</span>
+                    <span className={row.paid_usd > 0 ? "good" : ""}>{row.paid_usd > 0 ? usd(row.paid_usd) : "—"}</span>
+                    <span>{usd(row.spent_usd, 2)}</span>
+                    <span>{row.drafts.toLocaleString("en-GB")}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="summary-note" style={{ marginTop: 6 }}>
+              Counts every top-up recorded here. Paid before the meter existed? Use “Record a top-up” with the date it was paid, and it is added to the total.
             </div>
           </div>
         )}
