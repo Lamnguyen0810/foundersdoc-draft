@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { stepsFor, type Group } from "@/lib/doctypes";
 import TermQuestions from "./TermQuestions";
 import EmploymentQuestions from "./EmploymentQuestions";
+import ContractorQuestions from "./ContractorQuestions";
 
 /**
  * The questions a user answers before the first draft, per document type —
@@ -287,7 +288,7 @@ export default function Questions({
   /* The term sheet's and the employment agreement's questions are built
      into their assemblers: listed as asked, not edited here. See
      TermQuestions and EmploymentQuestions. */
-  if (slug === "term" || slug === "employment") {
+  if (slug === "term" || slug === "employment" || slug === "contractor") {
     return (
       <div className="table-card questions-card">
         <div className="table-head">
@@ -304,7 +305,7 @@ export default function Questions({
             </div>
           </div>
         </div>
-        {slug === "employment" ? <EmploymentQuestions /> : <TermQuestions />}
+        {slug === "employment" ? <EmploymentQuestions /> : slug === "contractor" ? <ContractorQuestions /> : <TermQuestions />}
       </div>
     );
   }

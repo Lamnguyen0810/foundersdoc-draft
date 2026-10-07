@@ -7,6 +7,7 @@ import { nameFromAnswers } from "@/lib/draft-name";
 import DraftChat, { type ResumeDraft } from "../DraftChat";
 import TermSheet, { type TermResume } from "../TermSheet";
 import Employment from "../Employment";
+import Contractor from "../Contractor";
 import { recentDrafts } from "../recent";
 import type { DraftStatus, Flag } from "@/lib/termsheet/types";
 
@@ -122,7 +123,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
     const saved = (answers ?? {}) as Record<string, unknown>;
     const termResume: TermResume = {
       id: row.id,
-      title: (row.title ?? "").trim() || (docType.slug === "employment" ? "Employment Agreement" : "Term Sheet"),
+      title: (row.title ?? "").trim() || (docType.slug === "employment" ? "Employment Agreement" : docType.slug === "contractor" ? "Contractor Agreement" : "Term Sheet"),
       answers: saved,
       output: row.output ?? "",
       outputHtml: row.output_html,
@@ -131,7 +132,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
       reviewNote: row.review_note ?? null,
       createdAt: row.created_at,
     };
-    const Screen = docType.slug === "employment" ? Employment : TermSheet;
+    const Screen = docType.slug === "employment" ? Employment : docType.slug === "contractor" ? Contractor : TermSheet;
     return (
       <Screen
         look={looks[docType.slug]}
