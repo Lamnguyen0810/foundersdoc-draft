@@ -16,6 +16,7 @@
 import Link from "next/link";
 import { BetaBadge } from "./beta";
 import { useEffect, useMemo, useRef, useState } from "react";
+import DetailSlider, { type SliderSteps } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
 import JurisdictionPicker from "./JurisdictionPicker";
 import RailHistory from "./RailHistory";
@@ -144,6 +145,20 @@ function answerLabel(q: Question, a: Answers): string {
   return label(String(v));
 }
 
+/** The version slider (C0): the Master Menu's three columns, in plain words. */
+const VERSION_STEPS: SliderSteps = {
+  labels: ["Basic", "Standard", "Complex"],
+  guide: [
+    "The fifteen essential clauses: the services, the fee, independent-contractor status, ownership of the work, term and termination, governing law. For a short, simple engagement.",
+    "The firm’s standard contractor agreement: adds exclusivity, expenses, breach of agreement, liability and indemnity, and confidentiality. Right for most engagements.",
+    "Every clause of the master: adds restrictions after the engagement, data protection, taxes, moral rights and the full general provisions. For senior or sensitive engagements.",
+  ],
+  recommended: 2,
+  title: "Version",
+  tip: "Which of the firm’s master clauses go in. Questions that only matter for a fuller version are not asked.",
+  note: "Choose fuller and you are asked a few more questions; choose Basic and the agreement stays short.",
+};
+
 const emptyEmployer = (): Employer => ({ name: "" });
 const emptyEmployee = (): Employee => ({ name: "" });
 const emptyJob = (): Job => ({ services: "", fee_basis: "month" });
@@ -183,7 +198,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
   const [status, setStatus] = useState<DraftStatus>(resume?.status ?? "draft");
   const [flags, setFlags] = useState<Flag[]>(resume?.flags ?? []);
   const [reviewNote] = useState<string | null>(resume?.reviewNote ?? null);
-  /* Why nothing was drafted, in FD AI's words (the master is pending). */
+  /* Why nothing was drafted, in FD AI's words (a red point stopped it). */
   const [stopMessage, setStopMessage] = useState<string | null>(null);
   const [ai, setAi] = useState<AiFields | null>(() => (resume ? ((resume.answers._ai as AiFields | null) ?? null) : null));
   const [aiEdit, setAiEdit] = useState<string[] | null>(null);
@@ -320,7 +335,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
     resetInput();
     if (s.kind === "q") {
       const v = answers[k];
-      if ((s.q.type === "free_text" || s.q.type === "date") && typeof v === "string") setTyped(v);
+      if ((s.q.type === "free_text" || s.q.type === "date" || s.q.type === "scale") && typeof v === "string") setTyped(v);
       if (s.q.type === "jurisdiction" && typeof v === "string" && v !== "same") setPicked(v);
       if (s.q.type === "multi_choice" && Array.isArray(v)) setMulti(v.map(String));
       if (s.q.type === "free_text_list" && Array.isArray(v)) setListItems(v.map(String));
@@ -416,7 +431,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
         } catch {
           /* fine */
         }
-        track("draft_generated", { doc_type: "contractor", words: 0, reason: "master_pending" });
+        track("draft_generated", { doc_type: "contractor", words: 0, reason: j.pending ? "master_pending" : "red_flag" });
         return;
       }
       setDraftId((j.draftId as string | null) ?? null);
@@ -717,6 +732,24 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
             </button>
           </div>
         );
+
+      case "scale": {
+        const values = q.options.map((o) => o.value);
+        const current = values.indexOf(typed || str(answers[q.id]) || str(q.defaultValue));
+        const level = current >= 0 ? current + 1 : 1;
+        return (
+          <>
+            <div className="chips emp-scale">
+              <DetailSlider value={level} steps={VERSION_STEPS} label={q.text} onChange={(l) => setTyped(values[l - 1] ?? values[0])} />
+              {backButton()}
+              <button type="button" className="go" onClick={() => commit(q, values[level - 1] ?? values[0])}>
+                Continue
+              </button>
+            </div>
+            {skipLink(q)}
+          </>
+        );
+      }
 
       case "free_text":
       default: {
@@ -1087,7 +1120,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                           </button>
                           <button type="button" className="chip" disabled={busy} onClick={changeAnswers}>Change an answer</button>
                         </div>
-                        <p className="later">Beta: the firm’s master wording for this agreement is being finalised. Your answers and the points for your lawyer are saved, and Founders Doc sends you the draft — no credit is used.</p>
+                        <p className="later">Beta: FD AI assembles the agreement from Founders Doc’s master contractor agreement in the version you chose. If a point needs a lawyer first, the answers are saved instead and no credit is used.</p>
                       </div>
                     </div>
                   </div>
@@ -1168,7 +1201,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                   <div className="cg-msg">
                     {status === "stopped" ? (
                       <>
-                        <p>{stopMessage ?? "Your answers are saved. The Contractor Agreement is in Beta: our lawyers are finalising the master wording, so FD AI has not produced the document itself. Founders Doc has been told and will send you the draft, with the points below, at no charge."}</p>
+                        <p>{stopMessage ?? "Your answers are saved, but FD AI has not issued the agreement: one of the points below needs a lawyer before it is signed. Founders Doc has been told and will be in touch. No credit has been used."}</p>
                         {yellow.length > 0 && (
                           <>
                             <p>Points I’ve noted for whoever prepares it:</p>
@@ -1293,7 +1326,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                   <button type="button" className="chip" onClick={changeAnswers}>Change answers and prepare again</button>
                   <Link className="chip" href="/draft">New draft</Link>
                 </div>
-                <p className="hint">{status === "stopped" ? "Changing an answer saves a fresh set for Founders Doc. No credit is used while the Contractor Agreement is in Beta." : "Changing an answer prepares a fresh agreement (one credit). Editing the agreement itself is free — use the document beside this."}</p>
+                <p className="hint">{status === "stopped" ? "Changing an answer prepares the agreement again. A stopped draft uses no credit." : "Changing an answer prepares a fresh agreement (one credit). Editing the agreement itself is free — use the document beside this."}</p>
               </div>
             </section>
 
@@ -1509,7 +1542,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
           {isDraft && (
             <div className="studio-foot">
               <button type="button" className="btn s-gen" disabled={busy} onClick={changeAnswers}>Change answers</button>
-              <small>{status === "stopped" ? "No credit is used while the Contractor Agreement is in Beta." : "Preparing again with new answers uses one credit. Editing the agreement itself is free."}</small>
+              <small>{status === "stopped" ? "A stopped draft uses no credit." : "Preparing again with new answers uses one credit. Editing the agreement itself is free."}</small>
             </div>
           )}
         </section>

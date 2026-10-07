@@ -1,7 +1,10 @@
 /**
  * The contractor agreement questionnaire — FD's "Proposed Amendments to
  * Questionnaire" (TF Qns, 11 March 2025), the fifteen questions, with a
- * "Where" question first so the law and the courts are known.
+ * "Where" question first so the law and the courts are known, and before
+ * it the version: the Master Menu's Basic / Standard / Complex (C0), which
+ * decides which of the master's 43 clauses are in. A question whose clause
+ * is not in the chosen version is not asked.
  *
  * Data, not code: the screen asks these in order, the assembler reads the
  * answers by id, and the admin console lists them read-only. Hidden
@@ -26,6 +29,22 @@ export const CONTRACTOR_QUESTIONNAIRE = {
   for_master: "FD Master Contractor Agreement",
   status: "Draft for FD review",
   questions: [
+    /* ── the version (Master Menu: Cmx / Stn / Bsc) ── */
+    {
+      id: "C0",
+      key: "version",
+      section: "Version",
+      type: "scale",
+      required: true,
+      default: "standard",
+      text: "How detailed should the agreement be?",
+      help: "The firm’s master comes in three versions. Basic has the fifteen essential clauses; Standard adds exclusivity, expenses, breach, liability and confidentiality; Complex has every clause, including restrictions after the engagement and data protection.",
+      options: [
+        { value: "basic", label: "Basic" },
+        { value: "standard", label: "Standard", recommended: true },
+        { value: "complex", label: "Complex" },
+      ],
+    },
     /* ── where ── */
     {
       id: "C1a",
@@ -87,6 +106,7 @@ export const CONTRACTOR_QUESTIONNAIRE = {
       section: "The work",
       type: "single_choice",
       required: true,
+      show_if: { q: "C0", in: ["standard", "complex"] },
       default: "non_exclusive",
       text: "Should the Contractor work exclusively for the Company?",
       help: "Exclusive: the Contractor needs the Company’s written consent before working for anyone else. Non-exclusive is usual for a contractor; a contractor who may only work for you starts to look like an employee.",
@@ -102,6 +122,7 @@ export const CONTRACTOR_QUESTIONNAIRE = {
       section: "The work",
       type: "single_choice",
       required: true,
+      show_if: { q: "C0", in: ["standard", "complex"] },
       default: "yes",
       text: "Must the Contractor confirm they have no other agreements or commitments that could interfere with this work?",
       help: "Some contractors have existing contracts or relationships that could get in the way. This asks them to confirm, before signing, that there is nothing of the kind.",
@@ -117,6 +138,7 @@ export const CONTRACTOR_QUESTIONNAIRE = {
       section: "Money",
       type: "single_choice",
       required: true,
+      show_if: { q: "C0", in: ["standard", "complex"] },
       default: "contractor",
       text: "Who pays the expenses of the Contractor’s work?",
       help: "Travel, equipment and other work-related costs. Either the Contractor covers them out of the fee, or the Company reimburses pre-approved expenses against receipts.",
@@ -206,6 +228,7 @@ export const CONTRACTOR_QUESTIONNAIRE = {
       section: "Ending it",
       type: "multi_choice",
       required: true,
+      show_if: { q: "C0", in: ["standard", "complex"] },
       default: ["serious_breach", "misconduct", "incapacity", "criminal", "assignment", "confidentiality", "insolvency"],
       text: "When may the Company end the Agreement because of something the Contractor has done?",
       help: "Serious rule-breaking and confidentiality breaches usually justify immediate termination; others may need more thought. Choose all that apply.",
@@ -226,6 +249,7 @@ export const CONTRACTOR_QUESTIONNAIRE = {
       section: "Ending it",
       type: "multi_choice",
       required: true,
+      show_if: { q: "C0", in: ["standard", "complex"] },
       default: ["terminate", "damages", "replace"],
       text: "If the Contractor breaches the Agreement, what may the Company do?",
       help: "Choose all that apply.",
@@ -242,6 +266,7 @@ export const CONTRACTOR_QUESTIONNAIRE = {
       section: "After it ends",
       type: "multi_choice",
       required: true,
+      show_if: { q: "C0", eq: "complex" },
       default: ["no_data", "no_disparagement"],
       text: "What must the Contractor keep to after the Agreement ends?",
       help: "Some duties survive termination. Choose all that apply.",
@@ -257,6 +282,7 @@ export const CONTRACTOR_QUESTIONNAIRE = {
       section: "After it ends",
       type: "single_choice",
       required: true,
+      show_if: { q: "C0", eq: "complex" },
       default: "no",
       text: "After the Agreement ends, should the Contractor be barred from working with competitors or recruiting the Company’s staff?",
       help: "If yes: no involvement with a competing business where the Company operates, and no poaching of its employees, officers or consultants, for a set period. Courts only enforce this if it is reasonable; for a contractor it is harder to justify than for an employee.",
@@ -318,6 +344,7 @@ export const CONTRACTOR_QUESTIONNAIRE = {
       section: "Secrets and data",
       type: "single_choice",
       required: true,
+      show_if: { q: "C0", in: ["standard", "complex"] },
       default: "forever",
       text: "How long must the Contractor keep the Company’s information confidential?",
       help: "Forever gives the most protection; a time limit gives flexibility.",
@@ -336,6 +363,7 @@ export const CONTRACTOR_QUESTIONNAIRE = {
       section: "Secrets and data",
       type: "single_choice",
       required: true,
+      show_if: { q: "C0", eq: "complex" },
       default: "yes",
       text: "May the Company process and share the Contractor’s personal data for work-related purposes?",
       help: "Payments, record-keeping and legal compliance need the Contractor’s name, bank details and work history; some of it may go to trusted third parties such as payroll or IT providers. In the UK and EU the clause relies on a lawful basis other than consent; FD AI flags this.",

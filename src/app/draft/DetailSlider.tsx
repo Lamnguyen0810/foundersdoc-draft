@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * How comprehensive the NDA should be — one card, one vocabulary.
+ * How comprehensive the document should be — one card, one vocabulary.
  *
  * There were two of these: the card on the drafting question, and a smaller,
  * plainer one beside the finished document. They disagreed. The question card
@@ -11,11 +11,41 @@
  *
  * So there is now one component and one list of names, used in both places,
  * and a level cannot be called two things again.
+ *
+ * The NDA's five steps are the default. A document with its own scale (the
+ * contractor agreement's three versions from the Master Menu) passes its
+ * `steps`; the number of steps, the names and the guide all come from there.
  */
 
 export { DETAIL_LABELS, DETAIL_LENGTHS, DETAIL_GUIDE, toLevel, type DetailLevel } from "@/lib/detail";
 import { DETAIL_LABELS, DETAIL_LENGTHS, DETAIL_GUIDE, toLevel, type DetailLevel } from "@/lib/detail";
 import InfoTip from "./InfoTip";
+
+export interface SliderSteps {
+  /** The names, in order: index 0 is level 1. */
+  labels: readonly string[];
+  /** A line under each name, "about 500–800 words" — optional. */
+  lengths?: readonly string[];
+  /** What each level is for, shown as the slider moves. */
+  guide: readonly string[];
+  /** The level marked "(recommended)". */
+  recommended?: number;
+  /** The card's title and the tip beside it. */
+  title: string;
+  tip: string;
+  /** The line under the guide. */
+  note?: string;
+}
+
+export const NDA_STEPS: SliderSteps = {
+  labels: DETAIL_LABELS,
+  lengths: DETAIL_LENGTHS,
+  guide: DETAIL_GUIDE,
+  recommended: 3,
+  title: "Comprehensiveness",
+  tip: "How much detail the NDA is written with. It never changes what is agreed.",
+  note: "This changes how much detail is written, never what is agreed.",
+};
 
 export default function DetailSlider({
   value,
@@ -23,6 +53,7 @@ export default function DetailSlider({
   disabled = false,
   label = "Initial NDA comprehensiveness",
   flat = false,
+  steps = NDA_STEPS,
 }: {
   value: number;
   onChange: (level: DetailLevel) => void;
@@ -39,58 +70,55 @@ export default function DetailSlider({
    * of taking a row of its own, and everything tightens.
    */
   flat?: boolean;
+  steps?: SliderSteps;
 }) {
-  const level = toLevel(value);
+  const n = steps.labels.length;
+  const level = Math.min(n, Math.max(1, toLevel(value))) as DetailLevel;
+  const marks = Array.from({ length: n }, (_, i) => i + 1);
+  const length = steps.lengths?.[level - 1];
+  const style = { "--gd-n": n } as React.CSSProperties;
 
   return (
-    <div className={`gd${flat ? " gd-flat" : ""}`}>
+    <div className={`gd${flat ? " gd-flat" : ""}`} style={style}>
       <div className="gd-head">
         <span className="gd-title">
-          Comprehensiveness
-          <InfoTip
-            label="Comprehensiveness"
-            text={`How much detail the NDA is written with. Level ${level} of 5 — ${DETAIL_LABELS[level - 1]}, ${
-              DETAIL_LENGTHS[level - 1]
-            }. ${DETAIL_GUIDE[level - 1]} It never changes what is agreed.`}
-          />
-          {flat && <span className="gd-len-inline">{DETAIL_LENGTHS[level - 1]}</span>}
+          {steps.title}
+          <InfoTip label={steps.title} text={`${steps.tip} Level ${level} of ${n} — ${steps.labels[level - 1]}${length ? `, ${length}` : ""}. ${steps.guide[level - 1]}`} />
+          {flat && length && <span className="gd-len-inline">{length}</span>}
         </span>
         <span className="gd-readout">
-          <b>{level} / 5</b>
-          <em>{DETAIL_LABELS[level - 1]}</em>
+          <b>{level} / {n}</b>
+          <em>{steps.labels[level - 1]}</em>
         </span>
       </div>
 
       <div className="gd-track">
         <span className="gd-rail" aria-hidden="true">
-          <span className="gd-fill" style={{ width: `${((level - 1) / 4) * 100}%` }} />
+          <span className="gd-fill" style={{ width: `${((level - 1) / (n - 1)) * 100}%` }} />
         </span>
         <span className="gd-dots" aria-hidden="true">
-          {[1, 2, 3, 4, 5].map((mark) => (
-            <span
-              key={mark}
-              className={`gd-dot${mark <= level ? " on" : ""}${mark === level ? " now" : ""}`}
-            />
+          {marks.map((mark) => (
+            <span key={mark} className={`gd-dot${mark <= level ? " on" : ""}${mark === level ? " now" : ""}`} />
           ))}
         </span>
         <input
           type="range"
           min={1}
-          max={5}
+          max={n}
           step={1}
           value={level}
           disabled={disabled}
           aria-label={label}
-          aria-valuetext={`Level ${level}: ${DETAIL_LABELS[level - 1]}`}
-          onChange={(event) => onChange(toLevel(event.target.value))}
+          aria-valuetext={`Level ${level}: ${steps.labels[level - 1]}`}
+          onChange={(event) => onChange(Math.min(n, Math.max(1, toLevel(event.target.value))) as DetailLevel)}
         />
       </div>
 
       <div className="gd-scale" aria-hidden="true">
-        {[1, 2, 3, 4, 5].map((mark) => (
+        {marks.map((mark) => (
           <span key={mark} className={mark === level ? "on" : ""}>
             <b>{mark}</b>
-            <em>{DETAIL_LABELS[mark - 1]}</em>
+            <em>{steps.labels[mark - 1]}</em>
           </span>
         ))}
       </div>
@@ -98,13 +126,13 @@ export default function DetailSlider({
       <div className="gd-guide" aria-live="polite">
         <p>
           <b>
-            {DETAIL_LABELS[level - 1]}
-            {level === 3 ? " (recommended)" : ""}
-            {!flat ? ` · ${DETAIL_LENGTHS[level - 1]}` : ""}
+            {steps.labels[level - 1]}
+            {level === steps.recommended ? " (recommended)" : ""}
+            {!flat && length ? ` · ${length}` : ""}
           </b>{" "}
-          {DETAIL_GUIDE[level - 1]}
+          {steps.guide[level - 1]}
         </p>
-        {!flat && <small>This changes how much detail is written, never what is agreed.</small>}
+        {!flat && steps.note && <small>{steps.note}</small>}
       </div>
     </div>
   );

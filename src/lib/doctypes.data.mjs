@@ -330,7 +330,7 @@ export const CONTRACTOR_DATA = {
   slug: "contractor",
   label: "Contractor Agreement",
   description:
-    "Engage a freelancer or consultant in any country. Assembled from the FD Master Contractor Agreement by rule from fifteen questions; FD AI flags anything that makes the contractor look like an employee. Beta: until the master is loaded, the answers are saved and the firm sends the draft.",
+    "Engage a freelancer or consultant in any country. Assembled from the FD Master Contractor Agreement by rule from fifteen questions, in the Basic, Standard or Complex version; FD AI flags anything that makes the contractor look like an employee. Beta.",
   engine: "assembly",
   fields: [],
   systemPrompt:
