@@ -45,6 +45,8 @@ export const FLAG_TITLES: Record<string, string> = {
   CT9: "No notice either way",
   CT10: "Restriction too wide to enforce",
   CT11: "Master agreement pending",
+  CT12: "Arbitration seat",
+  FD: "FD supplementary wording",
 };
 
 export function titleFor(f: Flag): string {
@@ -150,6 +152,14 @@ export function ruleChecks(answersIn: Answers, engagement: Engagement): RuleChec
       scenario: "CT8",
       reason: "No confidentiality obligation at all. Anything the Contractor learns about the business can be used or shared freely once the Agreement ends. Few companies mean this; check it is intended.",
       field: "C15",
+    });
+  } else if (str(a.C0) === "basic") {
+    flags.push({
+      level: "yellow",
+      scenario: "CT8",
+      reason: "The Basic version has no confidentiality clause (the Master Menu leaves it to Standard and Complex). If the Contractor will see anything confidential, choose Standard, or sign an NDA alongside.",
+      user_message: "The Basic version has no confidentiality clause. If the Contractor will see anything confidential, choose Standard instead, or sign an NDA with them as well.",
+      field: "C0",
     });
   }
 

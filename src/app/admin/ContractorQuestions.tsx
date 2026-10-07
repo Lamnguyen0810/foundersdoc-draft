@@ -2,17 +2,18 @@
 
 import { Fragment } from "react";
 import { CONTRACTOR_QUESTIONNAIRE } from "@/lib/contractor/data/questionnaire";
-import { MASTER_LOADED, MASTER_MENU, MASTER_VERSION } from "@/lib/contractor/data/master";
+import { MASTER_LOADED, MASTER_VERSION, SECTIONS, TIERS, TIER_LABEL, type Tier } from "@/lib/contractor/data/master";
 import { ALL_QUESTIONS, showIf, type Condition, type Question } from "@/lib/contractor/questions";
 
 /**
  * The contractor agreement's questions, as the user meets them — read-only,
  * as the employment agreement's are (EmploymentQuestions.tsx).
  *
- * They are the firm's "Proposed Amendments to Questionnaire" (15 questions).
- * Beneath the list: the master menu — which answer reaches which clause of
- * the FD Master Contractor Agreement — for FD to check against the master
- * when it is uploaded.
+ * They are the firm's "Proposed Amendments to Questionnaire" (15 questions),
+ * with the version (Basic / Standard / Complex) asked first. Beneath the
+ * list: the Master Menu of 11 March 2025 — the master's 43 clauses, the
+ * three columns (★ Complex, ✎ Standard, ▤ Basic) and which question
+ * switches or fills each clause.
  */
 
 const TYPE_LABEL: Record<string, string> = {
@@ -22,10 +23,12 @@ const TYPE_LABEL: Record<string, string> = {
   date: "Date",
   free_text: "Typed answer",
   free_text_list: "Typed list",
+  scale: "Slider",
 };
 
 /** What each answer does to the contract. */
 const SHAPES: Record<string, string> = {
+  C0: "Which of the master's 43 clauses are in: Basic 15, Standard 25, Complex 43 (the Master Menu's three columns)",
   C1a: "Governing law and courts; the registration label (UEN, Company Number …)",
   C1b: "Different place from the Company → flagged (tax, permits, employee status)",
   C2: "Parties and signature block: an individual, or a company (number, signatory)",
@@ -36,14 +39,22 @@ const SHAPES: Record<string, string> = {
   C7: "IP clause: full assignment, or licence to the Company",
   C8a: "Term clause: until completion, fixed end date (C8b), or until terminated",
   C9a: "Termination clause: notice (C9b days), payment in lieu, or none ⚑",
-  C10: "Termination for cause, grounds (a)–(g) each in or out",
+  C10: "Breach of Agreement, grounds (a)–(h) each in or out",
   C11: "Remedies on breach: immediate termination, damages, replacement",
   C12: "Continuing obligations: data return, non-disparagement",
   C13a: "Restrictive covenants in or out ⚑; C13b months; C13c territory — “worldwide” refused",
-  C14: "Probation clause in or out ⚑ (flagged as a mark of employment)",
+  C14: "Initial period (three months, seven days' notice) in or out ⚑ — FD wording; flagged as a mark of employment",
   C15: "Confidentiality duration; none → flagged",
   C16: "Data clause; GDPR places flagged (consent is not the right basis)",
 };
+
+const TIER_MARK: Record<Tier, string> = { complex: "★", standard: "✎", basic: "▤" };
+
+/** "Basic 15 · Standard 25 · Complex 43" — the master's own clauses, not the FD ones. */
+function counts(sections: typeof SECTIONS): string {
+  const own = sections.flatMap((s) => s.clauses).filter((c) => !c.fd);
+  return TIERS.map((t) => `${TIER_LABEL[t]} ${own.filter((c) => TIERS.indexOf(c.tier) <= TIERS.indexOf(t)).length}`).join(" · ");
+}
 
 function listText(v: readonly unknown[] | undefined): string {
   return (v ?? []).map(String).join(", ").replace(/, ([^,]*)$/, " or $1");
@@ -92,9 +103,9 @@ export default function ContractorQuestions() {
           {MASTER_LOADED ? `Live — questionnaire v${CONTRACTOR_QUESTIONNAIRE.version} · master ${MASTER_VERSION}` : `Beta — questionnaire v${CONTRACTOR_QUESTIONNAIRE.version} · master not loaded`}
         </span>
         <span style={{ color: "var(--muted)", fontSize: 12 }}>
-          Read-only. The contractor agreement asks the firm&rsquo;s fifteen questions (TF Qns, 11 March 2025, proposed
-          amendments), built into the assembler. {MASTER_LOADED
-            ? "The answers switch clauses of the FD Master Contractor Agreement on and off."
+          Read-only. The contractor agreement asks the version first, then the firm&rsquo;s fifteen questions (TF Qns,
+          11 March 2025, proposed amendments), built into the assembler. {MASTER_LOADED
+            ? "The version picks the clauses from the Master Menu; the answers switch clauses of the FD Master Contractor Agreement on and off."
             : "Until the FD Master Contractor Agreement is uploaded (AI files → Contractor Agreements) and transcribed, FD AI saves the answers and the points for the lawyer, and the firm sends the draft by hand; no credit is taken."}
         </span>
       </div>
@@ -179,28 +190,50 @@ export default function ContractorQuestions() {
       </div>
 
       <div className="questions-status" style={{ marginTop: 18 }}>
-        <span className="badge">Master menu — which answer reaches which clause</span>
+        <span className="badge">Master Menu — 11 March 2025</span>
         <span style={{ color: "var(--muted)", fontSize: 12 }}>
-          The clauses the questionnaire expects to find in the FD Master Contractor Agreement. When the master is uploaded,
-          FD checks this map against it and the clauses are transcribed into the assembler.
+          The FD Master Contractor Agreement&rsquo;s clauses and the three versions: ★ Complex (every clause), ✎ Standard, ▤ Basic.
+          A tick means the clause is in that version. &ldquo;FD&rdquo; marks wording the master does not have, written in its style for an
+          answer the master has no permutation for — for FD review. Counts from the menu&rsquo;s ticks: {counts(SECTIONS)} (its headers say Cmx 47 and Stn 28; the ticks are followed).
         </span>
       </div>
       <div className="table-wrap">
         <table style={{ minWidth: 980 }}>
           <thead>
             <tr>
-              <th style={{ width: 160 }}>Question</th>
-              <th style={{ width: 220 }}>Clause id in the master</th>
-              <th>What the answer decides</th>
+              <th style={{ width: 64 }}>Clause</th>
+              <th>Title</th>
+              {TIERS.slice().reverse().map((t) => (
+                <th key={t} style={{ width: 86, textAlign: "center" }}>{TIER_MARK[t]} {TIER_LABEL[t]}</th>
+              ))}
+              <th style={{ width: 150 }}>Switched by</th>
+              <th style={{ width: 200 }}>Clause id in the assembler</th>
             </tr>
           </thead>
           <tbody>
-            {MASTER_MENU.map((m) => (
-              <tr key={m.question}>
-                <td style={{ fontSize: 12, fontWeight: 600 }}>{m.question}</td>
-                <td><code style={{ fontSize: 11 }}>{m.clause}</code></td>
-                <td style={{ fontSize: 12 }}>{m.what}</td>
-              </tr>
+            {SECTIONS.map((sec, si) => (
+              <Fragment key={sec.id}>
+                <tr className="step-row">
+                  <td>{si + 1}</td>
+                  <td colSpan={6}>
+                    <div className="step-title"><strong>{sec.heading}</strong></div>
+                  </td>
+                </tr>
+                {sec.clauses.map((c) => (
+                  <tr key={c.id}>
+                    <td className="sub-no">{c.menu}</td>
+                    <td style={{ fontSize: 12 }}>
+                      {c.title}
+                      {c.fd && <span className="badge gray" style={{ marginLeft: 6 }}>FD</span>}
+                    </td>
+                    {TIERS.slice().reverse().map((t) => (
+                      <td key={t} style={{ textAlign: "center", fontSize: 12 }}>{TIERS.indexOf(c.tier) <= TIERS.indexOf(t) ? "✓" : "—"}</td>
+                    ))}
+                    <td style={{ fontSize: 12, fontWeight: 600 }}>{c.question ?? "Version only"}</td>
+                    <td><code style={{ fontSize: 11 }}>{c.id}</code></td>
+                  </tr>
+                ))}
+              </Fragment>
             ))}
           </tbody>
         </table>

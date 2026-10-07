@@ -3210,11 +3210,11 @@ html[data-theme=dark]{
 
 .gd-track{position:relative;height:30px;margin-top:14px}
 .gd-rail{
-  position:absolute;left:10%;right:10%;top:50%;transform:translateY(-50%);
+  position:absolute;left:calc(50% / var(--gd-n,5));right:calc(50% / var(--gd-n,5));top:50%;transform:translateY(-50%);
   height:4px;border-radius:999px;background:var(--rule-2);
 }
 .gd-fill{display:block;height:100%;border-radius:999px;background:var(--gold);transition:width .18s ease}
-.gd-dots{position:absolute;inset:0;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;justify-items:center}
+.gd-dots{position:absolute;inset:0;display:grid;grid-template-columns:repeat(var(--gd-n,5),1fr);align-items:center;justify-items:center}
 .gd-dot{width:22px;height:22px;display:grid;place-items:center}
 .gd-dot:before{
   content:"";width:13px;height:13px;border-radius:50%;
@@ -3232,7 +3232,7 @@ html[data-theme=dark]{
 }
 .gd-track input[type="range"]:focus-visible{opacity:1;outline:2px solid var(--gold);outline-offset:3px;border-radius:999px}
 
-.gd-scale{display:grid;grid-template-columns:repeat(5,1fr);margin-top:8px;text-align:center}
+.gd-scale{display:grid;grid-template-columns:repeat(var(--gd-n,5),1fr);margin-top:8px;text-align:center}
 .gd-scale span{display:grid;gap:1px;min-width:0}
 .gd-scale b{font-size:14px;font-weight:500;color:var(--tx-3);transition:color .18s}
 /* No clipping: "Comprehensive" is wider than a fifth of the card, so the outer
@@ -3640,6 +3640,9 @@ html[data-theme=dark]{
 .ts-party .emp-per .chip{padding:7px 12px;font-size:12.5px}
 .emp-jur{align-items:flex-start}
 .emp-jur .jp{min-width:260px;flex:1 1 260px}
+/* The contractor version slider (C0) on its own row, the buttons beneath. */
+.emp-scale{flex-wrap:wrap}
+.emp-scale .gd{flex:1 1 100%;margin:0 0 4px}
 .ts-party .ts-check{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--tx-2)}
 .ts-summary{margin-top:10px}
 .ts-summary dt{color:var(--tx-3)}
