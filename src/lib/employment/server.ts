@@ -83,8 +83,9 @@ export function cleanEmployee(raw: unknown): Employee {
 }
 
 export function cleanJob(raw: unknown): Job {
-  const j = fields<Job>(raw, ["position", "salary", "salary_period", "pay_day", "start_date", "work_location", "working_hours", "leave_days"]);
-  return { ...j, position: j.position ?? "", salary_period: j.salary_period === "year" ? "year" : "month" };
+  const j = fields<Job>(raw, ["position", "salary", "salary_period", "pay_day", "start_date", "work_location", "work_arrangement", "travel", "working_hours", "leave_days"]);
+  const arrangement = j.work_arrangement === "office" || j.work_arrangement === "hybrid" || j.work_arrangement === "remote" ? j.work_arrangement : undefined;
+  return { ...j, position: j.position ?? "", salary_period: j.salary_period === "year" ? "year" : "month", work_arrangement: arrangement };
 }
 
 export function cleanAi(raw: unknown): AiFields | null {

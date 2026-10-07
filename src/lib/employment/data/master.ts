@@ -57,9 +57,9 @@ export const HEADER: string[] = [
   "**{{date}}**",
   "Dear {{employee_name}},",
   "**EMPLOYMENT WITH {{COMPANY_NAME}}**",
-  "This employment agreement (the \"**Agreement**\") sets out the key terms that will govern your employment arrangement with **{{company_name}}** ({{registration_label}}: {{company_reg_no}}) (the \"**Company**\"), a company incorporated in {{company_jurisdiction}}. This Agreement remains subject to local employment laws and regulations, including but not limited to the applicable employment legislation of {{law}} (as amended and updated from time to time) (the \"**Employment Act**\") as well as the policies implemented by the board of the Company from time to time.",
+  "This employment agreement (the \"**Agreement**\") sets out the key terms that will govern your employment arrangement with **{{company_name}}** ({{registration_label}}: {{company_reg_no}}) (the \"**Company**\"), a company incorporated in {{company_jurisdiction}}. This Agreement remains subject to local employment laws and regulations, including but not limited to the applicable employment legislation of {{law}} (as amended and updated from time to time) (the \"**Employment Laws**\") as well as the policies implemented by the board of the Company from time to time.",
   "You shall be employed as {{position}} and you will be paid a salary of {{salary}} per {{salary_period}}, as may be updated by the Company from time to time (the \"**Salary**\"), payable on {{pay_day}}. You will report to such persons as directed by the Company from time to time. You will be based in {{work_location}}, or such other location as may be directed by the Company from time to time.",
-  "In this Agreement, the reference to the term \"**Group**\" shall include the Company, its subsidiaries and (where applicable), its parent company.",
+  "In this Agreement, the reference to the term \"**Group**\" shall include the Company, its subsidiaries and (where applicable), its parent company, and their respective parents and subsidiaries from time to time.",
   "Where applicable, words importing the singular shall include the plural and vice-versa and references to any statute or provision thereof shall be deemed also to refer to any statutory modification or re‑enactment thereof or any statutory instrument, order or regulation made thereunder or under such re‑enactment.",
 ];
 
@@ -81,6 +81,8 @@ export const TABLE_A: TableRow[] = [
   { id: "commencement", item: "Date of Commencement", clause: "term" },
   { id: "fixed_term", item: "End of Fixed Term", clause: "term" },
   { id: "probation", item: "Probation Period", clause: "probation" },
+  { id: "place", item: "Place of Work", clause: "place_of_work" },
+  { id: "travel", item: "Travel", clause: "place_of_work" },
   { id: "hours", item: "Normal Working Hours", clause: "hours" },
   { id: "leave", item: "Annual Leave", clause: "annual_leave" },
   { id: "restricted_period", item: "Restricted Period", clause: "restrictive_covenants" },
@@ -92,6 +94,8 @@ export const TABLE_TEXT: Record<string, string> = {
   fixed_term: "{{end_date}}, when your employment shall end automatically unless terminated earlier",
   probation_none: "Not Applicable.",
   probation: "{{probation_period}}, as may be extended by the Company in its discretion. During the probation period, your salary shall be the Salary and your termination notice period shall be {{probation_notice}}.",
+  place: "{{work_place}}",
+  travel: "{{travel}}",
   hours: "{{working_hours}}",
   leave: "{{annual_leave}} (\"**Annual Leave**\")",
   restricted_period: "The period of your employment and a further period of {{restricted_months}} from the date you cease to be employed by the Company.",
@@ -111,7 +115,7 @@ export const SECTIONS: MasterSection[] = [
         id: "term",
         text: "**Term of Employment.** Subject to the conditions set out below, your employment hereunder shall commence on the Commencement Date and shall continue until it is terminated in accordance with the terms of this Agreement (the \"**Term**\"). You acknowledge that the Company has the right to terminate your employment immediately and without notice and/or withdraw the offer set out in this Agreement if any of the conditions are not met, in the opinion of the Company:",
         subs: [
-          { ref: "(a)", text: "you fail to hold the requisite approvals to work in {{work_location}} or if you lose your right to work in {{work_location}} at any time during your employment; and/or" },
+          { ref: "(a)", text: "you fail to hold the requisite approvals to work in {{work_country}} or if you lose your right to work in {{work_country}} at any time during your employment; and/or" },
           { ref: "(b)", text: "the reference checks conducted by the Company and/or its authorised representative(s) are not successfully completed or completed to the satisfaction of the Company," },
           { ref: null, text: "and this Agreement shall thereafter be rendered null and void save for the provisions that are stated to survive the termination of this Agreement." },
         ],
@@ -121,12 +125,16 @@ export const SECTIONS: MasterSection[] = [
         text: "**Probation Period.** Where applicable, the Company may impose a probationary period, the terms of which are specified in {{item:probation}} of Table A (Summary of Employment Terms).",
       },
       {
+        id: "place_of_work",
+        text: "**Place of Work and Travel.** Your place of work is set out in {{item:place}} of Table A (Summary of Employment Terms). You may be required to travel in the course of your duties as set out in {{item:travel}} of Table A, and to work at such other locations as the Company may reasonably require from time to time.",
+      },
+      {
         id: "hours",
         text: "**Normal Working Hours.** Your normal working hours are set out in {{item:hours}} of Table A (Summary of Employment Terms).",
       },
       {
         id: "hours_variation",
-        text: "**Variations in Working Hours.** Subject to the Employment Act, the Company may vary your normal working hours from time to time subject to your job requirements. You may also be required to work overtime in addition to your normal hours or on certain weekends and public holidays as required by the Company. Unless otherwise stated in Table A (Summary of Employment Terms), any applicable overtime rate shall be discussed and agreed upon with you in writing in accordance with applicable laws.",
+        text: "**Variations in Working Hours.** Subject to the Employment Laws, the Company may vary your normal working hours from time to time subject to your job requirements. You may also be required to work overtime in addition to your normal hours or on certain weekends and public holidays as required by the Company. Unless otherwise stated in Table A (Summary of Employment Terms), any applicable overtime rate shall be discussed and agreed upon with you in writing in accordance with applicable laws.",
       },
     ],
   },
@@ -230,7 +238,7 @@ export const SECTIONS: MasterSection[] = [
     clauses: [
       {
         id: "annual_leave",
-        text: "**Annual Leave.** Subject to the Employment Act as amended from time to time, you will be entitled to annual leave as set out in {{item:leave}} of Table A (Summary of Employment Terms); in addition to all public holidays gazetted in {{law}}.",
+        text: "**Annual Leave.** Subject to the Employment Laws as amended from time to time, you will be entitled to annual leave as set out in {{item:leave}} of Table A (Summary of Employment Terms); in addition to all public holidays gazetted in {{law}}.",
       },
       {
         id: "pro_rata",
@@ -326,7 +334,7 @@ export const SECTIONS: MasterSection[] = [
     clauses: [
       {
         id: "termination",
-        text: "**Termination.** Upon the expiry of the probation period (if any), this Agreement may be terminated by you or the Company by giving the other party prior written notice of termination{{in_lieu}} in accordance with the Termination Notice Period specified in {{item:notice}} of Table A (Summary of Employment Terms).",
+        text: "**Termination.** Upon the expiry of the probation period (if any), this Agreement may be terminated by you or the Company by giving the other party prior written notice of termination in accordance with the Termination Notice Period specified in {{item:notice}} of Table A (Summary of Employment Terms).",
       },
       {
         id: "summary_dismissal",
@@ -378,47 +386,16 @@ export const SECTIONS: MasterSection[] = [
     ],
   },
   {
-    id: "privacy",
-    heading: "PRIVACY CONSENT",
+    id: "data_protection",
+    heading: "DATA PROTECTION",
     clauses: [
       {
-        id: "pd_definitions",
-        text: "**Definitions.** In this Clause, the following terms are defined as follows:",
-        subs: [
-          { ref: null, text: "\"**Personal Data**\" means any information about you, including but not limited to your name, address, references, bank details, salary, stock options, performance appraisals, work skills and career achievements, vacation, other benefits, sickness, work records, management and organisational appraisals and data held for employment law purposes, and shall include information about any next of kin, if appropriate, and/or other persons about whom data may be collected; and" },
-          { ref: null, text: "\"**Processing**\" or \"**Process**\" means carrying out any operation or set of operations on Personal Data including, but not limited to, collecting, obtaining, organising, consulting, using, disclosing or destroying." },
-        ],
+        id: "dp_notice",
+        text: "**Personal Data.** The Company will collect, use and disclose your personal data for the purposes of your employment, and will do so in accordance with the applicable data protection legislation of {{law}} and the Company's employee privacy notice as issued and updated from time to time. The employee privacy notice does not form part of this Agreement and does not create contractual rights or obligations.",
       },
       {
-        id: "pd_use",
-        text: "**Use of Personal Data.** You acknowledge and agree that the Company, by itself or through third parties, will Process Personal Data and that this Personal Data may be used for personnel, administration and management purposes in connection with your employment or the administration of post-employment benefits to comply with any obligations that the Company or any Group company may have regarding the retention of employee/worker records. You acknowledge and agree that the Company may use your Personal Data for legitimate and reasonable purposes, including but not limited to:",
-        subs: [
-          { ref: "(a)", text: "administering and maintaining personnel records, including medical records and information about your physical and mental health or condition;" },
-          { ref: "(b)", text: "paying, reviewing and administering salary and other remuneration and benefits;" },
-          { ref: "(c)", text: "undertaking performance appraisals and reviews;" },
-          { ref: "(d)", text: "maintaining records for sickness, holiday and other absence, including paternity, childcare or infant care leave;" },
-          { ref: "(e)", text: "making decisions about your fitness for work;" },
-          { ref: "(f)", text: "providing references and information to future employers, and if necessary, governmental and quasi-governmental bodies, including the relevant tax and statutory authorities;" },
-          { ref: "(g)", text: "providing information to current and/or future partners and/or purchasers of the Company and/or its business and/or any Group company or any of their respective businesses;" },
-          { ref: "(h)", text: "disciplinary and grievance matters; and" },
-          { ref: "(i)", text: "recruitment activities." },
-        ],
-      },
-      {
-        id: "pd_transfer",
-        text: "**Transfer of Personal Data.** You further understand and agree that Personal Data may if necessary for the above-mentioned purposes, be transferred to third parties, including other Group companies, their advisors, third parties providing products and services, such as IT systems suppliers, pension, benefits, stock options and payroll administrators, as well as regulatory authorities as required by law and relevant stock exchange rules. If your Personal Data is transferred to a country or territory outside {{law}}, we will ensure that the transfer complied with the requirements of the applicable data protection legislation of {{law}}.",
-      },
-      {
-        id: "pd_dpo",
-        text: "**Designated Person.** You understand that you should contact the designated data protection officer with any queries, requests or applications that you may have about your Personal Data.",
-      },
-      {
-        id: "pd_rights",
-        text: "**Your Rights.** You have the right to access the file containing your Personal Data by making a written application to the Company's human resources department and specifying the information required and to request the correction of any inaccuracies that you identify. The Company reserves the right to charge a fee (representing its costs in administering your request) for supplying such data and to refuse requests which, in its opinion, occur with unreasonable frequency.",
-      },
-      {
-        id: "pd_consent",
-        text: "**Consent.** By signing this Agreement, you expressly consent to the Processing and transfer of Personal Data during and after your employment.",
+        id: "dp_information",
+        text: "**Information You Provide.** You shall provide the Company with such personal data as it reasonably requires for the purposes of your employment, and shall keep the Company informed of any change to it. Where you provide the Company with personal data of any other person (such as next of kin), you confirm that you are entitled to do so.",
       },
     ],
   },
@@ -541,7 +518,7 @@ export const SECTIONS: MasterSection[] = [
         text: "**Governing Law & Dispute Resolution.**",
         subs: [
           { ref: "(a)", text: "This Agreement shall be governed by, and construed in accordance with, the laws of {{governing_law}}." },
-          { ref: "(b)", id: "courts", text: "Any dispute arising out of or in connection with this Agreement, including any question regarding its existence, validity or termination, shall be referred to and governed by the exclusive jurisdiction of the courts of {{governing_law}}." },
+          { ref: "(b)", id: "courts", text: "Any dispute arising out of or in connection with this Agreement, including any question regarding its existence, validity or termination, shall be referred to and governed by the exclusive jurisdiction of the courts of {{governing_law}}, without prejudice to your right to bring any claim before an employment tribunal or other statutory body in {{governing_law}} where the law so provides." },
         ],
       },
     ],

@@ -30,7 +30,8 @@ import type { CompanyPrefill } from "./TermSheet";
 import { track } from "@/lib/track";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { DEFAULT_JURISDICTIONS } from "@/lib/jurisdictions";
-import { applyDefaults, questionsFor, workJurisdiction, type Option, type Question } from "@/lib/employment/questions";
+import { applyDefaults, problemWith, questionsFor, workJurisdiction, type Option, type Question } from "@/lib/employment/questions";
+import { leaveFloor } from "@/lib/employment/minimums";
 import { EMPLOYMENT_INTRO } from "@/lib/employment/data/intro";
 import type { AiFields, Answers, DraftStatus, Employee, Employer, Flag, Job } from "@/lib/employment/types";
 
@@ -96,7 +97,6 @@ const SHORT: Record<string, string> = {
   E3c: "Probation",
   E3d: "Notice in probation",
   E4a: "Notice period",
-  E4b: "Pay instead of notice",
   E4c: "Instant dismissal",
   E4d: "Dismissal reasons",
   E5: "Garden leave",
@@ -108,11 +108,9 @@ const SHORT: Record<string, string> = {
   E8a: "Who owns the work",
   E8b: "Moral rights",
   E9: "Outside work",
-  E10a: "Privacy consent",
   E10b: "Disputes",
   M1: "Shares and options",
   M2: "Group companies",
-  M3: "Changes in writing",
 };
 
 function shortLabel(s: Step): string {
@@ -196,6 +194,10 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
   const [docOpen, setDocOpen] = useState(Boolean(resume?.outputHtml));
   const [exporting, setExporting] = useState(false);
   const [copied, setCopied] = useState(false);
+  /* The review points must be seen before the file leaves: the first
+     Download opens them; "I've read them" downloads. */
+  const [checkOpen, setCheckOpen] = useState(false);
+  const [checkRead, setCheckRead] = useState(false);
   const [version, setVersion] = useState(1);
   const editorRef = useRef<{ html: string; plain: string } | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -473,16 +475,34 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
     await fetch(`/api/drafts/${draftId}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ outputHtml: editedHtml, output: plain }) });
   }
 
+  /** The points for the lawyer as a cover sheet, ahead of the contract, so
+   *  they travel with the file whoever opens it. */
+  function coverSheet(): { html: string; text: string } {
+    const points = flags.filter((f) => f.level === "yellow" || f.level === "red");
+    if (points.length === 0) return { html: "", text: "" };
+    const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const intro = `FD AI marked ${points.length === 1 ? "one point" : `${points.length} points`} for whoever checks this contract before it is signed. This page is not part of the Agreement: remove it before the contract goes to the employee.`;
+    const lines = points.map((f, k) => `${k + 1}. ${f.title ?? "Worth checking"}: ${f.reason}`);
+    return {
+      html:
+        `<p class="doc-title">Before you sign</p><p>${esc(intro)}</p>` +
+        points.map((f, k) => `<p><b>${k + 1}. ${esc(f.title ?? "Worth checking")}.</b> ${esc(f.reason)}</p>`).join("") +
+        `<p class="doc-title">\u00a0</p>`,
+      text: `BEFORE YOU SIGN\n\n${intro}\n\n${lines.join("\n\n")}\n\n\n`,
+    };
+  }
+
   async function exportDocx() {
     if (!html || status === "stopped") return;
     setExporting(true);
     try {
+      const cover = coverSheet();
       const res = await fetch("/api/export", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          text: editorRef.current?.plain ?? text,
-          html: editorRef.current?.html ?? html,
+          text: cover.text + (editorRef.current?.plain ?? text),
+          html: cover.html + (editorRef.current?.html ?? html),
           title,
           fileName: `${title.replace(/[^a-zA-Z0-9 &-]/g, "").trim().replace(/\s+/g, "-").slice(0, 48) || "Employment-Agreement"}-V${version}.docx`,
           includeNotes: false,
@@ -694,7 +714,8 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
         );
 
       case "free_text":
-      default:
+      default: {
+        const problem = typed.trim() ? problemWith(q, typed.trim()) : null;
         return (
           <div className="chips">
             <textarea
@@ -705,14 +726,15 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
               value={typed}
               onChange={(e) => setTyped(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey && typed.trim()) {
+                if (e.key === "Enter" && !e.shiftKey && typed.trim() && !problem) {
                   e.preventDefault();
                   commit(q, typed.trim());
                 }
               }}
             />
+            {problem && <p className="ts-refuse" role="alert">{problem}</p>}
             {backButton()}
-            <button type="button" className="go" disabled={!typed.trim()} onClick={() => commit(q, typed.trim())}>
+            <button type="button" className="go" disabled={!typed.trim() || Boolean(problem)} onClick={() => commit(q, typed.trim())}>
               Continue
             </button>
             {!q.required && (
@@ -722,6 +744,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
             )}
           </div>
         );
+      }
     }
   }
 
@@ -798,7 +821,11 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
 
   function jobUI() {
     const set = (patch: Partial<Job>) => setJob((j) => ({ ...j, ...patch }));
-    const ok = Boolean(job.position.trim());
+    const work = str(workJurisdiction(answers));
+    const floor = work ? leaveFloor(work) : null;
+    const leaveDays = Number.parseInt(job.leave_days ?? "", 10);
+    const leaveTooLow = floor !== null && Number.isFinite(leaveDays) && leaveDays > 0 && leaveDays < floor;
+    const ok = Boolean(job.position.trim()) && !leaveTooLow;
     return (
       <div className="ts-parties">
         <div className="ts-party">
@@ -831,9 +858,20 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
               <input className="input" type="date" value={job.start_date ?? ""} onChange={(e) => set({ start_date: e.target.value })} />
             </label>
           </div>
+          <div className="emp-place">
+            <span className="emp-place-h">Place of work</span>
+            <div className="chips emp-arrangement" role="group" aria-label="Working arrangement">
+              {(["office", "hybrid", "remote"] as const).map((v) => (
+                <button key={v} type="button" className={`chip${job.work_arrangement === v ? " on" : ""}`} aria-pressed={job.work_arrangement === v} onClick={() => set({ work_arrangement: job.work_arrangement === v ? undefined : v })}>
+                  {v === "office" ? "Office" : v === "hybrid" ? "Hybrid" : "Remote"}
+                </button>
+              ))}
+            </div>
+            <input className="input" aria-label="Office address or city" value={job.work_location ?? ""} onChange={(e) => set({ work_location: e.target.value })} placeholder={work ? `Office address or city in ${work.split(",")[0]}` : "e.g. 1 Raffles Place, Singapore"} />
+          </div>
           <label>
-            Where they will be based
-            <input className="input" value={job.work_location ?? ""} onChange={(e) => set({ work_location: e.target.value })} placeholder={str(workJurisdiction(answers)) || "e.g. Singapore"} />
+            Travel the job needs
+            <input className="input" value={job.travel ?? ""} onChange={(e) => set({ travel: e.target.value })} placeholder="e.g. Occasional travel within Singapore and Malaysia — or leave blank for none" />
           </label>
           <div className="ts-row">
             <label>
@@ -841,14 +879,27 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
               <input className="input" value={job.working_hours ?? ""} onChange={(e) => set({ working_hours: e.target.value })} placeholder="e.g. 9 a.m. to 6 p.m., Monday to Friday" />
             </label>
             <label>
-              Annual leave (days a year)
-              <input className="input" inputMode="numeric" value={job.leave_days ?? ""} onChange={(e) => set({ leave_days: e.target.value.replace(/[^\d]/g, "").slice(0, 3) })} placeholder="e.g. 14" />
+              Annual leave (working days a year, on top of public holidays)
+              <input
+                className={`input${leaveTooLow ? " bad" : ""}`}
+                inputMode="numeric"
+                value={job.leave_days ?? ""}
+                onChange={(e) => set({ leave_days: e.target.value.replace(/[^\d]/g, "").slice(0, 3) })}
+                placeholder={floor !== null ? `at least ${floor}` : "e.g. 14"}
+              />
+              {floor !== null && (
+                <small className={leaveTooLow ? "ts-refuse" : "ts-floor"}>
+                  {leaveTooLow
+                    ? `Below the legal minimum in ${work.split(",")[0]}: ${floor} working days a year, on top of public holidays. Enter ${floor} or more.`
+                    : `Legal minimum in ${work.split(",")[0]}: ${floor} working days a year, on top of public holidays.`}
+                </small>
+              )}
             </label>
           </div>
         </div>
         <div className="chips">
           {backButton()}
-          <button type="button" className="go" disabled={!ok} onClick={() => settleStep("job")} title={ok ? undefined : "The job title is needed"}>
+          <button type="button" className="go" disabled={!ok} onClick={() => settleStep("job")} title={ok ? undefined : leaveTooLow ? "Annual leave is below the legal minimum" : "The job title is needed"}>
             Continue
           </button>
         </div>
@@ -1271,7 +1322,12 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                         Feedback
                       </button>
                     )}
-                    <button type="button" className="dbtn gold" disabled={exporting} onClick={() => void exportDocx()}>
+                    <button
+                      type="button"
+                      className="dbtn gold"
+                      disabled={exporting}
+                      onClick={() => (yellow.length > 0 && !checkRead ? setCheckOpen(true) : void exportDocx())}
+                    >
                       {exporting ? "Preparing…" : "Download Word"}
                     </button>
                     <button type="button" className="dbtn d-close" aria-label="Close document" title="Close document" onClick={() => setDocOpen(false)}>
@@ -1281,6 +1337,51 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                     </button>
                   </div>
                 </div>
+                {yellow.length > 0 && (
+                  <div className="ts-sign-check" role="note">
+                    <p className="ts-sign-check-h">
+                      <i aria-hidden="true" />
+                      Before you sign: {yellow.length === 1 ? "one point" : `${yellow.length} points`} for your lawyer
+                      <button type="button" className="link-btn" onClick={() => setCheckOpen(true)}>Read them</button>
+                    </p>
+                    <p className="ts-sign-check-sub">
+                      They are not in the contract. They go on the first page of the Word file so they travel with it.
+                    </p>
+                  </div>
+                )}
+                {checkOpen && (
+                  <div className="fb-overlay" onClick={(e) => e.target === e.currentTarget && setCheckOpen(false)}>
+                    <div className="fb-modal ts-check-modal" role="dialog" aria-modal="true" aria-labelledby="emp-check-title">
+                      <h3 id="emp-check-title">Before you sign</h3>
+                      <p className="fb-sub">
+                        {yellow.length === 1 ? "One point" : `${yellow.length} points`} for whoever checks this contract. The statutory rules apply whatever the contract says, so these are worth a lawyer’s ten minutes.
+                      </p>
+                      <ul className="ts-flags">
+                        {yellow.map((f, k) => (
+                          <li key={k} className={f.level === "red" ? "red" : ""}>
+                            <b>{f.title ?? "Worth checking"}</b>
+                            <span>{f.reason}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <div className="fb-actions">
+                        <button type="button" className="dbtn" onClick={() => setCheckOpen(false)}>Close</button>
+                        <button
+                          type="button"
+                          className="dbtn gold"
+                          disabled={exporting}
+                          onClick={() => {
+                            setCheckRead(true);
+                            setCheckOpen(false);
+                            void exportDocx();
+                          }}
+                        >
+                          I’ve read them — download Word
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {fbOpen && (
                   <div className="fb-overlay" onClick={(e) => e.target === e.currentTarget && setFbOpen(false)}>
                     <div className="fb-modal" role="dialog" aria-modal="true" aria-labelledby="emp-fb-title">

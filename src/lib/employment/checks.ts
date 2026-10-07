@@ -9,7 +9,8 @@
  */
 
 import { lawName } from "./assemble";
-import { applyDefaults, countryOf, workJurisdiction } from "./questions";
+import { leaveFloor } from "./minimums";
+import { applyDefaults, countryOf, problemWith, questionsFor, workJurisdiction } from "./questions";
 import type { Answers, Flag, Job } from "./types";
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -29,11 +30,13 @@ export const FLAG_TITLES: Record<string, string> = {
   EM3: "Non-compete left out",
   EM4: "California restrictions",
   EM5: "Arbitration of employment claims",
-  EM6: "Consent for employee data",
+  EM6: "Employee privacy notice",
   EM7: "Company owns all work",
   EM8: "Fixed-term rules",
   EM9: "Senior employee non-compete",
   EM10: "Custom dismissal reasons",
+  EM11: "Annual leave below the legal minimum",
+  EM12: "Restriction too wide to enforce",
 };
 
 export function titleFor(f: Flag): string {
@@ -63,8 +66,8 @@ export function ruleChecks(answersIn: Answers, job: Job): RuleChecks {
       scenario: "EM1",
       reason: sameCountry
         ? `The employer is in ${employer} and the employee works in ${work}. The contract uses the law of ${work}, where the employee works; check that state or part's own employment rules (pay, leave, notice) are met.`
-        : `The employer is based in ${employer} and the employee works in ${work}. ${work}'s employment law will usually protect the employee whatever the contract says, so the contract uses it. Check whether the employer needs a local entity, an employer of record, or registration for payroll tax and social security in ${work}.`,
-      user_message: sameCountry ? undefined : `The employee works in a different country from the employer, so I’ve used the law of ${work}, where they work. Worth checking with your lawyer how you’ll employ them there (a local entity or an employer of record).`,
+        : `The employer is based in ${employer} and the employee works in ${work}. ${work}'s employment law will usually protect the employee whatever the contract says, so the contract uses it. Check whether the employer needs a local entity, an employer of record, or registration for payroll tax and social security in ${work}. Permanent establishment: an employee working in ${work} for a company based elsewhere can make the company taxable in ${work} (a "permanent establishment"), with corporate tax, registration and filing duties there. Get tax advice before the start date.`,
+      user_message: sameCountry ? undefined : `The employee works in a different country from the employer, so I’ve used the law of ${work}, where they work. This set-up is unusual: it can make the company taxable in ${work} (“permanent establishment” risk) and you may need a local entity or an employer of record. Check both with your lawyer and tax adviser before the start date.`,
       field: "E1b",
     });
   }
@@ -94,14 +97,14 @@ export function ruleChecks(answersIn: Answers, job: Job): RuleChecks {
     });
   }
 
-  if (str(a.E10a) !== "leave_out" && (GDPR.has(workCountry) || GDPR.has(work))) {
-    flags.push({
-      level: "yellow",
-      scenario: "EM6",
-      reason: `Under the GDPR (or the UK GDPR) consent is rarely a valid basis for handling an employee's data, because of the imbalance of power. The privacy clause relies on consent; an employee privacy notice is usually needed as well.`,
-      field: "E10a",
-    });
-  }
+  flags.push({
+    level: "yellow",
+    scenario: "EM6",
+    reason:
+      GDPR.has(workCountry) || GDPR.has(work)
+        ? `The contract does not ask the employee to consent to the use of their data: under the GDPR (or the UK GDPR) consent is not a valid basis for an employer, and regulators have fined companies for relying on it. Clause "Data Protection" points to an employee privacy notice instead; make sure one is issued before the start date.`
+        : `The contract does not rely on the employee's consent to use their data; it points to an employee privacy notice under ${work || "local"} data protection law. Make sure one is issued before the start date.`,
+  });
 
   if (str(a.E8a) === "all") {
     flags.push({
@@ -121,7 +124,24 @@ export function ruleChecks(answersIn: Answers, job: Job): RuleChecks {
     });
   }
 
-  void job;
+  const floor = leaveFloor(workRaw);
+  const leaveDays = Number.parseInt(str(job.leave_days), 10);
+  if (floor !== null && Number.isFinite(leaveDays) && leaveDays > 0 && leaveDays < floor) {
+    flags.push({
+      level: "red",
+      scenario: "EM11",
+      reason: `Table A gives ${leaveDays} days' annual leave, below the legal minimum in ${work} of ${floor} working days a year (on top of public holidays). The statutory minimum applies whatever the contract says; change the figure before this goes out.`,
+      field: "job",
+    });
+  }
+
+  for (const q of questionsFor(a)) {
+    const why = problemWith(q, a[q.id]);
+    if (why) {
+      flags.push({ level: "red", scenario: "EM12", reason: `${q.text} \u2014 "${str(a[q.id])}". ${why}`, field: q.id });
+    }
+  }
+
   return { flags };
 }
 

@@ -17,7 +17,7 @@
 
 export const EMPLOYMENT_QUESTIONNAIRE = {
   id: "FD_EMP_QUESTIONNAIRE",
-  version: "1.0",
+  version: "1.1",
   for_master: "FD Master Employment Agreement (GENERIC)",
   status: "Draft for FD review",
   questions: [
@@ -130,19 +130,6 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       ],
     },
     {
-      id: "E4b",
-      key: "pay_in_lieu",
-      section: "Ending the job",
-      type: "single_choice",
-      required: true,
-      default: "allowed",
-      text: "Can either side pay salary instead of working the notice?",
-      options: [
-        { value: "allowed", label: "Allowed", recommended: true },
-        { value: "not_allowed", label: "Not allowed" },
-      ],
-    },
-    {
       id: "E4c",
       key: "dismissal_list",
       section: "Ending the job",
@@ -208,10 +195,10 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       default: "6",
       show_if: { q: "E6a", lacks: "none" },
       text: "For how long after they leave?",
+      help: "Courts only enforce a restriction that is no longer than needed to protect the business. Six months is the usual ceiling; longer is rarely upheld.",
       options: [
         { value: "3", label: "3 months" },
         { value: "6", label: "6 months", recommended: true },
-        { value: "12", label: "12 months" },
       ],
     },
     {
@@ -223,8 +210,11 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       max_length: 200,
       show_if: { q: "E6a", lacks: "none" },
       text: "Where do the restrictions apply?",
-      help: "Countries or cities, e.g. “Singapore and Malaysia”. Blank leaves a [●] to fill in.",
+      help: "Name the countries or cities where the company actually does business, e.g. “Singapore and Malaysia”. A worldwide restriction is not enforceable and is not accepted. Blank leaves a [●] to fill in.",
       placeholder: "e.g. Singapore and Malaysia",
+      reject: [
+        { pattern: "\\b(world ?wide|global(ly)?|anywhere|everywhere|all countries|the world|international(ly)?)\\b", message: "Courts do not enforce a worldwide restriction. Name the countries or cities where the company actually does business." },
+      ],
     },
     {
       id: "E6d",
@@ -235,8 +225,11 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       max_length: 200,
       show_if: { q: "E6a", has: "compete" },
       text: "Which business must they not compete with?",
-      help: "The industry or sector, e.g. “online payments”. Blank leaves a [●] to fill in.",
+      help: "The specific industry or sector the company is in, e.g. “online payments for small businesses”. “Any business” is not enforceable and is not accepted. Blank leaves a [●] to fill in.",
       placeholder: "e.g. online payments for small businesses",
+      reject: [
+        { pattern: "\\b(any|all|every|whatever|whichever)\\b.{0,20}\\b(business|industry|sector|compan(y|ies)|field|trade)|\\b(anything|everything)\\b", message: "“Any business” cannot be enforced. Name the specific industry the company competes in." },
+      ],
     },
     /* ── 7 ── */
     {
@@ -300,20 +293,6 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
     },
     /* ── 10 ── */
     {
-      id: "E10a",
-      key: "privacy_consent",
-      section: "Data and disputes",
-      type: "single_choice",
-      required: true,
-      default: "include",
-      text: "Include a data privacy consent clause?",
-      help: "Privacy laws need consent or another legal basis to handle an employee’s personal data.",
-      options: [
-        { value: "include", label: "Include consent clause", recommended: true },
-        { value: "leave_out", label: "Leave it out" },
-      ],
-    },
-    {
       id: "E10b",
       key: "disputes",
       section: "Data and disputes",
@@ -321,6 +300,8 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       required: true,
       default: "courts",
       text: "Where do disputes go?",
+      help: "Not asked when the employee works in the United Kingdom: employment claims there go to the Employment Tribunal and the courts, so the contract says so.",
+      not_for_work_in: ["United Kingdom", "England and Wales", "Scotland", "Northern Ireland"],
       options: [
         { value: "courts", label: "Local courts", recommended: true },
         { value: "arbitration", label: "Private arbitration" },
@@ -353,19 +334,6 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       options: [
         { value: "yes", label: "Yes" },
         { value: "no", label: "No", recommended: true },
-      ],
-    },
-    {
-      id: "M3",
-      key: "written_changes",
-      section: "Optional extras",
-      type: "single_choice",
-      required: true,
-      default: "yes",
-      text: "Must any change to the contract be in writing?",
-      options: [
-        { value: "yes", label: "Yes — in writing only", recommended: true },
-        { value: "no", label: "No" },
       ],
     },
   ],
