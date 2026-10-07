@@ -22,7 +22,7 @@ import {
   IP_SCOPE, PERMANENT_SENTENCE, SECTIONS, TABLE_A, TABLE_A_NOTE, TABLE_A_TITLE, TABLE_TEXT, type MasterClause, type MasterSub,
 } from "./data/master";
 import { applyDefaults, countryOf, partOf, workJurisdiction } from "./questions";
-import type { AiFields, Answers, EmploymentInput, Flag } from "./types";
+import type { AiFields, Answers, EmploymentInput, Flag, Job } from "./types";
 
 export interface Assembled {
   blocks: Block[];
@@ -38,6 +38,16 @@ const GAP = "[●]";
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const list = (v: unknown) => (Array.isArray(v) ? v.map(str).filter(Boolean) : []);
+
+/** Table A "Place of Work": the arrangement and the place, in one line. */
+function workPlace(job: Job): string {
+  const where = str(job.work_location);
+  const how = job.work_arrangement;
+  const arrangement =
+    how === "remote" ? "Remote (working from home)" : how === "hybrid" ? "Hybrid (office and working from home)" : how === "office" ? "Office-based" : "";
+  if (arrangement && where) return `${arrangement} \u2014 ${where}`;
+  return arrangement || where;
+}
 const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
 
 /** "three (3) months", "one (1) week". */
@@ -52,10 +62,10 @@ const PERIOD: Record<string, string> = {
   "6m": words(6, "month"),
 };
 
-export const STATUTORY_NOTICE = "the minimum period of notice required by the Employment Act";
+export const STATUTORY_NOTICE = "the minimum period of notice required by the Employment Laws";
 
 /** Fields that are meant to be empty sometimes: " or salary in lieu …". */
-const MAY_BE_EMPTY = new Set(["in_lieu"]);
+const MAY_BE_EMPTY = new Set<string>(["travel"]);
 
 /** Fill {{fields}}; anything unknown becomes a gap and is reported. */
 function fill(text: string, f: Record<string, string>, missing: Set<string>): string {
@@ -179,16 +189,18 @@ export function assemble(input: EmploymentInput): Assembled {
     salary_period: job.salary_period === "year" ? "year" : "month",
     pay_day: str(job.pay_day),
     work_location: str(job.work_location),
+    work_country: lawCountry || GAP,
+    work_place: workPlace(job),
+    travel: str(job.travel) || "No regular travel is required, save as the Company may reasonably request from time to time",
     commencement_date: start ? formatDate(start) : "",
     end_date: end ? formatDate(end) : "",
     probation_period: cap(PERIOD[probation] ?? ""),
     probation_notice:
       str(a.E3d) === "statutory" ? STATUTORY_NOTICE : str(a.E3d) === "same" ? "the same as the Termination Notice Period" : PERIOD["1w"],
     working_hours: str(job.working_hours),
-    annual_leave: `${Number.isFinite(leaveDays) && leaveDays > 0 ? cap(`${numberWords(leaveDays)} (${leaveDays})`) : GAP} calendar days' annual leave for every twelve (12) months of continuous service for the Company`,
+    annual_leave: `${Number.isFinite(leaveDays) && leaveDays > 0 ? cap(`${numberWords(leaveDays)} (${leaveDays})`) : GAP} working days' paid annual leave per year, accruing pro rata for any part of a year`,
     restricted_months: words(months, "month"),
     notice_period: str(a.E4a) === "statutory" ? cap(STATUTORY_NOTICE) : cap(PERIOD[str(a.E4a)] ?? PERIOD["1m"]),
-    in_lieu: str(a.E4b) === "not_allowed" ? "" : " or salary in lieu of the said notice",
     confidentiality_period: (CONFIDENTIALITY_PERIOD[str(a.E7)] ?? CONFIDENTIALITY_PERIOD.indefinite).text,
     ip_scope: (IP_SCOPE[str(a.E8a)] ?? IP_SCOPE.work_related).own,
     ip_assign_scope: (IP_SCOPE[str(a.E8a)] ?? IP_SCOPE.work_related).assign,
@@ -214,7 +226,6 @@ export function assemble(input: EmploymentInput): Assembled {
   if (str(a.M1) !== "yes") drop.add("leaver");
   if (str(a.E5) === "no") drop.add("garden_leave");
   if (str(a.E8b) === "no") drop.add("moral_rights");
-  if (str(a.M3) === "no") drop.add("variation");
   if (str(a.M2) === "yes") drop.add("third_parties");
   else drop.add("third_parties_group");
 
@@ -263,7 +274,6 @@ export function assemble(input: EmploymentInput): Assembled {
   type Built = { id: string; heading: string; clauses: MasterClause[] };
   const built: Built[] = [];
   for (const sec of SECTIONS) {
-    if (sec.id === "privacy" && str(a.E10a) === "leave_out") continue;
     const clauses = sec.clauses.filter((c) => !drop.has(c.id));
     if (clauses.length === 0) continue;
     built.push({ id: sec.id, heading: sec.heading, clauses });

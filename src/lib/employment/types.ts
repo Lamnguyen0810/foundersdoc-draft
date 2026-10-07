@@ -44,6 +44,10 @@ export interface Job {
   start_date?: string;
   /** City or office address. */
   work_location?: string;
+  /** Office, hybrid or remote — Table A "Place of Work". */
+  work_arrangement?: "office" | "hybrid" | "remote";
+  /** Travel the job needs, in a line — Table A "Travel". */
+  travel?: string;
   working_hours?: string;
   /** Days a year. */
   leave_days?: string;

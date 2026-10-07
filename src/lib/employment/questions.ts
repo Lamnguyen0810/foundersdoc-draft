@@ -26,6 +26,13 @@ export interface Option {
   exclusive?: boolean;
 }
 
+/** A free-text answer the law would not accept: matched, the screen refuses
+ *  it and shows the message. Pattern is a case-insensitive regular expression. */
+export interface Reject {
+  pattern: string;
+  message: string;
+}
+
 export interface Question {
   id: string;
   key: string;
@@ -41,6 +48,10 @@ export interface Question {
   maxItems?: number;
   maxLength?: number;
   defaultValue?: unknown;
+  reject?: Reject[];
+  /** Not asked when the employee works in one of these places; the
+   *  default answer applies. */
+  notForWorkIn?: string[];
 }
 
 const empty = (v: unknown) => v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
@@ -76,7 +87,27 @@ function concrete(q: Raw): Question {
     maxItems: q.max_items as number | undefined,
     maxLength: q.max_length as number | undefined,
     defaultValue: Array.isArray(q.default) ? [...(q.default as unknown[])] : q.default,
+    reject: q.reject as Reject[] | undefined,
+    notForWorkIn: q.not_for_work_in as string[] | undefined,
   };
+}
+
+/** True when the question is not for the place the employee works. */
+function offLimits(q: Raw, a: Answers): boolean {
+  const places = q.not_for_work_in as string[] | undefined;
+  if (!places?.length) return false;
+  const work = workJurisdiction(a);
+  if (!work) return false;
+  return places.includes(work) || places.includes(countryOf(work)) || places.includes(partOf(work));
+}
+
+/** Why a free-text answer cannot be accepted, or null when it can. */
+export function problemWith(q: Question, value: unknown): string | null {
+  if (typeof value !== "string" || !q.reject?.length) return null;
+  for (const r of q.reject) {
+    if (new RegExp(r.pattern, "i").test(value)) return r.message;
+  }
+  return null;
 }
 
 /** Every question, asked or not — for the admin list. */
@@ -91,7 +122,7 @@ export function showIf(id: string): Condition | undefined {
 /** The questions for these answers, in the order they are asked. */
 export function questionsFor(a: Answers): Question[] {
   return (EMPLOYMENT_QUESTIONNAIRE.questions as unknown as Raw[])
-    .filter((q) => evaluate(q.show_if as Condition | undefined, a))
+    .filter((q) => evaluate(q.show_if as Condition | undefined, a) && !offLimits(q, a))
     .map(concrete);
 }
 
