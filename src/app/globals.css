@@ -1140,6 +1140,9 @@ main.wrap-wide>.side,main.wrap-wide>header,.draft-grid,.draft-output{display:non
 .pill{font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;border-radius:999px;padding:4px 9px;white-space:nowrap;color:var(--tx-3);border:1px solid var(--rule-2)}
 .pill.rdy{color:#4a3708;background:var(--gold);border-color:transparent}
 html[data-theme=dark] .pill.rdy{color:#231b03}
+.pill.beta{color:#1b3a6b;background:#e4eefc;border-color:transparent}
+html[data-theme=dark] .pill.beta{color:#cfe0ff;background:#213a63}
+.strip .pill.beta{margin-left:-4px}
 .drow.soon{cursor:default}
 .drow.soon:hover{background:transparent}
 .drow.soon b{color:var(--tx-2);font-weight:500}

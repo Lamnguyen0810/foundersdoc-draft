@@ -21,6 +21,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { BetaBadge, isBeta } from "./beta";
 import { stepsFor, type DocType, type Field } from "@/lib/doctypes";
 import { track } from "@/lib/track";
 import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSlider";
@@ -1058,7 +1059,7 @@ function Catalogue({
             {group ? <i className="in"> · {group}</i> : null}
           </small>
         </span>
-        <span className={`pill${rdy ? " rdy" : ""}`}>{rdy ? "Ready" : "Coming soon"}</span>
+        {rdy && isBeta(d[0]) ? <BetaBadge /> : <span className={`pill${rdy ? " rdy" : ""}`}>{rdy ? "Ready" : "Coming soon"}</span>}
       </button>
     );
   }
@@ -3435,6 +3436,7 @@ function Chat({
           onRename={rename}
           placeholder={`New ${docType.label.toLowerCase()}`}
         />
+        {isBeta(docType.slug) && <BetaBadge />}
         <button type="button" className="chg" onClick={onChangeDocument}>
           Change document
         </button>

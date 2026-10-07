@@ -20,6 +20,7 @@
  */
 
 import Link from "next/link";
+import { BetaBadge } from "./beta";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DocumentEditor from "./DocumentEditor";
 import JurisdictionPicker from "./JurisdictionPicker";
@@ -943,6 +944,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
         <div className="strip">
           <span className="dot" />
           <span className="dname">{isDraft ? title : "New employment contract"}</span>
+          <BetaBadge />
           <Link className="chg" href="/draft">Change document</Link>
         </div>
 
