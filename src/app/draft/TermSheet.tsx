@@ -24,6 +24,7 @@
  */
 
 import Link from "next/link";
+import { BetaBadge } from "./beta";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DocumentEditor from "./DocumentEditor";
 import RailHistory from "./RailHistory";
@@ -1221,6 +1222,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
         <div className="strip">
           <span className="dot" />
           <span className="dname">{isDraft ? title : "New term sheet"}</span>
+          <BetaBadge />
           <Link className="chg" href="/draft">
             Change document
           </Link>
