@@ -20,7 +20,6 @@
  */
 
 import Link from "next/link";
-import { BetaBadge } from "./beta";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DocumentEditor from "./DocumentEditor";
 import JurisdictionPicker from "./JurisdictionPicker";
@@ -108,6 +107,7 @@ const SHORT: Record<string, string> = {
   E8a: "Who owns the work",
   E8b: "Moral rights",
   E9: "Outside work",
+  E10a: "Privacy consent",
   E10b: "Disputes",
   M1: "Shares and options",
   M2: "Group companies",
@@ -995,7 +995,6 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
         <div className="strip">
           <span className="dot" />
           <span className="dname">{isDraft ? title : "New employment contract"}</span>
-          <BetaBadge />
           <Link className="chg" href="/draft">Change document</Link>
         </div>
 

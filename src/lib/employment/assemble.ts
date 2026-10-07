@@ -274,6 +274,7 @@ export function assemble(input: EmploymentInput): Assembled {
   type Built = { id: string; heading: string; clauses: MasterClause[] };
   const built: Built[] = [];
   for (const sec of SECTIONS) {
+    if (sec.id === "privacy" && str(a.E10a) === "leave_out") continue;
     const clauses = sec.clauses.filter((c) => !drop.has(c.id));
     if (clauses.length === 0) continue;
     built.push({ id: sec.id, heading: sec.heading, clauses });

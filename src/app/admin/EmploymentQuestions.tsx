@@ -48,6 +48,7 @@ const SHAPES: Record<string, string> = {
   E8a: "11.2, 11.3, 11.5(b) — “all work” scope ⚑",
   E8b: "11.6 Waiver of Moral Rights in or out",
   E9: "2.3(b) and 2.4 — consent, or fully exclusive; the 5% listed-shares proviso",
+  E10a: "Clause 9 Privacy Consent in or out; GDPR places flagged",
   E10b: "12.8(b) courts, or arbitration ⚑ — not asked when the employee works in the UK",
   M1: "3.3 Good Leaver and Bad Leaver ⚑",
   M2: "12.5 Rights of Group Companies ⚑ instead of “no third-party rights”",
