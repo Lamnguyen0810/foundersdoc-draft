@@ -320,4 +320,21 @@ export const EMPLOYMENT_DATA = {
     "Assembled from the FD master employment agreement. The AI rewords only custom dismissal reasons and flags local-law points (upload the playbook under Playbook → Employment Agreement).",
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA];
+/**
+ * The contractor agreement (083). Beta: the questions are live; until the
+ * FD Master Contractor Agreement is loaded, the answers are saved and the
+ * firm sends the draft. The database gets this row from
+ * 083_contractor_agreement.sql, not from the seed.
+ */
+export const CONTRACTOR_DATA = {
+  slug: "contractor",
+  label: "Contractor Agreement",
+  description:
+    "Engage a freelancer or consultant in any country. Assembled from the FD Master Contractor Agreement by rule from fifteen questions; FD AI flags anything that makes the contractor look like an employee. Beta: until the master is loaded, the answers are saved and the firm sends the draft.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from the FD master contractor agreement. The AI only flags points for the lawyer (upload the playbook under Playbook → Contractor Agreement).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA];

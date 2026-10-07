@@ -87,7 +87,13 @@ const CATALOGUE: CatFolder[] = [
         true,
         "hiring job offer staff employee contract of employment hr",
       ],
-      ["contractor", "Contractor Agreement", "Engage a freelancer or consultant", false, "freelancer consultant independent"],
+      [
+        "contractor",
+        "Contractor Agreement",
+        "Engage a freelancer or consultant — any country, from our lawyers’ master",
+        true,
+        "freelancer consultant independent contractor services agreement gig",
+      ],
     ],
   ],
   [

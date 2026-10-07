@@ -5,6 +5,7 @@ import { getWallet } from "@/lib/billing/credits";
 import DraftChat from "./DraftChat";
 import TermSheet from "./TermSheet";
 import Employment from "./Employment";
+import Contractor from "./Contractor";
 import { recentDrafts } from "./recent";
 import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
 
@@ -50,7 +51,7 @@ export default async function DraftPage({
   const preset = docTypes.find((d) => d.slug === presetSlug);
   if (preset?.engine === "assembly") {
     const company = isSupabaseConfigured() && user ? await loadCompanyProfile() : null;
-    const Screen = preset.slug === "employment" ? Employment : TermSheet;
+    const Screen = preset.slug === "employment" ? Employment : preset.slug === "contractor" ? Contractor : TermSheet;
     return (
       <Screen
         look={looks[preset.slug]}
