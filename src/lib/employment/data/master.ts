@@ -386,16 +386,47 @@ export const SECTIONS: MasterSection[] = [
     ],
   },
   {
-    id: "data_protection",
-    heading: "DATA PROTECTION",
+    id: "privacy",
+    heading: "PRIVACY CONSENT",
     clauses: [
       {
-        id: "dp_notice",
-        text: "**Personal Data.** The Company will collect, use and disclose your personal data for the purposes of your employment, and will do so in accordance with the applicable data protection legislation of {{law}} and the Company's employee privacy notice as issued and updated from time to time. The employee privacy notice does not form part of this Agreement and does not create contractual rights or obligations.",
+        id: "pd_definitions",
+        text: "**Definitions.** In this Clause, the following terms are defined as follows:",
+        subs: [
+          { ref: null, text: "\"**Personal Data**\" means any information about you, including but not limited to your name, address, references, bank details, salary, stock options, performance appraisals, work skills and career achievements, vacation, other benefits, sickness, work records, management and organisational appraisals and data held for employment law purposes, and shall include information about any next of kin, if appropriate, and/or other persons about whom data may be collected; and" },
+          { ref: null, text: "\"**Processing**\" or \"**Process**\" means carrying out any operation or set of operations on Personal Data including, but not limited to, collecting, obtaining, organising, consulting, using, disclosing or destroying." },
+        ],
       },
       {
-        id: "dp_information",
-        text: "**Information You Provide.** You shall provide the Company with such personal data as it reasonably requires for the purposes of your employment, and shall keep the Company informed of any change to it. Where you provide the Company with personal data of any other person (such as next of kin), you confirm that you are entitled to do so.",
+        id: "pd_use",
+        text: "**Use of Personal Data.** You acknowledge and agree that the Company, by itself or through third parties, will Process Personal Data and that this Personal Data may be used for personnel, administration and management purposes in connection with your employment or the administration of post-employment benefits to comply with any obligations that the Company or any Group company may have regarding the retention of employee/worker records. You acknowledge and agree that the Company may use your Personal Data for legitimate and reasonable purposes, including but not limited to:",
+        subs: [
+          { ref: "(a)", text: "administering and maintaining personnel records, including medical records and information about your physical and mental health or condition;" },
+          { ref: "(b)", text: "paying, reviewing and administering salary and other remuneration and benefits;" },
+          { ref: "(c)", text: "undertaking performance appraisals and reviews;" },
+          { ref: "(d)", text: "maintaining records for sickness, holiday and other absence, including paternity, childcare or infant care leave;" },
+          { ref: "(e)", text: "making decisions about your fitness for work;" },
+          { ref: "(f)", text: "providing references and information to future employers, and if necessary, governmental and quasi-governmental bodies, including the relevant tax and statutory authorities;" },
+          { ref: "(g)", text: "providing information to current and/or future partners and/or purchasers of the Company and/or its business and/or any Group company or any of their respective businesses;" },
+          { ref: "(h)", text: "disciplinary and grievance matters; and" },
+          { ref: "(i)", text: "recruitment activities." },
+        ],
+      },
+      {
+        id: "pd_transfer",
+        text: "**Transfer of Personal Data.** You further understand and agree that Personal Data may if necessary for the above-mentioned purposes, be transferred to third parties, including other Group companies, their advisors, third parties providing products and services, such as IT systems suppliers, pension, benefits, stock options and payroll administrators, as well as regulatory authorities as required by law and relevant stock exchange rules. If your Personal Data is transferred to a country or territory outside {{law}}, we will ensure that the transfer complied with the requirements of the applicable data protection legislation of {{law}}.",
+      },
+      {
+        id: "pd_dpo",
+        text: "**Designated Person.** You understand that you should contact the designated data protection officer with any queries, requests or applications that you may have about your Personal Data.",
+      },
+      {
+        id: "pd_rights",
+        text: "**Your Rights.** You have the right to access the file containing your Personal Data by making a written application to the Company's human resources department and specifying the information required and to request the correction of any inaccuracies that you identify. The Company reserves the right to charge a fee (representing its costs in administering your request) for supplying such data and to refuse requests which, in its opinion, occur with unreasonable frequency.",
+      },
+      {
+        id: "pd_consent",
+        text: "**Consent.** By signing this Agreement, you expressly consent to the Processing and transfer of Personal Data during and after your employment.",
       },
     ],
   },

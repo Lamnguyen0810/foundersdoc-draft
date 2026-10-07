@@ -30,7 +30,7 @@ export const FLAG_TITLES: Record<string, string> = {
   EM3: "Non-compete left out",
   EM4: "California restrictions",
   EM5: "Arbitration of employment claims",
-  EM6: "Employee privacy notice",
+  EM6: "Consent for employee data",
   EM7: "Company owns all work",
   EM8: "Fixed-term rules",
   EM9: "Senior employee non-compete",
@@ -97,14 +97,14 @@ export function ruleChecks(answersIn: Answers, job: Job): RuleChecks {
     });
   }
 
-  flags.push({
-    level: "yellow",
-    scenario: "EM6",
-    reason:
-      GDPR.has(workCountry) || GDPR.has(work)
-        ? `The contract does not ask the employee to consent to the use of their data: under the GDPR (or the UK GDPR) consent is not a valid basis for an employer, and regulators have fined companies for relying on it. Clause "Data Protection" points to an employee privacy notice instead; make sure one is issued before the start date.`
-        : `The contract does not rely on the employee's consent to use their data; it points to an employee privacy notice under ${work || "local"} data protection law. Make sure one is issued before the start date.`,
-  });
+  if (str(a.E10a) !== "leave_out" && (GDPR.has(workCountry) || GDPR.has(work))) {
+    flags.push({
+      level: "yellow",
+      scenario: "EM6",
+      reason: `Under the GDPR (or the UK GDPR) consent is rarely a valid basis for handling an employee's data, because of the imbalance of power. The privacy clause relies on consent; an employee privacy notice is usually needed as well.`,
+      field: "E10a",
+    });
+  }
 
   if (str(a.E8a) === "all") {
     flags.push({

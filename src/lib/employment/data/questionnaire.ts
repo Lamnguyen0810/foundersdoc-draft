@@ -293,6 +293,20 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
     },
     /* ── 10 ── */
     {
+      id: "E10a",
+      key: "privacy_consent",
+      section: "Data and disputes",
+      type: "single_choice",
+      required: true,
+      default: "include",
+      text: "Include a data privacy consent clause?",
+      help: "Privacy laws need consent or another legal basis to handle an employee’s personal data.",
+      options: [
+        { value: "include", label: "Include consent clause", recommended: true },
+        { value: "leave_out", label: "Leave it out" },
+      ],
+    },
+    {
       id: "E10b",
       key: "disputes",
       section: "Data and disputes",
