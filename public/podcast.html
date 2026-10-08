@@ -1975,7 +1975,7 @@
     </footer>
 
     <script>
-      (function () {
+      window.__fdPodcastInit = function () {
         var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
         var CAT = { fundraising: "Fundraising", companydocs: "Company docs", hr: "HR", ma: "M&A", general: "Lawyers react" };
@@ -2328,8 +2328,125 @@
             form.reset();
           });
         }
+      };
+    
+      /* Videos added from the admin console (085): /api/podcast lists them.
+         Each gets a slide at the top (if featured), a card in New episodes
+         and a card on its shelf, in front of the ones built into the page —
+         then the page's own script runs. If the API is slow or away, the
+         page runs as built after two seconds. */
+      (function () {
+        var started = false;
+        function start() { if (started) return; started = true; if (window.__fdPodcastInit) window.__fdPodcastInit(); }
+        var timer = setTimeout(start, 2000);
+        if (!window.fetch) { start(); return; }
+        function esc(t) { return String(t == null ? "" : t); }
+        function el(tag, cls, attrs) {
+          var e = document.createElement(tag);
+          if (cls) e.className = cls;
+          if (attrs) Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+          return e;
+        }
+        var TC = { fundraising: "#f3bf4b", companydocs: "#6fb1ff", general: "#c79bff", hr: "#7fd6a0", ma: "#f28b6e" };
+        var PLAY = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4l14 8-14 8z" /></svg>';
+        var DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" /></svg>';
+        function watch(id) { return "https://www.youtube.com/watch?v=" + id; }
+        function thumb(id) { return "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg"; }
+        function card(v, badge) {
+          var a = el("a", "card", { "data-id": v.id, "data-cat": v.cat, "data-date": v.date, "data-title": v.title, "data-desc": v.desc, href: watch(v.id), target: "_blank", rel: "noopener" });
+          a.style.setProperty("--tc", TC[v.cat] || "#c79bff");
+          var frame = el("span", "frame");
+          var img = el("img", "", { "data-yt": v.id, src: thumb(v.id), alt: "", loading: "lazy", decoding: "async" });
+          frame.appendChild(img);
+          if (badge) { var b = el("span", "badge"); b.textContent = "New"; frame.appendChild(b); }
+          var dur = el("span", "dur"); dur.textContent = v.kind; frame.appendChild(dur);
+          frame.appendChild(el("span", "play", { "aria-hidden": "true" }));
+          var info = el("span", "info");
+          var h = el("h3"); h.textContent = v.title; info.appendChild(h);
+          var tags = el("span", "tags");
+          var b1 = el("b"); b1.textContent = v.catLabel; tags.appendChild(b1);
+          var i1 = el("i"); i1.textContent = v.dateLabel; tags.appendChild(i1);
+          var i2 = el("i"); i2.textContent = "Episode"; tags.appendChild(i2);
+          info.appendChild(tags);
+          var desc = el("span", "desc"); desc.textContent = v.desc; info.appendChild(desc);
+          a.appendChild(frame); a.appendChild(info);
+          return a;
+        }
+        function slide(v) {
+          var d = el("div", "slide", { "data-id": v.id, "data-title": v.title, "data-desc": v.desc, "data-cat": v.cat, "data-date": v.date, "aria-hidden": "true" });
+          var art = el("div", "art", { "aria-hidden": "true" });
+          art.appendChild(el("img", "", { src: thumb(v.id), alt: "", loading: "lazy", decoding: "async" }));
+          d.appendChild(art);
+          var wrap = el("div", "wrap bill-grid");
+          var copy = el("div", "bill-copy");
+          var eye = el("span", "eyebrow"); eye.appendChild(el("i")); eye.appendChild(document.createTextNode("Recently added")); copy.appendChild(eye);
+          var h1 = el("h1"); h1.textContent = v.title; copy.appendChild(h1);
+          var meta = el("div", "meta");
+          var pill = el("span", "pill"); pill.textContent = "Episode"; meta.appendChild(pill);
+          var dt = el("span"); dt.textContent = v.dateLabel; meta.appendChild(dt);
+          meta.appendChild(el("span", "dot", { "aria-hidden": "true" }));
+          var ct = el("span"); ct.textContent = v.catLabel; meta.appendChild(ct);
+          copy.appendChild(meta);
+          var sub = el("p", "sub"); sub.textContent = v.desc; copy.appendChild(sub);
+          var actions = el("div", "actions");
+          var play = el("a", "btn btn-white play-btn", { "data-id": v.id, href: watch(v.id), target: "_blank", rel: "noopener" });
+          play.innerHTML = PLAY; play.appendChild(document.createTextNode("Play episode")); actions.appendChild(play);
+          var browse = el("a", "btn btn-ghost", { href: "#browse" });
+          browse.innerHTML = DOWN; browse.appendChild(document.createTextNode("Browse all")); actions.appendChild(browse);
+          copy.appendChild(actions);
+          wrap.appendChild(copy);
+          var video = el("a", "bill-video play-btn", { "data-id": v.id, href: watch(v.id), target: "_blank", rel: "noopener", "aria-label": "Play: " + esc(v.title) });
+          video.appendChild(el("img", "", { "data-yt": v.id, src: thumb(v.id), alt: "", decoding: "async" }));
+          video.appendChild(el("span", "play", { "aria-hidden": "true" }));
+          wrap.appendChild(video);
+          d.appendChild(wrap);
+          return d;
+        }
+        function inject(videos) {
+          var have = {};
+          Array.prototype.forEach.call(document.querySelectorAll("[data-id]"), function (n) { have[n.getAttribute("data-id")] = true; });
+          var fresh = videos.filter(function (v) { return v && v.id && !have[v.id]; });
+          if (!fresh.length) return;
+          /* newest first on the page: insert in reverse so the first in the list ends up first */
+          var shelfNew = document.querySelector("#shelf-new .track");
+          var bill = document.querySelector(".bill");
+          var dots = document.querySelector(".bill .dots");
+          var firstSlide = bill ? bill.querySelector(".slide") : null;
+          fresh.slice().reverse().forEach(function (v) {
+            if (shelfNew) shelfNew.insertBefore(card(v, true), shelfNew.firstChild);
+            var track = v.shelf ? document.querySelector("#" + v.shelf + " .track") : null;
+            if (track) track.insertBefore(card(v, false), track.firstChild);
+            if (v.featured && bill && firstSlide) {
+              var sl = slide(v);
+              bill.insertBefore(sl, bill.querySelector(".slide"));
+              if (dots) dots.appendChild(el("button", "dot-btn", { type: "button", "aria-label": "Show featured episode", "aria-pressed": "false" }));
+            }
+          });
+          /* the first slide is the one that shows */
+          if (bill) {
+            var slides = bill.querySelectorAll(".slide");
+            Array.prototype.forEach.call(slides, function (sl, i) {
+              sl.classList.toggle("on", i === 0);
+              sl.setAttribute("aria-hidden", i === 0 ? "false" : "true");
+              var eye = sl.querySelector(".eyebrow");
+              if (eye) { eye.textContent = ""; eye.appendChild(el("i")); eye.appendChild(document.createTextNode(i === 0 ? "Latest episode" : "Recently added")); }
+            });
+            if (dots) Array.prototype.forEach.call(dots.querySelectorAll(".dot-btn"), function (b, i) {
+              b.classList.toggle("on", i === 0); b.setAttribute("aria-pressed", i === 0 ? "true" : "false"); b.setAttribute("aria-label", "Show featured episode " + (i + 1));
+            });
+          }
+          /* scroll anchoring keeps the old first card in view after the insert; the new ones go first */
+          Array.prototype.forEach.call(document.querySelectorAll(".shelf .track"), function (t) { t.scrollLeft = 0; });
+          /* only the two newest in New episodes wear the badge */
+          if (shelfNew) Array.prototype.forEach.call(shelfNew.querySelectorAll(".card .badge"), function (b, i) { if (i >= 2) b.parentNode.removeChild(b); });
+        }
+        fetch("/api/podcast", { headers: { accept: "application/json" } })
+          .then(function (r) { return r.ok ? r.json() : { videos: [] }; })
+          .then(function (data) { try { inject((data && data.videos) || []); } catch (e) { /* the page runs as built */ } })
+          .catch(function () {})
+          .then(function () { clearTimeout(timer); start(); });
       })();
-    </script>
+</script>
   <script defer src="/fd-track.js"></script>
   <script defer src="/fd-subscribe.js"></script>
 </body>

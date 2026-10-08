@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import BlogAdmin, { type BlogRow } from "./BlogAdmin";
+import Videos from "./Videos";
+import type { VideoRow } from "@/lib/podcast/videos";
 import { retiredFieldKeys, tidyStepQuestion } from "@/lib/doctypes.server";
 import AiCreditPanel, { type AiCreditMeter } from "./AiCreditPanel";
 import CreditsPanel, { type Action } from "./CreditsPanel";
@@ -56,7 +58,7 @@ import { nameFallback } from "@/lib/draft-name";
 export const metadata = { title: "Admin — FDAI" };
 export const dynamic = "force-dynamic";
 
-type Tab = "overview" | "weekly-report" | "documents" | "users" | "credits" | "ai-files" | "blog" | "review" | "logs";
+type Tab = "overview" | "weekly-report" | "documents" | "users" | "credits" | "ai-files" | "blog" | "videos" | "review" | "logs";
 
 /* The design's six sections, in its order. Overview and Logs are in the
    sidebar because the design has them there; their panels say plainly that
@@ -73,6 +75,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "ai-files", label: "AI files" },
   /* Articles written here go live on the blog without a deploy (055). */
   { id: "blog", label: "Blog" },
+  /* YouTube videos put on /podcast from a link (085). */
+  { id: "videos", label: "Videos" },
   /* Stopped term sheets and employment agreements. Rarely used now that 🟡 points go to the user's own
      lawyer, so it lives on its own tab rather than in the AI files flow. */
   { id: "review", label: "Review queue" },
@@ -505,6 +509,14 @@ export default async function AdminPage({
     blogMissing = Boolean(res.error && /blog_posts/.test(res.error.message));
     blogPosts = (res.data as BlogRow[] | null) ?? [];
   }
+  /* ── Videos: YouTube links put on the podcast page (085) ───────────── */
+  let videoRows: VideoRow[] = [];
+  let videosMissing = false;
+  if (tab === "videos") {
+    const res = await supabase.from("podcast_videos").select("*").order("published_on", { ascending: false }).order("created_at", { ascending: false }).limit(300);
+    videosMissing = Boolean(res.error && /podcast_videos/.test(res.error.message));
+    videoRows = (res.data as VideoRow[] | null) ?? [];
+  }
   if (tab === "review") {
     /* Term sheets the playbook stopped (048). */
     const rq = await supabase.rpc("review_queue");
@@ -809,7 +821,7 @@ export default async function AdminPage({
             <h1>Admin Dashboard</h1>
           </div>
           <div className="hero-actions">
-            <div className={tab === "ai-files" || tab === "blog" || tab === "review" || tab === "weekly-report" ? "period-group is-hidden" : "period-group"}>
+            <div className={tab === "ai-files" || tab === "blog" || tab === "videos" || tab === "review" || tab === "weekly-report" ? "period-group is-hidden" : "period-group"}>
               <span className="period-label">Period</span>
               <PeriodSelect tab={tab} days={days} q={q} ranges={RANGES} />
               <Link className="btn refresh-btn" href={tabHref(tab, days, q)}>
@@ -1617,6 +1629,8 @@ export default async function AdminPage({
             {tab === "blog" && (
               <BlogAdmin posts={blogPosts} missing={blogMissing} supabaseUrl={supabaseUrl()} supabaseKey={supabasePublishableKey()} />
             )}
+
+            {tab === "videos" && <Videos rows={videoRows} missing={videosMissing} />}
 
             {tab === "ai-files" && (
               <>
