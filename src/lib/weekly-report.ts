@@ -86,7 +86,11 @@ export interface WeeklyReport {
   documents_downloaded: number;
   page_views: number;
   accounts_created: number;
-  /** People who came more than three separate times. Counted in `visitors` too. */
+  /** Frequent visitors: people who came more than three separate times.
+   *  Counted in `visitors` too. */
+  frequent_visitors: number;
+  /** The same figure as `frequent_visitors`, under its old name, kept so an
+   *  existing Zap does not break. */
   unique_visitors: number;
   /** Arrivals. Four pages in one sitting is one visitor. */
   visitors: number;
@@ -246,6 +250,7 @@ async function reportFor(client: SupabaseClient, start: Date, end: Date): Promis
     documents_downloaded: downloads,
     page_views: views.length,
     accounts_created: accounts,
+    frequent_visitors: frequent,
     unique_visitors: frequent,
     visitors: arrivals,
     visits: arrivals,
