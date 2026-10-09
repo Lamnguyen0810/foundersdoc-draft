@@ -93,6 +93,13 @@ const CATALOGUE: CatFolder[] = [
         true,
         "spa share purchase agreement sale of shares buy sell acquisition exit warranties indemnity",
       ],
+      [
+        "ssa",
+        "Share Subscription Agreement",
+        "Bring an investor in for new shares — Basic, Standard or Complex, from our lawyers’ question bank",
+        true,
+        "ssa share subscription agreement investor investment new shares seed angel fundraising warranties",
+      ],
       ["vesting", "Share Vesting Letter", "Vest founder shares over time", false, "cliff equity founders"],
       ["esop", "Employee Share Option Plan", "Grant options to your team", false, "esop options equity staff"],
     ],
@@ -645,6 +652,7 @@ export default function DraftChat({
         ["fdai.cofounder-handoff", "cofounder"],
         ["fdai.sha-handoff", "sha"],
         ["fdai.spa-handoff", "spa"],
+        ["fdai.ssa-handoff", "ssa"],
         ["fdai.term-handoff", "term"],
       ] as const) {
         const raw = window.localStorage.getItem(key);

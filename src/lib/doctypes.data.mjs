@@ -387,4 +387,21 @@ export const SPA_DATA = {
     "Assembled from a Founders Doc share purchase agreement precedent. The AI only flags points for the lawyer (upload the playbook under Playbook → Share Purchase Agreement).",
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA];
+/**
+ * The share subscription agreement (089). Beta: the FD Lite SSA question
+ * bank (Basic / Standard / Complex), assembled by rule with wording from the
+ * Singapore VIMA model subscription agreement (src/lib/ssa). The database
+ * gets this row from 089_share_subscription_agreement.sql.
+ */
+export const SSA_DATA = {
+  slug: "ssa",
+  label: "Share Subscription Agreement",
+  description:
+    "An investor subscribes for new shares in a Singapore company: the shares and amount, completion, warranties, caps and undertakings, in the FD Lite Basic, Standard or Complex version. Assembled by rule from the firm's question bank; FD AI flags points for the lawyer. Beta.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from the FD Lite share subscription agreement question bank. The AI only flags points for the lawyer (upload the playbook under Playbook → Share Subscription Agreement).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA];

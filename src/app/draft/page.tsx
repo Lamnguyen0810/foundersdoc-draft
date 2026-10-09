@@ -9,6 +9,7 @@ import Contractor from "./Contractor";
 import Cofounder from "./Cofounder";
 import Sha from "./Sha";
 import Spa from "./Spa";
+import Ssa from "./Ssa";
 import { recentDrafts } from "./recent";
 import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
 
@@ -65,7 +66,9 @@ export default async function DraftPage({
               ? Sha
               : preset.slug === "spa"
                 ? Spa
-                : TermSheet;
+                : preset.slug === "ssa"
+                  ? Ssa
+                  : TermSheet;
     return (
       <Screen
         look={looks[preset.slug]}
