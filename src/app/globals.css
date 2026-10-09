@@ -3747,6 +3747,7 @@ html[data-theme=dark] .q-info-pop{background:#2a2b30;border-color:#3a3b41;color:
 .rail .hist a.t-sha::before,.rail .hist-chip.t-sha::before{background:#7fd1c7}
 .rail .hist a.t-spa::before,.rail .hist-chip.t-spa::before{background:#e6a07a}
 .rail .hist a.t-ssa::before,.rail .hist-chip.t-ssa::before{background:#9fb4e8}
+.rail .hist a.t-ia::before,.rail .hist-chip.t-ia::before{background:#c7a3e0}
 .rail .hist a.on::before{background:var(--gold)}
 .rail .hist a::before{width:6px;height:6px}
 .rail .hist-empty{margin:4px 12px;font-size:12px;color:rgba(255,255,255,.45)}

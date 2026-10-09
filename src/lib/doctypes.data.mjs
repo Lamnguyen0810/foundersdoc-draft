@@ -404,4 +404,21 @@ export const SSA_DATA = {
     "Assembled from the FD Lite share subscription agreement question bank. The AI only flags points for the lawyer (upload the playbook under Playbook → Share Subscription Agreement).",
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA];
+/**
+ * The investment agreement (090). Beta: built from two of the firm's own
+ * investment agreements (a simple investor; a lead investor with the
+ * founders), assembled by rule (src/lib/ia). The database gets this row from
+ * 090_investment_agreement.sql.
+ */
+export const IA_DATA = {
+  slug: "ia",
+  label: "Investment Agreement",
+  description:
+    "An investor puts money into a Singapore company for new (usually preference) shares: one investor on simple terms, or a lead investor with conditions, founder warranties, a board seat and the preference share terms. Assembled by rule from Founders Doc's own investment agreements; FD AI flags points for the lawyer. Beta.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from Founders Doc investment agreements. The AI only flags points for the lawyer (upload the playbook under Playbook → Investment Agreement).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA, IA_DATA];
