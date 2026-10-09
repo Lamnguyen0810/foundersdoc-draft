@@ -9,6 +9,7 @@ import TermSheet, { type TermResume } from "../TermSheet";
 import Employment from "../Employment";
 import Contractor from "../Contractor";
 import Cofounder from "../Cofounder";
+import Sha from "../Sha";
 import { recentDrafts } from "../recent";
 import type { DraftStatus, Flag } from "@/lib/termsheet/types";
 
@@ -130,7 +131,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
             ? "Contractor Agreement"
             : docType.slug === "cofounder"
               ? "Co-Founder Agreement"
-              : "Term Sheet"),
+              : docType.slug === "sha"
+                ? "Shareholders' Agreement"
+                : "Term Sheet"),
       answers: saved,
       output: row.output ?? "",
       outputHtml: row.output_html,
@@ -140,7 +143,15 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
       createdAt: row.created_at,
     };
     const Screen =
-      docType.slug === "employment" ? Employment : docType.slug === "contractor" ? Contractor : docType.slug === "cofounder" ? Cofounder : TermSheet;
+      docType.slug === "employment"
+        ? Employment
+        : docType.slug === "contractor"
+          ? Contractor
+          : docType.slug === "cofounder"
+            ? Cofounder
+            : docType.slug === "sha"
+              ? Sha
+              : TermSheet;
     return (
       <Screen
         look={looks[docType.slug]}

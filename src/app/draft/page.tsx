@@ -7,6 +7,7 @@ import TermSheet from "./TermSheet";
 import Employment from "./Employment";
 import Contractor from "./Contractor";
 import Cofounder from "./Cofounder";
+import Sha from "./Sha";
 import { recentDrafts } from "./recent";
 import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
 
@@ -53,7 +54,15 @@ export default async function DraftPage({
   if (preset?.engine === "assembly") {
     const company = isSupabaseConfigured() && user ? await loadCompanyProfile() : null;
     const Screen =
-      preset.slug === "employment" ? Employment : preset.slug === "contractor" ? Contractor : preset.slug === "cofounder" ? Cofounder : TermSheet;
+      preset.slug === "employment"
+        ? Employment
+        : preset.slug === "contractor"
+          ? Contractor
+          : preset.slug === "cofounder"
+            ? Cofounder
+            : preset.slug === "sha"
+              ? Sha
+              : TermSheet;
     return (
       <Screen
         look={looks[preset.slug]}
