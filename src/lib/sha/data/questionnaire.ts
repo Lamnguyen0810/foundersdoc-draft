@@ -1,5 +1,5 @@
 /**
- * The Shareholders' Agreement questionnaire — the firm's "FDL [SHA]: TF Qns"
+ * The Shareholders Agreement questionnaire — the firm's "FDL [SHA]: TF Qns"
  * (Final Clean, 24 April 2025, 38 questions, Complex column), with the
  * fixes from the review of that canvas:
  *
@@ -30,7 +30,7 @@
 export const SHA_QUESTIONNAIRE = {
   id: "FD_SHA_QUESTIONNAIRE",
   version: "1.0",
-  for_master: "FD Lite | Shareholders' Agreement Master (140425)",
+  for_master: "FD Lite | Shareholders Agreement Master (140425)",
   status: "Complex version",
   questions: [
     /* ── 1–5: the company and its shareholders ── */
@@ -53,7 +53,7 @@ export const SHA_QUESTIONNAIRE = {
       type: "multi_choice",
       required: true,
       default: ["founders", "investors"],
-      text: "Parties. Who are the Parties to this Shareholders’ Agreement? (You can select multiple options.)",
+      text: "Parties. Who are the Parties to this Shareholders Agreement? (You can select multiple options.)",
       help: "Pro Tip: Typically, all Shareholders — Founders, Investors, and any other Equity Holders — should be parties so that key terms (like exits, transfers, and reserved matters) are enforceable.",
       options: [
         { value: "founders", label: "Founders / Co-founders – Original Founders of the Company", recommended: true },
@@ -847,7 +847,7 @@ export const SHA_QUESTIONNAIRE = {
       type: "single_choice",
       required: true,
       default: "majority",
-      text: "Amendments. How can the Shareholders' Agreement be amended?",
+      text: "Amendments. How can the Shareholders Agreement be amended?",
       help: "Pro Tip: This determines whether changes to the SHA need unanimous or majority shareholder consent.",
       options: [
         { value: "unanimous", label: "Unanimous consent – All shareholders must agree to any changes." },

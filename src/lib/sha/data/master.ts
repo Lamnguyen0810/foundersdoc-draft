@@ -1,5 +1,5 @@
 /**
- * FD Lite | Shareholders' Agreement Master — from
+ * FD Lite | Shareholders Agreement Master — from
  * FD_Lite_I_Shareholders_Agreement_Master_140425.docx (14 April 2025),
  * tracked changes accepted and the client's details taken out (the
  * redacted copy is what goes into AI files).
@@ -65,8 +65,8 @@ export interface MasterSection {
 
 /* ── the head ─────────────────────────────────────────────────────────── */
 
-export const TITLE = "SHAREHOLDERS' AGREEMENT";
-export const MADE_ON = "This Shareholders' Agreement (the \"**Agreement**\") is made on {{date}} (the \"**Effective Date**\")";
+export const TITLE = "SHAREHOLDERS AGREEMENT";
+export const MADE_ON = "This Shareholders Agreement (the \"**Agreement**\") is made on {{date}} (the \"**Effective Date**\")";
 export const BETWEEN = "Between:";
 export const COMPANY_PARTY =
   "{{company_name}} (Registration Number: {{company_reg_no}}), a company incorporated under the laws of Singapore whose registered office is at {{company_address}} (the \"**Company**\");";

@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * The shareholders' agreement screen — the co-founder screen (Cofounder.tsx),
+ * The shareholders agreement screen — the co-founder screen (Cofounder.tsx),
  * for the SHA questionnaire (lib/sha/data/questionnaire.ts).
  *
  * The flow: incorporated? parties? how many shareholders (S1–S4), then the
@@ -165,7 +165,7 @@ export default function Sha({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
 
   /* the draft */
   const [draftId, setDraftId] = useState<string | null>(resume?.id ?? null);
-  const [title, setTitle] = useState(resume?.title ?? "Shareholders' Agreement");
+  const [title, setTitle] = useState(resume?.title ?? "Shareholders Agreement");
   const [pastDrafts, setPastDrafts] = useState<RecentDraft[]>(recent ?? []);
   const [html, setHtml] = useState<string | null>(resume?.outputHtml ?? null);
   const [text, setText] = useState(resume?.output ?? "");
@@ -411,7 +411,7 @@ export default function Sha({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
         return;
       }
       setDraftId((j.draftId as string | null) ?? null);
-      setTitle((j.title as string) ?? "Shareholders' Agreement");
+      setTitle((j.title as string) ?? "Shareholders Agreement");
       setHtml(j.html as string);
       setText(j.text as string);
       setStatus(j.status as DraftStatus);
@@ -522,7 +522,7 @@ export default function Sha({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
       setFbExcerpt("");
       setFbDone(
         j.learnt && j.rule
-          ? `Learnt. From the next shareholders’ agreement: “${j.rule}” — edit or switch off under Admin → AI files → Feedback & lessons.`
+          ? `Learnt. From the next shareholders agreement: “${j.rule}” — edit or switch off under Admin → AI files → Feedback & lessons.`
           : `Saved for a person to decide${j.reason ? ` (${j.reason})` : ""} — Admin → AI files → Feedback & lessons.`,
       );
     } finally {
@@ -922,7 +922,7 @@ export default function Sha({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
         {/* ── the strip ── */}
         <div className="strip">
           <span className="dot" />
-          <span className="dname">{isDraft ? title : "New shareholders’ agreement"}</span>
+          <span className="dname">{isDraft ? title : "New shareholders agreement"}</span>
           <BetaBadge />
           <Link className="chg" href="/draft">Change document</Link>
         </div>
@@ -1058,7 +1058,7 @@ export default function Sha({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
             </div>
             <div className="composer">
               <p className="fine">
-                A draft shareholders’ agreement, assembled from Founders Doc’s master — to be checked by a qualified lawyer before use.{" "}
+                A draft shareholders agreement, assembled from Founders Doc’s master — to be checked by a qualified lawyer before use.{" "}
                 <a href="/terms-of-service">Terms</a>
               </p>
             </div>
@@ -1072,7 +1072,7 @@ export default function Sha({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
               <div className="gen-left-head">
                 <div className="gen-left-title">
                   <span className="eyebrow">FD AI</span>
-                  <h2>{status === "stopped" ? "Saved — Founders Doc will be in touch" : "Your shareholders’ agreement is ready"}</h2>
+                  <h2>{status === "stopped" ? "Saved — Founders Doc will be in touch" : "Your shareholders agreement is ready"}</h2>
                   <p>
                     {status === "stopped"
                       ? "Your answers are with Founders Doc. Nothing has been charged."
@@ -1128,7 +1128,7 @@ export default function Sha({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                     ) : (
                       <>
                         <p>
-                          Here’s the <b>shareholders’ agreement</b>, assembled from the firm’s master under Singapore law. Nothing in it is invented:
+                          Here’s the <b>shareholders agreement</b>, assembled from the firm’s master under Singapore law. Nothing in it is invented:
                           anything you left blank is marked [●] for you to fill in.
                         </p>
                         {reviewNote && (

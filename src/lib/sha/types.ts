@@ -1,5 +1,5 @@
 /**
- * The shapes the shareholders' agreement flow passes around. Shared by the
+ * The shapes the shareholders agreement flow passes around. Shared by the
  * client, the API route and the assembler — so no imports from either side.
  *
  * Flags and statuses are the term sheet's own (lib/termsheet/types): the
