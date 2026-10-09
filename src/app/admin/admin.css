@@ -172,10 +172,10 @@
    The number columns are fixed so the three cards line up with each other. */
 .fdadmin .breakdown { display: grid; gap: 4px; }
 .fdadmin .breakdown-head,
-.fdadmin .breakdown-row { display: grid; grid-template-columns: minmax(0,1fr) 54px 42px 42px; gap: 6px; align-items: center; }
+.fdadmin .breakdown-row { display: grid; grid-template-columns: minmax(0,1fr) 54px 64px 44px; gap: 8px; align-items: center; }
 .fdadmin .breakdown-head { padding: 0 12px 7px; font-size: 9.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: #9B9FA6; border-bottom: 1px solid var(--line); margin-bottom: 2px; }
 .fdadmin .breakdown-row { min-height: 38px; padding: 0 12px; border-radius: 10px; background: var(--soft); font-size: 12px; }
-.fdadmin .breakdown-head b, .fdadmin .breakdown-row b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fdadmin .breakdown-head b, .fdadmin .breakdown-row b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .fdadmin .breakdown-row b.quiet { font-weight: 500; color: #9B9FA6; }
 .fdadmin .breakdown-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fdadmin .breakdown .empty { padding: 14px 0; }
@@ -220,7 +220,7 @@
 .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 html[data-theme="dark"] .fdadmin { --day-bar: rgba(244, 183, 82, .16); }
 .fdadmin .breakdown-head.daily,
-.fdadmin .breakdown-row.daily { grid-template-columns: minmax(0, 1fr) 54px 48px 52px 44px 44px; }
+.fdadmin .breakdown-row.daily { grid-template-columns: minmax(0, 1fr) 54px 64px 52px 44px 44px; }
 .fdadmin .breakdown-row.daily { background-repeat: no-repeat; }
 .fdadmin .breakdown-row b.lit { color: var(--ink); font-weight: 600; }
 
