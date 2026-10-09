@@ -10,6 +10,7 @@ import Employment from "../Employment";
 import Contractor from "../Contractor";
 import Cofounder from "../Cofounder";
 import Sha from "../Sha";
+import Spa from "../Spa";
 import { recentDrafts } from "../recent";
 import type { DraftStatus, Flag } from "@/lib/termsheet/types";
 
@@ -133,7 +134,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
               ? "Co-Founder Agreement"
               : docType.slug === "sha"
                 ? "Shareholders Agreement"
-                : "Term Sheet"),
+                : docType.slug === "spa"
+                  ? "Share Purchase Agreement"
+                  : "Term Sheet"),
       answers: saved,
       output: row.output ?? "",
       outputHtml: row.output_html,
@@ -151,7 +154,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
             ? Cofounder
             : docType.slug === "sha"
               ? Sha
-              : TermSheet;
+              : docType.slug === "spa"
+                ? Spa
+                : TermSheet;
     return (
       <Screen
         look={looks[docType.slug]}

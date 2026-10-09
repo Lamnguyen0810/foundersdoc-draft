@@ -8,6 +8,7 @@ import EmploymentQuestions from "./EmploymentQuestions";
 import ContractorQuestions from "./ContractorQuestions";
 import CofounderQuestions from "./CofounderQuestions";
 import ShaQuestions from "./ShaQuestions";
+import SpaQuestions from "./SpaQuestions";
 
 /**
  * The questions a user answers before the first draft, per document type —
@@ -290,7 +291,7 @@ export default function Questions({
   /* The term sheet's and the employment agreement's questions are built
      into their assemblers: listed as asked, not edited here. See
      TermQuestions and EmploymentQuestions. */
-  if (slug === "term" || slug === "employment" || slug === "contractor" || slug === "cofounder" || slug === "sha") {
+  if (slug === "term" || slug === "employment" || slug === "contractor" || slug === "cofounder" || slug === "sha" || slug === "spa") {
     return (
       <div className="table-card questions-card">
         <div className="table-head">
@@ -315,6 +316,8 @@ export default function Questions({
           <CofounderQuestions />
         ) : slug === "sha" ? (
           <ShaQuestions />
+        ) : slug === "spa" ? (
+          <SpaQuestions />
         ) : (
           <TermQuestions />
         )}

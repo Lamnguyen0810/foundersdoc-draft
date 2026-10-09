@@ -370,4 +370,21 @@ export const SHA_DATA = {
     "Assembled from the FD Lite shareholders agreement master. The AI only flags points for the lawyer (upload the playbook under Playbook → Shareholders Agreement).",
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA];
+/**
+ * The share purchase agreement (088). Beta: assembled by rule from a
+ * redacted, generalised Founders Doc precedent (src/lib/spa) until an FD
+ * Lite SPA master exists. The database gets this row from
+ * 088_share_purchase_agreement.sql.
+ */
+export const SPA_DATA = {
+  slug: "spa",
+  label: "Share Purchase Agreement",
+  description:
+    "Buy or sell shares in a Singapore company: the price and how it is paid, conditions, Closing, warranties, indemnities, restrictions on the sellers. Assembled by rule from a Founders Doc precedent (Singapore); FD AI flags points for the lawyer. Beta.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from a Founders Doc share purchase agreement precedent. The AI only flags points for the lawyer (upload the playbook under Playbook → Share Purchase Agreement).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA];
