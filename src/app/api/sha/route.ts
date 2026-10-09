@@ -1,5 +1,5 @@
 /**
- * POST /api/sha — answers in, a shareholders' agreement out.
+ * POST /api/sha — answers in, a shareholders agreement out.
  *
  * The contractor route, for the SHA master: one credit is reserved, the
  * agreement is assembled and saved, and the credit is refunded if a red

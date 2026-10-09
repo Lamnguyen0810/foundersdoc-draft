@@ -1,5 +1,5 @@
 /**
- * Answers → shareholders' agreement.
+ * Answers → shareholders agreement.
  *
  * Deterministic, as the contractor assembler is: the same answers give the
  * same agreement, every time, from the firm's master (data/master.ts), with

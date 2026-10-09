@@ -6,7 +6,7 @@ import { MASTER_CORRECTIONS, MASTER_MENU, MASTER_VERSION, SECTIONS } from "@/lib
 import { ALL_QUESTIONS, showIf, type Condition, type Question } from "@/lib/sha/questions";
 
 /**
- * The shareholders' agreement's questions, as the user meets them —
+ * The shareholders agreement's questions, as the user meets them —
  * read-only, as the contractor agreement's are.
  *
  * They are the firm's "FDL [SHA]: TF Qns" (Final Clean, 24 April 2025,

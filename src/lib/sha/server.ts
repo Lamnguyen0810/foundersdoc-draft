@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * The shareholders' agreement, end to end, on the server: check the
+ * The shareholders agreement, end to end, on the server: check the
  * answers, run the rules, assemble the agreement from the master and save
  * it. The contractor server.ts, for the SHA master — pure assembly, so no
  * model is called and nothing is logged to usage_log.
@@ -26,7 +26,7 @@ export const SHA_SLUG = "sha";
 
 /** What the user reads if the master is ever switched off. */
 export const PENDING_MESSAGE =
-  "Your answers are saved. The Shareholders’ Agreement is in Beta: our lawyers are finalising the master wording, so FD AI has not produced the document itself. Founders Doc has been told and will send you the draft, with the points below, at no charge.";
+  "Your answers are saved. The Shareholders Agreement is in Beta: our lawyers are finalising the master wording, so FD AI has not produced the document itself. Founders Doc has been told and will send you the draft, with the points below, at no charge.";
 
 /** What the user reads when a red flag stops the draft. */
 export const STOP_MESSAGE =
@@ -103,7 +103,7 @@ export function cleanShareholders(raw: unknown, count: number): Shareholder[] {
 
 export function draftTitle(company: Company): string {
   const co = str(company.name);
-  return tidyTypedName(`Shareholders' Agreement${co ? ` — ${co}` : ""}`) || "Shareholders' Agreement";
+  return tidyTypedName(`Shareholders Agreement${co ? ` — ${co}` : ""}`) || "Shareholders Agreement";
 }
 
 export function fileName(title: string, version: number): string {
@@ -134,7 +134,7 @@ export async function prepareSha(req: ShaRequest, userId: string): Promise<Prepa
     flags.push({
       level: "red",
       scenario: "SH0",
-      reason: "The FD Lite Shareholders' Agreement master is not loaded into FD AI. The answers are saved; a lawyer prepares the draft from the master by hand.",
+      reason: "The FD Lite Shareholders Agreement master is not loaded into FD AI. The answers are saved; a lawyer prepares the draft from the master by hand.",
     });
     for (const f of flags) f.title = titleFor(f);
     const draftId = await persist({ userId, req: { ...req, answers, shareholders }, assembled: null, status: "stopped", flags, title, dateIso });

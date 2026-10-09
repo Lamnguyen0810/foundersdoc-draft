@@ -132,7 +132,7 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
             : docType.slug === "cofounder"
               ? "Co-Founder Agreement"
               : docType.slug === "sha"
-                ? "Shareholders' Agreement"
+                ? "Shareholders Agreement"
                 : "Term Sheet"),
       answers: saved,
       output: row.output ?? "",

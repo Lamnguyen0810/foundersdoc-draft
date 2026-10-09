@@ -355,19 +355,19 @@ export const COFOUNDER_DATA = {
 };
 
 /**
- * The shareholders' agreement (087). Assembled from the FD Lite SHA master
+ * The shareholders agreement (087). Assembled from the FD Lite SHA master
  * (14 April 2025), Complex version, by rule from the firm's questionnaire
  * (src/lib/sha). The database gets this row from 087_shareholders_agreement.sql.
  */
 export const SHA_DATA = {
   slug: "sha",
-  label: "Shareholders' Agreement",
+  label: "Shareholders Agreement",
   description:
-    "How founders and investors run the company: the board, meetings, reserved matters, pre-emption, transfers (first offer, tag- and drag-along), exits, defaults, founder vesting and leavers. Assembled from the FD Lite Shareholders' Agreement master (Singapore) by rule; FD AI flags points for the lawyer. Beta.",
+    "How founders and investors run the company: the board, meetings, reserved matters, pre-emption, transfers (first offer, tag- and drag-along), exits, defaults, founder vesting and leavers. Assembled from the FD Lite Shareholders Agreement master (Singapore) by rule; FD AI flags points for the lawyer. Beta.",
   engine: "assembly",
   fields: [],
   systemPrompt:
-    "Assembled from the FD Lite shareholders' agreement master. The AI only flags points for the lawyer (upload the playbook under Playbook → Shareholders' Agreement).",
+    "Assembled from the FD Lite shareholders agreement master. The AI only flags points for the lawyer (upload the playbook under Playbook → Shareholders Agreement).",
 };
 
 export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA];

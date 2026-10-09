@@ -81,7 +81,7 @@ const CATALOGUE: CatFolder[] = [
       ],
       [
         "sha",
-        "Shareholders’ Agreement",
+        "Shareholders Agreement",
         "How founders and investors run the company — board, reserved matters, transfers, exits — from our lawyers’ master",
         true,
         "sha shareholders agreement founders investors board reserved matters drag tag pre-emption vesting",
