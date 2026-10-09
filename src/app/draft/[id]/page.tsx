@@ -11,6 +11,7 @@ import Contractor from "../Contractor";
 import Cofounder from "../Cofounder";
 import Sha from "../Sha";
 import Spa from "../Spa";
+import Ssa from "../Ssa";
 import { recentDrafts } from "../recent";
 import type { DraftStatus, Flag } from "@/lib/termsheet/types";
 
@@ -136,7 +137,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
                 ? "Shareholders Agreement"
                 : docType.slug === "spa"
                   ? "Share Purchase Agreement"
-                  : "Term Sheet"),
+                  : docType.slug === "ssa"
+                    ? "Share Subscription Agreement"
+                    : "Term Sheet"),
       answers: saved,
       output: row.output ?? "",
       outputHtml: row.output_html,
@@ -156,7 +159,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
               ? Sha
               : docType.slug === "spa"
                 ? Spa
-                : TermSheet;
+                : docType.slug === "ssa"
+                  ? Ssa
+                  : TermSheet;
     return (
       <Screen
         look={looks[docType.slug]}
