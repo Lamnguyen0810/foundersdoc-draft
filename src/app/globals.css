@@ -3633,6 +3633,11 @@ html[data-theme=dark]{
 .ts-party label{display:grid;gap:4px;font-size:12px;color:var(--tx-2)}
 .ts-party label .input{width:100%}
 .ts-party .ts-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+/* The co-founder shareholding table (Cofounder.tsx): name, role, percent, remove. */
+.ts-party .ts-row.cf-share{grid-template-columns:minmax(0,2fr) minmax(0,2fr) minmax(0,1fr) auto;align-items:end}
+.cf-share-x{width:38px;height:42px;border:1px solid var(--line,#e6e2d8);border-radius:10px;background:transparent;color:inherit;font-size:18px;line-height:1;cursor:pointer;opacity:.6}
+.cf-share-x:hover{opacity:1}
+@media (max-width:640px){.ts-party .ts-row.cf-share{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 72px auto}}
 /* The employment screen (Employment.tsx): the salary's "per month / year",
    laid out like a label beside the inputs; the jurisdiction row. */
 .ts-party .emp-per{display:grid;gap:4px;font-size:12px;color:var(--tx-2);align-content:start}
@@ -3737,6 +3742,8 @@ html[data-theme=dark] .q-info-pop{background:#2a2b30;border-color:#3a3b41;color:
 .rail .hist a.t-nda::before,.rail .hist-chip.t-nda::before{background:#9fd3b0}
 .rail .hist a.t-term::before,.rail .hist-chip.t-term::before{background:#8fb3ff}
 .rail .hist a.t-employment::before,.rail .hist-chip.t-employment::before{background:#e8a87c}
+.rail .hist a.t-contractor::before,.rail .hist-chip.t-contractor::before{background:#d9b8f0}
+.rail .hist a.t-cofounder::before,.rail .hist-chip.t-cofounder::before{background:#f2d27a}
 .rail .hist a.on::before{background:var(--gold)}
 .rail .hist a::before{width:6px;height:6px}
 .rail .hist-empty{margin:4px 12px;font-size:12px;color:rgba(255,255,255,.45)}

@@ -6,6 +6,7 @@ import { stepsFor, type Group } from "@/lib/doctypes";
 import TermQuestions from "./TermQuestions";
 import EmploymentQuestions from "./EmploymentQuestions";
 import ContractorQuestions from "./ContractorQuestions";
+import CofounderQuestions from "./CofounderQuestions";
 
 /**
  * The questions a user answers before the first draft, per document type —
@@ -288,7 +289,7 @@ export default function Questions({
   /* The term sheet's and the employment agreement's questions are built
      into their assemblers: listed as asked, not edited here. See
      TermQuestions and EmploymentQuestions. */
-  if (slug === "term" || slug === "employment" || slug === "contractor") {
+  if (slug === "term" || slug === "employment" || slug === "contractor" || slug === "cofounder") {
     return (
       <div className="table-card questions-card">
         <div className="table-head">
@@ -305,7 +306,15 @@ export default function Questions({
             </div>
           </div>
         </div>
-        {slug === "employment" ? <EmploymentQuestions /> : slug === "contractor" ? <ContractorQuestions /> : <TermQuestions />}
+        {slug === "employment" ? (
+          <EmploymentQuestions />
+        ) : slug === "contractor" ? (
+          <ContractorQuestions />
+        ) : slug === "cofounder" ? (
+          <CofounderQuestions />
+        ) : (
+          <TermQuestions />
+        )}
       </div>
     );
   }
