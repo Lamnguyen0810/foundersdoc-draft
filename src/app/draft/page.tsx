@@ -10,6 +10,7 @@ import Cofounder from "./Cofounder";
 import Sha from "./Sha";
 import Spa from "./Spa";
 import Ssa from "./Ssa";
+import Ia from "./Ia";
 import { recentDrafts } from "./recent";
 import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
 
@@ -68,7 +69,9 @@ export default async function DraftPage({
                 ? Spa
                 : preset.slug === "ssa"
                   ? Ssa
-                  : TermSheet;
+                  : preset.slug === "ia"
+                    ? Ia
+                    : TermSheet;
     return (
       <Screen
         look={looks[preset.slug]}
