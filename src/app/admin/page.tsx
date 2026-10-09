@@ -271,7 +271,7 @@ function DayRow({
 }) {
   const share = Math.round((n(row.visits) / busiest) * 100);
   /* A day with arrivals but no lasting visitor code is a day from before
-     unique visitors were switched on. Nought would read as "nobody came
+     frequent visitors were switched on. Nought would read as "nobody came
      often", which is not what it means; a dash reads as "not recorded". */
   const unique = n(row.visitors) === 0 && n(row.visits) > 0 ? "—" : fmt(n(row.frequent));
   return (
@@ -316,7 +316,7 @@ function dayEventLabel(kind: string): string {
 function BreakdownKey() {
   return (
     <p className="list-key">
-      <b>Visitors</b>: arrivals · <b>Unique</b>: came more than three times · <b>Views</b>: pages opened
+      <b>Visitors</b>: arrivals · <b>Frequent</b>: came more than three times · <b>Views</b>: pages opened
     </p>
   );
 }
@@ -701,7 +701,7 @@ export default async function AdminPage({
         visitorsFrom: visitsRow.visitors_from,
       }
     : null;
-  /* Unique visitors need ANALYTICS_SALT set on the server: without it the site
+  /* Frequent visitors need ANALYTICS_SALT set on the server: without it the site
      records no visitor fingerprint and the figure would be a nought that means
      "not switched on", not "nobody came". A dash says that honestly. */
   const visitorsRecorded = Boolean(visits && visits.visitors > 0);
@@ -722,7 +722,7 @@ export default async function AdminPage({
   })();
   /* Said the way the selector says it, so the two never disagree. */
   const periodLabel = `the last ${RANGES.find((r) => r.days === days)?.label ?? `${days} days`}`;
-  /* When unique visitors started being counted, if that is later than the
+  /* When frequent visitors started being counted, if that is later than the
      period itself — the reason the two figures do not match. */
   const visitorsFromLabel = (() => {
     if (!visits?.visitorsFrom || !visits.firstDay) return null;
@@ -988,8 +988,8 @@ export default async function AdminPage({
                       <SummaryCard label="Accounts created" value={fmt(weeklyReport.accounts_created)} note="New FD AI accounts" />
                       <SummaryCard label="Visitors" value={fmt(weeklyReport.visitors)} note="Arrivals; one sitting counts once" />
                       <SummaryCard
-                        label="Unique visitors"
-                        value={fmt(weeklyReport.unique_visitors)}
+                        label="Frequent visitors"
+                        value={fmt(weeklyReport.frequent_visitors)}
                         note="Came more than three times; counted in Visitors too"
                       />
                       <SummaryCard label="Waitlist sign-ups" value={fmt(weeklyReport.waitlist_signups)} note="New waitlist entries" />
@@ -1195,7 +1195,7 @@ export default async function AdminPage({
                       </div>
                       <div className="figure">
                         <b>{visitorsRecorded ? fmt(visits!.frequent) : "—"}</b>
-                        <span>Unique visitors</span>
+                        <span>Frequent visitors</span>
                         <small>
                           Of those, the ones who came more than three separate times. They are counted in Visitors as well.
                           {visitorsRecorded
@@ -1219,14 +1219,14 @@ export default async function AdminPage({
                     <p className="worked-example">
                       <b>How they differ:</b> somebody opens four pages this morning, then comes back tonight and opens four more.
                       That is <b>2 visitors</b> and <b>8 views</b>. If they come twice more this month — four separate times in all —
-                      they are also <b>1 unique visitor</b>.
+                      they are also <b>1 frequent visitor</b>.
                     </p>
                     {!visits && (
                       <p className="setup-line">Run <code>supabase/022_unique_visitors.sql</code> to switch this counter on.</p>
                     )}
                     {visits && !visitorsRecorded && (
                       <p className="setup-line">
-                        Unique visitors are blank until <code>ANALYTICS_SALT</code> is set in Vercel and the site is redeployed. Visits and page
+                        Frequent visitors are blank until <code>ANALYTICS_SALT</code> is set in Vercel and the site is redeployed. Visits and page
                         views above are counted either way, and nothing is guessed in the meantime.
                       </p>
                     )}
@@ -1259,7 +1259,7 @@ export default async function AdminPage({
                             <div className="breakdown-head">
                               <span>{column}</span>
                               <b title="Arrivals; four pages in one sitting is one visitor">Visitors</b>
-                              <b title="Of those, the ones who came more than three separate times">Unique</b>
+                              <b title="Of those, the ones who came more than three separate times">Frequent</b>
                               <b title="Pages opened">Views</b>
                             </div>
                             {rows.length === 0 && <div className="empty">Nothing recorded yet.</div>}
@@ -1301,7 +1301,7 @@ export default async function AdminPage({
                       <div className="breakdown-head daily">
                         <span>Day</span>
                         <b title="People arriving; one sitting counts once">Visitors</b>
-                        <b title="Of them, the ones who came more than three separate times in the period">Unique</b>
+                        <b title="Of them, the ones who came more than three separate times in the period">Frequent</b>
                         <b title="Waitlist signups">Signups</b>
                         <b title="Pages opened">Views</b>
                         <b title="Drafts started">Drafts</b>
