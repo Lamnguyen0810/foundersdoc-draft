@@ -337,4 +337,21 @@ export const CONTRACTOR_DATA = {
     "Assembled from the FD master contractor agreement. The AI only flags points for the lawyer (upload the playbook under Playbook → Contractor Agreement).",
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA];
+/**
+ * The co-founder agreement (086). Beta: the firm's twenty-five questions
+ * are live (src/lib/cofounder); until the FD Master Co-Founders Agreement
+ * is loaded, the answers are saved and the firm sends the draft. The
+ * database gets this row from 086_cofounder_agreement.sql, not from the seed.
+ */
+export const COFOUNDER_DATA = {
+  slug: "cofounder",
+  label: "Co-Founder Agreement",
+  description:
+    "Set out how the co-founders run the startup: the split, vesting, roles, decisions, deadlock, leavers and exit. Assembled from the FD Master Co-Founders Agreement (Singapore) by rule from twenty-five questions; FD AI flags points for the lawyer. Beta: until the master is loaded, the answers are saved and the firm sends the draft.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from the FD master co-founders agreement. The AI only flags points for the lawyer (upload the playbook under Playbook → Co-Founder Agreement).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA];

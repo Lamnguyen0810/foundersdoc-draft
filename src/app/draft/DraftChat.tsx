@@ -72,6 +72,13 @@ const CATALOGUE: CatFolder[] = [
   [
     "Company",
     [
+      [
+        "cofounder",
+        "Co-Founder Agreement",
+        "Split, vesting, roles and leavers — agreed between co-founders, from our lawyers’ master",
+        true,
+        "cfa cofounder co-founder founders agreement equity split vesting leaver startup partners",
+      ],
       ["sha", "Shareholders’ Agreement", "How founders and investors run the company", false, "sha founders investors board"],
       ["vesting", "Share Vesting Letter", "Vest founder shares over time", false, "cliff equity founders"],
       ["esop", "Employee Share Option Plan", "Grant options to your team", false, "esop options equity staff"],
@@ -611,15 +618,20 @@ export default function DraftChat({
     track("ai_opened");
   }, []);
 
-  /* A visitor who was mid-way through a TERM SHEET or an EMPLOYMENT
-     AGREEMENT when they signed up comes back here, to the catalogue, because
-     that is where sign-up returns everyone. Their answers are waiting under
-     that screen's own key; that screen is the one that knows how to read
-     them. */
+  /* A visitor who was mid-way through a TERM SHEET, or an EMPLOYMENT,
+     CONTRACTOR or CO-FOUNDER AGREEMENT when they signed up comes back here,
+     to the catalogue, because that is where sign-up returns everyone. Their
+     answers are waiting under that screen's own key; that screen is the one
+     that knows how to read them. */
   useEffect(() => {
     if (guest || resume || presetSlug) return;
     try {
-      for (const [key, slug] of [["fdai.employment-handoff", "employment"], ["fdai.term-handoff", "term"]] as const) {
+      for (const [key, slug] of [
+        ["fdai.employment-handoff", "employment"],
+        ["fdai.contractor-handoff", "contractor"],
+        ["fdai.cofounder-handoff", "cofounder"],
+        ["fdai.term-handoff", "term"],
+      ] as const) {
         const raw = window.localStorage.getItem(key);
         const type = docTypes.find((d) => d.slug === slug && d.engine === "assembly");
         if (raw && type) {
