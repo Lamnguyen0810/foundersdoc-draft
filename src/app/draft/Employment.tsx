@@ -64,8 +64,9 @@ type Stage = "intro" | "questions" | "review" | "drafted";
 /** A step is a question, the law guide, the people, or the job. */
 type Step = { kind: "q"; q: Question } | { kind: "guide" } | { kind: "people" } | { kind: "job" };
 
-/* After "where" and nationality: the law guide, then the people and the job. */
-const PEOPLE_AFTER = "E1c";
+/* After "where" (employer, nationality, where they work): the law guide,
+   then the people and the job. */
+const PEOPLE_AFTER = "E1b";
 const COUNTRIES = countriesFrom(DEFAULT_JURISDICTIONS);
 export const EMPLOYMENT_HANDOFF_KEY = "fdai.employment-handoff";
 const STASH_KEY = "fdai.employment-in-progress";

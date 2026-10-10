@@ -100,7 +100,7 @@ export function ruleChecks(answersIn: Answers, job: Job, guide?: LawGuide | null
     flags.push({
       level: "yellow",
       scenario: "EM6",
-      reason: `Under the GDPR (or the UK GDPR) consent is rarely a valid basis for handling an employee's data, because of the imbalance of power. The privacy clause is written subject to applicable data protection laws and adds a lawful-basis clause (performance of the contract, legal obligations, legitimate interests); an employee privacy notice is needed as well.`,
+      reason: `Under the GDPR (or the UK GDPR) consent is rarely a valid basis for handling an employee's data, because of the imbalance of power. The privacy clause is written subject to applicable data protection laws; an employee privacy notice is needed as well.`,
       field: "E10a",
     });
   }
