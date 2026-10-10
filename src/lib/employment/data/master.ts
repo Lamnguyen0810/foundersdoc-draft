@@ -413,11 +413,6 @@ export const SECTIONS: MasterSection[] = [
         ],
       },
       {
-        id: "pd_basis",
-        fd: true,
-        text: "**Lawful Basis.** Where applicable data protection laws do not allow the Company to rely on your consent to Process your Personal Data, the Company will Process it on another lawful basis, such as the performance of this Agreement, compliance with the Company's legal obligations or the Company's legitimate interests, as explained in the Company's employee privacy notice.",
-      },
-      {
         id: "pd_transfer",
         text: "**Transfer of Personal Data.** You further understand and agree that Personal Data may if necessary for the above-mentioned purposes, be transferred to third parties, including other Group companies, their advisors, third parties providing products and services, such as IT systems suppliers, pension, benefits, stock options and payroll administrators, as well as regulatory authorities as required by law and relevant stock exchange rules. If your Personal Data is transferred to a country or territory outside {{law}}, we will ensure that the transfer complied with the requirements of the applicable data protection legislation of {{law}}.",
       },

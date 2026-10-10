@@ -50,7 +50,7 @@ const SHAPES: Record<string, string> = {
   E8a: "11.2, 11.3, 11.5(b) — “all work” scope ⚑",
   E8b: "11.6 Waiver of Moral Rights in or out",
   E9: "2.3(b) and 2.4 — consent, or fully exclusive; the 5% listed-shares proviso",
-  E10a: "Clause 9 in or out, subject to applicable data protection laws; GDPR places: prompted, flagged, and the Lawful Basis clause ⚑ added",
+  E10a: "Clause 9 in or out, subject to applicable data protection laws; GDPR places: prompted and flagged",
   E10b: "12.8(b) courts, or arbitration ⚑ “to the extent permitted by applicable law”; where arbitration is limited (UK, EU …) the person is prompted and it is flagged",
   M1: "3.3 Good Leaver and Bad Leaver ⚑",
   M2: "12.5 Rights of Group Companies ⚑ instead of “no third-party rights”",
@@ -109,7 +109,7 @@ export default function EmploymentQuestions() {
   const rows: Row[] = [];
   for (const q of ALL_QUESTIONS) {
     rows.push({ kind: "q", q });
-    if (q.id === "E1c") rows.push({ kind: "people" }, { kind: "job" });
+    if (q.id === "E1b") rows.push({ kind: "people" }, { kind: "job" });
   }
   const sections: { name: string; rows: Row[] }[] = [];
   for (const r of rows) {

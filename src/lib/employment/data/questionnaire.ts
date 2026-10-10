@@ -32,6 +32,15 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       help: "Sets the rulebook for everything below. Choose the state for the United States, Australia, Canada or the United Kingdom.",
     },
     {
+      id: "E1c",
+      key: "employee_nationality",
+      section: "Where",
+      type: "country",
+      required: true,
+      text: "What is the employee’s nationality?",
+      help: "Decides whether a work pass or visa is needed, and which rules apply to foreign employees. After where they work, FD AI gives you an overview of the employment law there, and checks your answers against it.",
+    },
+    {
       id: "E1b",
       key: "employee_based",
       section: "Where",
@@ -41,15 +50,6 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       default: "same",
       text: "Where does the employee live and work?",
       help: "If the two are in different countries, both may apply. FD AI flags the mismatch and uses the law of the place the employee works.",
-    },
-    {
-      id: "E1c",
-      key: "employee_nationality",
-      section: "Where",
-      type: "country",
-      required: true,
-      text: "What is the employee’s nationality?",
-      help: "Decides whether a work pass or visa is needed, and which rules apply to foreign employees. FD AI then gives you an overview of the employment law where they work, and checks your answers against it.",
     },
     /* ── 2 ── */
     {
@@ -309,7 +309,7 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       required: true,
       default: "include",
       text: "Include a data privacy clause?",
-      help: "Privacy laws need consent or another legal basis to handle an employee’s personal data. The clause is always subject to the data protection laws where the employee works; where consent is not a valid basis (the UK and the EU), FD AI tells you and the clause relies on another lawful basis.",
+      help: "Privacy laws need consent or another legal basis to handle an employee’s personal data. The clause is always subject to the data protection laws where the employee works; where consent is not a valid basis (the UK and the EU), FD AI tells you.",
       options: [
         { value: "include", label: "Include the privacy clause", recommended: true },
         { value: "leave_out", label: "Leave it out" },
