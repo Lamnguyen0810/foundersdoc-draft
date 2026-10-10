@@ -17,7 +17,7 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  let body: { answers?: unknown; employer?: unknown; employee?: unknown; job?: unknown };
+  let body: { answers?: unknown; employer?: unknown; employee?: unknown; job?: unknown; guide?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const out = await prepareEmployment({ answers, employer, employee, job }, user?.id ?? "local");
+    const out = await prepareEmployment({ answers, employer, employee, job, guide: body.guide }, user?.id ?? "local");
     if (out.kind === "stopped") {
       await refundCredit(spendId, "employment: stopped by the playbook");
       return Response.json(out);

@@ -17,7 +17,7 @@ export type Condition =
   | { all: readonly Condition[] }
   | { any: readonly Condition[] };
 
-export type QuestionType = "jurisdiction" | "single_choice" | "multi_choice" | "date" | "free_text" | "free_text_list";
+export type QuestionType = "jurisdiction" | "country" | "single_choice" | "multi_choice" | "date" | "free_text" | "free_text_list";
 
 export interface Option {
   value: string;

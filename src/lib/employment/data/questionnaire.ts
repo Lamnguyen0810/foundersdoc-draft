@@ -17,7 +17,7 @@
 
 export const EMPLOYMENT_QUESTIONNAIRE = {
   id: "FD_EMP_QUESTIONNAIRE",
-  version: "1.1",
+  version: "1.2",
   for_master: "FD Master Employment Agreement (GENERIC)",
   status: "Draft for FD review",
   questions: [
@@ -41,6 +41,15 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       default: "same",
       text: "Where does the employee live and work?",
       help: "If the two are in different countries, both may apply. FD AI flags the mismatch and uses the law of the place the employee works.",
+    },
+    {
+      id: "E1c",
+      key: "employee_nationality",
+      section: "Where",
+      type: "country",
+      required: true,
+      text: "What is the employee’s nationality?",
+      help: "Decides whether a work pass or visa is needed, and which rules apply to foreign employees. FD AI then gives you an overview of the employment law where they work, and checks your answers against it.",
     },
     /* ── 2 ── */
     {
@@ -299,10 +308,10 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       type: "single_choice",
       required: true,
       default: "include",
-      text: "Include a data privacy consent clause?",
-      help: "Privacy laws need consent or another legal basis to handle an employee’s personal data.",
+      text: "Include a data privacy clause?",
+      help: "Privacy laws need consent or another legal basis to handle an employee’s personal data. The clause is always subject to the data protection laws where the employee works; where consent is not a valid basis (the UK and the EU), FD AI tells you and the clause relies on another lawful basis.",
       options: [
-        { value: "include", label: "Include consent clause", recommended: true },
+        { value: "include", label: "Include the privacy clause", recommended: true },
         { value: "leave_out", label: "Leave it out" },
       ],
     },
@@ -314,8 +323,7 @@ export const EMPLOYMENT_QUESTIONNAIRE = {
       required: true,
       default: "courts",
       text: "Where do disputes go?",
-      help: "Not asked when the employee works in the United Kingdom: employment claims there go to the Employment Tribunal and the courts, so the contract says so.",
-      not_for_work_in: ["United Kingdom", "England and Wales", "Scotland", "Northern Ireland"],
+      help: "Where the law does not let employment claims go to arbitration (the United Kingdom, for one), FD AI tells you; either way, claims the law reserves for an employment tribunal or labour court stay there.",
       options: [
         { value: "courts", label: "Local courts", recommended: true },
         { value: "arbitration", label: "Private arbitration" },

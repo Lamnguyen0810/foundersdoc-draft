@@ -22,6 +22,7 @@ import { aiStep, EMPLOYMENT_SLUG, STOP_MESSAGE, type AiUsage } from "./ai";
 import { assemble, type Assembled } from "./assemble";
 import { ruleChecks, titleFor } from "./checks";
 import { MASTER_VERSION } from "./data/master";
+import { builtInGuide, mergeGuide, type LawGuide } from "./guide";
 import { applyDefaults } from "./questions";
 import type { AiFields, Answers, DraftStatus, Employee, Employer, Flag, Job } from "./types";
 
@@ -30,6 +31,9 @@ export interface EmploymentRequest {
   employer: Employer;
   employee: Employee;
   job: Job;
+  /** The law guide the person saw, as the browser sent it. Used only for
+   *  flags, merged over the firm's own table (whose figures win). */
+  guide?: unknown;
 }
 
 export type PrepareOutcome =
@@ -122,7 +126,8 @@ export async function prepareEmployment(req: EmploymentRequest, userId: string):
   const answers = applyDefaults(req.answers);
   const dateIso = toIso(todaySingapore());
 
-  const rules = ruleChecks(answers, req.job);
+  const guide: LawGuide = mergeGuide(builtInGuide(answers), req.guide, "ai");
+  const rules = ruleChecks(answers, req.job, guide);
   const { result: ai, usage } = await aiStep({ answers, job: req.job, ruleFlags: rules.flags });
   const flags: Flag[] = [...rules.flags];
 
@@ -179,6 +184,7 @@ export function savedAnswers(req: EmploymentRequest, ai: AiFields | null, dateIs
     _employee: req.employee,
     _job: req.job,
     _ai: ai,
+    _guide: req.guide && typeof req.guide === "object" ? mergeGuide(builtInGuide(req.answers), req.guide, "ai") : null,
     _date: dateIso,
     _engine: "assembly",
     _master: MASTER_VERSION,

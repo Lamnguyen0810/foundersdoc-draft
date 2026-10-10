@@ -20,6 +20,7 @@ import { ALL_QUESTIONS, showIf, type Condition, type Question } from "@/lib/empl
 
 const TYPE_LABEL: Record<string, string> = {
   jurisdiction: "Jurisdiction",
+  country: "Country",
   single_choice: "Choice",
   multi_choice: "Several choices",
   date: "Date",
@@ -31,6 +32,7 @@ const TYPE_LABEL: Record<string, string> = {
 const SHAPES: Record<string, string> = {
   E1a: "Where the Company is incorporated; the registration label (UEN, Company Number …)",
   E1b: "The governing law and “Employment Act”; public holidays; statutory contributions (CPF in Singapore); courts or arbitration seat. Different place from the employer → flagged",
+  E1c: "Work pass or visa flagged when needed. Then the employment law overview (FD AI, over the firm's table): later answers that do not comply are prompted — keep or change — and flagged",
   E2: "Regular or not sure → a non-compete is left out and statutory protections are flagged",
   E3a: "1.1 Term — fixed term replaces the first sentence ⚑",
   E3b: "Table A “End of Fixed Term”",
@@ -48,8 +50,8 @@ const SHAPES: Record<string, string> = {
   E8a: "11.2, 11.3, 11.5(b) — “all work” scope ⚑",
   E8b: "11.6 Waiver of Moral Rights in or out",
   E9: "2.3(b) and 2.4 — consent, or fully exclusive; the 5% listed-shares proviso",
-  E10a: "Clause 9 Privacy Consent in or out; GDPR places flagged",
-  E10b: "12.8(b) courts, or arbitration ⚑ — not asked when the employee works in the UK",
+  E10a: "Clause 9 in or out, subject to applicable data protection laws; GDPR places: prompted, flagged, and the Lawful Basis clause ⚑ added",
+  E10b: "12.8(b) courts, or arbitration ⚑ “to the extent permitted by applicable law”; where arbitration is limited (UK, EU …) the person is prompted and it is flagged",
   M1: "3.3 Good Leaver and Bad Leaver ⚑",
   M2: "12.5 Rights of Group Companies ⚑ instead of “no third-party rights”",
 };
@@ -90,6 +92,8 @@ function supplementary(): { name: string; text: string }[] {
   }
   out.push({ name: "Term — fixed term (1.1, first sentence)", text: FIXED_TERM_SENTENCE.replace(/\*\*/g, "") });
   out.push({ name: "Governing law — arbitration (12.8(b))", text: ARBITRATION_TEXT });
+  out.push({ name: "Table A — Annual Leave", text: "… working days' paid annual leave per year, accruing pro rata for any part of a year, or such greater entitlement as applicable law requires" });
+  out.push({ name: "Privacy — Use of Personal Data (opening words)", text: "Subject to applicable data protection laws, you acknowledge and agree that …" });
   for (const k of ["2y", "5y"]) out.push({ name: `Confidentiality — ${k === "2y" ? "2" : "5"} years after (5.2)`, text: `You shall, ${CONFIDENTIALITY_PERIOD[k].text}:` });
   out.push({ name: "Intellectual property — company owns all work (11.2, 11.3)", text: `… created, generated or contributed to by you ${IP_SCOPE.all.own} …` });
   out.push({
@@ -105,7 +109,7 @@ export default function EmploymentQuestions() {
   const rows: Row[] = [];
   for (const q of ALL_QUESTIONS) {
     rows.push({ kind: "q", q });
-    if (q.id === "E1b") rows.push({ kind: "people" }, { kind: "job" });
+    if (q.id === "E1c") rows.push({ kind: "people" }, { kind: "job" });
   }
   const sections: { name: string; rows: Row[] }[] = [];
   for (const r of rows) {
