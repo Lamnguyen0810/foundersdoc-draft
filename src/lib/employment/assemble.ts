@@ -21,6 +21,7 @@ import {
   ACCEPTANCE, ACCEPTANCE_SIGN, AGREED, ARBITRATION_TEXT, CLOSING, CONFIDENTIALITY_PERIOD, FIXED_TERM_SENTENCE, HEADER,
   IP_SCOPE, PERMANENT_SENTENCE, SECTIONS, TABLE_A, TABLE_A_NOTE, TABLE_A_TITLE, TABLE_TEXT, type MasterClause, type MasterSub,
 } from "./data/master";
+import { builtInRules } from "./guide";
 import { applyDefaults, countryOf, partOf, workJurisdiction } from "./questions";
 import type { AiFields, Answers, EmploymentInput, Flag, Job } from "./types";
 
@@ -226,6 +227,10 @@ export function assemble(input: EmploymentInput): Assembled {
   if (str(a.M1) !== "yes") drop.add("leaver");
   if (str(a.E5) === "no") drop.add("garden_leave");
   if (str(a.E8b) === "no") drop.add("moral_rights");
+  /* The lawful-basis clause only where consent is not a valid basis (the
+     GDPR places): elsewhere the consent wording stands, subject to applicable
+     data protection laws. */
+  if (builtInRules(workJurisdiction(a), "").consent !== "not_valid") drop.add("pd_basis");
   if (str(a.M2) === "yes") drop.add("third_parties");
   else drop.add("third_parties_group");
 

@@ -97,7 +97,7 @@ export const TABLE_TEXT: Record<string, string> = {
   place: "{{work_place}}",
   travel: "{{travel}}",
   hours: "{{working_hours}}",
-  leave: "{{annual_leave}} (\"**Annual Leave**\")",
+  leave: "{{annual_leave}}, or such greater entitlement as applicable law requires (\"**Annual Leave**\")",
   restricted_period: "The period of your employment and a further period of {{restricted_months}} from the date you cease to be employed by the Company.",
   notice: "{{notice_period}} (the \"**Termination Notice Period**\")",
 };
@@ -399,7 +399,7 @@ export const SECTIONS: MasterSection[] = [
       },
       {
         id: "pd_use",
-        text: "**Use of Personal Data.** You acknowledge and agree that the Company, by itself or through third parties, will Process Personal Data and that this Personal Data may be used for personnel, administration and management purposes in connection with your employment or the administration of post-employment benefits to comply with any obligations that the Company or any Group company may have regarding the retention of employee/worker records. You acknowledge and agree that the Company may use your Personal Data for legitimate and reasonable purposes, including but not limited to:",
+        text: "**Use of Personal Data.** Subject to applicable data protection laws, you acknowledge and agree that the Company, by itself or through third parties, will Process Personal Data and that this Personal Data may be used for personnel, administration and management purposes in connection with your employment or the administration of post-employment benefits to comply with any obligations that the Company or any Group company may have regarding the retention of employee/worker records. You acknowledge and agree that the Company may use your Personal Data for legitimate and reasonable purposes, including but not limited to:",
         subs: [
           { ref: "(a)", text: "administering and maintaining personnel records, including medical records and information about your physical and mental health or condition;" },
           { ref: "(b)", text: "paying, reviewing and administering salary and other remuneration and benefits;" },
@@ -411,6 +411,11 @@ export const SECTIONS: MasterSection[] = [
           { ref: "(h)", text: "disciplinary and grievance matters; and" },
           { ref: "(i)", text: "recruitment activities." },
         ],
+      },
+      {
+        id: "pd_basis",
+        fd: true,
+        text: "**Lawful Basis.** Where applicable data protection laws do not allow the Company to rely on your consent to Process your Personal Data, the Company will Process it on another lawful basis, such as the performance of this Agreement, compliance with the Company's legal obligations or the Company's legitimate interests, as explained in the Company's employee privacy notice.",
       },
       {
         id: "pd_transfer",
@@ -566,7 +571,7 @@ export const PERMANENT_SENTENCE =
 
 /** 12.8(b) when disputes go to arbitration. */
 export const ARBITRATION_TEXT =
-  "Any dispute arising out of or in connection with this Agreement, including any question regarding its existence, validity or termination, shall be referred to and finally resolved by arbitration administered by {{arbitral_institution}} in accordance with its arbitration rules for the time being in force, which rules are deemed to be incorporated by reference in this Clause. The seat of the arbitration shall be {{arbitration_seat}}. The tribunal shall consist of one (1) arbitrator and the language of the arbitration shall be English. Nothing in this Clause prevents you from bringing any claim which, under applicable law, may only be brought before an employment tribunal, labour court or other statutory body.";
+  "To the extent permitted by applicable law, any dispute arising out of or in connection with this Agreement, including any question regarding its existence, validity or termination, shall be referred to and finally resolved by arbitration administered by {{arbitral_institution}} in accordance with its arbitration rules for the time being in force, which rules are deemed to be incorporated by reference in this Clause. The seat of the arbitration shall be {{arbitration_seat}}. The tribunal shall consist of one (1) arbitrator and the language of the arbitration shall be English. Nothing in this Clause prevents you from bringing any claim which, under applicable law, may only be brought before an employment tribunal, labour court or other statutory body.";
 
 /** 5.2's opening, by how long confidentiality lasts after the job. */
 export const CONFIDENTIALITY_PERIOD: Record<string, { text: string; fd?: boolean }> = {

@@ -30,7 +30,7 @@ import { track } from "@/lib/track";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { DEFAULT_JURISDICTIONS } from "@/lib/jurisdictions";
 import { applyDefaults, problemWith, questionsFor, workJurisdiction, type Option, type Question } from "@/lib/employment/questions";
-import { leaveFloor } from "@/lib/employment/minimums";
+import { builtInGuide, countriesFrom, guideKey, issueFor, leaveIssue, type LawGuide } from "@/lib/employment/guide";
 import { EMPLOYMENT_INTRO } from "@/lib/employment/data/intro";
 import type { AiFields, Answers, DraftStatus, Employee, Employer, Flag, Job } from "@/lib/employment/types";
 
@@ -61,15 +61,18 @@ export interface EmploymentProps {
 
 type Stage = "intro" | "questions" | "review" | "drafted";
 
-/** A step is a question, the people, or the job. */
-type Step = { kind: "q"; q: Question } | { kind: "people" } | { kind: "job" };
+/** A step is a question, the law guide, the people, or the job. */
+type Step = { kind: "q"; q: Question } | { kind: "guide" } | { kind: "people" } | { kind: "job" };
 
-const PEOPLE_AFTER = "E1b";
+/* After "where" and nationality: the law guide, then the people and the job. */
+const PEOPLE_AFTER = "E1c";
+const COUNTRIES = countriesFrom(DEFAULT_JURISDICTIONS);
 export const EMPLOYMENT_HANDOFF_KEY = "fdai.employment-handoff";
 const STASH_KEY = "fdai.employment-in-progress";
 
 const PEOPLE_Q = "Who are the employer and the employee? Names as they will appear in the contract.";
 const JOB_Q = "Tell me about the job: the title, the pay and when it starts.";
+const GUIDE_Q = "Before the details, here is an overview of the employment law that applies. I’ll check your answers against it as we go.";
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
@@ -82,7 +85,7 @@ function stepsFor(a: Answers): Step[] {
   const out: Step[] = [];
   for (const q of questionsFor(a)) {
     out.push({ kind: "q", q });
-    if (q.id === PEOPLE_AFTER) out.push({ kind: "people" }, { kind: "job" });
+    if (q.id === PEOPLE_AFTER) out.push({ kind: "guide" }, { kind: "people" }, { kind: "job" });
   }
   return out;
 }
@@ -90,6 +93,7 @@ function stepsFor(a: Answers): Step[] {
 const SHORT: Record<string, string> = {
   E1a: "Employer based in",
   E1b: "Employee works in",
+  E1c: "Nationality",
   E2: "Protected employee",
   E3a: "Permanent or fixed-term",
   E3b: "Fixed term ends",
@@ -114,18 +118,20 @@ const SHORT: Record<string, string> = {
 };
 
 function shortLabel(s: Step): string {
+  if (s.kind === "guide") return "Employment law overview";
   if (s.kind === "people") return "Employer and employee";
   if (s.kind === "job") return "The job";
   return SHORT[s.q.id] ?? s.q.section;
 }
 
 function groupOf(s: Step): string {
+  if (s.kind === "guide") return "Where";
   if (s.kind !== "q") return "The people and the job";
   return s.q.section;
 }
 
 /** What "Skip the rest" cannot answer for anyone. */
-const MUST_ASK = new Set(["E1a", "E1b", "people", "job", "E3b", "E4d"]);
+const MUST_ASK = new Set(["E1a", "E1b", "E1c", "people", "job", "E3b", "E4d"]);
 
 function allSettled(a: Answers): Settled {
   const out: Settled = {};
@@ -178,6 +184,12 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
+  /* The law guide (Rachel, 10 Oct): the firm's table at once, FD AI's fuller
+     overview when it arrives (signed-in only). */
+  const [guide, setGuide] = useState<LawGuide | null>(() => (resume?.answers._guide as LawGuide | undefined) ?? null);
+  const [guideLoading, setGuideLoading] = useState(false);
+  /* An answer that does not comply, waiting for "keep it" or "change it". */
+  const [warn, setWarn] = useState<{ qid: string; value: unknown; title: string; message: string } | null>(null);
 
   /* the draft */
   const [draftId, setDraftId] = useState<string | null>(resume?.id ?? null);
@@ -274,11 +286,43 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, stage, error]);
+  }, [msgs.length, stage, error, warn]);
+
+  /* A new guide whenever where or nationality changes. */
+  const placesKey = str(answers.E1a) && str(answers.E1c) ? guideKey(answers) : "";
+  useEffect(() => {
+    if (!placesKey || stage === "drafted") return;
+    if (guide?.key === placesKey && (guide.source === "ai" || guest)) return;
+    const base = builtInGuide(answers);
+    let live = true;
+    const t = setTimeout(() => {
+      if (!live) return;
+      setGuide(base);
+      if (guest) return;
+      setGuideLoading(true);
+      fetch("/api/employment/guide", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ E1a: answers.E1a, E1b: answers.E1b, E1c: answers.E1c }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j: { guide?: LawGuide } | null) => {
+          if (live && j?.guide && j.guide.key === placesKey) setGuide(j.guide);
+        })
+        .catch(() => undefined)
+        .finally(() => live && setGuideLoading(false));
+    }, 0);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placesKey, guest, stage]);
 
   /* ── answering ──────────────────────────────────────────────────────── */
 
   const resetInput = () => {
+    setWarn(null);
     setTyped("");
     setPicked("");
     setMulti([]);
@@ -299,11 +343,27 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
   };
 
   const commit = (q: Question, value: unknown) => settle(q, value, false);
+
+  /** Commit, unless the answer does not comply with the law guide: then say
+   *  why first, and let the person keep it or change it. */
+  const check = (q: Question, value: unknown) => {
+    const issue = issueFor(guide, q.id, value);
+    if (issue) {
+      setWarn({ qid: q.id, value, title: issue.title, message: issue.message });
+      return;
+    }
+    commit(q, value);
+  };
   const skip = (q: Question) => settle(q, q.defaultValue ?? "", true);
 
-  const settleStep = (k: "people" | "job") => {
+  const settleStep = (k: "guide" | "people" | "job") => {
     setSettled((st) => ({ ...st, [k]: "done" }));
     setOpenKey(null);
+    if (k === "guide") {
+      say({ who: "fd", text: GUIDE_Q }, { who: "me", label: "Employment law overview", text: `Read — ${guide?.place.split(",")[0] || "the rules"}` });
+      resetInput();
+      return;
+    }
     say(
       { who: "fd", text: k === "people" ? PEOPLE_Q : JOB_Q },
       {
@@ -324,7 +384,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
     if (s.kind === "q") {
       const v = answers[k];
       if ((s.q.type === "free_text" || s.q.type === "date") && typeof v === "string") setTyped(v);
-      if (s.q.type === "jurisdiction" && typeof v === "string" && v !== "same") setPicked(v);
+      if ((s.q.type === "jurisdiction" || s.q.type === "country") && typeof v === "string" && v !== "same") setPicked(v);
       if (s.q.type === "multi_choice" && Array.isArray(v)) setMulti(v.map(String));
       if (s.q.type === "free_text_list" && Array.isArray(v)) setListItems(v.map(String));
     }
@@ -350,7 +410,12 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
     for (let pass = 0; pass < 4; pass++) {
       for (const s of stepsFor(a)) {
         const k = stepKey(s);
-        if (st[k] || MUST_ASK.has(k) || s.kind !== "q") continue;
+        if (st[k] || MUST_ASK.has(k)) continue;
+        if (s.kind === "guide") {
+          st[k] = "skp";
+          continue;
+        }
+        if (s.kind !== "q") continue;
         const v = a[k];
         if (v === undefined || v === null || v === "") a[k] = s.q.defaultValue ?? "";
         st[k] = "skp";
@@ -393,7 +458,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
       const res = await fetch("/api/employment", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ answers: applyDefaults(answers), employer, employee, job }),
+        body: JSON.stringify({ answers: applyDefaults(answers), employer, employee, job, guide }),
       });
       const j = (await res.json().catch(() => null)) as Record<string, unknown> | null;
       if (res.status === 402) {
@@ -613,6 +678,45 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
     );
   }
 
+  /** The prompt for an answer that does not comply: why, then keep or change. */
+  function warnBox(q: Question) {
+    if (!warn || warn.qid !== q.id) return null;
+    return (
+      <div className="emp-warn" role="alert">
+        <b>{warn.title}</b>
+        <p>{warn.message}</p>
+        <div className="chips">
+          <button type="button" className="chip" onClick={() => setWarn(null)}>Change my answer</button>
+          <button type="button" className="go" onClick={() => commit(q, warn.value)}>Keep it — subject to applicable laws</button>
+        </div>
+      </div>
+    );
+  }
+
+  /** The law guide: the overview, then on to the people. */
+  function guideUI() {
+    const g = guide ?? builtInGuide(answers);
+    return (
+      <div className="emp-guide">
+        <p className="emp-guide-sum">{g.summary}</p>
+        <ul>
+          {g.points.map((p) => (
+            <li key={p.topic}>
+              <b>{p.topic}</b> {p.text}
+            </li>
+          ))}
+        </ul>
+        {guideLoading && <p className="later">FD AI is adding a fuller overview of {g.place.split(",")[0]}…</p>}
+        {guest && <p className="later">Sign up for free and FD AI adds a fuller overview of the law where they work.</p>}
+        <p className="emp-guide-note">General information, not legal advice. FD AI checks your answers against these rules and tells you when one does not comply.</p>
+        <div className="chips">
+          {backButton()}
+          <button type="button" className="go" onClick={() => settleStep("guide")}>Got it — continue</button>
+        </div>
+      </div>
+    );
+  }
+
   function questionUI(q: Question) {
     switch (q.type) {
       case "jurisdiction":
@@ -634,10 +738,25 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
           </>
         );
 
+      case "country":
+        return (
+          <>
+            <div className="chips emp-jur">
+              <JurisdictionPicker options={COUNTRIES} value={picked} onChange={setPicked} label={q.text} />
+              {backButton()}
+              <button type="button" className="go" disabled={!picked.trim()} onClick={() => commit(q, picked.trim())}>
+                Continue
+              </button>
+            </div>
+            {skipLink(q)}
+          </>
+        );
+
       case "single_choice":
         return (
           <>
-            <div className="chips">{chipsFor(q.options, (o) => commit(q, o.value), (o) => answers[q.id] === o.value)}</div>
+            <div className="chips">{chipsFor(q.options, (o) => check(q, o.value), (o) => (warn?.qid === q.id ? warn.value === o.value : answers[q.id] === o.value))}</div>
+            {warnBox(q)}
             {backButton() && <div className="chips ts-back-row">{backButton()}</div>}
             {skipLink(q)}
           </>
@@ -658,10 +777,11 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                 (o) => multi.includes(o.value),
               )}
               {backButton()}
-              <button type="button" className="go" disabled={multi.length === 0} onClick={() => commit(q, multi)}>
+              <button type="button" className="go" disabled={multi.length === 0} onClick={() => check(q, multi)}>
                 Done
               </button>
             </div>
+            {warnBox(q)}
             {skipLink(q)}
           </>
         );
@@ -822,10 +942,11 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
   function jobUI() {
     const set = (patch: Partial<Job>) => setJob((j) => ({ ...j, ...patch }));
     const work = str(workJurisdiction(answers));
-    const floor = work ? leaveFloor(work) : null;
-    const leaveDays = Number.parseInt(job.leave_days ?? "", 10);
-    const leaveTooLow = floor !== null && Number.isFinite(leaveDays) && leaveDays > 0 && leaveDays < floor;
-    const ok = Boolean(job.position.trim()) && !leaveTooLow;
+    const g = guide ?? (work ? builtInGuide(answers) : null);
+    const floor = g?.rules.min_leave_days ?? null;
+    const leave = leaveIssue(g, job);
+    const leaveTooLow = Boolean(leave);
+    const ok = Boolean(job.position.trim());
     return (
       <div className="ts-parties">
         <div className="ts-party">
@@ -888,9 +1009,9 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                 placeholder={floor !== null ? `at least ${floor}` : "e.g. 14"}
               />
               {floor !== null && (
-                <small className={leaveTooLow ? "ts-refuse" : "ts-floor"}>
-                  {leaveTooLow
-                    ? `Below the legal minimum in ${work.split(",")[0]}: ${floor} working days a year, on top of public holidays. Enter ${floor} or more.`
+                <small className={leaveTooLow ? "ts-refuse emp-soft" : "ts-floor"}>
+                  {leave
+                    ? leave.message
                     : `Legal minimum in ${work.split(",")[0]}: ${floor} working days a year, on top of public holidays.`}
                 </small>
               )}
@@ -899,8 +1020,8 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
         </div>
         <div className="chips">
           {backButton()}
-          <button type="button" className="go" disabled={!ok} onClick={() => settleStep("job")} title={ok ? undefined : leaveTooLow ? "Annual leave is below the legal minimum" : "The job title is needed"}>
-            Continue
+          <button type="button" className="go" disabled={!ok} onClick={() => settleStep("job")} title={ok ? undefined : "The job title is needed"}>
+            {leaveTooLow ? "Continue anyway" : "Continue"}
           </button>
         </div>
         <p className="later">Only the job title is needed now. Anything left blank is marked [●] in the contract, never guessed.</p>
@@ -926,6 +1047,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
     const k = stepKey(s);
     if (settled[k] === "skp") return "Skipped";
     if (settled[k] !== "done") return "";
+    if (s.kind === "guide") return "Read";
     if (s.kind === "people") return people;
     if (s.kind === "job") return jobLine;
     return answerLabel(s.q, answers);
@@ -1052,11 +1174,11 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        {step.kind === "q" ? step.q.text : step.kind === "people" ? PEOPLE_Q : JOB_Q}
+                        {step.kind === "q" ? step.q.text : step.kind === "guide" ? GUIDE_Q : step.kind === "people" ? PEOPLE_Q : JOB_Q}
                         {step.kind === "q" && step.q.help && <p className="sub">{step.q.help}</p>}
                         {step.kind === "people" && company && <p className="sub">The employer is filled in from your company profile — change anything that is not right.</p>}
                       </div>
-                      <div className="ans">{step.kind === "q" ? questionUI(step.q) : step.kind === "people" ? peopleUI() : jobUI()}</div>
+                      <div className="ans">{step.kind === "q" ? questionUI(step.q) : step.kind === "guide" ? guideUI() : step.kind === "people" ? peopleUI() : jobUI()}</div>
                     </div>
                   </div>
                 )}

@@ -9,19 +9,13 @@
  */
 
 import { lawName } from "./assemble";
+import { GDPR, builtInGuide, issuesFor, type LawGuide } from "./guide";
 import { leaveFloor } from "./minimums";
 import { applyDefaults, countryOf, problemWith, questionsFor, workJurisdiction } from "./questions";
 import type { Answers, Flag, Job } from "./types";
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
-/** Where the GDPR (or the UK's version of it) applies. */
-const GDPR = new Set([
-  "United Kingdom", "England and Wales", "Scotland", "Northern Ireland", "Ireland", "Germany", "France", "Netherlands", "Belgium",
-  "Luxembourg", "Spain", "Portugal", "Italy", "Austria", "Denmark", "Sweden", "Finland", "Poland", "Czech Republic", "Greece",
-  "Romania", "Hungary", "Estonia", "Latvia", "Lithuania", "Slovakia", "Slovenia", "Croatia", "Bulgaria", "Cyprus", "Malta",
-  "Norway", "Iceland", "Liechtenstein",
-]);
 
 /** A few words for each flag, for the list the user sees. */
 export const FLAG_TITLES: Record<string, string> = {
@@ -37,6 +31,7 @@ export const FLAG_TITLES: Record<string, string> = {
   EM10: "Custom dismissal reasons",
   EM11: "Annual leave below the legal minimum",
   EM12: "Restriction too wide to enforce",
+  EM13: "Work pass or visa",
 };
 
 export function titleFor(f: Flag): string {
@@ -50,7 +45,9 @@ export interface RuleChecks {
   flags: Flag[];
 }
 
-export function ruleChecks(answersIn: Answers, job: Job): RuleChecks {
+/** `guide` is the overview the person saw (FD AI's, merged over the firm's
+ *  table); without one the built-in guide is used. */
+export function ruleChecks(answersIn: Answers, job: Job, guide?: LawGuide | null): RuleChecks {
   const a = applyDefaults(answersIn);
   const flags: Flag[] = [];
   const employerRaw = str(a.E1a);
@@ -92,7 +89,9 @@ export function ruleChecks(answersIn: Answers, job: Job): RuleChecks {
     flags.push({
       level: "yellow",
       scenario: "EM5",
-      reason: "Disputes go to arbitration. Many places do not let an employee's statutory claims (unfair dismissal, discrimination, unpaid wages) be sent to arbitration; the clause keeps those claims open, but check the clause is valid locally.",
+      reason: (guide ?? builtInGuide(a)).rules.arbitration === "limited"
+        ? `Disputes go to arbitration, although in ${work} statutory employment claims (unfair dismissal, discrimination, unpaid wages) cannot be sent to arbitration. The clause applies only to the extent permitted by applicable law and keeps those claims open; local courts are the usual choice. Check the person wants to keep it.`
+        : "Disputes go to arbitration. Many places do not let an employee's statutory claims (unfair dismissal, discrimination, unpaid wages) be sent to arbitration; the clause applies only to the extent permitted by applicable law and keeps those claims open, but check it is valid locally.",
       field: "E10b",
     });
   }
@@ -101,7 +100,7 @@ export function ruleChecks(answersIn: Answers, job: Job): RuleChecks {
     flags.push({
       level: "yellow",
       scenario: "EM6",
-      reason: `Under the GDPR (or the UK GDPR) consent is rarely a valid basis for handling an employee's data, because of the imbalance of power. The privacy clause relies on consent; an employee privacy notice is usually needed as well.`,
+      reason: `Under the GDPR (or the UK GDPR) consent is rarely a valid basis for handling an employee's data, because of the imbalance of power. The privacy clause is written subject to applicable data protection laws and adds a lawful-basis clause (performance of the contract, legal obligations, legitimate interests); an employee privacy notice is needed as well.`,
       field: "E10a",
     });
   }
@@ -128,11 +127,19 @@ export function ruleChecks(answersIn: Answers, job: Job): RuleChecks {
   const leaveDays = Number.parseInt(str(job.leave_days), 10);
   if (floor !== null && Number.isFinite(leaveDays) && leaveDays > 0 && leaveDays < floor) {
     flags.push({
-      level: "red",
+      level: "yellow",
       scenario: "EM11",
-      reason: `Table A gives ${leaveDays} days' annual leave, below the legal minimum in ${work} of ${floor} working days a year (on top of public holidays). The statutory minimum applies whatever the contract says; change the figure before this goes out.`,
+      reason: `Table A gives ${leaveDays} days' annual leave, below the legal minimum in ${work} of ${floor} working days a year (on top of public holidays). The contract gives leave "or such greater entitlement as applicable law requires", so the statutory minimum applies anyway; better to change the figure to ${floor} or more before this goes out.`,
       field: "job",
     });
+  }
+
+  /* What the law guide found that the rules above have not already said. */
+  const covered = new Set(flags.map((f) => f.field));
+  for (const i of issuesFor(guide ?? builtInGuide(a), a, job)) {
+    if (covered.has(i.field)) continue;
+    if (i.field === "E6a" && /\bcalifornia\b/i.test(workRaw)) continue; /* the assembler handles California */
+    flags.push({ level: "yellow", scenario: i.field === "E1c" ? "EM13" : "LAW", title: i.title, reason: i.message, field: i.field });
   }
 
   for (const q of questionsFor(a)) {
