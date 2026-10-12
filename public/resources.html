@@ -877,6 +877,18 @@
         .feature h2 { font-size: 30px; }
         .insights-grid { grid-template-columns: 1fr; gap: 22px; }
       }
+      /* Phones: the header fits (it was 568px wide on a 390px screen and
+         pushed the menu button off the edge). */
+      @media (max-width: 760px) {
+        .nav .wrap { gap: 8px; padding-inline: 16px; }
+        .nav-cta { margin-left: auto; }
+        .nav .btn { padding: 9px 12px; }
+        .theme-btn, .burger { width: 44px; height: 44px; flex: none; }
+      }
+      @media (max-width: 400px) {
+        .theme-btn { display: none; }
+        html, body { overflow-x: clip; }
+      }
       @media (prefers-reduced-motion: reduce) {
         html {
           scroll-behavior: auto;

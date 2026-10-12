@@ -3922,3 +3922,199 @@ html[data-theme=dark] .q-info-pop{background:#2a2b30;border-color:#3a3b41;color:
 .emp-soft{color:#9a6700}
 html[data-theme=dark] .emp-warn{background:#2a2412;border-color:#5c4a17}
 html[data-theme=dark] .emp-soft{color:#e3b341}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MOBILE AND TABLET LAYER (Oct 2026)
+   One codebase for phone, tablet and laptop, the way ChatGPT, Claude and
+   Notion do it: the same screens, with the side columns turned into a drawer
+   (the rail) and a bottom sheet (the progress pane) on narrow screens
+   (MobileDraftBar.tsx), a header that fits a 320px phone, 44px touch targets
+   (Apple HIG / WCAG 2.5.5), 16px form text so iOS does not zoom, dynamic
+   viewport height so the browser bars never clip the message box, and the
+   safe-area insets for the notch and home bar. Last in the file so it wins;
+   desktop (above 1180px) is untouched.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── the header: everything fits, the menu button is always on screen ── */
+@media (max-width: 760px) {
+  .nav .wrap {
+    gap: 8px;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+  .nav .nav-cta { margin-left: auto; }
+  .nav .btn { padding: 9px 12px; }
+  .nav .theme, .nav .burger { width: 44px; height: 44px; }
+  .menu { max-height: calc(100dvh - var(--nav-h)); overscroll-behavior: contain; }
+  .menu .wrap { padding-inline: 20px; }
+  .menu a, .menu button { min-height: 44px; display: flex; align-items: center; }
+}
+@media (max-width: 359px) {
+  .nav .logo { transform: scale(0.88); transform-origin: left center; margin-right: -14px; }
+  .nav .btn-gold { padding: 8px 10px; font-size: 12.5px; }
+}
+
+/* ── the app's height: the visible screen, whatever the browser bars do ── */
+@supports (height: 100dvh) {
+  .fdai-screens { height: calc(100dvh - var(--nav-h)); }
+}
+
+/* ── tablets (901–1100px): rail and conversation side by side ──
+   The old rules made the grid one column but kept the rail in it, which
+   squeezed the rail to a sliver and pushed the strip under the chat. */
+@media (min-width: 901px) and (max-width: 1100px) {
+  #scr-chat:not(.is-draft) { grid-template-columns: 240px minmax(0, 1fr); }
+  #scr-chat:not(.is-draft) .strip, #scr-chat:not(.is-draft) .convo { grid-column: 2; }
+}
+
+/* ── the strip: one line, with the menu and progress buttons ── */
+.m-btn { display: none; }
+@media (max-width: 1180px) {
+  #scr-chat .strip .m-prog {
+    display: inline-flex; align-items: center; gap: 6px; flex: none;
+    height: 36px; padding: 0 12px; border-radius: 999px;
+    border: 1px solid var(--rule-2); background: var(--card); color: var(--tx);
+    font: inherit; font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+}
+@media (max-width: 900px) {
+  #scr-chat .strip {
+    flex-wrap: nowrap; justify-content: flex-start; gap: 8px;
+    padding: 6px 10px; min-height: 52px;
+  }
+  #scr-chat .strip .dname { flex: 1 1 auto; min-width: 0; max-width: none; }
+  #scr-chat .strip .chg { font-size: 12.5px; white-space: nowrap; flex: none; }
+  #scr-chat .strip .m-menu {
+    display: grid; place-items: center; order: -1; flex: none;
+    width: 40px; height: 40px; border-radius: 10px;
+    border: 1px solid var(--rule-2); background: var(--card); color: var(--tx); cursor: pointer;
+  }
+  #scr-chat .strip .dot { flex: none; }
+}
+@media (max-width: 420px) {
+  #scr-chat .strip .chg { font-size: 0; }
+  #scr-chat .strip .chg::after { content: "Change"; font-size: 12.5px; }
+}
+
+/* ── the drawer and the sheet ── */
+.m-backdrop {
+  position: fixed; inset: 0; z-index: 55;
+  background: rgba(10, 10, 12, 0.45);
+  animation: m-fade 0.2s ease both;
+}
+#scr-chat.m-rail .rail {
+  display: flex !important;
+  position: fixed; z-index: 60; top: 0; bottom: 0; left: 0;
+  width: min(86vw, 300px);
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  overflow-y: auto; overscroll-behavior: contain;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  animation: m-drawer 0.24s cubic-bezier(.2, .8, .2, 1) both;
+}
+#scr-chat.m-pane .pane {
+  display: grid !important;
+  position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; top: auto;
+  width: auto; height: min(82dvh, 680px);
+  grid-column: auto; grid-row: auto;
+  border: 1px solid var(--rule); border-bottom: 0; border-radius: 18px 18px 0 0;
+  padding-bottom: env(safe-area-inset-bottom);
+  overflow: hidden;
+  box-shadow: 0 -18px 50px rgba(0, 0, 0, 0.25);
+  animation: m-sheet 0.26s cubic-bezier(.2, .8, .2, 1) both;
+}
+#scr-chat.m-pane .pane > :not(.m-close) { min-height: 0; }
+#scr-chat.m-pane .pane .pane-h { padding-right: 56px; }
+#scr-chat.m-pane .pane .pane-h::before {
+  content: ""; position: absolute; top: 7px; left: 50%; width: 38px; height: 4px;
+  margin-left: -19px; border-radius: 4px; background: var(--rule-2);
+}
+.m-close {
+  position: absolute; top: 8px; right: 10px; z-index: 2;
+  width: 40px; height: 40px; border-radius: 50%; border: 0;
+  background: transparent; color: var(--tx-2); font-size: 24px; line-height: 1; cursor: pointer;
+}
+@media (min-width: 1181px) { .m-backdrop, .m-close { display: none; } }
+@keyframes m-fade { from { opacity: 0; } }
+@keyframes m-drawer { from { transform: translateX(-100%); } }
+@keyframes m-sheet { from { transform: translateY(100%); } }
+@media (prefers-reduced-motion: reduce) {
+  .m-backdrop, #scr-chat.m-rail .rail, #scr-chat.m-pane .pane { animation: none; }
+}
+
+/* ── the conversation on a phone: more room for the words ── */
+@media (max-width: 560px) {
+  .chat { padding: 14px 14px 8px; }
+  .chat-in { gap: 18px; }
+  .m { grid-template-columns: 26px minmax(0, 1fr); gap: 9px; }
+  .m .av { width: 26px; height: 26px; font-size: 9.5px; }
+  .m.me .txt { max-width: 88%; }
+  .composer { padding: 6px 12px calc(10px + env(safe-area-inset-bottom)); }
+  .composer .fine { padding-left: 6px; font-size: 11px; }
+  .composer textarea::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .composer textarea { min-height: 24px; }
+  /* The level slider: the current level's name only — the readout above
+     already says it, and five names do not fit a phone's width. */
+  .gd-scale em { visibility: hidden; }
+  .gd-scale span.on em { visibility: visible; }
+}
+
+/* ── touch: 44px targets, and 16px form text so iOS never zooms in ── */
+@media (pointer: coarse) {
+  .m .ans .chip, .m .ans .go, .m .ans .back, .m .ans .btn { min-height: 44px; }
+  .pane .inst, .rail .nav2 a { min-height: 44px; }
+}
+@media (max-width: 760px) {
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select { font-size: 16px !important; }
+}
+
+/* ── the document on a phone: pages fit the screen, text stays readable ──
+   The A4 page used to be scaled down to at most 60% and still ran off the
+   right edge. Below 600px the page takes the screen's width instead, and the
+   editor's own pagination keeps the A4 proportion at that width. */
+@media (max-width: 600px) {
+  #scr-chat.is-draft .gen-right .dscroll { padding: 14px 12px 32px; }
+  .wd-pages { width: 100%; min-width: 0; }
+  .wd-pages .sheet.wd-page {
+    width: calc(100vw - 24px) !important;
+    min-height: 0 !important;
+    padding: 28px 22px 34px !important;
+  }
+}
+/* Long setup names on the sign-in page must not widen a phone screen. */
+.login-stage code, .sub code { overflow-wrap: anywhere; }
+
+/* The level slider on a phone: numbers sit under their dots, the readout
+   never breaks onto two lines. */
+@media (max-width: 560px) {
+  .gd-scale span, .gd-scale span:first-child, .gd-scale span:last-child { text-align: center; }
+  .gd-readout { flex: none; }
+  .gd-readout b, .gd-readout em { white-space: nowrap; }
+}
+/* On a tablet the progress opens as a panel from the right, not a sheet. */
+@media (min-width: 701px) and (max-width: 1180px) {
+  #scr-chat.m-pane .pane {
+    top: 0; bottom: 0; left: auto; right: 0;
+    width: 380px; height: auto;
+    border-radius: 0; border: 0; border-left: 1px solid var(--rule);
+    box-shadow: -18px 0 50px rgba(0, 0, 0, 0.2);
+    animation-name: m-panel;
+  }
+  #scr-chat.m-pane .pane .pane-h::before { display: none; }
+}
+@keyframes m-panel { from { transform: translateX(100%); } }
+/* Small phones: the progress button is its icon, so the document's name has room. */
+@media (max-width: 400px) {
+  #scr-chat .strip .m-prog { width: 40px; height: 40px; padding: 0; justify-content: center; }
+  #scr-chat .strip .m-prog .m-prog-t { display: none; }
+}
+/* Phones on their side: a slimmer header and strip, so the conversation is
+   not squeezed into a third of the screen. */
+@media (max-height: 500px) and (orientation: landscape) {
+  :root, html[data-theme="dark"] { --nav-h: 52px; }
+  .nav .btn { padding: 6px 12px; }
+  .nav .nav-cta .btn-white { display: none; }
+  #scr-chat .strip { min-height: 44px; padding-block: 3px; }
+}

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppNav, SiteFooter } from "@/components/SiteChrome";
 import PageView from "@/components/PageView";
@@ -10,6 +10,16 @@ export const metadata: Metadata = {
   description:
     "Draft legal documents in minutes. Built by Founders Doc, reviewed by practising lawyers.",
   robots: { index: false, follow: false },
+};
+
+/* Phones: draw under the notch and home bar (the CSS pads with the safe-area
+   insets), and let the on-screen keyboard shrink the page on Android so the
+   message box stays in view, as it does on iOS. Zoom stays allowed. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
