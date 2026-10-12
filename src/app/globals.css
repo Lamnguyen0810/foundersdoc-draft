@@ -543,6 +543,22 @@ html[data-theme="dark"] .theme .moon {
 .menu a {
   padding: 4px 0;
 }
+
+/* ── the phone menu: full height, at the top of the page or scrolled ──────
+   The menu sits inside .nav, so every ".nav .wrap" rule above (a fixed 64px,
+   56px once the page scrolls, the bar's gaps) also caught the menu's own
+   .wrap and squashed the list to one line. Give it back its own shape. */
+.nav .menu .wrap,
+.nav.scrolled .menu .wrap {
+  display: grid;
+  height: auto !important;
+  gap: 14px;
+  align-items: stretch;
+}
+.menu[data-open="true"] {
+  max-height: calc(100dvh - var(--nav-h));
+  overscroll-behavior: contain;
+}
 .menu a:hover {
   color: var(--black);
 }
