@@ -421,4 +421,21 @@ export const IA_DATA = {
     "Assembled from Founders Doc investment agreements. The AI only flags points for the lawyer (upload the playbook under Playbook → Investment Agreement).",
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA, IA_DATA];
+/**
+ * The services agreement (093). Beta: built from a platform service
+ * agreement and an advisory services agreement, and FD AI's review of them
+ * from both sides, assembled by rule (src/lib/services). The database gets
+ * this row from 093_services_agreement.sql.
+ */
+export const SERVICES_DATA = {
+  slug: "services",
+  label: "Services Agreement",
+  description:
+    "A Singapore-law agreement to provide or buy services: a platform or software subscription, or professional work such as consulting or advisory services. The usual answers lean to the side of the user (Service Provider or Customer). Assembled by rule from two services agreements and FD AI's review of them; FD AI flags points for the lawyer. Beta.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from two services agreements and FD AI's review of them. The AI only flags points for the lawyer (upload the playbook under Playbook → Services Agreement).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA, IA_DATA, SERVICES_DATA];

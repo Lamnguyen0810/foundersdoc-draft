@@ -13,6 +13,7 @@ import Sha from "../Sha";
 import Spa from "../Spa";
 import Ssa from "../Ssa";
 import Ia from "../Ia";
+import Services from "../Services";
 import { recentDrafts } from "../recent";
 import type { DraftStatus, Flag } from "@/lib/termsheet/types";
 
@@ -142,7 +143,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
                     ? "Share Subscription Agreement"
                     : docType.slug === "ia"
                       ? "Investment Agreement"
-                      : "Term Sheet"),
+                      : docType.slug === "services"
+                        ? "Services Agreement"
+                        : "Term Sheet"),
       answers: saved,
       output: row.output ?? "",
       outputHtml: row.output_html,
@@ -166,7 +169,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
                   ? Ssa
                   : docType.slug === "ia"
                     ? Ia
-                    : TermSheet;
+                    : docType.slug === "services"
+                      ? Services
+                      : TermSheet;
     return (
       <Screen
         look={looks[docType.slug]}
