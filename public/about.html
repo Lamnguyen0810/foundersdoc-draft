@@ -654,6 +654,15 @@
         white-space: nowrap;
       }
       .foot .fd-mark, footer .fd-mark { color: #fff; }
+
+  /* Phone menu. The header's blur (backdrop-filter) makes it the frame for any
+     "fixed" child, so the overlay was squashed to the header's 64px and the page
+     showed through. Hang it under the header instead, full screen height. */
+  .overlay{position:absolute;top:100%;left:0;right:0;bottom:auto;height:calc(100vh - 64px);height:calc(100dvh - 64px);overflow:auto;overscroll-behavior:contain;border-top:1px solid var(--rule)}
+  .overlay a:not(.btn){min-height:44px;display:flex;align-items:center}
+  /* "nav .links" outranked the phone rule that hides the links, so the page was
+     846px wide on a phone and the browser zoomed out. */
+  @media (max-width:900px){nav .links{display:none}}
     </style>
 </head>
 <body>

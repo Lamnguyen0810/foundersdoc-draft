@@ -1991,6 +1991,19 @@ html.dark .prose p a, html.dark .prose li a, html.dark .summary p a { color: var
       .check .ci strong { font-weight: 600; }
       .check label:has(input:checked) .ci { color: var(--grey-5); text-decoration: line-through; text-decoration-color: var(--blue-deep); }
       .prose h3 + .check { margin-top: 4px; }
+
+      /* The phone menu sits inside the nav, so the bar's fixed height and its
+         shrink-on-scroll height must not reach the menu's own .wrap. */
+      .nav .menu .wrap,
+      .nav.scrolled .menu .wrap {
+        display: grid;
+        height: auto;
+        gap: 14px;
+      }
+      .menu[data-open="true"] {
+        max-height: calc(100dvh - var(--nav-h));
+        overscroll-behavior: contain;
+      }
     </style>
     <script>
       document.documentElement.classList.add("js");
