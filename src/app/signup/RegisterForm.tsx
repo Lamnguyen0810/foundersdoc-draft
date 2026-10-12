@@ -5,6 +5,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { track } from "@/lib/track";
 import GoogleButton, { OrLine } from "@/components/GoogleButton";
 import Turnstile, { turnstileOn } from "@/components/Turnstile";
+import { readSignupSource } from "@/lib/signup-source";
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -122,7 +123,9 @@ export default function RegisterForm({
            it writes the Slack line. The same key Google fills in, deliberately,
            so neither of them needs to know which way the person came in. */
         options: {
-          data: { full_name: name.trim() },
+          /* signup_source: the first page of this visit (lib/signup-source.ts),
+             which 091 turns into the "Came from:" line in Slack. */
+          data: { full_name: name.trim(), signup_source: readSignupSource() },
           captchaToken: captcha ?? undefined,
           /* With "Confirm email" on, the link in the email comes back here and
              the person lands in the workspace, signed in. */

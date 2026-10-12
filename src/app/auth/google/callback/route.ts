@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
 
   /* ── 5. hand the token to Supabase ────────────────────────────────────── */
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithIdToken({
+  const { data: signedIn, error } = await supabase.auth.signInWithIdToken({
     provider: "google",
     token: idToken,
     nonce: handshake.nonce,
@@ -118,6 +118,26 @@ export async function GET(req: NextRequest) {
     if (refused) return back("/login?error=registration-closed");
     console.error("[auth/google] signInWithIdToken failed:", error.message);
     return back(`${from}?error=google`);
+  }
+
+  /* ── 6. a new account: say where it came from ─────────────────────────
+     Saved on every NEW Google account — an empty source when nothing was
+     recorded — because 091 announces a Google account in Slack at this
+     moment, with the source in the message. An account that already had a
+     source, or that is older than a few minutes (a returning person), is
+     left alone. A failure here never stops the person getting in. */
+  const user = signedIn?.user;
+  const isNew = user?.created_at ? Date.now() - Date.parse(user.created_at) < 10 * 60 * 1000 : false;
+  if (user && isNew && !user.user_metadata?.signup_source) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { error: srcError } = await supabase.auth.updateUser({ data: { signup_source: handshake.src ?? {} } });
+        if (!srcError) break;
+        console.error("[auth/google] could not save the sign-up source:", srcError.message);
+      } catch (e) {
+        console.error("[auth/google] saving the sign-up source threw", e);
+      }
+    }
   }
 
   return back(handshake.next);

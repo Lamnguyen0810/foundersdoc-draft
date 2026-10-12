@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
+import { cleanSignupSource, type SignupSource } from "@/lib/signup-source";
 
 /**
  * Google sign-in, done by this server rather than by Supabase.
@@ -47,6 +48,8 @@ export interface Handshake {
   nonce: string;
   intent: Intent;
   next: string;
+  /** Where the visit started, for a new account (lib/signup-source.ts). */
+  src?: SignupSource | null;
 }
 
 export interface GoogleClaims {
@@ -103,6 +106,7 @@ export function decodeHandshake(raw: string | undefined): Handshake | null {
       nonce: h.nonce,
       intent: h.intent === "sign-up" ? "sign-up" : "sign-in",
       next: safeNext(h.next),
+      src: cleanSignupSource(h.src),
     };
   } catch {
     return null;

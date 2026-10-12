@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { readSignupSource } from "@/lib/signup-source";
 
 /**
  * "Continue with Google", on both screens.
@@ -49,6 +50,9 @@ export default function GoogleButton({
   function go() {
     setBusy(true);
     const p = new URLSearchParams({ intent, next });
+    /* The first page of this visit, carried through Google so the new
+       account can say where it came from (lib/signup-source.ts). */
+    p.set("src", JSON.stringify(readSignupSource()));
     /* A full navigation, not the router: /auth/google is a route handler
        that answers with a redirect to Google, and the app router has no
        business trying to render that. */
