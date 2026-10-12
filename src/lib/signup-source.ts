@@ -25,6 +25,9 @@ export type SignupSource = {
   title?: string;
   /** "article" when the first page was a blog post. */
   kind?: "article";
+  /** The document asked for, when the first page was /draft?type=… — the
+   *  email campaign links straight to /draft?type=nda. */
+  doc?: string;
   /** The referring site's host, "direct" when there was none. */
   ref?: string;
   utm_source?: string;
@@ -50,6 +53,7 @@ export function cleanSignupSource(v: unknown): SignupSource | null {
     path: path && path.startsWith("/") ? path.split(/[?#]/)[0] : undefined,
     title: clip(o.title, 140),
     kind: o.kind === "article" ? "article" : undefined,
+    doc: /^[a-z0-9-]{1,30}$/.test(String(o.doc ?? "")) ? String(o.doc) : undefined,
     ref: clip(o.ref, 120)?.toLowerCase(),
     utm_source: clip(o.utm_source, 60),
     utm_medium: clip(o.utm_medium, 60),
@@ -77,6 +81,7 @@ function here(): SignupSource {
       path: window.location.pathname,
       title: document.title.replace(/\s*[—–|-]\s*Founders Doc.*$/i, ""),
       kind: article || window.location.pathname.startsWith("/resources/") ? "article" : undefined,
+      doc: window.location.pathname === "/draft" ? (q.get("type") ?? "").trim().toLowerCase() || undefined : undefined,
       ref,
       utm_source: q.get("utm_source") ?? undefined,
       utm_medium: q.get("utm_medium") ?? undefined,
