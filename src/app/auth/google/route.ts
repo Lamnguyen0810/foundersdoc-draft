@@ -10,6 +10,7 @@ import {
   siteOrigin,
   type Intent,
 } from "@/lib/auth/google";
+import { cleanSignupSource } from "@/lib/signup-source";
 
 /**
  * Step one of "Continue with Google": leave for Google.
@@ -30,6 +31,16 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** The first page of the visit, from the button (lib/signup-source.ts). */
+function readSrc(raw: string | null) {
+  if (!raw || raw.length > 2000) return null;
+  try {
+    return cleanSignupSource(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const origin = siteOrigin(req.headers, req.nextUrl.origin);
 
@@ -45,6 +56,7 @@ export async function GET(req: NextRequest) {
     nonce: randomToken(),
     intent,
     next: safeNext(q.get("next")),
+    src: readSrc(q.get("src")),
   };
 
   const res = NextResponse.redirect(authorizeUrl(origin, handshake));

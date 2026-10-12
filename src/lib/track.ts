@@ -1,6 +1,7 @@
 "use client";
 
 import type { EventName, EventProps } from "./events";
+import { rememberLanding } from "./signup-source";
 
 /**
  * Record an event from the browser.
@@ -37,6 +38,8 @@ function anonId(): string | null {
 
 export function track(name: EventName, props?: EventProps): void {
   if (typeof window === "undefined") return;
+  // The first page of the visit, kept for the sign-up (lib/signup-source.ts).
+  rememberLanding();
   try {
     const body = JSON.stringify({
       name,

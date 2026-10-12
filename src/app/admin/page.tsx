@@ -339,6 +339,16 @@ interface FunnelRow {
 }
 
 /** Numbers arrive from PostgREST as numbers or as numeric strings. */
+/** One new account and where it came from (091's admin_signup_sources). */
+type SignupSourceRow = {
+  created_at: string;
+  email: string;
+  name: string;
+  how: string;
+  channel: string;
+  came_from: string;
+};
+
 function n(v: unknown): number {
   if (typeof v === "number") return v;
   if (typeof v === "string") return Number.parseFloat(v) || 0;
@@ -604,6 +614,18 @@ export default async function AdminPage({
           .limit(20)
       : null,
   ]);
+
+  /* Where new accounts came from (091): users tab only. Missing until the
+     migration is run, in which case the card says so. */
+  const sourcesRes = tab === "users" ? await supabase.rpc("admin_signup_sources", { p_days: days, p_limit: 100 }) : null;
+  const signupSources = (Array.isArray(sourcesRes?.data) ? sourcesRes.data : []) as SignupSourceRow[];
+  const signupSourcesError = sourcesRes?.error?.message ?? null;
+  const sourceChannels = Object.entries(
+    signupSources.reduce<Record<string, number>>((acc, r) => {
+      acc[r.channel] = (acc[r.channel] ?? 0) + 1;
+      return acc;
+    }, {}),
+  ).sort((a, b) => b[1] - a[1]);
 
   /* The AI credit meter (078): overview only. Missing until the migration is
      run, in which case the card says so rather than the page failing. */
@@ -1231,6 +1253,57 @@ export default async function AdminPage({
                       </p>
                     )}
                   </div>
+                </div>
+                <div className="table-card">
+                  <div className="table-head">
+                    <div>
+                      <h2>Where sign-ups came from</h2>
+                      <p>
+                        New accounts in {periodLabel}: the first page of the visit and the site that sent them. The same line
+                        appears in Slack as &ldquo;Came from&rdquo;.
+                      </p>
+                    </div>
+                  </div>
+                  {signupSourcesError ? (
+                    <p className="setup-line">
+                      Run <code>supabase/091_signup_source.sql</code> to switch this on.
+                    </p>
+                  ) : (
+                    <>
+                      {sourceChannels.length > 0 && (
+                        <div className="simple-list" style={{ padding: "0 20px 8px" }}>
+                          {sourceChannels.map(([channel, count]) => (
+                            <div className="simple-row" key={channel}>
+                              <span>{channel}</span>
+                              <strong>{fmt(count)}</strong>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="table-wrap">
+                        <table>
+                          <thead><tr><th>Joined</th><th>Name</th><th>Email</th><th>With</th><th>Came from</th></tr></thead>
+                          <tbody>
+                            {signupSources.length === 0 && (
+                              <tr><td colSpan={5}><div className="empty">No new accounts in the selected period.</div></td></tr>
+                            )}
+                            {signupSources.map((r) => (
+                              <tr key={`${r.email}-${r.created_at}`}>
+                                <td>{day(r.created_at)}</td>
+                                <td><b>{r.name}</b></td>
+                                <td>{r.email}</td>
+                                <td>{r.how}</td>
+                                <td>{r.came_from}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="setup-line">
+                        &ldquo;Not recorded&rdquo; is an account from before this was switched on, or one opened in a private window.
+                      </p>
+                    </>
+                  )}
                 </div>
                 <div className="grid-3">
                   {(

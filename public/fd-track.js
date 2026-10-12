@@ -11,6 +11,11 @@
  *   That a page was opened, and that one of three buttons was pressed. Nothing
  *   typed, nothing identifying, no scroll maps, no session replay.
  *
+ *   It also remembers, in the tab only, the FIRST page of the visit (page,
+ *   title, referring site, utm_ tags). It leaves the browser only if the
+ *   person signs up, when it becomes the "Came from:" line on the new account
+ *   (src/lib/signup-source.ts, supabase/091_signup_source.sql).
+ *
  * HOW IT IS ADDED TO A PAGE
  *   <script defer src="/fd-track.js"></script> before </body>. Nothing else.
  *   Adding a new page? Add that line. Forgetting it loses the page's counts and
@@ -56,6 +61,34 @@
     } catch (e) {
       /* counting must never break a page */
     }
+  }
+
+  /* The first page of the visit, for the sign-up. Same key and shape as
+     src/lib/signup-source.ts; gone when the tab closes. */
+  try {
+    if (!sessionStorage.getItem("fd_src")) {
+      var ref = "direct";
+      try {
+        if (document.referrer) {
+          var rh = new URL(document.referrer).hostname.replace(/^www\./, "");
+          ref = rh === location.hostname.replace(/^www\./, "") ? "internal" : rh;
+        }
+      } catch (e) {}
+      var q = new URLSearchParams(location.search);
+      var src = {
+        path: location.pathname.replace(/\.html$/, "") || "/",
+        title: document.title.replace(/\s*[\u2014\u2013|-]\s*Founders Doc.*$/i, "").slice(0, 140),
+        ref: ref.slice(0, 120),
+      };
+      if (document.querySelector('meta[property="og:type"][content="article"]')) src.kind = "article";
+      ["utm_source", "utm_medium", "utm_campaign"].forEach(function (k) {
+        var v = q.get(k);
+        if (v) src[k] = v.slice(0, 80);
+      });
+      sessionStorage.setItem("fd_src", JSON.stringify(src));
+    }
+  } catch (e) {
+    /* private windows throw; the sign-up records its own page instead */
   }
 
   send("page_view");
