@@ -11,6 +11,7 @@ import ShaQuestions from "./ShaQuestions";
 import SpaQuestions from "./SpaQuestions";
 import SsaQuestions from "./SsaQuestions";
 import IaQuestions from "./IaQuestions";
+import ServicesQuestions from "./ServicesQuestions";
 
 /**
  * The questions a user answers before the first draft, per document type —
@@ -293,7 +294,7 @@ export default function Questions({
   /* The term sheet's and the employment agreement's questions are built
      into their assemblers: listed as asked, not edited here. See
      TermQuestions and EmploymentQuestions. */
-  if (slug === "term" || slug === "employment" || slug === "contractor" || slug === "cofounder" || slug === "sha" || slug === "spa" || slug === "ssa" || slug === "ia") {
+  if (slug === "term" || slug === "employment" || slug === "contractor" || slug === "cofounder" || slug === "sha" || slug === "spa" || slug === "ssa" || slug === "ia" || slug === "services") {
     return (
       <div className="table-card questions-card">
         <div className="table-head">
@@ -324,6 +325,8 @@ export default function Questions({
           <SsaQuestions />
         ) : slug === "ia" ? (
           <IaQuestions />
+        ) : slug === "services" ? (
+          <ServicesQuestions />
         ) : (
           <TermQuestions />
         )}

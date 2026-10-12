@@ -64,7 +64,13 @@ const CATALOGUE: CatFolder[] = [
   [
     "Commercial",
     [
-      ["services", "Services Agreement", "Engage or provide services on agreed terms", false, "msa consulting client work"],
+      [
+        "services",
+        "Services Agreement",
+        "Provide or buy services — a platform subscription or professional work, leaning to your side",
+        true,
+        "services agreement msa saas platform subscription consulting advisory agency client vendor service levels retainer",
+      ],
       ["terms", "Terms & Conditions", "Terms for your product or website", false, "t&c tos website app saas"],
       ["supply", "Supply Agreement", "Buy or supply goods on standing terms", false, "goods purchase vendor"],
     ],
@@ -661,6 +667,7 @@ export default function DraftChat({
         ["fdai.spa-handoff", "spa"],
         ["fdai.ssa-handoff", "ssa"],
         ["fdai.ia-handoff", "ia"],
+        ["fdai.services-handoff", "services"],
         ["fdai.term-handoff", "term"],
       ] as const) {
         const raw = window.localStorage.getItem(key);
