@@ -18,6 +18,7 @@ import { BetaBadge } from "./beta";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DetailSlider, { type SliderSteps } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
+import { AskComposer, atLeast, DocIcon, DraftingLeft, FollowStream, GenCompose, TypingTurn, useAskFD, useDraftProgress } from "./AgreementParts";
 import JurisdictionPicker from "./JurisdictionPicker";
 import RailHistory from "./RailHistory";
 import type { RecentDraft } from "./history";
@@ -166,7 +167,7 @@ const emptyJob = (): Job => ({ services: "", fee_basis: "month" });
 /* ── the component ────────────────────────────────────────────────────── */
 
 export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAdmin, company, resume, recent }: ContractorProps) {
-  const [stage, setStage] = useState<Stage>(resume ? "drafted" : "intro");
+  const [stage, setStage] = useState<Stage>(resume ? "drafted" : "questions");
   const [learnMore, setLearnMore] = useState(false);
   const [answers, setAnswers] = useState<Answers>(() => (resume ? fromSaved(resume.answers) : {}));
   /* The employer's side comes from the company profile where there is one. */
@@ -185,6 +186,9 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
   const [multi, setMulti] = useState<string[]>([]);
   const [listItems, setListItems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
+  const fd = useAskFD("Contractor Agreement", "contractor", guest);
+  const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
@@ -286,7 +290,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, stage, error]);
+  }, [msgs.length, stage, error, fd.follow.length, fd.asking]);
 
   /* ── answering ──────────────────────────────────────────────────────── */
 
@@ -388,6 +392,14 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
 
   /* ── preparing the contract ─────────────────────────────────────────── */
 
+  /** A question typed into the message box, answered as on the NDA. */
+  async function askQuestion(q: string) {
+    say({ who: "me", label: "Question", text: q });
+    const onScreen = stage === "questions" && step && step.kind === "q" ? step.q.text : "";
+    const help = stage === "questions" && step && step.kind === "q" ? (step.q.help ?? "") : "";
+    say({ who: "fd", text: await fd.answer(q, onScreen, help) });
+  }
+
   async function prepare() {
     if (guest) {
       try {
@@ -402,11 +414,11 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/contractor", {
+      const res = await atLeast(fetch("/api/contractor", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ answers: applyDefaults(answers), company: employer, contractor: employee, engagement: job }),
-      });
+      }));
       const j = (await res.json().catch(() => null)) as Record<string, unknown> | null;
       if (res.status === 402) {
         setPaywalled(true);
@@ -944,6 +956,9 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
   const infos = flags.filter((f) => f.level === "green" && f.user_message);
   const grounds = ai?.dismissal_grounds ?? [];
   const isDraft = stage === "drafted";
+  /* Preparing: the NDA's drafting screen, with its progress bar. */
+  const drafting = busy && !isDraft;
+  const draftingAnswers = summary.map((x) => ({ label: x.label, value: x.value }));
 
   const stepAnswer = (s: Step): string => {
     const k = stepKey(s);
@@ -956,7 +971,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
 
   return (
     <div className="fdai-screens">
-      <div id="scr-chat" className={`scr on fade-in ts-screen emp-screen${isDraft ? " is-draft" : ""}${isDraft && docOpen && html ? " doc-open" : ""}`}>
+      <div id="scr-chat" className={`scr on fade-in ts-screen emp-screen${isDraft || drafting ? " is-draft" : ""}${isDraft && docOpen && html ? " doc-open" : ""}`}>
         {/* ── the rail ── */}
         <aside className="rail" aria-label="FD AI">
           <Link className="sb-new" href="/draft">+ New draft</Link>
@@ -1023,7 +1038,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
         </div>
 
         {/* ── the conversation ── */}
-        {!isDraft && (
+        {!isDraft && !drafting && (
           <div className="convo">
             <div className="chat" ref={threadRef}>
               <div className="chat-in">
@@ -1071,6 +1086,8 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                   ),
                 )}
 
+                {fd.asking && <TypingTurn convo />}
+
                 {stage === "questions" && step && (
                   <div className="m">
                     <div className="av">FD</div>
@@ -1089,10 +1106,10 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                   <div className="m">
                     <div className="av">FD</div>
                     <div>
-                      <div className="txt">That’s everything. Have a look over the answers, then I’ll prepare the contract.</div>
+                      <div className="txt">That’s everything. Ready when you are — you can still change any answer afterwards.</div>
                       <div className="ans">
                         <div className="chips">
-                          <button type="button" className="go" onClick={() => setStage("review")}>Review answers</button>
+                          <button type="button" className="go" disabled={busy} onClick={() => void prepare()}>{guest ? "Sign up and generate" : "Generate draft"}</button>
                         </div>
                       </div>
                     </div>
@@ -1116,7 +1133,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                       <div className="ans">
                         <div className="chips">
                           <button type="button" className="go" disabled={busy} onClick={() => void prepare()}>
-                            {busy ? "Preparing…" : guest ? "Sign up and prepare" : "Prepare contract"}
+                            {busy ? "Drafting…" : guest ? "Sign up and generate" : "Generate draft"}
                           </button>
                           <button type="button" className="chip" disabled={busy} onClick={changeAnswers}>Change an answer</button>
                         </div>
@@ -1150,27 +1167,33 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                 )}
               </div>
             </div>
-            <div className="composer">
+            <AskComposer disabled={fd.asking} onSend={(t) => void askQuestion(t)}>
               <p className="fine">
                 A draft contractor agreement, assembled from Founders Doc’s master — to be checked by a qualified lawyer before use.{" "}
                 <a href="/terms-of-service">Terms</a>
               </p>
-            </div>
+            </AskComposer>
           </div>
         )}
 
         {/* ── the draft view ── */}
+        {drafting && (
+          <div className="dview">
+            <DraftingLeft docLabel="Contractor Agreement" answers={draftingAnswers} skippedCount={skippedCount} conversation={msgs} progress={progress} />
+          </div>
+        )}
+
         {isDraft && (
           <div className="dview">
             <section className="gen-left">
               <div className="gen-left-head">
                 <div className="gen-left-title">
                   <span className="eyebrow">FD AI</span>
-                  <h2>{status === "stopped" ? "Saved — your draft is on its way" : "Your contractor agreement is ready"}</h2>
+                  <h2>{status === "stopped" ? "Saved — your draft is on its way" : "Your draft is ready"}</h2>
                   <p>
                     {status === "stopped"
                       ? "Your answers are with Founders Doc. Nothing has been charged."
-                      : "Read the agreement beside this, check the points for your lawyer, and download it as Word."}
+                      : "Review the document beside the chat, check the points for your lawyer, or ask FD AI to explain any part of it."}
                   </p>
                 </div>
                 <span className="gen-ready">
@@ -1233,7 +1256,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                         )}
                         {html && (
                           <button type="button" className="gen-doc-card cg-file" onClick={() => setDocOpen(true)} aria-pressed={docOpen}>
-                            <span className="cg-file-ic">▤</span>
+                            <span className="cg-file-ic"><DocIcon /></span>
                             <span>
                               <b>{title}</b>
                               <small>Version {version} · click to display</small>
@@ -1319,15 +1342,10 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                     <div className="cg-msg"><p>{error}</p></div>
                   </div>
                 )}
+                <FollowStream follow={fd.follow} asking={fd.asking} />
               </div>
 
-              <div className="gen-compose">
-                <div className="chips">
-                  <button type="button" className="chip" onClick={changeAnswers}>Change answers and prepare again</button>
-                  <Link className="chip" href="/draft">New draft</Link>
-                </div>
-                <p className="hint">{status === "stopped" ? "Changing an answer prepares the agreement again. A stopped draft uses no credit." : "Changing an answer prepares a fresh agreement (one credit). Editing the agreement itself is free — use the document beside this."}</p>
-              </div>
+              <GenCompose disabled={fd.asking} onSend={(t) => void fd.askFollow(t, title)} />
             </section>
 
             {docOpen && html && (
@@ -1338,6 +1356,9 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                     {[`Version ${version}`, yellow.length ? `${yellow.length} for your lawyer` : ""].filter(Boolean).join(" · ")}
                   </span>
                   <div className="dacts">
+                    <button type="button" className="dbtn" onClick={changeAnswers}>
+                      Edit answers
+                    </button>
                     <button
                       type="button"
                       className="dbtn"
@@ -1460,8 +1481,8 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
         {/* ── the progress pane ── */}
         <section className="pane">
           <div className="pane-h">
-            {isDraft ? "Your answers" : "Progress"}
-            {!isDraft && <span className="pct">{pct}%</span>}
+            Progress
+            <span className="pct">{isDraft ? 100 : pct}%</span>
           </div>
           <div className="studio-body">
             {isDraft && yellow.length > 0 && (
@@ -1479,7 +1500,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                     {answered} of {steps.length} answered
                     {skippedCount ? ` · ${skippedCount} skipped` : ""}
                   </b>
-                  <span className="eta">{isDraft ? "Click one to change it" : finished ? "Ready to prepare" : `About ${Math.max(1, Math.ceil(pending.length * 0.4))} min`}</span>
+                  <span className="eta">{isDraft ? "Click one to change it" : finished ? "Ready to generate" : `About ${Math.max(1, Math.ceil(pending.length * 0.4))} min`}</span>
                 </div>
                 <div className="segs" style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0,1fr))` }}>
                   {steps.map((s) => {
@@ -1529,9 +1550,9 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                 type="button"
                 className="btn s-gen"
                 disabled={busy || !finished || stage === "intro"}
-                onClick={() => (stage === "review" ? void prepare() : setStage("review"))}
+                onClick={() => void prepare()}
               >
-                {busy ? "Preparing…" : stage === "review" ? (guest ? "Sign up and prepare" : "Prepare contract") : "Review answers"}
+                {busy ? "Drafting…" : guest ? "Sign up and generate" : "Generate draft"}
               </button>
               <button type="button" className="btn btn-quiet s-skipall" disabled={busy || finished || stage === "intro"} onClick={skipRest}>
                 Skip the rest
@@ -1541,7 +1562,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
           )}
           {isDraft && (
             <div className="studio-foot">
-              <button type="button" className="btn s-gen" disabled={busy} onClick={changeAnswers}>Change answers</button>
+              <button type="button" className="btn s-gen" disabled={busy} onClick={changeAnswers}>Edit answers</button>
               <small>{status === "stopped" ? "A stopped draft uses no credit." : "Preparing again with new answers uses one credit. Editing the agreement itself is free."}</small>
             </div>
           )}
