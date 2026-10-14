@@ -146,8 +146,13 @@ export function parseReminder(line: string): Reminder {
   return r;
 }
 
-function ThingsToCheck({ text, onFill }: { text: string; onFill: (r: Reminder) => void }) {
-  const lines = text
+/** The drafter's notes as reminders — for the list below and for Share. */
+export function notesToReminders(text: string | null | undefined): Reminder[] {
+  return noteLines(text ?? "").map(parseReminder);
+}
+
+function noteLines(text: string): string[] {
+  return text
     .replace(/^DRAFTER['’]S NOTES:?\s*/i, "")
     .split(/\n+/)
     .map((l) =>
@@ -159,8 +164,11 @@ function ThingsToCheck({ text, onFill }: { text: string; onFill: (r: Reminder) =
     )
     .filter(Boolean)
     .filter((l) => !/^not yet answered:?$/i.test(l));
-  if (lines.length === 0) return null;
-  const items = lines.map(parseReminder);
+}
+
+function ThingsToCheck({ text, onFill }: { text: string; onFill: (r: Reminder) => void }) {
+  const items = notesToReminders(text);
+  if (items.length === 0) return null;
   return (
     <>
       <p>

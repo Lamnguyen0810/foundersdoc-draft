@@ -26,7 +26,8 @@ import { stepsFor, type DocType, type Field } from "@/lib/doctypes";
 import { track } from "@/lib/track";
 import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
-import DraftReady from "./DraftReady";
+import DraftReady, { notesToReminders } from "./DraftReady";
+import ShareButton from "./ShareButton";
 import InfoTip from "./InfoTip";
 import JurisdictionPicker from "./JurisdictionPicker";
 import RailHistory from "./RailHistory";
@@ -3501,6 +3502,18 @@ function Chat({
           placeholder={`New ${docType.label.toLowerCase()}`}
         />
         {isBeta(docType.slug) && <BetaBadge />}
+        <ShareButton
+          getInput={() => ({
+            docLabel: docType.label,
+            title: name || `New ${docType.label.toLowerCase()}`,
+            turns: [...msgs, ...follow.map((f) => ({ who: f.who, text: f.text, label: f.label }))],
+            answers: firstDraft?.answers ?? answerSummary,
+            points: notesToReminders(drafterNotes).map((r) => ({
+              title: r.what,
+              detail: [r.question ? `Question: ${r.question}` : "", r.put ? `What to put: ${r.put}` : ""].filter(Boolean).join("\n"),
+            })),
+          })}
+        />
         <button type="button" className="chg" onClick={onChangeDocument}>
           Change document
         </button>
