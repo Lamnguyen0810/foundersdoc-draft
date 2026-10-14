@@ -1195,6 +1195,10 @@ html[data-theme=dark] .sh-face{fill:#e9e6df}html[data-theme=dark] .sh-fold{fill:
 .strip b{color:var(--tx);font-weight:500}
 .strip .chg{all:unset;cursor:pointer;color:var(--tx-2);text-decoration:underline;text-underline-offset:3px;margin-left:auto}
 .strip .chg:hover{color:var(--tx)}
+/* Share sits before Change document; it takes the push to the right. */
+.strip .chg.share{margin-left:auto}
+.strip .chg.share+.chg{margin-left:0}
+.strip .chg.share[disabled]{opacity:.6;cursor:default}
 /* The draft's name, left, where the document type and the words "Focused
    setup" used to sit. It is the only thing in the strip that differs between
    one draft and the next, so it gets the weight the rest has given up. */

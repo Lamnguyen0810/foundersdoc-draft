@@ -15,6 +15,7 @@ import Link from "next/link";
 import { BetaBadge } from "./beta";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DocumentEditor from "./DocumentEditor";
+import ShareButton from "./ShareButton";
 import { AskComposer, atLeast, buildReminders, DocIcon, ReminderList, DraftingLeft, FollowStream, GenCompose, TypingTurn, useAskFD, useDraftProgress } from "./AgreementParts";
 import RailHistory from "./RailHistory";
 import type { RecentDraft } from "./history";
@@ -851,6 +852,15 @@ export default function Services({ look = DEFAULT_LOOK, userEmail, guest, wallet
           <span className="dot" />
           <span className="dname">{isDraft ? title : "New services agreement"}</span>
           <BetaBadge />
+          <ShareButton
+            getInput={() => ({
+              docLabel: "Services Agreement",
+              title: isDraft ? title : "New services agreement",
+              turns: [...msgs, ...fd.follow],
+              answers: draftingAnswers,
+              points: reminders.map((r) => ({ title: r.what, detail: r.rows.map((x) => `${x.k}: ${x.v}`).join("\n") })),
+            })}
+          />
           <Link className="chg" href="/draft">Change document</Link>
         </div>
 

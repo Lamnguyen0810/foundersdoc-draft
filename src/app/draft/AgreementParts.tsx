@@ -446,11 +446,22 @@ export function buildReminders<S>(o: {
     return strict && score < 2 ? undefined : best;
   };
   const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  /* Some assemblers name a blank by its field ("id_no"): say it in words. */
+  const FIELD_WORDS: Record<string, string> = {
+    id_no: "registration or ID number",
+    signatory_name: "signatory's name",
+    signatory_title: "signatory's title",
+    account_no: "bank account number",
+    account_name: "bank account name",
+    bank_address: "bank address",
+    swift: "SWIFT / BIC code",
+  };
+  const say = (m: string) => FIELD_WORDS[m] ?? m.replace(/_/g, " ");
   const items: ReminderItem[] = [];
   for (const m of o.missing) {
-    const s = find(m);
+    const s = find(say(m));
     items.push({
-      what: `${cap(m)} is missing from the agreement`,
+      what: `${cap(say(m))} is missing from the agreement`,
       rows: [
         ...(s ? [{ k: "Question", v: o.question(s) ?? o.label(s) }] : []),
         { k: "What to put", v: "Answer the question and draft again, or type it into the document where it shows [●]" },

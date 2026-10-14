@@ -22,6 +22,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DocumentEditor from "./DocumentEditor";
+import ShareButton from "./ShareButton";
 import { AskComposer, atLeast, buildReminders, DocIcon, ReminderList, DraftingLeft, FollowStream, GenCompose, TypingTurn, useAskFD, useDraftProgress } from "./AgreementParts";
 import JurisdictionPicker from "./JurisdictionPicker";
 import RailHistory from "./RailHistory";
@@ -1145,6 +1146,15 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
         <div className="strip">
           <span className="dot" />
           <span className="dname">{isDraft ? title : "New employment contract"}</span>
+          <ShareButton
+            getInput={() => ({
+              docLabel: "Employment Contract",
+              title: isDraft ? title : "New employment contract",
+              turns: [...msgs, ...fd.follow],
+              answers: draftingAnswers,
+              points: reminders.map((r) => ({ title: r.what, detail: r.rows.map((x) => `${x.k}: ${x.v}`).join("\n") })),
+            })}
+          />
           <Link className="chg" href="/draft">Change document</Link>
         </div>
 

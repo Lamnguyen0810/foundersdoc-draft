@@ -18,6 +18,7 @@ import { BetaBadge } from "./beta";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DetailSlider, { type SliderSteps } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
+import ShareButton from "./ShareButton";
 import { AskComposer, atLeast, buildReminders, DocIcon, ReminderList, DraftingLeft, FollowStream, GenCompose, TypingTurn, useAskFD, useDraftProgress } from "./AgreementParts";
 import JurisdictionPicker from "./JurisdictionPicker";
 import RailHistory from "./RailHistory";
@@ -1046,6 +1047,15 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
           <span className="dot" />
           <span className="dname">{isDraft ? title : "New contractor agreement"}</span>
           <BetaBadge />
+          <ShareButton
+            getInput={() => ({
+              docLabel: "Contractor Agreement",
+              title: isDraft ? title : "New contractor agreement",
+              turns: [...msgs, ...fd.follow],
+              answers: draftingAnswers,
+              points: reminders.map((r) => ({ title: r.what, detail: r.rows.map((x) => `${x.k}: ${x.v}`).join("\n") })),
+            })}
+          />
           <Link className="chg" href="/draft">Change document</Link>
         </div>
 
