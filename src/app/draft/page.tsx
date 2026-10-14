@@ -13,6 +13,7 @@ import Ssa from "./Ssa";
 import Ia from "./Ia";
 import Services from "./Services";
 import Loan from "./Loan";
+import Cln from "./Cln";
 import { recentDrafts } from "./recent";
 import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
 import { redirect } from "next/navigation";
@@ -101,7 +102,9 @@ export default async function DraftPage({
                       ? Services
                       : preset.slug === "loan"
                         ? Loan
-                        : TermSheet;
+                        : preset.slug === "cln"
+                          ? Cln
+                          : TermSheet;
     return (
       <Screen
         look={looks[preset.slug]}
