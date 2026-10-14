@@ -23,7 +23,7 @@ const ASK_LIMIT = 20;
 /** The documents Founders Doc drafts, so a question about one of them is
  *  answered (and pointed at FD AI) instead of turned away. */
 const FD_DOCS =
-  "NDA, term sheet, employment contract, independent contractor agreement, co-founders' agreement, shareholders' agreement, share purchase agreement, share subscription agreement, investment agreement, services agreement, loan agreement";
+  "NDA, term sheet, employment contract, independent contractor agreement, co-founders' agreement, shareholders' agreement, share purchase agreement, share subscription agreement, investment agreement, services agreement, loan agreement, convertible loan agreement";
 const WINDOW_MS = 60 * 60 * 1000;
 /* Per server instance. Enough to stop a loop or a bored visitor; the usage
    log is the real record. */

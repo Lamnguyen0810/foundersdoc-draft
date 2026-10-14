@@ -15,6 +15,7 @@ import Ssa from "../Ssa";
 import Ia from "../Ia";
 import Services from "../Services";
 import Loan from "../Loan";
+import Cln from "../Cln";
 import { recentDrafts } from "../recent";
 import type { DraftStatus, Flag } from "@/lib/termsheet/types";
 
@@ -148,7 +149,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
                         ? "Services Agreement"
                         : docType.slug === "loan"
                           ? "Loan Agreement"
-                          : "Term Sheet"),
+                          : docType.slug === "cln"
+                            ? "Convertible Loan Agreement"
+                            : "Term Sheet"),
       answers: saved,
       output: row.output ?? "",
       outputHtml: row.output_html,
@@ -176,7 +179,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
                       ? Services
                       : docType.slug === "loan"
                         ? Loan
-                        : TermSheet;
+                        : docType.slug === "cln"
+                          ? Cln
+                          : TermSheet;
     return (
       <Screen
         look={looks[docType.slug]}

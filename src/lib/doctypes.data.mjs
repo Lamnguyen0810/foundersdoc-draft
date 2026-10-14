@@ -455,4 +455,21 @@ export const LOAN_DATA = {
     "Assembled from the Founders Doc master loan agreement. The AI only flags points for the lawyer (upload the playbook under Playbook → Loan Agreement).",
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA, IA_DATA, SERVICES_DATA, LOAN_DATA];
+/**
+ * The convertible loan agreement (095). Beta: the Founders Doc master
+ * convertible loan agreement, its Jurisdiction Rider filled from the
+ * governing law, assembled by rule (src/lib/cln). The database gets this
+ * row from 095_convertible_loan_agreement.sql.
+ */
+export const CLN_DATA = {
+  slug: "cln",
+  label: "Convertible Loan Agreement",
+  description:
+    "A convertible loan from one investor to a company, converting into ordinary shares at a qualifying round, a sale or listing, or at maturity: valuation cap (pre- or post-money), optional discount, interest paid at maturity, an Exercise Notice and the conversion calculation. Singapore, England and Wales, Hong Kong, Delaware, New York or another law. The usual answers lean to the side of the user (Company or Investor). Assembled by rule from the Founders Doc master convertible loan agreement; FD AI flags points for the lawyer. Beta.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from the Founders Doc master convertible loan agreement. The AI only flags points for the lawyer (upload the playbook under Playbook → Convertible Loan Agreement).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA, IA_DATA, SERVICES_DATA, LOAN_DATA, CLN_DATA];
