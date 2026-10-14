@@ -94,7 +94,7 @@ const RAW = COFOUNDER_QUESTIONNAIRE.questions as unknown as Raw[];
 
 /** Why a free-text answer cannot be accepted, or null when it can. */
 export function problemWith(q: Question, value: unknown): string | null {
-  if (typeof value !== "string" || !q.reject?.length) return null;
+  if (typeof value !== "string" || !value.trim() || !q.reject?.length) return null;
   for (const r of q.reject) {
     if (new RegExp(r.pattern, "i").test(value)) return r.message;
   }

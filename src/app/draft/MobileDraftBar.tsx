@@ -55,7 +55,8 @@ export default function MobileDraftBar() {
     /* Choosing anything inside — a past draft, a step, Generate — closes it. */
     const onPick = (e: Event) => {
       const t = e.target as HTMLElement | null;
-      if (t?.closest("a, button") && !t.closest(".m-keep")) setTimeout(() => setOpen(null), 0);
+      /* The steps in the progress list are divs with role="button". */
+      if (t?.closest('a, button, [role="button"]') && !t.closest(".m-keep")) setTimeout(() => setOpen(null), 0);
     };
     document.addEventListener("keydown", onKey);
     panel?.addEventListener("click", onPick);

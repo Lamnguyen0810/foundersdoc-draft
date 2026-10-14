@@ -717,11 +717,6 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
               ))}
             </span>
           )}
-          {opts.onRemove && (
-            <button type="button" className="alt-link" style={{ marginLeft: "auto" }} onClick={opts.onRemove}>
-              Remove
-            </button>
-          )}
         </div>
         <div className="ts-row">
           <label>
@@ -774,6 +769,13 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
             </label>
           </div>
         )}
+        {opts.onRemove && (
+          <p className="later" style={{ margin: "4px 0 0" }}>
+            <button type="button" className="alt-link" onClick={opts.onRemove}>
+              Remove {label.toLowerCase()}
+            </button>
+          </p>
+        )}
       </div>
     );
   }
@@ -795,8 +797,9 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
         {partyBox({ ...borrower, kind: borrowerCo ? "company" : "individual" }, (patch) => setBorrower((x) => ({ ...x, ...patch })), "The Borrower", iAmBorrower, { kindFixed: true })}
         <div className="ts-party">
           <div className="ts-party-h">
-            <b>The Borrower’s bank account</b>
-            <span className="sub" style={{ marginLeft: 8 }}>where the loan is paid</span>
+            <b>
+              The Borrower’s bank account <span style={{ fontWeight: 400, color: "var(--tx-3)" }}>– where the loan is paid</span>
+            </b>
           </div>
           <div className="ts-row">
             {bankRow("bank", "Bank", "e.g. DBS Bank Ltd")}
@@ -832,7 +835,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
                 <button
                   type="button"
                   className="chip"
-                  style={{ marginLeft: 8 }}
+                  
                   onClick={() => setRep({ name: lenders[0].name, address: lenders[0].address, email: lenders[0].email })}
                 >
                   Same as Lender 1
@@ -1374,7 +1377,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
                         const st = isOpen ? "now" : (settled[k] ?? "");
                         const n = steps.indexOf(s) + 1;
                         const answer = stepAnswer(s);
-                        const value = isOpen ? (answer ? `Open now — ${answer}` : "") : answer || "Not yet — click to open";
+                        const value = isOpen ? (answer ? `Open now — ${answer}` : "") : answer || (settled[k] === "done" ? "Left blank" : "Not yet — click to open");
                         return (
                           <div
                             key={k}

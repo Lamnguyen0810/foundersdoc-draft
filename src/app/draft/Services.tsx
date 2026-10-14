@@ -1249,7 +1249,7 @@ export default function Services({ look = DEFAULT_LOOK, userEmail, guest, wallet
                         const st = isOpen ? "now" : (settled[k] ?? "");
                         const n = steps.indexOf(s) + 1;
                         const answer = stepAnswer(s);
-                        const value = isOpen ? (answer ? `Open now — ${answer}` : "") : answer || "Not yet — click to open";
+                        const value = isOpen ? (answer ? `Open now — ${answer}` : "") : answer || (settled[k] === "done" ? "Left blank" : "Not yet — click to open");
                         return (
                           <div
                             key={k}
