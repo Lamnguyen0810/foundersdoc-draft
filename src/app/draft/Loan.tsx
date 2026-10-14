@@ -19,6 +19,7 @@ import { BetaBadge } from "./beta";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import DocumentEditor from "./DocumentEditor";
 import ShareButton from "./ShareButton";
+import DetailSlider, { type SliderSteps } from "./DetailSlider";
 import { AskComposer, atLeast, buildReminders, DocIcon, ReminderList, DraftingLeft, FollowStream, GenCompose, TypingTurn, useAskFD, useDraftProgress } from "./AgreementParts";
 import RailHistory from "./RailHistory";
 import type { RecentDraft } from "./history";
@@ -121,6 +122,21 @@ function answerLabel(q: Question, a: Answers): string {
   if (Array.isArray(v)) return v.map((x) => label(String(x))).join(q.type === "free_text_list" ? " · " : ", ");
   return label(String(v));
 }
+
+/** The level of detail (LN0), on the NDA's comprehensiveness slider. */
+const LEVEL_STEPS: SliderSteps = {
+  labels: ["Simple", "Standard", "Comprehensive"],
+  lengths: ["about 10 questions · 6 pages", "about 20 questions · 8 pages", "about 25 questions · 8–10 pages"],
+  guide: [
+    "The essentials: one Lender, the amount, interest, repayment and defaults. No security, company warranties or late-payment interest, and no confidentiality or limit on liability. For a loan between people who know each other.",
+    "The Founders Doc master, with its usual protections: several Lenders, a founder's company, change of control, the cap on liability and legal costs. Right for most loans.",
+    "Every option: a stated purpose, the drawdown date, early repayment, late-payment interest, security and transfers. For a larger or riskier loan.",
+  ],
+  recommended: 2,
+  title: "Level of detail",
+  tip: "Which questions are asked and which of the master's clauses go in. Questions that only matter for a fuller agreement are not asked.",
+  note: "Choose fuller and you are asked a few more questions; choose Simple and the agreement stays short. You can change it later.",
+};
 
 const emptyParty = (kind: PartyKind = "individual"): Party => ({ name: "", kind });
 
@@ -314,7 +330,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
     resetInput();
     if (s.kind === "q") {
       const v = answers[k];
-      if (s.q.type === "free_text" && typeof v === "string") setTyped(v);
+      if ((s.q.type === "free_text" || s.q.type === "scale") && typeof v === "string") setTyped(v);
       if (s.q.type === "multi_choice" && Array.isArray(v)) setMulti(v.map(String));
       if (s.q.type === "free_text_list" && Array.isArray(v)) setListItems(v.map(String));
     }
@@ -613,6 +629,25 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
             {skipLink(q)}
           </>
         );
+
+      case "scale": {
+        /* The level of detail, on the slider the NDA and the contractor agreement use. */
+        const values = q.options.map((o) => o.value);
+        const current = values.indexOf(typed || String(answers[q.id] ?? "") || String(q.defaultValue ?? ""));
+        const level = current >= 0 ? current + 1 : 1;
+        return (
+          <>
+            <div className="chips emp-scale">
+              <DetailSlider value={level} steps={LEVEL_STEPS} label={q.text} onChange={(l) => setTyped(values[l - 1] ?? values[0])} />
+              {backButton()}
+              <button type="button" className="go" onClick={() => commit(q, values[level - 1] ?? values[0])}>
+                Continue
+              </button>
+            </div>
+            {skipLink(q)}
+          </>
+        );
+      }
 
       case "multi_choice":
         return (
