@@ -438,4 +438,21 @@ export const SERVICES_DATA = {
     "Assembled from two services agreements and FD AI's review of them. The AI only flags points for the lawyer (upload the playbook under Playbook → Services Agreement).",
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA, IA_DATA, SERVICES_DATA];
+/**
+ * The loan agreement (094). Beta: the Founders Doc master loan agreement,
+ * with the permutations from four reference loan agreements, assembled by
+ * rule (src/lib/loan). The database gets this row from
+ * 094_loan_agreement.sql.
+ */
+export const LOAN_DATA = {
+  slug: "loan",
+  label: "Loan Agreement",
+  description:
+    "A Singapore-law agreement to lend or borrow money: one lender or several (through an authorised representative), to an individual or a company, including a founder borrowing for their company. Tiered interest, a rate a year, a flat charge or interest-free; repayment on request, at maturity or by instalments. The usual answers lean to the side of the user (Lender or Borrower). Assembled by rule from the Founders Doc master loan agreement; FD AI flags points for the lawyer. Beta.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from the Founders Doc master loan agreement. The AI only flags points for the lawyer (upload the playbook under Playbook → Loan Agreement).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA, IA_DATA, SERVICES_DATA, LOAN_DATA];

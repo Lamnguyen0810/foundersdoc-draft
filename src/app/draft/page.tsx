@@ -12,6 +12,7 @@ import Spa from "./Spa";
 import Ssa from "./Ssa";
 import Ia from "./Ia";
 import Services from "./Services";
+import Loan from "./Loan";
 import { recentDrafts } from "./recent";
 import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
 
@@ -74,7 +75,9 @@ export default async function DraftPage({
                     ? Ia
                     : preset.slug === "services"
                       ? Services
-                      : TermSheet;
+                      : preset.slug === "loan"
+                        ? Loan
+                        : TermSheet;
     return (
       <Screen
         look={looks[preset.slug]}
