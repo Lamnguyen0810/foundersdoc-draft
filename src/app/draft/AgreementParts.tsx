@@ -101,6 +101,10 @@ export function DraftingLeft({
 export function useAskFD(docLabel: string, docSlug: string, guest: boolean) {
   const [asking, setAsking] = useState(false);
   const [follow, setFollow] = useState<Turn[]>([]);
+  /* A file the person attached with "+", read once and sent with each
+     question so FD AI can answer about it (as the NDA reads an attached
+     document). */
+  const [attached, setAttached] = useState<{ name: string; text: string } | null>(null);
 
   async function answer(question: string, onScreen = "", help = "", phase: "form" | "drafted" = "form"): Promise<string> {
     const q = question.trim();
@@ -114,7 +118,7 @@ export function useAskFD(docLabel: string, docSlug: string, guest: boolean) {
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question: q, doc: docLabel, onScreen, help, phase }),
+        body: JSON.stringify({ question: q, doc: docLabel, onScreen, help, phase, attached: attached?.text, attachedName: attached?.name }),
       });
       const j = (await res.json().catch(() => null)) as { answer?: string; error?: string; offTopic?: boolean } | null;
       track("chat_question", { doc_type: docSlug, source: j?.offTopic ? "off_topic" : "ai" });
@@ -136,7 +140,35 @@ export function useAskFD(docLabel: string, docSlug: string, guest: boolean) {
     setFollow((f) => [...f, { who: "fd", text: a }]);
   }
 
-  return { asking, answer, follow, askFollow };
+  /** "+": read a Word, PDF or text file (/api/extract) and keep it for the
+   *  questions that follow. Returns what FD AI says about it. */
+  async function attach(file: File): Promise<string> {
+    if (guest) return "Sign in to attach a file — I’ll read it and answer your questions about it.";
+    setAsking(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/extract", { method: "POST", body: form });
+      const j = (await res.json().catch(() => null)) as { text?: string; error?: string } | null;
+      if (!res.ok || !j?.text) return j?.error ?? "That file could not be read. Try a Word, PDF or text file.";
+      setAttached({ name: file.name, text: j.text.slice(0, 20_000) });
+      track("source_uploaded", { doc_type: docSlug, source: "chat" });
+      return `I’ve read ${file.name}. Ask me anything about it — for example, how it compares with this ${docLabel}.`;
+    } catch {
+      return "That file could not be read. Check your connection and try again.";
+    } finally {
+      setAsking(false);
+    }
+  }
+
+  async function attachFollow(file: File) {
+    if (asking) return;
+    setFollow((f) => [...f, { who: "me", text: `Attached ${file.name}` }]);
+    const a = await attach(file);
+    setFollow((f) => [...f, { who: "fd", text: a }]);
+  }
+
+  return { asking, answer, follow, askFollow, attach, attachFollow };
 }
 
 /** The NDA's typing dots, as a message from FD AI. */
@@ -172,16 +204,41 @@ export function TypingTurn({ convo = false }: { convo?: boolean }) {
   );
 }
 
+function AttachButton({ className, disabled, onAttach }: { className: string; disabled: boolean; onAttach?: (file: File) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  if (!onAttach) return <span className={className} aria-hidden="true">+</span>;
+  return (
+    <>
+      <button type="button" className={className} title="Attach a file" aria-label="Attach a file" disabled={disabled} onClick={() => ref.current?.click()}>
+        +
+      </button>
+      <input
+        ref={ref}
+        type="file"
+        hidden
+        accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (f) onAttach(f);
+        }}
+      />
+    </>
+  );
+}
+
 /** The message box under the questionnaire — the NDA's, for questions. */
 export function AskComposer({
   placeholder = "Ask FD AI a question",
   disabled = false,
   onSend,
+  onAttach,
   children,
 }: {
   placeholder?: string;
   disabled?: boolean;
   onSend: (text: string) => void;
+  onAttach?: (file: File) => void;
   children?: React.ReactNode;
 }) {
   const [text, setText] = useState("");
@@ -194,7 +251,7 @@ export function AskComposer({
   return (
     <div className="composer">
       <div className="box">
-        <span className="ic" aria-hidden="true">?</span>
+        <AttachButton className="ic" disabled={disabled} onAttach={onAttach} />
         <textarea
           rows={1}
           placeholder={placeholder}
@@ -243,7 +300,7 @@ export function FollowStream({ follow, asking }: { follow: Turn[]; asking: boole
 /** The NDA's message box under the finished document. Questions are answered
  *  here; the wording itself is changed in the document beside it (free), or
  *  by changing an answer and drafting again. */
-export function GenCompose({ disabled = false, onSend }: { disabled?: boolean; onSend: (text: string) => void }) {
+export function GenCompose({ disabled = false, onSend, onAttach }: { disabled?: boolean; onSend: (text: string) => void; onAttach?: (file: File) => void }) {
   const [text, setText] = useState("");
   const send = () => {
     const t = text.trim();
@@ -254,7 +311,7 @@ export function GenCompose({ disabled = false, onSend }: { disabled?: boolean; o
   return (
     <div className="gen-compose">
       <div className="box">
-        <span className="gen-add" aria-hidden="true">?</span>
+        <AttachButton className="gen-add" disabled={disabled} onAttach={onAttach} />
         <textarea
           rows={1}
           placeholder="Ask FD AI to explain something…"
@@ -273,7 +330,7 @@ export function GenCompose({ disabled = false, onSend }: { disabled?: boolean; o
         </button>
       </div>
       <p className="hint">
-        Ask about any clause. To change the wording, edit the document beside this — it’s free — or use Edit answers to draft again.
+        Attach another file or ask about any clause. To change the wording, edit the document beside this — it’s free.
       </p>
     </div>
   );
@@ -297,4 +354,121 @@ export function DocIcon() {
 export async function atLeast<T>(work: Promise<T>, ms = 2500): Promise<T> {
   const [out] = await Promise.all([work, new Promise((r) => setTimeout(r, ms))]);
   return out;
+}
+
+
+/* ── things to fill in or check ───────────────────────────────────────── */
+
+export interface ReminderItem {
+  what: string;
+  rows: { k: string; v: string }[];
+  action?: { label: string; run: () => void };
+}
+
+/** The NDA's numbered list (DraftReady's ThingsToCheck), same markup. */
+export function ReminderList({ items }: { items: ReminderItem[] }) {
+  if (items.length === 0) return null;
+  return (
+    <>
+      <p>
+        {items.length === 1 ? "One thing to fill in or check before it goes out:" : `${items.length} things to fill in or check before it goes out:`}
+      </p>
+      <ol className="cg-reminders">
+        {items.map((r, i) => (
+          <li key={i} className="cg-reminder">
+            <b className="cg-reminder-what">{r.what}</b>
+            {r.rows.map((row) => (
+              <span className="cg-reminder-row" key={row.k}>
+                <span className="cg-reminder-k">{row.k}</span>
+                <span>{row.v}</span>
+              </span>
+            ))}
+            {r.action && (
+              <button type="button" className="cg-reminder-fill" onClick={r.action.run}>
+                {r.action.label}
+              </button>
+            )}
+          </li>
+        ))}
+      </ol>
+    </>
+  );
+}
+
+type PointFlag = { level: string; title?: string; reason: string; field?: string };
+
+const PARTY_WORDS =
+  /\b(name|address|registration|uen|nric|passport|signator|signs|bank|account|swift|email|company|party|parties|lender|borrower|employer|employee|contractor|founder|shareholder|investor|seller|buyer|customer|provider|target|representative)/i;
+
+const words = (t: string) =>
+  t
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 4)
+    .map((w) => w.replace(/s$/, ""));
+
+/**
+ * The blanks the agreement was assembled with ([●]) and the points for the
+ * lawyer, as the NDA's "things to fill in or check". Each opens the question
+ * it belongs to, where there is one, so it can be answered and drafted again.
+ */
+export function buildReminders<S>(o: {
+  missing: string[];
+  flags: PointFlag[];
+  steps: S[];
+  label: (s: S) => string;
+  question: (s: S) => string | undefined;
+  id: (s: S) => string;
+  isQuestion: (s: S) => boolean;
+  open: (s: S) => void;
+}): ReminderItem[] {
+  /* Flags are matched strictly (their question, or two words in common);
+     a general note such as "Beta" then has no button rather than a wrong one. */
+  const find = (text: string, field?: string, strict = false): S | undefined => {
+    if (field) {
+      const hit = o.steps.find((s) => o.id(s) === field);
+      if (hit) return hit;
+    }
+    const want = words(text);
+    const party = !strict && PARTY_WORDS.test(text);
+    let best: S | undefined;
+    let score = 0;
+    for (const s of o.steps) {
+      const hay = new Set(words(`${o.label(s)} ${o.question(s) ?? ""}`));
+      let n = want.filter((w) => hay.has(w)).length;
+      if (party && !o.isQuestion(s)) n += 2;
+      if (n > score) {
+        score = n;
+        best = s;
+      }
+    }
+    return strict && score < 2 ? undefined : best;
+  };
+  const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+  const items: ReminderItem[] = [];
+  for (const m of o.missing) {
+    const s = find(m);
+    items.push({
+      what: `${cap(m)} is missing from the agreement`,
+      rows: [
+        ...(s ? [{ k: "Question", v: o.question(s) ?? o.label(s) }] : []),
+        { k: "What to put", v: "Answer the question and draft again, or type it into the document where it shows [●]" },
+      ],
+      action: s ? { label: "Fill this in", run: () => o.open(s) } : undefined,
+    });
+  }
+  for (const f of o.flags) {
+    if (f.level !== "yellow" && f.level !== "red") continue;
+    const s = find(f.title ?? "", f.field, true);
+    items.push({
+      what: f.title ?? "Worth checking",
+      rows: [
+        ...(s && o.isQuestion(s) ? [{ k: "Question", v: o.question(s) ?? o.label(s) }] : []),
+        { k: "To check", v: f.reason },
+      ],
+      action: s ? { label: "Change answer", run: () => o.open(s) } : undefined,
+    });
+  }
+  return items;
 }
