@@ -23,6 +23,7 @@ import { parseDraft, splitPlaceholders } from "@/lib/contract/parse";
 import { blocksToPageHtml } from "@/lib/contract/html";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { isQuietAccount } from "@/lib/quiet";
 import * as S from "@/lib/doc-style";
 import { DEFAULT_LOOK, KNOWN_FONTS, documentLook, type DocumentLook } from "@/lib/playbook";
 
@@ -594,7 +595,8 @@ function safeName(s: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  if (isSupabaseConfigured() && !(await getUser())) {
+  const me = isSupabaseConfigured() ? await getUser() : null;
+  if (isSupabaseConfigured() && !me) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
 
@@ -739,8 +741,9 @@ export async function POST(req: NextRequest) {
      arrived — which an ad blocker, a closed tab or a flaky network could
      stop — and the database then had to guess which draft it was. Best
      effort: the file goes out whatever Slack does. Before 059 the RPC does
-     not exist and the old trigger still announces, so nothing is lost. */
-  if (isSupabaseConfigured()) {
+     not exist and the old trigger still announces, so nothing is lost.
+     The team's own test accounts are not announced (lib/quiet.ts). */
+  if (isSupabaseConfigured() && !isQuietAccount(me?.email)) {
     try {
       const supabase = await createClient();
       const draftId =

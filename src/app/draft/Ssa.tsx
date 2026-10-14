@@ -16,7 +16,7 @@ import Link from "next/link";
 import { BetaBadge } from "./beta";
 import { useEffect, useMemo, useRef, useState } from "react";
 import DocumentEditor from "./DocumentEditor";
-import { AskComposer, atLeast, DocIcon, DraftingLeft, FollowStream, GenCompose, TypingTurn, useAskFD, useDraftProgress } from "./AgreementParts";
+import { AskComposer, atLeast, buildReminders, DocIcon, ReminderList, DraftingLeft, FollowStream, GenCompose, TypingTurn, useAskFD, useDraftProgress } from "./AgreementParts";
 import RailHistory from "./RailHistory";
 import type { RecentDraft } from "./history";
 import type { CompanyPrefill } from "./TermSheet";
@@ -172,6 +172,8 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
   const [text, setText] = useState(resume?.output ?? "");
   const [status, setStatus] = useState<DraftStatus>(resume?.status ?? "draft");
   const [flags, setFlags] = useState<Flag[]>(resume?.flags ?? []);
+  /* The blanks the agreement was assembled with, for "things to fill in". */
+  const [missing, setMissing] = useState<string[]>([]);
   const [reviewNote] = useState<string | null>(resume?.reviewNote ?? null);
   /* Why nothing was drafted, in FD AI's words. */
   const [stopMessage, setStopMessage] = useState<string | null>(null);
@@ -380,6 +382,12 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
     say({ who: "fd", text: await fd.answer(q, onScreen, help) });
   }
 
+  /** "+": a file to ask FD AI about, as on the NDA. */
+  async function attachFile(f: File) {
+    say({ who: "me", label: "Attached", text: f.name });
+    say({ who: "fd", text: await fd.attach(f) });
+  }
+
   async function prepare() {
     if (guest) {
       try {
@@ -438,6 +446,7 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
       setText(j.text as string);
       setStatus(j.status as DraftStatus);
       setFlags((j.flags as Flag[]) ?? []);
+      setMissing(Array.isArray(j.missing) ? (j.missing as string[]) : []);
       setVersion(1);
       setDocOpen(true);
       setStage("drafted");
@@ -921,6 +930,8 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
   /* Preparing: the NDA's drafting screen, with its progress bar. */
   const drafting = busy && !isDraft;
   const draftingAnswers = summary.map((x) => ({ label: x.label, value: x.value }));
+  /* As on the NDA: one numbered list of what to fill in or check. */
+  const reminders = buildReminders({ missing, flags: yellow, steps, label: (s) => shortLabel(s), question: (s) => (s.kind === "q" ? s.q.text : undefined), id: (s) => stepKey(s), isQuestion: (s) => s.kind === "q", open: revisit });
 
   const stepAnswer = (s: Step): string => {
     const k = stepKey(s);
@@ -1130,7 +1141,7 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                 )}
               </div>
             </div>
-            <AskComposer disabled={fd.asking} onSend={(t) => void askQuestion(t)}>
+            <AskComposer disabled={fd.asking} onSend={(t) => void askQuestion(t)} onAttach={(f) => void attachFile(f)}>
               <p className="fine">
                 A draft share subscription agreement (Beta), following the FD Lite question bank — to be checked by a qualified lawyer before use.{" "}
                 <a href="/terms-of-service">Terms</a>
@@ -1226,22 +1237,7 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                           </button>
                         )}
                         {infos.length > 0 && <ul className="cg-checks">{infos.map((f, k) => <li key={k}>{f.user_message}</li>)}</ul>}
-                        {yellow.length > 0 && (
-                          <>
-                            <p>
-                              I’ve marked {yellow.length === 1 ? "one point" : `${yellow.length} points`} for whoever checks it before it’s signed.
-                              They’re not in the agreement — worth sending this list with it:
-                            </p>
-                            <ul className="ts-flags" aria-label="For your lawyer">
-                              {yellow.map((f, k) => (
-                                <li key={k} className={f.level === "red" ? "red" : ""}>
-                                  <b>{f.title ?? "Worth checking"}</b>
-                                  <span>{f.reason}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </>
-                        )}
+                        <ReminderList items={reminders} />
                       </>
                     )}
                   </div>
@@ -1256,7 +1252,7 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                 <FollowStream follow={fd.follow} asking={fd.asking} />
               </div>
 
-              <GenCompose disabled={fd.asking} onSend={(t) => void fd.askFollow(t, title)} />
+              <GenCompose disabled={fd.asking} onSend={(t) => void fd.askFollow(t)} onAttach={(f) => void fd.attachFollow(f)} />
             </section>
 
             {docOpen && html && (
