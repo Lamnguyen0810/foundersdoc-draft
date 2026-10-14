@@ -374,8 +374,10 @@ export function assemble(input: ClnInput): Assembled {
       blocks.push({ kind: "sign-head", num: "", text: `SIGNED by ${nm}` });
       for (const l of [line, `Name: ${nm}`, `Email: ${str(p.email) || GAP}`]) blocks.push({ kind: "sign", num: "", text: l });
     } else {
-      blocks.push({ kind: "sign-head", num: "", text: `For and on behalf of ${nm}` });
-      for (const l of [line, `Name: ${str(p.signatory_name) || GAP}`, `Title: ${str(p.signatory_title) || GAP}`, `Email: ${str(p.email) || GAP}`])
+      /* As the master sets it: the line to sign on, then "For and on behalf of", the company, Name, Title, Email. */
+      blocks.push({ kind: "sign", num: "", text: line });
+      blocks.push({ kind: "sign-head", num: "", text: "For and on behalf of" });
+      for (const l of [`**${nm}**`, `Name: ${str(p.signatory_name) || GAP}`, `Title: ${str(p.signatory_title) || GAP}`, `Email: ${str(p.email) || GAP}`])
         blocks.push({ kind: "sign", num: "", text: l });
       if (!str(p.signatory_name)) missing.add(`the ${label}'s signatory`);
     }

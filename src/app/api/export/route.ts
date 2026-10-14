@@ -4,6 +4,7 @@ import {
   BorderStyle,
   Document,
   Footer,
+  Header,
   LineRuleType,
   PageNumber,
   Packer,
@@ -25,7 +26,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { isQuietAccount } from "@/lib/quiet";
 import * as S from "@/lib/doc-style";
-import { DEFAULT_LOOK, KNOWN_FONTS, documentLook, type DocumentLook } from "@/lib/playbook";
+import { DEFAULT_LOOK, KNOWN_FONTS, documentLook, lookTexts, type DocumentLook } from "@/lib/playbook";
 
 /* ── THE FACE AND SIZE, PER REQUEST ──────────────────────────────────────────
    The playbook names the typeface and body size (lib/playbook.ts); every run
@@ -475,12 +476,112 @@ function signTable(cols: string[][]): Table {
   });
 }
 
-function formalFromHtml(html: string): (Paragraph | Table)[] {
+/* ── A MASTER'S FRONT MATTER ────────────────────────────────────────────────
+   Some masters open with a cover page and a table of contents and carry a
+   running header — the convertible loan agreement master does: "[COMPANY
+   NAME] / CONVERTIBLE LOAN AGREEMENT" between two rules, then "TABLE OF
+   CONTENTS" (the clauses and the schedules), "Private and Confidential" at
+   the top of every page and the page number at the foot. The Word file
+   follows it; the screen stays the working draft. The signature page and
+   each schedule start a new page, as in the master. */
+type FrontMatter = { title: string; header: string; breakBefore: RegExp[] };
+const FRONT_MATTER: Record<string, FrontMatter> = {
+  cln: { title: "CONVERTIBLE LOAN AGREEMENT", header: "Private and Confidential", breakBefore: [/^By signing below/i, /^SCHEDULE\s+\d+\b/i] },
+};
+
+const plainOf = (fragment: string) => decodeHtml(fragment.replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim();
+/** An empty paragraph that starts a new page. */
+const pageBreak = () => new Paragraph({ pageBreakBefore: true, spacing: { before: 0, after: 0, line: 20, lineRule: LineRuleType.EXACT }, children: [] });
+
+/** The cover page and the table of contents, from the agreement as written. */
+function frontPages(items: FormalItem[], start: number, fm: FrontMatter): (Paragraph | Table)[] {
+  const ps = items.slice(start).filter((x): x is Extract<FormalItem, { kind: "p" }> => x.kind === "p");
+  const party = ps.find((x) => /(?:^|\s)doc-party(?:\s|$)/.test(x.cls));
+  const partyText = party ? plainOf(splitNumbered(party.fragment)?.body ?? party.fragment) : "";
+  const company = (partyText.split(/\s\(/)[0] || "[COMPANY NAME]").toUpperCase();
+
+  const rows: [string, string][] = [];
+  ps.forEach((x, k) => {
+    if (!/(?:^|\s)doc-section(?:\s|$)/.test(x.cls)) return;
+    const parts = splitNumbered(x.fragment);
+    const t = parts ? `${parts.num} ${plainOf(parts.body)}` : plainOf(x.fragment);
+    const sched = /^(SCHEDULE\s+\d+)\s*(.*)$/i.exec(t);
+    if (sched) {
+      rows.push([sched[1].toUpperCase(), (sched[2] || plainOf(ps[k + 1]?.fragment ?? "")).toUpperCase()]);
+      return;
+    }
+    const m = /^(\d+)\.?\s*(.+)$/.exec(t);
+    if (m) rows.push([`${m[1]}.`, m[2].toUpperCase()]);
+  });
+
+  const rule = { style: BorderStyle.SINGLE, size: 6, color: S.INK, space: 12 };
+  const cover = [
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      keepNext: true,
+      spacing: { before: 4800, after: 240, ...single(bodyLine()) },
+      border: { top: rule },
+      children: [run(company, { b: true })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 0, after: 0, ...single(bodyLine()) },
+      border: { bottom: rule },
+      children: [run(fm.title, { b: true })],
+    }),
+  ];
+
+  const text = S.FORMAL.page.width - S.FORMAL.page.margin.left - S.FORMAL.page.margin.right;
+  const first = 1800;
+  const none = { style: BorderStyle.NONE, size: 0, color: "FFFFFF" };
+  const cell = (t: string, width: number, b = false) =>
+    new TableCell({
+      width: { size: width, type: WidthType.DXA },
+      margins: { top: 60, bottom: 60, left: 0, right: 0 },
+      borders: { top: none, bottom: none, left: none, right: none },
+      children: [new Paragraph({ alignment: AlignmentType.LEFT, spacing: { before: 0, after: 0, ...single(bodyLine()) }, children: [run(t, { b })] })],
+    });
+  const toc = new Table({
+    layout: TableLayoutType.FIXED,
+    width: { size: text, type: WidthType.DXA },
+    columnWidths: [first, text - first],
+    borders: TableBorders.NONE,
+    rows: [
+      new TableRow({ children: [cell("CLAUSE", first, true), cell("HEADING", text - first, true)] }),
+      ...rows.map(([n, h]) => new TableRow({ cantSplit: true, children: [cell(n, first), cell(h, text - first)] })),
+    ],
+  });
+
+  return [
+    ...cover,
+    pageBreak(),
+    new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 0, after: 240, ...single(bodyLine()) }, children: [run("TABLE OF CONTENTS", { b: true })] }),
+    toc,
+    pageBreak(),
+  ];
+}
+
+function formalFromHtml(html: string, fm?: FrontMatter): (Paragraph | Table)[] {
   const out: (Paragraph | Table)[] = [];
   const step = S.FORMAL.step;
   const body = { alignment: bodyAlign(), spacing: { after: paraAfter(), ...single(bodyLine()) } };
 
-  for (const item of formalItems(html)) {
+  const items = formalItems(html);
+  /* The agreement's own title, where the cover page and contents go in. */
+  const titleAt = fm
+    ? items.findIndex((x) => x.kind === "p" && /(?:^|\s)doc-title(?:\s|$)/.test(x.cls) && plainOf(x.fragment).toUpperCase() === fm.title)
+    : -1;
+
+  for (const [at, item] of items.entries()) {
+    if (fm && at === titleAt) {
+      /* Anything before it (FD AI's points for the lawyer) keeps its own page. */
+      if (out.length) out.push(pageBreak());
+      out.push(...frontPages(items, at, fm));
+      continue;
+    }
+    if (fm && titleAt >= 0 && at > titleAt && item.kind === "p" && fm.breakBefore.some((re) => re.test(plainOf(item.fragment)))) {
+      out.push(pageBreak());
+    }
     if (item.kind === "sign") {
       out.push(signTable(item.cols));
       /* Space after the row, as the page has it. */
@@ -553,7 +654,12 @@ function formalFromHtml(html: string): (Paragraph | Table)[] {
     /* Stacked signature lines from a page saved before the side-by-side
        layout and not reopened since: kept as lines. */
     if (has("doc-sign")) {
-      out.push(new Paragraph({ alignment: AlignmentType.LEFT, keepNext: true, spacing: { after: 0, ...single(bodyLine()) }, children: runsFromHtml(fragment, {}, S.SIGN.blank) }));
+      /* A line to sign on gets room above it to sign in. */
+      const rule = Boolean(fm) && /^_{5,}$/.test(plainOf(fragment));
+      out.push(new Paragraph({ alignment: AlignmentType.LEFT, keepNext: true, spacing: { before: rule ? S.FORMAL.signRoom : 0, after: 0, ...single(bodyLine()) }, children: runsFromHtml(fragment, {}, S.SIGN.blank) }));
+      const next = items[at + 1];
+      /* After the last line of a block, a blank line before what follows. */
+      if (fm && !(next?.kind === "p" && /(?:^|\s)doc-sign(?:\s|$)/.test(next.cls))) out.push(new Paragraph({ spacing: { before: 0, after: paraAfter(), ...single(bodyLine()) }, children: [] }));
       continue;
     }
 
@@ -638,10 +744,13 @@ export async function POST(req: NextRequest) {
       const slug = typeof body.docTypeSlug === "string" && /^[a-z0-9_-]{1,64}$/.test(body.docTypeSlug) ? body.docTypeSlug : "*";
       const { data } = await supabase.rpc("playbook_for", { p_slug: slug });
       const rows = ((data ?? []) as { scope: string; text: string }[]);
-      LOOK = documentLook([
-        ...rows.filter((r) => r.scope !== "*").map((r) => r.text),
-        ...rows.filter((r) => r.scope === "*").map((r) => r.text),
-      ]);
+      LOOK = documentLook(
+        lookTexts(
+          slug,
+          rows.filter((r) => r.scope !== "*").map((r) => r.text),
+          rows.filter((r) => r.scope === "*").map((r) => r.text),
+        ),
+      );
     } catch {
       /* default look */
     }
@@ -649,14 +758,19 @@ export async function POST(req: NextRequest) {
 
   /* The layout is the playbook's (`layout: formal`); the page says which it
      used, which only matters where the playbook could not be read. */
+  const docSlug = typeof body.docTypeSlug === "string" && /^[a-z0-9_-]{1,64}$/.test(body.docTypeSlug) ? body.docTypeSlug : "";
+  /* No page look and no playbook to read (local, or Supabase down): the
+     type's master look still applies. */
+  if (!body.look && !isSupabaseConfigured() && docSlug) LOOK = documentLook(lookTexts(docSlug, [], []));
   const formal = LOOK.layout === "formal" || body.layout === "formal";
+  const fm = formal ? FRONT_MATTER[docSlug] : undefined;
   const html = (body.html ?? "").trim();
   let children: (Paragraph | Table)[];
 
   if (formal) {
     /* The page's HTML, or — sent only the text — the same HTML built from
        it, so there is one road to Word for this layout. */
-    children = formalFromHtml(html || blocksToPageHtml(parseDraft(splitNotes(text).body)));
+    children = formalFromHtml(html || blocksToPageHtml(parseDraft(splitNotes(text).body)), fm);
   } else if (html) {
     /* The screen, verbatim — notes and the end line included, because they
        are on the screen. The lawyer decides what to delete before sending, and
@@ -712,6 +826,21 @@ export async function POST(req: NextRequest) {
         },
         /* "Page 2 of 6", centred, small and grey, as .wd-ftr sets it at the
            foot of every page on screen. Word fills the numbers in itself. */
+        ...(fm
+          ? {
+              headers: {
+                default: new Header({
+                  children: [
+                    new Paragraph({
+                      alignment: AlignmentType.RIGHT,
+                      spacing: { before: 0, after: 0 },
+                      children: [new TextRun({ text: fm.header, bold: true, font: LOOK.font, size: bodySize() })],
+                    }),
+                  ],
+                }),
+              },
+            }
+          : {}),
         footers: {
           default: new Footer({
             children: [
@@ -720,7 +849,9 @@ export async function POST(req: NextRequest) {
                 alignment: AlignmentType.CENTER,
                 spacing: { before: 0, after: 0 },
                 children: [
-                  formal
+                  fm
+                    ? new TextRun({ children: [PageNumber.CURRENT], font: LOOK.font, size: bodySize() })
+                    : formal
                     ? new TextRun({ children: ["Page ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES], font: LOOK.font, size: S.FORMAL.footer.size, color: S.FORMAL.footer.color })
                     : new TextRun({ children: ["Page ", PageNumber.CURRENT, " of ", PageNumber.TOTAL_PAGES], font: S.FOOTER.font, size: S.FOOTER.size, color: S.END_NOTE }),
                 ],

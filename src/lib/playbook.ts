@@ -125,6 +125,24 @@ export function fontStack(font: string): string {
 }
 
 /**
+ * The look a document's own master is set in, for a type whose playbook
+ * does not say. Read after the type's own playbook and before the firm-wide
+ * one, so FD can still override it from the dashboard.
+ *
+ * The convertible loan agreement master (Convertible Loan Agreement —
+ * Master Template) is Arial 10 pt, justified, in the firm's formal layout:
+ * numbers hung in a column, headings bold and underlined.
+ */
+export const BUILT_IN_LOOK: Record<string, string> = {
+  cln: "font: Arial\nbody_size_pt: 10\ntitle_size_pt: 11\nline_spacing: 1.15\nspace_after_pt: 8\nalignment_body: justified\nlayout: formal",
+};
+
+/** The texts to read a type's look from, in order: its own playbook, its master's look, the firm's. */
+export function lookTexts(slug: string, own: string[], firm: string[]): string[] {
+  return [...own, ...(BUILT_IN_LOOK[slug] ? [BUILT_IN_LOOK[slug]] : []), ...firm];
+}
+
+/**
  * Read the look out of the live playbooks.
  *
  * Two shapes are understood, and a playbook may use either:
