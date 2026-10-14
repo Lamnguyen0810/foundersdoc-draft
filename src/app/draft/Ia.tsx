@@ -1240,7 +1240,7 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
                 <FollowStream follow={fd.follow} asking={fd.asking} />
               </div>
 
-              <GenCompose disabled={fd.asking} onSend={(t) => void fd.askFollow(t, title)} />
+              <GenCompose disabled={fd.asking} onSend={(t) => void fd.askFollow(t)} />
             </section>
 
             {docOpen && html && (

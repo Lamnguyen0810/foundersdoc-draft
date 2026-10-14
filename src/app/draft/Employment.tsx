@@ -1431,7 +1431,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                 <FollowStream follow={fd.follow} asking={fd.asking} />
               </div>
 
-              <GenCompose disabled={fd.asking} onSend={(t) => void fd.askFollow(t, title)} />
+              <GenCompose disabled={fd.asking} onSend={(t) => void fd.askFollow(t)} />
             </section>
 
             {docOpen && html && (

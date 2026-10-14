@@ -102,7 +102,7 @@ export function useAskFD(docLabel: string, docSlug: string, guest: boolean) {
   const [asking, setAsking] = useState(false);
   const [follow, setFollow] = useState<Turn[]>([]);
 
-  async function answer(question: string, onScreen = "", help = ""): Promise<string> {
+  async function answer(question: string, onScreen = "", help = "", phase: "form" | "drafted" = "form"): Promise<string> {
     const q = question.trim();
     const quick = smallTalk(q, docLabel);
     if (quick) return quick;
@@ -114,7 +114,7 @@ export function useAskFD(docLabel: string, docSlug: string, guest: boolean) {
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question: q, doc: docLabel, onScreen, help }),
+        body: JSON.stringify({ question: q, doc: docLabel, onScreen, help, phase }),
       });
       const j = (await res.json().catch(() => null)) as { answer?: string; error?: string; offTopic?: boolean } | null;
       track("chat_question", { doc_type: docSlug, source: j?.offTopic ? "off_topic" : "ai" });
@@ -128,11 +128,11 @@ export function useAskFD(docLabel: string, docSlug: string, guest: boolean) {
   }
 
   /** A question under the finished document: both turns go in the thread. */
-  async function askFollow(question: string, context: string) {
+  async function askFollow(question: string) {
     const q = question.trim();
     if (!q || asking) return;
     setFollow((f) => [...f, { who: "me", text: q }]);
-    const a = await answer(q, context);
+    const a = await answer(q, "", "", "drafted");
     setFollow((f) => [...f, { who: "fd", text: a }]);
   }
 
