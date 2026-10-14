@@ -141,6 +141,13 @@ const CATALOGUE: CatFolder[] = [
     [
       ["safe", "SAFE Note", "Raise early money with a simple agreement", false, "fundraising seed investment convertible"],
       [
+        "loan",
+        "Loan Agreement",
+        "Lend or borrow money — one lender or several, to a person or a company, from our lawyers’ master",
+        true,
+        "loan agreement lend borrow lender borrower founder loan shareholder loan bridge loan facility interest repayment debt",
+      ],
+      [
         "term",
         "Term Sheet",
         "Investment, loan, acquisition or partnership — the key terms before the full agreements",
@@ -668,6 +675,7 @@ export default function DraftChat({
         ["fdai.ssa-handoff", "ssa"],
         ["fdai.ia-handoff", "ia"],
         ["fdai.services-handoff", "services"],
+        ["fdai.loan-handoff", "loan"],
         ["fdai.term-handoff", "term"],
       ] as const) {
         const raw = window.localStorage.getItem(key);
