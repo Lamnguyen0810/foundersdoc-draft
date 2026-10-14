@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { BetaBadge, isBeta } from "./beta";
 import { stepsFor, type DocType, type Field } from "@/lib/doctypes";
 import { track } from "@/lib/track";
+import { draftHref } from "@/lib/doc-links";
 import DetailSlider, { DETAIL_LABELS, DETAIL_LENGTHS, toLevel } from "./DetailSlider";
 import DocumentEditor from "./DocumentEditor";
 import DraftReady, { notesToReminders } from "./DraftReady";
@@ -682,7 +683,7 @@ export default function DraftChat({
         const raw = window.localStorage.getItem(key);
         const type = docTypes.find((d) => d.slug === slug && d.engine === "assembly");
         if (raw && type) {
-          window.location.replace(`/draft?type=${type.slug}`);
+          window.location.replace(draftHref(type.slug));
           return;
         }
       }
@@ -757,7 +758,7 @@ export default function DraftChat({
   const openDocument = useCallback((d: DocType) => {
     setPicked({ screen: "chat", type: d });
     try {
-      window.history.pushState({ fdScreen: "chat", fdSlug: d.slug }, "", `/draft?type=${d.slug}`);
+      window.history.pushState({ fdScreen: "chat", fdSlug: d.slug }, "", draftHref(d.slug));
     } catch {
       /* A browser that will not take history entries still gets the screen —
          it just keeps the old Back behaviour, which is no worse than before. */
@@ -854,7 +855,7 @@ export default function DraftChat({
               /* An assembled document (the term sheet) has its own screen,
                  served by the page for its slug — not this conversation. */
               if (d.engine === "assembly") {
-                window.location.assign(`/draft?type=${d.slug}`);
+                window.location.assign(draftHref(d.slug));
                 return;
               }
               openDocument(d);
