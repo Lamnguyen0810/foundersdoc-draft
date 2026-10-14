@@ -60,6 +60,7 @@ const SITE_PAGES = [
   "/is-a-term-sheet-legally-binding",
   "/term-sheet-checklist",
   "/term-sheet-mistakes",
+  "/how-to-draft-an-nda-online",
 ];
 
 /**

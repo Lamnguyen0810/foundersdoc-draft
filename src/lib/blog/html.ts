@@ -52,6 +52,7 @@ export const CTAS: { id: string; label: string }[] = [
 /* Articles already on the site as files (next.config.ts RESOURCE_ARTICLES).
    A new post may not take one of their addresses, and they can be linked to. */
 export const STATIC_ARTICLES: { slug: string; title: string }[] = [
+  { slug: "how-to-draft-an-nda-online", title: "How to Draft an NDA Online in Minutes" },
   { slug: "what-is-a-term-sheet", title: "What Is a Term Sheet?" },
   { slug: "is-a-term-sheet-legally-binding", title: "Is a Term Sheet Legally Binding?" },
   { slug: "term-sheet-checklist", title: "Term Sheet Checklist" },
