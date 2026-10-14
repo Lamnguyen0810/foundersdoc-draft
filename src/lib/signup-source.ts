@@ -18,6 +18,8 @@
  * came back through Google. The browser-only parts check for window first.
  */
 
+import { slugFromParam } from "./doc-links";
+
 export type SignupSource = {
   /** The first page, path only. */
   path?: string;
@@ -81,7 +83,7 @@ function here(): SignupSource {
       path: window.location.pathname,
       title: document.title.replace(/\s*[—–|-]\s*Founders Doc.*$/i, ""),
       kind: article || window.location.pathname.startsWith("/resources/") ? "article" : undefined,
-      doc: window.location.pathname === "/draft" ? (q.get("type") ?? "").trim().toLowerCase() || undefined : undefined,
+      doc: window.location.pathname === "/draft" ? slugFromParam(q.get("type")) : undefined,
       ref,
       utm_source: q.get("utm_source") ?? undefined,
       utm_medium: q.get("utm_medium") ?? undefined,

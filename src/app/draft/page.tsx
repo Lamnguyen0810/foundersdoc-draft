@@ -15,17 +15,36 @@ import Services from "./Services";
 import Loan from "./Loan";
 import { recentDrafts } from "./recent";
 import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
+import { redirect } from "next/navigation";
+import type { Metadata } from "next";
+import { draftHref, PUBLIC_SLUG, slugFromParam } from "@/lib/doc-links";
 
 /* The one screen in the app Google is welcome to read: a visitor can open it
    without an account, so it is what a search for "draft an NDA online" should
    land on. The root layout says noindex for everything else. */
-export const metadata = {
+const NDA_META = {
   title: "Draft an NDA online in minutes — FD AI by Founders Doc",
   description:
     "Answer a few questions and FD AI drafts a non-disclosure agreement from Founders Doc's own playbook — nothing invented, lawyer-backed, Word in minutes. Start without an account.",
-  robots: { index: true, follow: true },
-  alternates: { canonical: "https://foundersdoc.com/draft" },
 };
+
+/* A shared link names the document it opens. The page used to say "Draft an
+   NDA" for every one, so /draft?type=loanagreement previewed as an NDA in
+   Slack and on WhatsApp. Each document now has its own title and its own
+   canonical link; the NDA and the catalogue keep theirs. */
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ type?: string }> }): Promise<Metadata> {
+  const slug = slugFromParam((await searchParams).type);
+  const base = { robots: { index: true, follow: true } };
+  if (!slug || slug === "nda") return { ...base, ...NDA_META, alternates: { canonical: "https://foundersdoc.com/draft" } };
+  const { docTypes } = await loadDocTypes();
+  const d = docTypes.find((x) => x.slug === slug);
+  if (!d) return { ...base, ...NDA_META, alternates: { canonical: "https://foundersdoc.com/draft" } };
+  const article = /^[aeiou]/i.test(d.label) ? "an" : "a";
+  const title = `Draft ${article} ${d.label} online — FD AI by Founders Doc`;
+  const description = `Answer a few questions and FD AI drafts ${article} ${d.label.toLowerCase()} from Founders Doc's own master — lawyer-backed, Word in minutes. Start without an account.`;
+  const url = `https://foundersdoc.com${draftHref(d.slug)}`;
+  return { ...base, title, description, alternates: { canonical: url }, openGraph: { title, description, url }, twitter: { title, description } };
+}
 export const dynamic = "force-dynamic";
 
 export default async function DraftPage({
@@ -40,7 +59,12 @@ export default async function DraftPage({
   // `/draft?type=nda` — the deep link the marketing site uses. An unknown slug
   // falls through to the catalogue rather than erroring, so a stale link on the
   // site lands somewhere sensible instead of breaking.
-  const requested = (await searchParams).type?.trim().toLowerCase();
+  const raw = (await searchParams).type?.trim().toLowerCase();
+  /* A document with a public name (the loan agreement: ?type=loanagreement)
+     is moved there from its old link, so the address bar and anything shared
+     from it carry the right name. */
+  if (raw && PUBLIC_SLUG[raw]) redirect(draftHref(raw));
+  const requested = slugFromParam(raw);
   const presetSlug = docTypes.find((d) => d.slug === requested)?.slug;
 
   const [user, recent, wallet, admin, prefill] = await Promise.all([
