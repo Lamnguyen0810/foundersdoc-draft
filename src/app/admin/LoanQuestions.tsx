@@ -25,6 +25,7 @@ const TYPE_LABEL: Record<string, string> = {
   multi_choice: "Several choices",
   free_text: "Typed answer",
   free_text_list: "Typed list",
+  scale: "Slider",
 };
 
 /** What each answer does to the contract. */

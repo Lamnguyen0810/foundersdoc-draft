@@ -21,7 +21,7 @@ export type Condition =
   | { all: readonly Condition[] }
   | { any: readonly Condition[] };
 
-export type QuestionType = "single_choice" | "multi_choice" | "free_text" | "free_text_list";
+export type QuestionType = "single_choice" | "multi_choice" | "free_text" | "free_text_list" | "scale";
 
 export interface Option {
   value: string;
