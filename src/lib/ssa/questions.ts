@@ -114,8 +114,22 @@ export function questionsFor(a: Answers): Question[] {
 
 /** Fill every unanswered visible question that has a default. The list is
  *  read again until it stops changing: a default can reveal a question. */
+/**
+ * The company issues the shares and the investors subscribe for them, so
+ * both are always parties (SS3); only the founders are a choice. Unticking
+ * either used to stop the draft with a red flag (SS4) after Generate —
+ * for an agreement the assembler draws the same way regardless.
+ */
+export const ALWAYS_PARTIES = ["company", "investors"];
+
+export function withRequiredParties(v: unknown): string[] {
+  const picked = Array.isArray(v) ? v.map(String) : typeof v === "string" && v ? [v] : [];
+  return [...ALWAYS_PARTIES, ...picked.filter((x) => !ALWAYS_PARTIES.includes(x))];
+}
+
 export function applyDefaults(a: Answers): Answers {
   const out: Answers = { ...a };
+  if (out.SS3 !== undefined && out.SS3 !== "") out.SS3 = withRequiredParties(out.SS3);
   for (let pass = 0; pass < 3; pass++) {
     for (const q of questionsFor(out)) {
       if (!empty(out[q.id])) continue;

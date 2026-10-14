@@ -22,7 +22,7 @@ import type { RecentDraft } from "./history";
 import type { CompanyPrefill } from "./TermSheet";
 import { track } from "@/lib/track";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
-import { applyDefaults, founderCount, investorCount, problemWith, questionsFor, type Option, type Question } from "@/lib/ssa/questions";
+import { ALWAYS_PARTIES, applyDefaults, founderCount, investorCount, problemWith, questionsFor, withRequiredParties, type Option, type Question } from "@/lib/ssa/questions";
 import { SSA_INTRO } from "@/lib/ssa/data/intro";
 import type { Answers, Company, DraftStatus, Flag, Founder, Investor, PartyKind } from "@/lib/ssa/types";
 
@@ -624,19 +624,28 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
             <div className="chips">
               {chipsFor(
                 q.options,
-                (o) =>
+                (o) => {
+                  /* SS3: the company and the investors are always parties. */
+                  if (q.id === "SS3" && ALWAYS_PARTIES.includes(o.value)) return;
                   setMulti((m) => {
                     if (o.exclusive) return m.includes(o.value) ? [] : [o.value];
                     const without = m.filter((x) => !q.options.find((p) => p.value === x)?.exclusive);
                     return without.includes(o.value) ? without.filter((x) => x !== o.value) : [...without, o.value];
-                  }),
-                (o) => multi.includes(o.value),
+                  });
+                },
+                (o) => multi.includes(o.value) || (q.id === "SS3" && ALWAYS_PARTIES.includes(o.value)),
               )}
               {backButton()}
-              <button type="button" className="go" disabled={multi.length === 0} onClick={() => commit(q, multi)}>
+              <button
+                type="button"
+                className="go"
+                disabled={multi.length === 0 && q.id !== "SS3"}
+                onClick={() => commit(q, q.id === "SS3" ? withRequiredParties(multi) : multi)}
+              >
                 Done
               </button>
             </div>
+            {q.id === "SS3" && <p className="later">The company and the investor are always parties — choose whether the founders sign too.</p>}
             {skipLink(q)}
           </>
         );
