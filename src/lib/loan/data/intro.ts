@@ -4,9 +4,10 @@
  */
 export const LOAN_INTRO = {
   short:
-    "**A loan agreement, for lending or borrowing money.**\n\nAnswer plain-English questions about the amount, the interest and how it is repaid — and FD AI puts together a loan agreement from our lawyers' master: one lender or several, to an individual or a company, including a founder borrowing for their start-up.\n\nTell us whether you are lending or borrowing, and the usual answers lean to your side. It is in Beta and written under Singapore law. It takes about 8 minutes; anything you skip takes the usual answer.",
+    "**A loan agreement, for lending or borrowing money.**\n\nAnswer plain-English questions about the amount, the interest and how it is repaid — and FD AI puts together a loan agreement from our lawyers' master: one lender or several, to an individual or a company, including a founder borrowing for their start-up.\n\nFirst choose how detailed it should be: Simple (the essentials), Standard (our lawyers' master) or Comprehensive (every option). Then tell us whether you are lending or borrowing, and the usual answers lean to your side. It is in Beta and written under Singapore law. It takes 3 to 10 minutes; anything you skip takes the usual answer.",
   learn_more: {
     what_you_get: [
+      "Three levels of detail: Simple — a short agreement with the essentials; Standard — the Founders Doc master; Comprehensive — every option, including security, a stated purpose and late-payment interest",
       "A loan agreement naming the Borrower and the Lender — or several Lenders, listed in a schedule and acting through one authorised representative",
       "The amount, the drawdown into the Borrower's bank account, the term and how it is repaid: on request, on the Maturity Date or in instalments",
       "Tiered interest that rewards early repayment (the master's position), a rate a year, a flat charge, or interest-free",

@@ -3,7 +3,8 @@
 import { Fragment } from "react";
 import { LOAN_QUESTIONNAIRE } from "@/lib/loan/data/questionnaire";
 import { ADAPTATIONS, CORRECTIONS, MASTER_VERSION, SECTIONS } from "@/lib/loan/data/master";
-import { ALL_QUESTIONS, defaultsBy, showIf, type Condition, type Question } from "@/lib/loan/questions";
+import { ALL_QUESTIONS, defaultsBy, LEVELS, levelsOf, showIf, type Condition, type Question } from "@/lib/loan/questions";
+import { SIMPLE_LEAVES_OUT } from "@/lib/loan/assemble";
 
 /**
  * The loan agreement's questions, as the user meets them — read-only, as
@@ -13,7 +14,8 @@ import { ALL_QUESTIONS, defaultsBy, showIf, type Condition, type Question } from
  * loan agreement, and the questions are the choices the four reference
  * loan agreements show (one or several Lenders, an individual or company
  * Borrower, the interest model, repayment, defaults, security). Where the
- * usual answer depends on the user's side, both are shown. Beneath the
+ * usual answer depends on the user's side, both are shown, and so is the
+ * level of detail (LN0) at which each question is asked. Beneath the
  * list: what was generalised, the FD supplementary wording and the
  * master's slips fixed.
  */
@@ -27,6 +29,7 @@ const TYPE_LABEL: Record<string, string> = {
 
 /** What each answer does to the contract. */
 const SHAPES: Record<string, string> = {
+  LN0: "Which questions are asked (see Levels); Simple also leaves out the Confidentiality, Announcements, Limitation of Liability and Further Assurances clauses",
   LN1: "The side's usual answers below (repayment, defaults, the Borrower's cap); payments applied to principal first (Borrower, master) or costs and interest first (Lender, B); announcements approved by the Borrower (master) or both",
   LN2: "One Lender as party (2), or the Lenders in Schedule 1 Part 1 with each one's amount, jointly and severally, through the Lenders' Authorised Representative (Schedule 1 Part 2, master)",
   LN3: "Party (1) wording; a company Borrower adds its incorporation warranty and board approval as a condition precedent (B); the company warranties, reporting and change of control then concern the Borrower",
@@ -81,6 +84,17 @@ function defaultText(q: Question): string {
   return Array.isArray(d) ? d.map((x) => label(String(x))).join(", ") : label(String(d));
 }
 
+const LEVEL_NAME: Record<string, string> = { simple: "Simple", standard: "Standard", comprehensive: "Comprehensive" };
+
+/** At which levels a question is asked, and what the others set. */
+function levelText(q: Question): string {
+  const { asked, fixed } = levelsOf(q.id);
+  if (asked.length === LEVELS.length) return "All levels";
+  const label = (x: unknown) => (x === "" ? "blank" : (q.options.find((o) => o.value === x)?.label ?? String(x)).split(" – ")[0]);
+  const others = LEVELS.filter((l) => !asked.includes(l)).map((l) => `${LEVEL_NAME[l]}: ${l in fixed ? label(fixed[l]) : "usual answer"}`);
+  return `${asked.map((l) => LEVEL_NAME[l]).join(", ")} · not asked at ${others.join("; ")}`;
+}
+
 type Row = { kind: "q"; q: Question } | { kind: "parties" };
 
 export default function LoanQuestions() {
@@ -110,6 +124,8 @@ export default function LoanQuestions() {
           agreement, and the questions are the permutations shown by four reference loan agreements (B: a short-form facility
           agreement; C: a term loan with a share pledge; D and E: a bank loan and security agreement and an amendment) — their
           wording kept to the master&rsquo;s style. The share pledge is an option, never the usual answer. Redacted copies go in AI files.
+          The user first picks a level of detail (LN0): Simple, Standard (the master) or Comprehensive (every question). A question
+          not asked at a level takes its usual answer or the one shown; Simple also leaves out {SIMPLE_LEAVES_OUT.length} clauses.
         </span>
       </div>
       <div className="table-wrap">
@@ -158,7 +174,10 @@ export default function LoanQuestions() {
                           {r.q.options.some((o) => o.exclusive) && <span style={{ marginLeft: 6, color: "var(--muted)", fontSize: 10.5 }}>· “None” stands alone</span>}
                           {!r.q.required && <span className="badge gray" style={{ marginLeft: 6 }}>Optional</span>}
                         </td>
-                        <td style={{ fontSize: 12 }}>{when(showIf(r.q.id))}</td>
+                        <td style={{ fontSize: 12 }}>
+                          {when(showIf(r.q.id))}
+                          <div style={{ color: "var(--muted)", fontSize: 11, marginTop: 4 }}>{levelText(r.q)}</div>
+                        </td>
                         <td style={{ fontSize: 12 }}>{defaultText(r.q)}</td>
                         <td style={{ fontSize: 12 }}>{SHAPES[r.q.id] ?? "—"}</td>
                       </tr>

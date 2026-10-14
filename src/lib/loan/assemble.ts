@@ -9,7 +9,8 @@
  * versions of a clause drawn from the reference loan agreements (one or
  * several Lenders, an individual or company Borrower, a connected company,
  * the interest model, how it is repaid, how strictly defaults are treated,
- * security). See data/questionnaire.ts.
+ * security). See data/questionnaire.ts. The level of detail (LN0) decides
+ * what is asked; the simple version also leaves out SIMPLE_LEAVES_OUT.
  */
 
 import type { Block } from "../contract/parse";
@@ -18,7 +19,7 @@ import {
   AGREED, BETWEEN, DEFINITIONS, EXECUTED, INTERPRETATION, LENDERS_SCHEDULE, MADE_ON, PARTIES_COLLECTIVE, PARTY_COMPANY, PARTY_INDIVIDUAL,
   RECITAL, SECTIONS, TITLE, WHEREAS, type MasterClause, type MasterSub,
 } from "./data/master";
-import { applyDefaults } from "./questions";
+import { applyDefaults, levelOf, type Level } from "./questions";
 import type { Answers, Flag, LoanInput, Party } from "./types";
 
 export interface Assembled {
@@ -68,6 +69,10 @@ function asPhrase(s: string): string {
   return /^[A-Z][a-z]/.test(t) && !/^[A-Z][a-z]+ [A-Z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t;
 }
 
+/** What the simple version leaves out (LN0): the master's boilerplate that a
+ *  short agreement between people who know each other can do without. */
+export const SIMPLE_LEAVES_OUT = ["confidentiality", "announcements", "liability", "assurances"];
+
 const ROMAN = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x"];
 
 /** A list with items dropped, re-lettered, its "; and" / "." endings moved. */
@@ -102,6 +107,7 @@ function relist(items: MasterSub[], original: MasterSub[] = items): MasterSub[] 
 
 /** Everything the answers decide, read once — shared with the checks. */
 export function readAnswers(a: Answers) {
+  const level: Level = levelOf(a);
   const lenderSide = str(a.LN1) !== "borrower";
   const several = str(a.LN2) === "several";
   const borrowerCompany = str(a.LN3) === "company";
@@ -120,7 +126,7 @@ export function readAnswers(a: Answers) {
   const strict = str(a.LN15) === "strict";
   const coc = connected && str(a.LN16) !== "no";
   const comfort = connected && str(a.LN17) !== "no";
-  return { lenderSide, several, borrowerCompany, companyDef, connected, usd, principal, termMonths, repay, model, tiers, rate, flat, defaultKind, security, strict, coc, comfort };
+  return { level, lenderSide, several, borrowerCompany, companyDef, connected, usd, principal, termMonths, repay, model, tiers, rate, flat, defaultKind, security, strict, coc, comfort };
 }
 
 export function assemble(input: LoanInput): Assembled {
@@ -313,7 +319,7 @@ export function assemble(input: LoanInput): Assembled {
   const built: Built[] = [];
   for (const sec of SECTIONS) {
     if (!keep(sec.when)) continue;
-    const clauses = sec.clauses.filter((c) => keep(c.when));
+    const clauses = sec.clauses.filter((c) => keep(c.when) && !(r.level === "simple" && SIMPLE_LEAVES_OUT.includes(c.id)));
     if (clauses.length) built.push({ id: sec.id, heading: sec.heading, clauses });
     for (const c of clauses) if (c.fd) fdUsed.push(c.text.match(/^\*\*(.+?)\.\*\*/)?.[1]?.toLowerCase() ?? c.id);
   }
