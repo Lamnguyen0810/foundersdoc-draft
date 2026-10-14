@@ -4,7 +4,9 @@
  * ones are still open. Pure — the same list on the client, which asks, and
  * on the server, which checks. The investment agreement engine, with one
  * addition: a default can depend on an earlier answer (default_by), so the
- * usual answer leans to the side the user is on.
+ * usual answer leans to the side the user is on — and another: the level of
+ * detail (LN0) decides which questions are asked. A question not asked at
+ * the level takes its usual answer, or the one the level sets (fixed).
  */
 
 import { LOAN_QUESTIONNAIRE } from "./data/questionnaire";
@@ -51,7 +53,11 @@ export interface Question {
   reject?: Reject[];
 }
 
-/** Question ids: LN1 … LN21, with a letter for a follow-up (LN8a, LN12b). */
+/** The level of detail (LN0). */
+export type Level = "simple" | "standard" | "comprehensive";
+export const LEVELS: Level[] = ["simple", "standard", "comprehensive"];
+
+/** Question ids: LN0 … LN21, with a letter for a follow-up (LN8a, LN12b). */
 export const QUESTION_ID = /^LN\d+[a-z]?$/;
 
 const empty = (v: unknown) => v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
@@ -109,6 +115,53 @@ function concrete(q: Raw, a: Answers): Question {
 
 const RAW = LOAN_QUESTIONNAIRE.questions as unknown as Raw[];
 
+/** The level chosen. A draft saved before levels existed asked every
+ *  question, so answers without a level are read as comprehensive. */
+export function levelOf(a: Answers): Level {
+  const v = a.LN0;
+  if (typeof v === "string" && (LEVELS as string[]).includes(v)) return v as Level;
+  const older = Object.keys(a).some((k) => k !== "LN0" && QUESTION_ID.test(k) && !empty(a[k]));
+  return older ? "comprehensive" : "standard";
+}
+
+const askedAt = (q: Raw, level: Level) => {
+  const at = q.asked_at as readonly string[] | undefined;
+  return !at || at.includes(level);
+};
+
+/** The answers the level sets without asking: the level's own answer
+ *  (fixed), else the usual answer. Read again until it stops changing: a
+ *  set answer can reveal or hide another question. */
+export function fixedAnswers(a: Answers): Answers {
+  const level = levelOf(a);
+  let out: Answers = {};
+  for (let pass = 0; pass < 3; pass++) {
+    const full: Answers = { ...a, LN0: level, ...out };
+    const next: Answers = {};
+    for (const q of RAW) {
+      if (askedAt(q, level) || !evaluate(q.show_if as Condition | undefined, full)) continue;
+      const fixed = (q.fixed as Record<string, unknown> | undefined)?.[level];
+      const v = fixed !== undefined ? fixed : defaultFor(q, full);
+      if (v !== undefined) next[q.id as string] = v;
+    }
+    out = next;
+  }
+  return out;
+}
+
+/** The answers with what the level sets filled in — the screen keeps these
+ *  so the parties box and the summary follow the level. */
+export function withFixed(a: Answers): Answers {
+  return { ...a, ...fixedAnswers(a) };
+}
+
+/** At which levels a question is asked, and what the level sets — for the admin list. */
+export function levelsOf(id: string): { asked: Level[]; fixed: Partial<Record<Level, unknown>> } {
+  const q = RAW.find((x) => x.id === id);
+  const at = q?.asked_at as readonly Level[] | undefined;
+  return { asked: at ? [...at] : [...LEVELS], fixed: { ...((q?.fixed as Partial<Record<Level, unknown>> | undefined) ?? {}) } };
+}
+
 /** Why a free-text answer cannot be accepted, or null when it can. */
 export function problemWith(q: Question, value: unknown): string | null {
   if (typeof value !== "string" || !value.trim() || !q.reject?.length) return null;
@@ -133,21 +186,26 @@ export function defaultsBy(id: string): DefaultBy | undefined {
 
 /** The questions for these answers, in the order they are asked. */
 export function questionsFor(a: Answers): Question[] {
-  return RAW.filter((q) => evaluate(q.show_if as Condition | undefined, a)).map((q) => concrete(q, a));
+  const level = levelOf(a);
+  const full: Answers = { ...a, LN0: level, ...fixedAnswers(a) };
+  return RAW.filter((q) => askedAt(q, level) && evaluate(q.show_if as Condition | undefined, full)).map((q) => concrete(q, full));
 }
 
 /** Fill every unanswered visible question that has a default. The list is
  *  read again until it stops changing: a default can reveal a question. */
 export function applyDefaults(a: Answers): Answers {
   const out: Answers = { ...a };
+  if (empty(out.LN0)) out.LN0 = levelOf(a);
   for (let pass = 0; pass < 3; pass++) {
     for (const q of questionsFor(out)) {
       if (!empty(out[q.id])) continue;
       if (q.defaultValue !== undefined) out[q.id] = q.defaultValue;
     }
+    /* What the level sets replaces any earlier answer to a question it does not ask. */
+    Object.assign(out, fixedAnswers(out));
   }
   /* A hidden question's answer does not count. */
-  const visible = new Set(questionsFor(out).map((q) => q.id));
+  const visible = new Set([...questionsFor(out).map((q) => q.id), ...Object.keys(fixedAnswers(out))]);
   for (const k of Object.keys(out)) {
     if (QUESTION_ID.test(k) && !visible.has(k)) delete out[k];
   }

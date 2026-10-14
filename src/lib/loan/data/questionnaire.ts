@@ -24,7 +24,22 @@
  *      a secured facility with covenants; used only for the shape of the
  *      security and default provisions.
  *
- * The first question asks whose side the user is on; where the two sides
+ * The first question asks how detailed the agreement should be (LN0):
+ *
+ *   simple         the essentials, about ten questions: one Lender, no
+ *                  connected-company terms, no security, no default
+ *                  interest; confidentiality, announcements, the limit on
+ *                  liability and further assurances are left out;
+ *   standard       the Founders Doc master, with its usual protections;
+ *   comprehensive  every option asked — purpose, drawdown, early
+ *                  repayment, late-payment interest, security, transfers.
+ *
+ * A question asked only at some levels says so (asked_at). At the others
+ * it is not asked and takes its usual answer, or the answer the level sets
+ * (fixed). The wording is the same at every level: the level only decides
+ * what is asked, and the simple version leaves the four clauses out.
+ *
+ * The next question asks whose side the user is on; where the two sides
  * would answer differently, the usual answer follows the side (default_by).
  * Otherwise the usual answer is the master's.
  *
@@ -35,15 +50,32 @@
 const NUM = { pattern: "^(?!\\s*\\d[\\d,]*(\\.\\d+)?\\s*$)", message: "A number only, please (e.g. 50,000)." };
 const PCT = { pattern: "^(?!\\s*\\d{1,2}(\\.\\d{1,2})?\\s*%?\\s*$)", message: "A percentage only, please (e.g. 8 or 8.5)." };
 const SIDE = (lender: unknown, borrower: unknown) => ({ q: "LN1", map: { lender, borrower } });
+const NOT_SIMPLE = ["standard", "comprehensive"] as const;
+const ONLY_COMPREHENSIVE = ["comprehensive"] as const;
 const CONNECTED = { any: [{ q: "LN3", eq: "company" }, { q: "LN4", eq: "yes" }] } as const;
 
 export const LOAN_QUESTIONNAIRE = {
   id: "FD_LOAN_QUESTIONNAIRE",
-  version: "1.0",
+  version: "1.1",
   for_master: "FD Master Loan Agreement Template (Universal), with four reference loan agreements (redacted)",
   status: "Beta",
   questions: [
     /* ── the loan ── */
+    {
+      id: "LN0",
+      key: "level",
+      section: "The loan",
+      type: "single_choice",
+      required: true,
+      default: "standard",
+      text: "Level of Detail. How detailed should the agreement be?",
+      help: "Pro Tip: A loan between people who know each other often needs only the essentials. Standard is the Founders Doc master, with its usual protections. Comprehensive asks about every option — security, a stated purpose, late-payment interest, transfers — for a larger or riskier loan. You can change the level later from the list on the right; your answers are kept.",
+      options: [
+        { value: "simple", label: "Simple – the essentials, a short agreement (about 10 questions)" },
+        { value: "standard", label: "Standard – the Founders Doc master, the usual protections (about 20 questions)", recommended: true },
+        { value: "comprehensive", label: "Comprehensive – every option, for a larger or riskier loan (about 25 questions)" },
+      ],
+    },
     {
       id: "LN1",
       key: "side",
@@ -59,6 +91,8 @@ export const LOAN_QUESTIONNAIRE = {
     },
     {
       id: "LN2",
+      asked_at: NOT_SIMPLE,
+      fixed: { simple: "one" },
       key: "lenders",
       section: "The loan",
       type: "single_choice",
@@ -85,6 +119,8 @@ export const LOAN_QUESTIONNAIRE = {
     },
     {
       id: "LN4",
+      asked_at: NOT_SIMPLE,
+      fixed: { simple: "no" },
       key: "connected",
       section: "The loan",
       type: "single_choice",
@@ -124,6 +160,8 @@ export const LOAN_QUESTIONNAIRE = {
     },
     {
       id: "LN7",
+      asked_at: ONLY_COMPREHENSIVE,
+      fixed: { simple: "", standard: "" },
       key: "purpose",
       section: "The loan",
       type: "free_text",
@@ -137,6 +175,7 @@ export const LOAN_QUESTIONNAIRE = {
     /* ── drawdown and term ── */
     {
       id: "LN8",
+      asked_at: ONLY_COMPREHENSIVE,
       key: "drawdown",
       section: "Drawdown and term",
       type: "single_choice",
@@ -199,6 +238,7 @@ export const LOAN_QUESTIONNAIRE = {
     },
     {
       id: "LN11",
+      asked_at: ONLY_COMPREHENSIVE,
       key: "early",
       section: "Drawdown and term",
       type: "single_choice",
@@ -260,6 +300,7 @@ export const LOAN_QUESTIONNAIRE = {
     { id: "LN12c", key: "rate", section: "Interest", type: "free_text", required: true, max_length: 6, show_if: { q: "LN12", eq: "annual" }, text: "Rate a year (%)?", placeholder: "e.g. 8", reject: [PCT] },
     {
       id: "LN12d",
+      asked_at: NOT_SIMPLE,
       key: "interest_paid",
       section: "Interest",
       type: "single_choice",
@@ -275,6 +316,8 @@ export const LOAN_QUESTIONNAIRE = {
     { id: "LN12e", key: "flat", section: "Interest", type: "free_text", required: true, max_length: 6, show_if: { q: "LN12", eq: "flat" }, text: "Flat charge (% of the amount lent)?", placeholder: "e.g. 10", reject: [PCT] },
     {
       id: "LN13",
+      asked_at: ONLY_COMPREHENSIVE,
+      fixed: { simple: "none" },
       key: "default_interest",
       section: "Interest",
       type: "single_choice",
@@ -294,6 +337,7 @@ export const LOAN_QUESTIONNAIRE = {
     /* ── protections ── */
     {
       id: "LN14",
+      asked_at: ONLY_COMPREHENSIVE,
       key: "security",
       section: "Protections",
       type: "single_choice",
@@ -331,6 +375,7 @@ export const LOAN_QUESTIONNAIRE = {
     },
     {
       id: "LN15",
+      asked_at: NOT_SIMPLE,
       key: "defaults",
       section: "Protections",
       type: "single_choice",
@@ -345,6 +390,8 @@ export const LOAN_QUESTIONNAIRE = {
     },
     {
       id: "LN16",
+      asked_at: NOT_SIMPLE,
+      fixed: { simple: "no" },
       key: "change_of_control",
       section: "Protections",
       type: "single_choice",
@@ -360,6 +407,8 @@ export const LOAN_QUESTIONNAIRE = {
     },
     {
       id: "LN17",
+      asked_at: NOT_SIMPLE,
+      fixed: { simple: "no" },
       key: "company_comfort",
       section: "Protections",
       type: "single_choice",
@@ -397,6 +446,7 @@ export const LOAN_QUESTIONNAIRE = {
     },
     {
       id: "LN18",
+      asked_at: ONLY_COMPREHENSIVE,
       key: "assignment",
       section: "Protections",
       type: "single_choice",
@@ -411,6 +461,8 @@ export const LOAN_QUESTIONNAIRE = {
     },
     {
       id: "LN19",
+      asked_at: NOT_SIMPLE,
+      fixed: { simple: "none" },
       key: "cap",
       section: "Protections",
       type: "single_choice",
@@ -425,6 +477,8 @@ export const LOAN_QUESTIONNAIRE = {
     },
     {
       id: "LN20",
+      asked_at: NOT_SIMPLE,
+      fixed: { simple: "own" },
       key: "costs",
       section: "Protections",
       type: "single_choice",

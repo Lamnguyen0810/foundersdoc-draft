@@ -4,7 +4,8 @@
  * The loan agreement screen — the services agreement screen (Services.tsx),
  * for the loan agreement questionnaire (lib/loan/data/questionnaire.ts).
  *
- * The flow: which side the user is on, one or several Lenders, the
+ * The flow: how detailed the agreement should be (LN0 — simple, standard
+ * or comprehensive, which decides what else is asked), which side the user is on, one or several Lenders, the
  * Borrower an individual or a company, a connected company, the currency
  * (LN1–LN5), then the parties — the Borrower and its bank account, the
  * connected company, each Lender and, with several, their authorised
@@ -24,7 +25,7 @@ import type { RecentDraft } from "./history";
 import type { CompanyPrefill } from "./TermSheet";
 import { track } from "@/lib/track";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
-import { applyDefaults, problemWith, questionsFor, type Option, type Question } from "@/lib/loan/questions";
+import { applyDefaults, levelOf, problemWith, questionsFor, withFixed, type Option, type Question } from "@/lib/loan/questions";
 import { LOAN_INTRO } from "@/lib/loan/data/intro";
 import type { Answers, Bank, DraftStatus, Flag, Party, PartyKind, Rep } from "@/lib/loan/types";
 
@@ -82,7 +83,7 @@ function stepsFor(a: Answers): Step[] {
 }
 
 const SHORT: Record<string, string> = {
-  LN1: "Your side", LN2: "Lenders", LN3: "Borrower", LN4: "Connected company", LN5: "Currency", LN6: "Amount", LN7: "Purpose",
+  LN0: "Level of detail", LN1: "Your side", LN2: "Lenders", LN3: "Borrower", LN4: "Connected company", LN5: "Currency", LN6: "Amount", LN7: "Purpose",
   LN8: "Drawdown", LN8a: "Drawdown date", LN9: "Term", LN9a: "Term (months)", LN10: "Repayment", LN10a: "Instalments", LN11: "Early repayment",
   LN12: "Interest", LN12a: "Tiers", LN12b: "Tiers (%)", LN12c: "Rate a year", LN12d: "Interest payments", LN12e: "Flat charge",
   LN13: "Late payment", LN13a: "Default rate", LN14: "Security", LN14a: "The security", LN14b: "Pledged shares", LN15: "Defaults",
@@ -101,7 +102,7 @@ function groupOf(s: Step): string {
 }
 
 /** What "Skip the rest" cannot answer for anyone. */
-const MUST_ASK = new Set(["LN1", "LN3", "LN6", "parties"]);
+const MUST_ASK = new Set(["LN0", "LN1", "LN3", "LN6", "parties"]);
 
 function allSettled(a: Answers): Settled {
   const out: Settled = {};
@@ -274,7 +275,8 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
 
   const settle = (q: Question, value: unknown, skipped: boolean) => {
     setError(null);
-    const next: Answers = { ...answers, [q.id]: value };
+    /* The level (LN0) sets the answers it does not ask; they follow every answer. */
+    const next: Answers = withFixed({ ...answers, [q.id]: value });
     /* The Borrower's kind follows LN3; the user's own side comes from the
        company profile when that side is a company. */
     const mine: Party | null = profile ? { name: profile.name, kind: "company", id_no: profile.uen || undefined, address: profile.address || undefined } : null;
@@ -285,7 +287,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
       if (mine && kind === "individual" && next.LN1 === "borrower" && !company.name.trim()) setCompany(mine);
     }
     if (q.id === "LN1" && mine && value === "lender" && !lenders[0]?.name.trim()) setLenders((ls) => [mine, ...ls.slice(1)]);
-    if (q.id === "LN2" && value === "one") setLenders((ls) => ls.slice(0, 1));
+    if (next.LN2 !== "several") setLenders((ls) => (ls.length > 1 ? ls.slice(0, 1) : ls));
     if (Object.keys(settled).length === 0) track("draft_started", { doc_type: "loan", total_steps: steps.length });
     setAnswers(next);
     setSettled((st) => ({ ...st, [q.id]: skipped ? "skp" : "done" }));
@@ -349,7 +351,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
     }
     const left = stepsFor(a).filter((s) => !st[stepKey(s)]);
     track("draft_with_what_i_have", { doc_type: "loan", count: Object.keys(st).length - Object.keys(settled).length, total_steps: steps.length });
-    setAnswers(a);
+    setAnswers(withFixed(a));
     setSettled(st);
     setOpenKey(null);
     resetInput();
@@ -1198,7 +1200,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
                     ) : (
                       <>
                         <p>
-                          Here’s the <b>loan agreement</b>, {several ? "from several Lenders" : "from one Lender"} to {answers.LN3 === "company" ? "a company" : "an individual"}, leaning to the {answers.LN1 === "borrower" ? "Borrower" : "Lender"}, under Singapore law. Nothing in it is invented:
+                          Here’s the <b>{levelOf(answers) === "simple" ? "simple " : levelOf(answers) === "comprehensive" ? "comprehensive " : ""}loan agreement</b>, {several ? "from several Lenders" : "from one Lender"} to {answers.LN3 === "company" ? "a company" : "an individual"}, leaning to the {answers.LN1 === "borrower" ? "Borrower" : "Lender"}, under Singapore law. Nothing in it is invented:
                           anything you left blank is marked [●] for you to fill in.
                         </p>
                         {reviewNote && (

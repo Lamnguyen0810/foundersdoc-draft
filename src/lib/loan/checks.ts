@@ -26,6 +26,7 @@ export const FLAG_TITLES: Record<string, string> = {
   LN11: "Same party on both sides",
   LN12: "Borrower's liability uncapped",
   LN13: "Lenders' shares",
+  LN14: "Level of detail",
   LN21: "Your own wording",
 };
 
@@ -46,6 +47,29 @@ export function ruleChecks(answersIn: Answers, parties: LoanParties): { flags: F
     scenario: "LN0",
     reason: `The Loan Agreement is in Beta. It is assembled from the Founders Doc master loan agreement, with the other versions of a clause taken from four reference loan agreements, and the usual answers leaning to the ${r.lenderSide ? "Lender" : "Borrower"} where the sides differ. Have a lawyer read it in full before it is signed.`,
   });
+
+  /* The level of detail (LN0): what was set without asking, so the lawyer knows. */
+  if (r.level === "simple") {
+    flags.push({
+      level: "green",
+      scenario: "LN14",
+      title: "Simple version",
+      user_message: "This is the simple version: the essentials only. It leaves out confidentiality, announcements, the limit on liability and further assurances, and has no security, late-payment interest or company warranties. Need any of them? Change the level of detail from the list on the right.",
+      reason:
+        "This is the simple version: one Lender, no warranties on a connected company and no change of control, no security, no stated purpose and no late-payment interest; drawdown within five Business Days, early repayment at any time, each side pays its own costs, the Events of Default follow your side, and the Lender may transfer the loan on 30 days' notice. The confidentiality, announcements, limitation of liability and further assurances clauses are left out. If any of these matter, choose Standard or Comprehensive.",
+      field: "LN0",
+    });
+  } else if (r.level === "standard") {
+    flags.push({
+      level: "green",
+      scenario: "LN14",
+      title: "Standard version",
+      user_message: "This is the standard version — our lawyers' master. Security, a stated purpose, late-payment interest and transfers were set to the usual answer; choose Comprehensive from the list on the right to set them yourself.",
+      reason:
+        "This is the standard version — the Founders Doc master. Not asked, and set to the master's usual answer: no stated purpose, drawdown within five Business Days, early repayment at any time, no security, late-payment interest only with a rate a year (2% above it), and the Lender may transfer the loan on 30 days' notice. Choose Comprehensive to set these yourself.",
+      field: "LN0",
+    });
+  }
 
   /* Moneylending: lending to an individual for a larger sum back is presumed to be moneylending. */
   if (!r.borrowerCompany && r.model !== "none") {
@@ -97,7 +121,7 @@ export function ruleChecks(answersIn: Answers, parties: LoanParties): { flags: F
   if (!r.lenderSide && r.strict) {
     flags.push({ level: "yellow", scenario: "LN6", reason: "As the Borrower you have chosen the lender-friendly Events of Default: three Business Days for a missed payment, fifteen for other breaches, and more triggers, with no cure period before the loan is called in.", field: "LN15" });
   }
-  if (!r.lenderSide && str(a.LN19) === "none") {
+  if (!r.lenderSide && r.level !== "simple" && str(a.LN19) === "none") {
     flags.push({ level: "green", scenario: "LN12", reason: "The Borrower's liability for a breach is not capped. The master caps it at twice the amount lent.", field: "LN19" });
   }
 
