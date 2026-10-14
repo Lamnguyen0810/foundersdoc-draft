@@ -1,6 +1,6 @@
 import "server-only";
 import { DOC_TYPES, EXAMPLES_BY_SLUG, type DocType, type Field, type Group } from "./doctypes";
-import { documentLook, type DocumentLook } from "./playbook";
+import { documentLook, lookTexts, type DocumentLook } from "./playbook";
 import { DISPUTE_OPTIONS, JURISDICTIONS } from "./doctypes.data.mjs";
 import { isSupabaseConfigured } from "./supabase/config";
 import { createClient } from "./supabase/server";
@@ -408,7 +408,7 @@ export function forTheBrowser(docTypes: DocType[]): {
         const rules = d.playbook ?? [];
         const own = rules.filter((r) => r.title !== "Firm-wide playbook").map((r) => r.text);
         const firm = rules.filter((r) => r.title === "Firm-wide playbook").map((r) => r.text);
-        return [d.slug, documentLook([...own, ...firm])];
+        return [d.slug, documentLook(lookTexts(d.slug, own, firm))];
       }),
     ),
   };
