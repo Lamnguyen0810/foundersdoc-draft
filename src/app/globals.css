@@ -4030,11 +4030,15 @@ html[data-theme=dark] .emp-soft{color:#e3b341}
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
   animation: m-drawer 0.24s cubic-bezier(.2, .8, .2, 1) both;
 }
+/* grid-column and grid-row must win over the draft screen's own
+   placement (!important there): a fixed element inside the grid takes its
+   grid area as its box, so a pane left in column 2 of a one-column phone
+   grid became a 2px sliver off the right edge once a draft was ready. */
 #scr-chat.m-pane .pane {
   display: grid !important;
   position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; top: auto;
   width: auto; height: min(82dvh, 680px);
-  grid-column: auto; grid-row: auto;
+  grid-column: auto !important; grid-row: auto !important;
   border: 1px solid var(--rule); border-bottom: 0; border-radius: 18px 18px 0 0;
   padding-bottom: env(safe-area-inset-bottom);
   overflow: hidden;

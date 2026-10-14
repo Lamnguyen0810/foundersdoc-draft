@@ -132,6 +132,14 @@
 .fdadmin .step-question { font-size: 11.5px; color: var(--muted); font-style: italic; }
 .fdadmin .sub-no { color: #9B9FA6; font-size: 11px; padding-left: 22px; }
 .fdadmin .questions-status { display: flex; align-items: center; gap: 12px; padding: 0 18px 12px; }
+/* On a phone the status badge and its note stack: side by side, the note
+   was pushed off the card and left a blank band above the table. */
+@media (max-width: 720px) {
+  .fdadmin .questions-status { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .fdadmin .questions-status .badge { white-space: normal; height: auto; line-height: 1.4; }
+  .fdadmin .questions-card .table-head { flex-wrap: wrap; gap: 10px; }
+  .fdadmin .questions-card .toolbar, .fdadmin .questions-card .toolbar .select-wrap, .fdadmin .questions-card .toolbar select { width: 100% !important; }
+}
 .fdadmin .link-btn { border: 0; background: none; padding: 0; font: inherit; font-size: 11.5px; color: var(--muted); text-decoration: underline; cursor: pointer; }
 .fdadmin .link-btn:hover { color: var(--ink); }
 .fdadmin .questions-card .toolbar .icon-btn { font-size: 14px; }
