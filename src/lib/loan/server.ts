@@ -3,8 +3,7 @@ import "server-only";
 /**
  * The loan agreement, end to end, on the server: check the
  * answers, run the rules, assemble the agreement and save it. The
- * investment agreement's server.ts, for a Borrower and one or more Lenders — pure assembly, so no
- * model is called and nothing is logged to usage_log.
+ * investment agreement's server.ts, for a Borrower and one or more Lenders — the wording is assembled from the master, and FD AI then reviews the answers for points for the user's lawyer (lib/ai/review.ts), logged to usage_log.
  *
  * Should the master ever be switched off (MASTER_LOADED false), every
  * request ends the same honest way: the answers and the flags are saved as
@@ -13,13 +12,14 @@ import "server-only";
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { aiReview, logReviewUsage } from "@/lib/ai/review";
 import { tidyTypedName } from "@/lib/draft-name";
 import { formatDate, todaySingapore, toIso } from "../termsheet/format";
 import { blocksToHtml, blocksToText, wordCount } from "../termsheet/render";
 import { assemble, type Assembled } from "./assemble";
 import { ruleChecks, titleFor } from "./checks";
 import { MASTER_LOADED, MASTER_VERSION } from "./data/master";
-import { QUESTION_ID, applyDefaults } from "./questions";
+import { QUESTION_ID, applyDefaults, questionsFor } from "./questions";
 import type { Answers, Bank, DraftStatus, Flag, LoanParties, Party, PartyKind, Rep } from "./types";
 
 export type AiFields = Record<string, never>;
@@ -127,6 +127,12 @@ export async function prepareLoan(req: LoanRequest, userId: string): Promise<Pre
   const dateIso = toIso(todaySingapore());
   const rules = ruleChecks(answers, req);
   const flags: Flag[] = [...rules.flags];
+
+  /* FD AI reviews the answers for points the user's lawyer should check. It
+     never touches the master wording; if the model is down the agreement is
+     drafted from the rules alone (lib/ai/review.ts). */
+  const review = await aiReview({ slug: LOAN_SLUG, docName: "Loan Agreement", questions: questionsFor(answers), answers, already: flags });
+  flags.push(...review.flags);
   const title = draftTitle(answers, req.borrower, req.lenders);
 
   if (!MASTER_LOADED) {
@@ -137,6 +143,7 @@ export async function prepareLoan(req: LoanRequest, userId: string): Promise<Pre
     });
     for (const f of flags) f.title = titleFor(f);
     const draftId = await persist({ userId, req: { ...req, answers }, assembled: null, status: "stopped", flags, title, dateIso });
+    await logReviewUsage(userId, draftId, review.usage);
     return { kind: "stopped", message: PENDING_MESSAGE, draftId, flags, pending: true };
   }
 
@@ -146,6 +153,7 @@ export async function prepareLoan(req: LoanRequest, userId: string): Promise<Pre
   for (const f of unique) f.title = titleFor(f);
   const status: DraftStatus = unique.some((f) => f.level === "red") ? "stopped" : "draft";
   const draftId = await persist({ userId, req: { ...req, answers }, assembled, status, flags: unique, title, dateIso });
+  await logReviewUsage(userId, draftId, review.usage);
 
   if (status === "stopped") {
     return { kind: "stopped", message: STOP_MESSAGE, draftId, flags: unique };
