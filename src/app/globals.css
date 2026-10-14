@@ -2751,6 +2751,12 @@ html[data-theme=dark]{
   background:var(--doc-canvas)!important;
 }
 #scr-chat.is-draft .gen-right>*{min-width:0}
+/* The "Before you sign" banner is a fourth child (header, banner, toolbar,
+   page). With three rows the toolbar landed in the 1fr row, which came out
+   0px tall, and the page slid up over it: the toolbar half hidden behind a
+   blank-looking sheet. Give the banner a row of its own. */
+.gen-right:has(> .ts-sign-check),
+#scr-chat.is-draft .gen-right:has(> .ts-sign-check){grid-template-rows:auto auto auto minmax(0,1fr)!important}
 #scr-chat.is-draft .gen-right .dscroll{
   display:block!important;
   min-height:0;

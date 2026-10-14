@@ -12,11 +12,12 @@ import "server-only";
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { aiReview, logReviewUsage } from "@/lib/ai/review";
 import { tidyTypedName } from "@/lib/draft-name";
 import { todaySingapore, toIso } from "../termsheet/format";
 import { ruleChecks, titleFor } from "./checks";
 import { MASTER_LOADED, MASTER_VERSION } from "./data/master";
-import { QUESTION_ID, applyDefaults, founderCount } from "./questions";
+import { QUESTION_ID, applyDefaults, founderCount, questionsFor } from "./questions";
 import type { AiFields, Answers, Company, DraftStatus, Flag, Founder, Holding } from "./types";
 
 export const COFOUNDER_SLUG = "cofounder";
@@ -109,6 +110,12 @@ export async function prepareCofounder(req: CofounderRequest, userId: string): P
   const rules = ruleChecks(answers, founders, req.holdings);
   const flags: Flag[] = [...rules.flags];
 
+  /* FD AI reviews the answers for points the user's lawyer should check. It
+     never touches the master wording; if the model is down the agreement is
+     drafted from the rules alone (lib/ai/review.ts). */
+  const review = await aiReview({ slug: COFOUNDER_SLUG, docName: "Co-Founders' Agreement", questions: questionsFor(answers), answers, already: flags });
+  flags.push(...review.flags);
+
   if (!MASTER_LOADED) {
     flags.push({
       level: "red",
@@ -117,6 +124,7 @@ export async function prepareCofounder(req: CofounderRequest, userId: string): P
     });
     for (const f of flags) f.title = titleFor(f);
     const draftId = await persist({ userId, req: { ...req, answers, founders }, status: "stopped", flags, title: draftTitle(req.company, founders), dateIso });
+    await logReviewUsage(userId, draftId, review.usage);
     return { kind: "stopped", message: PENDING_MESSAGE, draftId, flags, pending: true };
   }
 
