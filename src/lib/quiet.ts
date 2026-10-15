@@ -2,10 +2,14 @@
  * Accounts Slack is not told about when they download a document: the team's
  * own test accounts, so the channel only shows real customers.
  *
- * More can be added without a deploy-time code change: SLACK_QUIET_EMAILS in
- * the environment, comma-separated. Matching ignores case and spaces.
+ * The database keeps the list that counts (public.quiet_accounts, 096): it
+ * also silences starts and held or stopped drafts, and an account is added
+ * there with one SQL line, no deploy. This copy only saves the round trip on
+ * a download. More can be added here without a code change too:
+ * SLACK_QUIET_EMAILS in the environment, comma-separated. Matching ignores
+ * case and spaces.
  */
-const BUILT_IN = ["nguyenhoanglam.first@gmail.com"];
+const BUILT_IN = ["nguyenhoanglam.first@gmail.com", "legal@foundersdoc.com", "rachel.wong@foundersdoc.com", "rwonglmg@outlook.com"];
 
 export function isQuietAccount(email: string | null | undefined): boolean {
   const e = (email ?? "").trim().toLowerCase();
