@@ -499,7 +499,7 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
           text: cover.text + (editorRef.current?.plain ?? text),
           html: cover.html + (editorRef.current?.html ?? html),
           title,
-          fileName: `${title.replace(/[^a-zA-Z0-9 &-]/g, "").trim().replace(/\s+/g, "-").slice(0, 48) || "Share-Subscription-Agreement"}-V${version}.docx`,
+          fileName: `${title.replace(/[^a-zA-Z0-9 &-]/g, "").trim().replace(/\s+/g, "-").slice(0, 48).replace(/-+$/, "") || "Share-Subscription-Agreement"}-V${version}.docx`,
           includeNotes: false,
           docTypeSlug: "ssa",
           draftId,

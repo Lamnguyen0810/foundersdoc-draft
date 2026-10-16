@@ -651,7 +651,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
           text: editorRef.current?.plain ?? text,
           html: editorRef.current?.html ?? html,
           title,
-          fileName: `${title.replace(/[^a-zA-Z0-9 &-]/g, "").trim().replace(/\s+/g, "-").slice(0, 48) || "Term-Sheet"}-V${version}.docx`,
+          fileName: `${title.replace(/[^a-zA-Z0-9 &-]/g, "").trim().replace(/\s+/g, "-").slice(0, 48).replace(/-+$/, "") || "Term-Sheet"}-V${version}.docx`,
           includeNotes: false,
           docTypeSlug: "term",
           draftId,

@@ -521,7 +521,7 @@ export default function Cofounder({ look = DEFAULT_LOOK, userEmail, guest, walle
           text: cover.text + (editorRef.current?.plain ?? text),
           html: cover.html + (editorRef.current?.html ?? html),
           title,
-          fileName: `${title.replace(/[^a-zA-Z0-9 &-]/g, "").trim().replace(/\s+/g, "-").slice(0, 48) || "Co-Founder-Agreement"}-V${version}.docx`,
+          fileName: `${title.replace(/[^a-zA-Z0-9 &-]/g, "").trim().replace(/\s+/g, "-").slice(0, 48).replace(/-+$/, "") || "Co-Founder-Agreement"}-V${version}.docx`,
           includeNotes: false,
           docTypeSlug: "cofounder",
           draftId,

@@ -63,7 +63,12 @@ export function blocksToHtml(blocks: Block[]): string {
         `<p class="${classes.join(" ")}"><span class="doc-num">${esc(b.num)}</span><span class="doc-body">${inline(b.text)}</span></p>`,
       );
     } else {
-      parts.push(`<p${cls ? ` class="${cls}"` : ""}>${inline(b.text)}</p>`);
+      /* A continuation paragraph (a definition under its clause, a list's
+         closing words) keeps doc-cont, as the browser's builder and
+         blocksToPageHtml do, so the formal layout indents it on the page
+         and in Word. */
+      const classes = [cls, b.cont ? "doc-cont" : ""].filter(Boolean).join(" ");
+      parts.push(`<p${classes ? ` class="${classes}"` : ""}>${inline(b.text)}</p>`);
     }
   }
   return parts.join("");
