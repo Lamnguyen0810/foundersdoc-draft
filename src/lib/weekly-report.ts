@@ -108,6 +108,8 @@ export interface WeeklyReport {
 export interface DocCount {
   doc: string;
   count: number;
+  /** Every one since records began (daily report only), same people left out. */
+  lifetime?: number;
 }
 
 /** The latest completed Friday 6pm → Friday 6pm reporting window in Singapore. */
@@ -199,9 +201,16 @@ function byDoc(rows: EventRow[]): DocCount[] {
   return [...counts.entries()].map(([doc, count]) => ({ doc, count })).sort((a, b) => b.count - a.count || a.doc.localeCompare(b.doc));
 }
 
-/** "NDA 2 · Loan Agreement 1". */
+/** "NDA 2 (lifetime 120) · Loan Agreement 1 (lifetime 6)". */
 export function docList(list: DocCount[]): string {
-  return list.map((x) => `${x.doc} ${x.count}`).join(" · ");
+  return list.map((x) => `${x.doc} ${x.count}${x.lifetime !== undefined ? ` (lifetime ${x.lifetime.toLocaleString("en-GB")})` : ""}`).join(" · ");
+}
+
+/** The firm's admins, as a set of ids. */
+async function adminIdsOf(client: SupabaseClient): Promise<Set<string>> {
+  const { data, error } = await client.from("profiles").select("id").eq("role", "admin");
+  if (error) throw new Error(`profiles/admins: ${error.message}`);
+  return new Set((data ?? []).map((row) => String(row.id)));
 }
 
 /* visitor_id is the lasting code — the one that recognises the same person on
@@ -274,13 +283,7 @@ async function reportFor(client: SupabaseClient, start: Date, end: Date): Promis
   const from = start.toISOString();
   const to = end.toISOString();
 
-  const { data: admins, error: adminsError } = await client
-    .from("profiles")
-    .select("id")
-    .eq("role", "admin");
-  if (adminsError) throw new Error(`profiles/admins: ${adminsError.message}`);
-  const adminIds = new Set((admins ?? []).map((row) => String(row.id)));
-
+  const adminIds = await adminIdsOf(client);
   const skip = await leftOut(client, adminIds);
   const [draftRows, uploadRows, downloadRows, accounts, waitlist, views] = await Promise.all([
     eventRows(client, "draft_generated", from, to, skip),
@@ -343,6 +346,9 @@ export interface DailyReport extends WeeklyReport {
   day_text: string;
   /** The same figures for the 24 hours before, for comparison. */
   previous: Omit<WeeklyReport, "period_start" | "period_end" | "period_start_text" | "period_end_text" | "period_label">;
+  /** Drafts generated and documents downloaded since records began, to the end of the window. */
+  drafts_lifetime: number;
+  downloads_lifetime: number;
   /** The whole report as a Slack message (Slack's own *bold* markup). */
   slack_text: string;
 }
@@ -363,18 +369,29 @@ function withChange(now: number, before: number): string {
 
 export async function getDailyReport(client: SupabaseClient, now = new Date()): Promise<DailyReport> {
   const { start, end } = completedDailyWindow(now);
-  const [today, before] = await Promise.all([
+  const skip = await leftOut(client, await adminIdsOf(client));
+  const ever = "1970-01-01T00:00:00.000Z";
+  const [today, before, allDrafts, allDownloads] = await Promise.all([
     reportFor(client, start, end),
     reportFor(client, new Date(start.getTime() - DAY_MS), start),
+    eventRows(client, "draft_generated", ever, end.toISOString(), skip),
+    eventRows(client, "draft_exported", ever, end.toISOString(), skip),
   ]);
+  /* Each document named today carries its lifetime total beside it. */
+  const lifetimeOf = (rows: EventRow[]) => new Map(byDoc(rows).map((x) => [x.doc, x.count]));
+  const draftsEver = lifetimeOf(allDrafts);
+  const downloadsEver = lifetimeOf(allDownloads);
+  today.drafts_by_doc = today.drafts_by_doc.map((x) => ({ ...x, lifetime: draftsEver.get(x.doc) ?? x.count }));
+  today.downloads_by_doc = today.downloads_by_doc.map((x) => ({ ...x, lifetime: downloadsEver.get(x.doc) ?? x.count }));
+  const lifetime = (n: number) => ` · lifetime ${n.toLocaleString("en-GB")}`;
   const day = dayText(end);
   const lines = [
     `*FD AI daily report · ${day}*`,
     `_${inSingapore(start)} – ${inSingapore(end)}, Singapore time_`,
     ``,
-    `*Drafts generated:* ${withChange(today.drafts_generated, before.drafts_generated)}`,
+    `*Drafts generated:* ${withChange(today.drafts_generated, before.drafts_generated)}${lifetime(allDrafts.length)}`,
     ...(today.drafts_by_doc.length ? [`    ${docList(today.drafts_by_doc)}`] : []),
-    `*Documents downloaded:* ${withChange(today.documents_downloaded, before.documents_downloaded)}`,
+    `*Documents downloaded:* ${withChange(today.documents_downloaded, before.documents_downloaded)}${lifetime(allDownloads.length)}`,
     ...(today.downloads_by_doc.length ? [`    ${docList(today.downloads_by_doc)}`] : []),
     `*Documents uploaded:* ${withChange(today.documents_uploaded, before.documents_uploaded)}`,
     `*Accounts created:* ${withChange(today.accounts_created, before.accounts_created)}`,
@@ -392,6 +409,8 @@ export async function getDailyReport(client: SupabaseClient, now = new Date()): 
     period_label: `${inSingapore(start)} – ${inSingapore(end)} (Singapore time)`,
     day_text: day,
     previous,
+    drafts_lifetime: allDrafts.length,
+    downloads_lifetime: allDownloads.length,
     slack_text: lines.join("\n"),
   };
 }
