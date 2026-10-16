@@ -14,6 +14,7 @@ import Ia from "./Ia";
 import Services from "./Services";
 import Loan from "./Loan";
 import Cln from "./Cln";
+import Ipaa from "./Ipaa";
 import { recentDrafts } from "./recent";
 import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
 import { redirect } from "next/navigation";
@@ -116,7 +117,9 @@ export default async function DraftPage({
                         ? Loan
                         : preset.slug === "cln"
                           ? Cln
-                          : TermSheet;
+                          : preset.slug === "ipaa"
+                            ? Ipaa
+                            : TermSheet;
     return (
       <Screen
         look={looks[preset.slug]}

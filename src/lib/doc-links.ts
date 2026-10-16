@@ -27,6 +27,7 @@ export const PUBLIC_SLUG: Record<string, string> = {
   services: "servicesagreement",
   loan: "loanagreement",
   cln: "convertibleloanagreement",
+  ipaa: "ipassignmentagreement",
 };
 
 /** The link to start a document. */
