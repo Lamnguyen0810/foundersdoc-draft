@@ -39,12 +39,12 @@ const CTA: Record<string, { h: string; p: string; href: string } | null> = {
   nda: {
     h: "Draft your NDA in minutes",
     p: "FD AI asks a few plain-English questions and drafts a first NDA from Founders Doc’s own playbook, ready for you to review, edit and download as Word.",
-    href: "/draft?type=nda",
+    href: "/draft?type=nondisclosureagreement",
   },
   term: {
     h: "Prepare your term sheet in minutes",
     p: "Founders Doc’s term sheet tool asks a short set of plain-English questions and prepares a clear term sheet built around the essential terms, with the binding and non-binding parts clearly separated.",
-    href: "/draft?type=term",
+    href: "/draft?type=termsheet",
   },
   draft: {
     h: "Draft your document with FD AI",

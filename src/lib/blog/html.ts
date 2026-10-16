@@ -26,8 +26,8 @@ export interface BlogLink {
 
 /** Where a link can go without typing a web address. */
 export const LINK_TARGETS: { href: string; label: string }[] = [
-  { href: "/draft?type=nda", label: "NDA generator" },
-  { href: "/draft?type=term", label: "Term sheet generator" },
+  { href: "/draft?type=nondisclosureagreement", label: "NDA generator" },
+  { href: "/draft?type=termsheet", label: "Term sheet generator" },
   { href: "/draft", label: "Choose a document (FD AI)" },
   { href: "/contact", label: "Book a consultation" },
   { href: "/fd-consult", label: "FD Consult" },
@@ -407,12 +407,12 @@ export function applyLinks(html: string, links: BlogLink[]): { html: string; mis
 /** Phrases the article already uses that the site links as a rule. */
 export function suggestLinks(html: string): BlogLink[] {
   const rules: { phrase: string; href: string }[] = [
-    { phrase: "non-disclosure agreement", href: "/draft?type=nda" },
-    { phrase: "NDA", href: "/draft?type=nda" },
-    { phrase: "confidentiality agreement", href: "/draft?type=nda" },
-    { phrase: "term sheet", href: "/draft?type=term" },
-    { phrase: "heads of terms", href: "/draft?type=term" },
-    { phrase: "letter of intent", href: "/draft?type=term" },
+    { phrase: "non-disclosure agreement", href: "/draft?type=nondisclosureagreement" },
+    { phrase: "NDA", href: "/draft?type=nondisclosureagreement" },
+    { phrase: "confidentiality agreement", href: "/draft?type=nondisclosureagreement" },
+    { phrase: "term sheet", href: "/draft?type=termsheet" },
+    { phrase: "heads of terms", href: "/draft?type=termsheet" },
+    { phrase: "letter of intent", href: "/draft?type=termsheet" },
     { phrase: "FD AI", href: "/draft" },
     { phrase: "consultation", href: "/contact" },
   ];

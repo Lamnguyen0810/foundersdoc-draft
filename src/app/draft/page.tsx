@@ -24,7 +24,7 @@ import { draftHref, PUBLIC_SLUG, slugFromParam } from "@/lib/doc-links";
    without an account, so it is what a search for "draft an NDA online" should
    land on. The root layout says noindex for everything else. */
 const NDA_META = {
-  title: "Draft an NDA online in minutes — FD AI by Founders Doc",
+  title: "Draft a Non-Disclosure Agreement (NDA) online in minutes — FD AI by Founders Doc",
   description:
     "Answer a few questions and FD AI drafts a non-disclosure agreement from Founders Doc's own playbook — nothing invented, lawyer-backed, Word in minutes. Start without an account.",
 };
@@ -36,7 +36,8 @@ const NDA_META = {
 export async function generateMetadata({ searchParams }: { searchParams: Promise<{ type?: string }> }): Promise<Metadata> {
   const slug = slugFromParam((await searchParams).type);
   const base = { robots: { index: true, follow: true } };
-  if (!slug || slug === "nda") return { ...base, ...NDA_META, alternates: { canonical: "https://foundersdoc.com/draft" } };
+  if (!slug) return { ...base, ...NDA_META, alternates: { canonical: "https://foundersdoc.com/draft" } };
+  if (slug === "nda") return { ...base, ...NDA_META, alternates: { canonical: `https://foundersdoc.com${draftHref("nda")}` } };
   const { docTypes } = await loadDocTypes();
   const d = docTypes.find((x) => x.slug === slug);
   if (!d) return { ...base, ...NDA_META, alternates: { canonical: "https://foundersdoc.com/draft" } };
@@ -51,20 +52,31 @@ export const dynamic = "force-dynamic";
 export default async function DraftPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string }>;
+  searchParams: Promise<{ type?: string } & Record<string, string | string[] | undefined>>;
 }) {
   const { docTypes: loaded } = await loadDocTypes();
   /* Questions and labels only — see forTheBrowser(). */
   const { docTypes, looks } = forTheBrowser(loaded);
 
-  // `/draft?type=nda` — the deep link the marketing site uses. An unknown slug
+  // `/draft?type=nondisclosureagreement` — the deep link the marketing site uses. An unknown slug
   // falls through to the catalogue rather than erroring, so a stale link on the
   // site lands somewhere sensible instead of breaking.
-  const raw = (await searchParams).type?.trim().toLowerCase();
+  const all = await searchParams;
+  const raw = (typeof all.type === "string" ? all.type : "").trim().toLowerCase() || undefined;
   /* A document with a public name (the loan agreement: ?type=loanagreement)
      is moved there from its old link, so the address bar and anything shared
      from it carry the right name. */
-  if (raw && PUBLIC_SLUG[raw]) redirect(draftHref(raw));
+  if (raw && PUBLIC_SLUG[raw]) {
+    /* Everything else in the link travels with it — an email campaign's
+       utm_ tags, which say where a sign-up came from. */
+    const rest = new URLSearchParams();
+    for (const [k, v] of Object.entries(all)) {
+      if (k === "type" || v === undefined) continue;
+      for (const one of Array.isArray(v) ? v : [v]) rest.append(k, one);
+    }
+    const extra = rest.toString();
+    redirect(`${draftHref(raw)}${extra ? `&${extra}` : ""}`);
+  }
   const requested = slugFromParam(raw);
   const presetSlug = docTypes.find((d) => d.slug === requested)?.slug;
 

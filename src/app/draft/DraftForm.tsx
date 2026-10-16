@@ -280,7 +280,7 @@ export default function DraftForm({
   docTypes: DocType[];
   initial?: InitialDraft;
   /**
-   * Preselected document type, from `/draft?type=nda`. It is how the marketing
+   * Preselected document type, from `/draft?type=nondisclosureagreement`. It is how the marketing
    * site's per-document links ("NDAs", "Employment agreements") land people on
    * the right form instead of on a picker they have to work out. Reopening an
    * existing draft always wins over it.
