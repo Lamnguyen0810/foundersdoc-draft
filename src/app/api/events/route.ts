@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cleanProps, isEventName } from "@/lib/events";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
+import { isTeamRequest } from "@/lib/team-device";
 
 /**
  * Where events are recorded.
@@ -123,6 +124,9 @@ function visitorCodes(req: NextRequest): { hash: string | null; id: string | nul
 
 export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured()) return NO_CONTENT;
+  /* The team's own devices (lib/team-device.ts) are not counted: no page
+     view, no visitor, no "started" — and so nothing for Slack. */
+  if (isTeamRequest(req)) return NO_CONTENT;
 
   let body: unknown;
   try {
