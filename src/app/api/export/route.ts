@@ -25,6 +25,7 @@ import { blocksToPageHtml } from "@/lib/contract/html";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { isQuietAccount } from "@/lib/quiet";
+import { isTeamRequest } from "@/lib/team-device";
 import * as S from "@/lib/doc-style";
 import { DEFAULT_LOOK, KNOWN_FONTS, documentLook, lookTexts, type DocumentLook } from "@/lib/playbook";
 
@@ -874,7 +875,7 @@ export async function POST(req: NextRequest) {
      effort: the file goes out whatever Slack does. Before 059 the RPC does
      not exist and the old trigger still announces, so nothing is lost.
      The team's own test accounts are not announced (lib/quiet.ts). */
-  if (isSupabaseConfigured() && !isQuietAccount(me?.email)) {
+  if (isSupabaseConfigured() && !isQuietAccount(me?.email) && !isTeamRequest(req)) {
     try {
       const supabase = await createClient();
       const draftId =

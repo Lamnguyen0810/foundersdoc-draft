@@ -19,6 +19,9 @@ const PUBLIC_PATHS = [
   // quota and writes through a function that decides what a row may contain,
   // so it is safe to leave open in a way that /api/generate is not.
   "/api/events",
+  // Marking a browser as one of the team's devices (lib/team-device.ts):
+  // Rachel's phone may never have signed in. It only sets a cookie.
+  "/api/team-device",
   // Joining the waitlist happens before anyone has an account, by definition.
   "/api/waitlist",
   // Subscribing to the newsletter, from the forms on the public website.
