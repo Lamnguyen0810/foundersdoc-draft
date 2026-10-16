@@ -136,6 +136,13 @@ const CATALOGUE: CatFolder[] = [
         true,
         "freelancer consultant independent contractor services agreement gig",
       ],
+      [
+        "ipaa",
+        "IP Assignment Agreement",
+        "Make sure the IP your business pays for is yours — from an employee, contractor or agency, Basic, Standard or Complex",
+        true,
+        "ip assignment intellectual property ipaa copyright source code designs logo deed of assignment founder ip transfer moral rights licence",
+      ],
     ],
   ],
   [
@@ -686,6 +693,7 @@ export default function DraftChat({
         ["fdai.services-handoff", "services"],
         ["fdai.loan-handoff", "loan"],
         ["fdai.cln-handoff", "cln"],
+        ["fdai.ipaa-handoff", "ipaa"],
         ["fdai.term-handoff", "term"],
       ] as const) {
         const raw = window.localStorage.getItem(key);

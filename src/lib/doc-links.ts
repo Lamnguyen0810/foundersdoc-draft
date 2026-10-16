@@ -1,18 +1,33 @@
 /**
  * The name a document goes by in its link.
  *
- * Most documents are linked by their slug: /draft?type=nda. A few have a
- * public name that reads better in a shared link than the slug the database
- * keeps: the loan agreement is /draft?type=loanagreement (Rachel's call),
- * while its doc_types row, its drafts and its API stay "loan". The old link
- * still works and is moved to the new one.
+ * Every document's link says its full name (Rachel's rule): the loan
+ * agreement is /draft?type=loanagreement, the services agreement
+ * /draft?type=servicesagreement. The database keeps the short slug — its
+ * doc_types row, its drafts and its API stay "loan", "services" — and an old
+ * short link still works: the page moves it to the full one.
+ *
+ * A new document: add its slug here, as its label in lower case without
+ * spaces or punctuation.
  *
  * Pure: the page (server) and the catalogue (browser) both use it.
  */
 
 /** slug → the name in the link. */
 export const PUBLIC_SLUG: Record<string, string> = {
+  nda: "nondisclosureagreement",
+  term: "termsheet",
+  employment: "employmentagreement",
+  contractor: "contractoragreement",
+  cofounder: "cofounderagreement",
+  sha: "shareholdersagreement",
+  spa: "sharepurchaseagreement",
+  ssa: "sharesubscriptionagreement",
+  ia: "investmentagreement",
+  services: "servicesagreement",
   loan: "loanagreement",
+  cln: "convertibleloanagreement",
+  ipaa: "ipassignmentagreement",
 };
 
 /** The link to start a document. */

@@ -14,6 +14,7 @@ import IaQuestions from "./IaQuestions";
 import ServicesQuestions from "./ServicesQuestions";
 import LoanQuestions from "./LoanQuestions";
 import ClnQuestions from "./ClnQuestions";
+import IpaaQuestions from "./IpaaQuestions";
 
 /**
  * The questions a user answers before the first draft, per document type —
@@ -296,7 +297,7 @@ export default function Questions({
   /* The term sheet's and the employment agreement's questions are built
      into their assemblers: listed as asked, not edited here. See
      TermQuestions and EmploymentQuestions. */
-  if (slug === "term" || slug === "employment" || slug === "contractor" || slug === "cofounder" || slug === "sha" || slug === "spa" || slug === "ssa" || slug === "ia" || slug === "services" || slug === "loan" || slug === "cln") {
+  if (slug === "term" || slug === "employment" || slug === "contractor" || slug === "cofounder" || slug === "sha" || slug === "spa" || slug === "ssa" || slug === "ia" || slug === "services" || slug === "loan" || slug === "cln" || slug === "ipaa") {
     return (
       <div className="table-card questions-card">
         <div className="table-head">
@@ -333,6 +334,8 @@ export default function Questions({
           <LoanQuestions />
         ) : slug === "cln" ? (
           <ClnQuestions />
+        ) : slug === "ipaa" ? (
+          <IpaaQuestions />
         ) : (
           <TermQuestions />
         )}

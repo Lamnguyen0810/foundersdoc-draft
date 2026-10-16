@@ -472,4 +472,21 @@ export const CLN_DATA = {
     "Assembled from the Founders Doc master convertible loan agreement. The AI only flags points for the lawyer (upload the playbook under Playbook → Convertible Loan Agreement).",
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA, IA_DATA, SERVICES_DATA, LOAN_DATA, CLN_DATA];
+/**
+ * The IP assignment agreement (097): Founders Doc's wording on the FD Lite
+ * menu (Basic, Standard, Complex), creator or recipient, any governing law,
+ * assembled by rule (src/lib/ipaa). The database gets this row from
+ * 097_ip_assignment_agreement.sql.
+ */
+export const IPAA_DATA = {
+  slug: "ipaa",
+  label: "IP Assignment Agreement",
+  description:
+    "An agreement (or, where no fee is paid for the IP, a deed) under which a creator — an employee, contractor, consultant, freelancer, agency or service provider — assigns past, existing and future IP in a project to the recipient, waives moral rights and keeps confidences. Basic, Standard or Complex, as on the FD Lite menu: Standard adds a licence back and background IP; Complex adds joint ownership or the creator keeping the IP under licence, the right to sue, warranties, delivery and permitted disclosure. Singapore, England and Wales, Hong Kong, Delaware, New York or another law. The usual answers lean to the side of the user (creator or recipient). Assembled by rule; FD AI flags points for the lawyer.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from Founders Doc's IP assignment agreement wording. The AI only flags points for the lawyer (upload the playbook under Playbook → IP Assignment Agreement).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA, IA_DATA, SERVICES_DATA, LOAN_DATA, CLN_DATA, IPAA_DATA];

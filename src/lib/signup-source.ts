@@ -28,7 +28,7 @@ export type SignupSource = {
   /** "article" when the first page was a blog post. */
   kind?: "article";
   /** The document asked for, when the first page was /draft?type=… — the
-   *  email campaign links straight to /draft?type=nda. */
+   *  email campaign links straight to /draft?type=nondisclosureagreement. */
   doc?: string;
   /** The referring site's host, "direct" when there was none. */
   ref?: string;

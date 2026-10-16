@@ -485,9 +485,14 @@ function signTable(cols: string[][]): Table {
    the top of every page and the page number at the foot. The Word file
    follows it; the screen stays the working draft. The signature page and
    each schedule start a new page, as in the master. */
-type FrontMatter = { title: string; header: string; breakBefore: RegExp[] };
+/* The title is the agreement's own (doc-title) — one name, or a pattern
+   where the name follows the answers (the IP assignment agreement is a deed
+   when no fee is paid, and an ownership and licence agreement when the
+   creator keeps the IP). */
+type FrontMatter = { title: string | RegExp; header: string; breakBefore: RegExp[]; /** Which party names the cover: 0 (the first, default) or 1. */ coverParty?: number };
 const FRONT_MATTER: Record<string, FrontMatter> = {
   cln: { title: "CONVERTIBLE LOAN AGREEMENT", header: "Private and Confidential", breakBefore: [/^By signing below/i, /^SCHEDULE\s+\d+\b/i] },
+  ipaa: { title: /^INTELLECTUAL PROPERTY (ASSIGNMENT|OWNERSHIP AND LICENCE) (AGREEMENT|DEED)$/, header: "Private and Confidential", breakBefore: [/^IN WITNESS WHEREOF/i, /^SCHEDULE\s+\d+\b/i], coverParty: 1 },
 };
 
 const plainOf = (fragment: string) => decodeHtml(fragment.replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim();
@@ -497,7 +502,7 @@ const pageBreak = () => new Paragraph({ pageBreakBefore: true, spacing: { before
 /** The cover page and the table of contents, from the agreement as written. */
 function frontPages(items: FormalItem[], start: number, fm: FrontMatter): (Paragraph | Table)[] {
   const ps = items.slice(start).filter((x): x is Extract<FormalItem, { kind: "p" }> => x.kind === "p");
-  const party = ps.find((x) => /(?:^|\s)doc-party(?:\s|$)/.test(x.cls));
+  const party = ps.filter((x) => /(?:^|\s)doc-party(?:\s|$)/.test(x.cls))[fm.coverParty ?? 0];
   const partyText = party ? plainOf(splitNumbered(party.fragment)?.body ?? party.fragment) : "";
   const company = (partyText.split(/\s\(/)[0] || "[COMPANY NAME]").toUpperCase();
 
@@ -528,7 +533,7 @@ function frontPages(items: FormalItem[], start: number, fm: FrontMatter): (Parag
       alignment: AlignmentType.CENTER,
       spacing: { before: 0, after: 0, ...single(bodyLine()) },
       border: { bottom: rule },
-      children: [run(fm.title, { b: true })],
+      children: [run(plainOf((items[start] as Extract<FormalItem, { kind: "p" }>).fragment).toUpperCase(), { b: true })],
     }),
   ];
 
@@ -570,7 +575,11 @@ function formalFromHtml(html: string, fm?: FrontMatter): (Paragraph | Table)[] {
   const items = formalItems(html);
   /* The agreement's own title, where the cover page and contents go in. */
   const titleAt = fm
-    ? items.findIndex((x) => x.kind === "p" && /(?:^|\s)doc-title(?:\s|$)/.test(x.cls) && plainOf(x.fragment).toUpperCase() === fm.title)
+    ? items.findIndex((x) => {
+        if (x.kind !== "p" || !/(?:^|\s)doc-title(?:\s|$)/.test(x.cls)) return false;
+        const t = plainOf(x.fragment).toUpperCase();
+        return typeof fm.title === "string" ? t === fm.title : fm.title.test(t);
+      })
     : -1;
 
   for (const [at, item] of items.entries()) {

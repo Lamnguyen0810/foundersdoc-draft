@@ -16,6 +16,7 @@ import Ia from "../Ia";
 import Services from "../Services";
 import Loan from "../Loan";
 import Cln from "../Cln";
+import Ipaa from "../Ipaa";
 import { recentDrafts } from "../recent";
 import type { DraftStatus, Flag } from "@/lib/termsheet/types";
 
@@ -151,7 +152,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
                           ? "Loan Agreement"
                           : docType.slug === "cln"
                             ? "Convertible Loan Agreement"
-                            : "Term Sheet"),
+                            : docType.slug === "ipaa"
+                              ? "IP Assignment Agreement"
+                              : "Term Sheet"),
       answers: saved,
       output: row.output ?? "",
       outputHtml: row.output_html,
@@ -181,7 +184,9 @@ export default async function EditDraftPage({ params }: { params: Promise<{ id: 
                         ? Loan
                         : docType.slug === "cln"
                           ? Cln
-                          : TermSheet;
+                          : docType.slug === "ipaa"
+                            ? Ipaa
+                            : TermSheet;
     return (
       <Screen
         look={looks[docType.slug]}
