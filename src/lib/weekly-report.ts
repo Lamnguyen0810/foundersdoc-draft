@@ -405,6 +405,19 @@ function dayText(start: Date): string {
   return `${WEEKDAYS[sg.getUTCDay()]} ${sg.getUTCDate()} ${MONTHS[sg.getUTCMonth()]} ${sg.getUTCFullYear()}`;
 }
 
+/** Unique visitors and visits since records began, counted by the database
+ *  (101). Null when the function is not there yet: the report says "not tracked". */
+async function visitorTotals(client: SupabaseClient, end: string): Promise<{ people: number; visits: number } | null> {
+  try {
+    const { data, error } = await client.rpc("page_view_totals", { p_end: end });
+    const row = (Array.isArray(data) ? data[0] : data) as { people?: number | string; visits?: number | string } | null;
+    if (error || !row) return null;
+    return { people: Number(row.people ?? 0), visits: Number(row.visits ?? 0) };
+  } catch {
+    return null;
+  }
+}
+
 /** Page views since records began, admins' own left out (counted, not fetched). */
 async function pageViewTotal(client: SupabaseClient, end: string, adminIds: Set<string>): Promise<number> {
   let query = client
@@ -517,6 +530,7 @@ export async function getDailyReport(client: SupabaseClient, now = new Date()): 
     countRows(client, "waitlist", ever, to),
     pageViewTotal(client, to, adminIds),
   ]);
+  const visitsEver = await visitorTotals(client, to);
   const totals = {
     drafts_generated: allDrafts.length,
     documents_downloaded: allDownloads.length,
@@ -570,8 +584,8 @@ export async function getDailyReport(client: SupabaseClient, now = new Date()): 
       rows: [
         ["🆕 New accounts", fmt(today.accounts_created), fmt(before.accounts_created), `${fmt(totals.accounts_created)} (${fmt(totals.accounts_created - today.accounts_created)} + ${fmt(today.accounts_created)})`],
         ["📝 Waitlist sign-ups", fmt(today.waitlist_signups), fmt(before.waitlist_signups), `${fmt(totals.waitlist_signups)} (${fmt(totals.waitlist_signups - today.waitlist_signups)} + ${fmt(today.waitlist_signups)})`],
-        ["👤 Unique visitors", fmt(today.unique_people), fmt(before.unique_people), "not tracked"],
-        ["🚪 Visits", fmt(today.visitors), fmt(before.visitors), "not tracked"],
+        ["👤 Unique visitors", fmt(today.unique_people), fmt(before.unique_people), visitsEver ? fmt(visitsEver.people) : "not tracked"],
+        ["🚪 Visits", fmt(today.visitors), fmt(before.visitors), visitsEver ? fmt(visitsEver.visits) : "not tracked"],
         ["📈 Total page views", fmt(today.page_views), fmt(before.page_views), fmt(totals.page_views)],
       ],
     },
