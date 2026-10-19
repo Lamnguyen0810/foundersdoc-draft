@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import DocumentEditor from "./DocumentEditor";
 import DetailSlider, { type SliderSteps } from "./DetailSlider";
 import ShareButton from "./ShareButton";
+import { BetaBadge } from "./beta";
 import { AskComposer, atLeast, buildReminders, DocIcon, ReminderList, DraftingLeft, FollowStream, GenCompose, TypingTurn, useAskFD, useDraftProgress } from "./AgreementParts";
 import RailHistory from "./RailHistory";
 import type { RecentDraft } from "./history";
@@ -733,6 +734,11 @@ export default function Jva({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
         <div className="ts-party-h">
           <b>
             {label}
+            {role && (
+              <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: "rgba(0,0,0,.06)", color: "var(--tx-2)", verticalAlign: 1 }}>
+                {role}
+              </span>
+            )}
             {mine && (
               <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: "rgba(243,191,75,.22)", color: "#8a5b00", verticalAlign: 1 }}>
                 You
@@ -746,7 +752,6 @@ export default function Jva({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
               </button>
             ))}
           </span>
-          {role && <span className="sub" style={{ marginLeft: 8 }}>{role}</span>}
         </div>
         <div className="ts-row">
           <label>
@@ -792,10 +797,13 @@ export default function Jva({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
 
   function partiesUI() {
     const ok = Boolean(partyA.name.trim() && partyB.name.trim());
+    /* The majority's share, when it is a usable number (JV1a). */
+    const n = Number(String(answers.JV1a ?? "").replace(/[%\s]/g, ""));
+    const share = majority && n > 50 && n < 100 ? n : 0;
     return (
       <div className="ts-parties">
-        {partyBox(partyA, (patch) => setPartyA((x) => ({ ...x, ...patch })), "Party A", !iAmB, majority ? "The majority party" : undefined)}
-        {partyBox(partyB, (patch) => setPartyB((x) => ({ ...x, ...patch })), "Party B", iAmB, majority ? "The minority party" : undefined)}
+        {partyBox(partyA, (patch) => setPartyA((x) => ({ ...x, ...patch })), "Party A", !iAmB, majority ? `Majority${share ? ` · ${share}%` : ""}` : "50%")}
+        {partyBox(partyB, (patch) => setPartyB((x) => ({ ...x, ...patch })), "Party B", iAmB, majority ? `Minority${share ? ` · ${100 - share}%` : ""}` : "50%")}
         <div className="chips">
           {backButton()}
           <button type="button" className="go" disabled={!ok} onClick={settleParties} title={ok ? undefined : "Both names are needed"}>
@@ -896,6 +904,7 @@ export default function Jva({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
         <div className="strip">
           <span className="dot" />
           <span className="dname">{isDraft ? title : "New joint venture agreement"}</span>
+          <BetaBadge />
           <ShareButton
             getInput={() => ({
               docLabel: "Joint Venture Agreement",
@@ -1039,7 +1048,7 @@ export default function Jva({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
             </div>
             <AskComposer disabled={fd.asking} onSend={(t) => void askQuestion(t)} onAttach={(f) => void attachFile(f)}>
               <p className="fine">
-                A draft joint venture agreement, from Founders Doc’s wording — to be checked by a qualified lawyer before use.{" "}
+                A draft joint venture agreement (Beta), from Founders Doc’s wording — to be checked by a qualified lawyer before use.{" "}
                 <a href="/terms-of-service">Terms</a>
               </p>
             </AskComposer>
