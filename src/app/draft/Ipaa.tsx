@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import DocumentEditor from "./DocumentEditor";
 import DetailSlider, { type SliderSteps } from "./DetailSlider";
 import ShareButton from "./ShareButton";
+import { BetaBadge } from "./beta";
 import { AskComposer, atLeast, buildReminders, DocIcon, ReminderList, DraftingLeft, FollowStream, GenCompose, TypingTurn, useAskFD, useDraftProgress } from "./AgreementParts";
 import RailHistory from "./RailHistory";
 import type { RecentDraft } from "./history";
@@ -895,6 +896,7 @@ export default function Ipaa({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
         <div className="strip">
           <span className="dot" />
           <span className="dname">{isDraft ? title : "New IP assignment agreement"}</span>
+          <BetaBadge />
           <ShareButton
             getInput={() => ({
               docLabel: "IP Assignment Agreement",
@@ -1038,7 +1040,7 @@ export default function Ipaa({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
             </div>
             <AskComposer disabled={fd.asking} onSend={(t) => void askQuestion(t)} onAttach={(f) => void attachFile(f)}>
               <p className="fine">
-                A draft IP assignment agreement, from Founders Doc’s wording — to be checked by a qualified lawyer before use.{" "}
+                A draft IP assignment agreement (Beta), from Founders Doc’s wording — to be checked by a qualified lawyer before use.{" "}
                 <a href="/terms-of-service">Terms</a>
               </p>
             </AskComposer>
