@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     p_reason: reason,
     p_rating: rating && rating >= 1 ? rating : null,
     p_comment: comment || null,
-    p_trigger: b.trigger === "exit_intent" || b.trigger === "link" ? b.trigger : null,
+    p_trigger: b.trigger === "exit_intent" || b.trigger === "link" || b.trigger === "back" ? b.trigger : null,
     p_anon: typeof b.anon_id === "string" ? b.anon_id.slice(0, 40) : null,
   });
   if (error) console.error("[exit-feedback]", error.message);

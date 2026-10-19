@@ -32,13 +32,16 @@ create table if not exists public.exit_feedback (
   reason       text check (reason in ('just_looking', 'too_long', 'unsure', 'wrong_doc', 'price', 'want_lawyer', 'not_working', 'other')),
   rating       smallint check (rating between 1 and 5),
   comment      text check (length(comment) <= 1000),
-  trigger      text check (trigger in ('exit_intent', 'link')),
+  trigger      text,
   user_id      uuid references auth.users (id) on delete set null,
   anon_id      text
 );
 alter table public.exit_feedback enable row level security;
 revoke all on table public.exit_feedback from anon, authenticated;
 create index if not exists exit_feedback_created on public.exit_feedback (created_at desc);
+-- How the box was opened: pointer to the top, a link, or the Back button.
+alter table public.exit_feedback drop constraint if exists exit_feedback_trigger_check;
+alter table public.exit_feedback add constraint exit_feedback_trigger_check check (trigger in ('exit_intent', 'link', 'back'));
 
 create or replace function public.exit_reason_label(p_code text)
 returns text
@@ -103,7 +106,7 @@ begin
     case when p_reason in ('just_looking', 'too_long', 'unsure', 'wrong_doc', 'price', 'want_lawyer', 'not_working', 'other') then p_reason end,
     case when p_rating between 1 and 5 then p_rating end,
     v_comment,
-    case when p_trigger in ('exit_intent', 'link') then p_trigger end,
+    case when p_trigger in ('exit_intent', 'link', 'back') then p_trigger end,
     auth.uid(),
     v_anon
   )
