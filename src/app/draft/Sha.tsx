@@ -24,6 +24,7 @@ import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { applyDefaults, picks, problemWith, questionsFor, shareholderCount, type Option, type Question } from "@/lib/sha/questions";
 import { SHA_INTRO } from "@/lib/sha/data/intro";
 import type { Answers, Company, DraftStatus, Flag, Shareholder, ShareholderKind } from "@/lib/sha/types";
+import { useExitFeedback } from "./ExitFeedback";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -163,6 +164,8 @@ export default function Sha({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
   const [busy, setBusy] = useState(false);
   /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
   const fd = useAskFD("Shareholders' Agreement", "sha", guest);
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: "sha", docLabel: "Shareholders' Agreement", answered: Object.keys(settled).length, finished: stage === "drafted" || busy, guest });
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);

@@ -3635,6 +3635,27 @@ html[data-theme=dark]{
 .fb-done{margin:0;font-size:13px;color:var(--tx-2)}
 .fb-actions{display:flex;justify-content:flex-end;gap:8px}
 
+/* "Before you go" (draft/ExitFeedback.tsx): a reason, a rating, a comment. */
+.exit-modal{z-index:120}
+.exit-q{display:grid;gap:8px}
+.exit-label{margin:0;font-size:13px;font-weight:600;color:var(--tx)}
+.exit-chips{display:flex;flex-wrap:wrap;gap:6px}
+.exit-chip{padding:7px 12px;border-radius:999px;border:1px solid var(--rule-2);background:var(--bg);color:var(--tx);font:inherit;font-size:13px;cursor:pointer;transition:border-color .15s,background .15s}
+.exit-chip:hover{border-color:var(--gold)}
+.exit-chip.on{border-color:var(--gold);background:rgba(243,191,75,.16);font-weight:500}
+.exit-stars{display:flex;gap:2px}
+.exit-star{border:0;background:none;padding:0 2px;font-size:26px;line-height:1;color:var(--rule-2);cursor:pointer;transition:color .12s,transform .12s}
+.exit-star:hover{transform:scale(1.1)}
+.exit-star.on{color:var(--gold)}
+.exit-opt{font-weight:400;color:var(--tx-3,#8a8a95)}
+.exit-chip span{margin-right:2px}
+.exit-rate{display:flex;align-items:center;gap:10px}
+.exit-rate-word{font-size:13px;color:var(--tx-2)}
+.exit-thanks{margin:-4px 0 0;font-size:12px;color:var(--tx-3,#8a8a95)}
+.exit-actions{flex-wrap:wrap}
+.exit-actions a.dbtn{text-decoration:none;display:inline-flex;align-items:center}
+@media (max-width:560px){.exit-actions{flex-direction:column-reverse}.exit-actions .dbtn{width:100%;justify-content:center}}
+
 /* ── the term sheet screen ────────────────────────────────────────────────
    Same skeleton as the NDA conversation (rail, chat, pane, document); only
    the things it has and the NDA does not are styled here: the parties

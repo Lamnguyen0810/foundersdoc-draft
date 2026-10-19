@@ -29,6 +29,7 @@ import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { applyDefaults, levelOf, problemWith, questionsFor, withFixed, type Option, type Question } from "@/lib/loan/questions";
 import { LOAN_INTRO } from "@/lib/loan/data/intro";
 import type { Answers, Bank, DraftStatus, Flag, Party, PartyKind, Rep } from "@/lib/loan/types";
+import { useExitFeedback } from "./ExitFeedback";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -161,6 +162,8 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
   const [busy, setBusy] = useState(false);
   /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
   const fd = useAskFD("Loan Agreement", "loan", guest);
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: "loan", docLabel: "Loan Agreement", answered: Object.keys(settled).length, finished: stage === "drafted" || busy, guest });
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);

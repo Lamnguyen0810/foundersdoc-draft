@@ -27,6 +27,7 @@ import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { applyDefaults, levelOf, problemWith, questionsFor, withFixed, type Option, type Question } from "@/lib/ipaa/questions";
 import { IPAA_INTRO } from "@/lib/ipaa/data/intro";
 import type { Answers, DraftStatus, Flag, Party, PartyKind } from "@/lib/ipaa/types";
+import { useExitFeedback } from "./ExitFeedback";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -155,6 +156,8 @@ export default function Ipaa({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
   const [busy, setBusy] = useState(false);
   /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
   const fd = useAskFD("IP Assignment Agreement", "ipaa", guest);
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: "ipaa", docLabel: "IP Assignment Agreement", answered: Object.keys(settled).length, finished: stage === "drafted" || busy, guest });
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);

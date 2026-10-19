@@ -25,6 +25,7 @@ import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { applyDefaults, problemWith, questionsFor, type Option, type Question } from "@/lib/services/questions";
 import { SERVICES_INTRO } from "@/lib/services/data/intro";
 import type { Answers, DraftStatus, Flag, Party, PartyKind } from "@/lib/services/types";
+import { useExitFeedback } from "./ExitFeedback";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -137,6 +138,8 @@ export default function Services({ look = DEFAULT_LOOK, userEmail, guest, wallet
   const [busy, setBusy] = useState(false);
   /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
   const fd = useAskFD("Services Agreement", "services", guest);
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: "services", docLabel: "Services Agreement", answered: Object.keys(settled).length, finished: stage === "drafted" || busy, guest });
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
