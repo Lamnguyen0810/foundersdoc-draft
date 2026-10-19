@@ -86,6 +86,12 @@ export interface WeeklyReport {
   drafts_generated: number;
   documents_uploaded: number;
   documents_downloaded: number;
+  /** How many different signed-in people each of those three were. */
+  drafts_users: number;
+  uploads_users: number;
+  downloads_users: number;
+  /** Different people (their lasting code); a person back three times is one. */
+  unique_people: number;
   page_views: number;
   accounts_created: number;
   /** Frequent visitors: people who came more than three separate times.
@@ -108,6 +114,8 @@ export interface WeeklyReport {
 export interface DocCount {
   doc: string;
   count: number;
+  /** Different signed-in people. */
+  users?: number;
   /** Every one since records began (daily report only), same people left out. */
   lifetime?: number;
 }
@@ -193,12 +201,21 @@ const DOC_LABEL = new Map<string, string>([["ipaa", "IP Assignment Agreement"], 
 /** Rows → [{ doc: "NDA", count: 3 }, …], most first, then by name. */
 function byDoc(rows: EventRow[]): DocCount[] {
   const counts = new Map<string, number>();
+  const people = new Map<string, Set<string>>();
   for (const row of rows) {
     const slug = typeof row.props?.doc_type === "string" ? row.props.doc_type : "";
     const doc = DOC_LABEL.get(slug) ?? (slug ? slug.replace(/[_-]+/g, " ").replace(/^./, (c) => c.toUpperCase()) : "Unknown document");
     counts.set(doc, (counts.get(doc) ?? 0) + 1);
+    if (row.user_id) people.set(doc, (people.get(doc) ?? new Set()).add(row.user_id));
   }
-  return [...counts.entries()].map(([doc, count]) => ({ doc, count })).sort((a, b) => b.count - a.count || a.doc.localeCompare(b.doc));
+  return [...counts.entries()]
+    .map(([doc, count]) => ({ doc, count, users: people.get(doc)?.size ?? 0 }))
+    .sort((a, b) => b.count - a.count || a.doc.localeCompare(b.doc));
+}
+
+/** Different signed-in people among the rows. */
+function usersIn(rows: EventRow[]): number {
+  return new Set(rows.map((r) => r.user_id).filter(Boolean)).size;
 }
 
 /**
@@ -316,6 +333,7 @@ async function reportFor(client: SupabaseClient, start: Date, end: Date): Promis
     if (sittings.size >= FREQUENT_VISITS) frequent += 1;
   }
   const arrivals = new Set(views.map((row) => row.anon_id).filter(Boolean)).size;
+  const people = new Set(views.map((row) => row.visitor_id ?? row.anon_id).filter(Boolean)).size;
 
   const startText = inSingapore(start);
   const endText = inSingapore(end);
@@ -334,6 +352,10 @@ async function reportFor(client: SupabaseClient, start: Date, end: Date): Promis
     frequent_visitors: frequent,
     unique_visitors: frequent,
     visitors: arrivals,
+    unique_people: people,
+    drafts_users: usersIn(draftRows),
+    uploads_users: usersIn(uploadRows),
+    downloads_users: usersIn(downloadRows),
     visits: arrivals,
     waitlist_signups: waitlist,
     drafts_by_doc: byDoc(draftRows),
@@ -360,12 +382,20 @@ export interface DailyReport extends WeeklyReport {
     accounts_created: number;
     waitlist_signups: number;
     page_views: number;
+    drafts_users: number;
+    downloads_users: number;
+    uploads_users: number;
   };
   /** Kept for Zaps built on 0139; the same as totals.drafts_generated / documents_downloaded. */
   drafts_lifetime: number;
   downloads_lifetime: number;
   /** The whole report as a Slack message (Slack's own *bold* markup). */
   slack_text: string;
+  /** The same report as ONE real Slack table (Block Kit), as a JSON string
+   *  for the Slack step's "Blocks" field. slack_summary is its fallback text
+   *  (the notification preview). */
+  slack_blocks: string;
+  slack_summary: string;
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -386,6 +416,89 @@ async function pageViewTotal(client: SupabaseClient, end: string, adminIds: Set<
   const { count, error } = await query;
   if (error) throw new Error(`events/page_view total: ${error.message}`);
   return count ?? 0;
+}
+
+/* ── THE REPORT, IN THE HOUSE FORMAT ───────────────────────────────────────
+   Laid out like the team's weekly status report (Rachel: "see our format"):
+   a title naming the two days, a "Document Process Funnel" table and an
+   "Accounts / Traffic" table — each figure as "count / unique users", the
+   days as columns, a running total — then an Explanation in plain words,
+   so nobody has to work anything out. Sent as real Slack tables (Block
+   Kit); slack_text is the same report as lines, for anywhere tables are not
+   shown. */
+type Cell = string;
+type Table = { head: Cell[]; rows: Cell[][] };
+
+function beforeOf(list: DocCount[], doc: string): DocCount | undefined {
+  return list.find((x) => x.doc === doc);
+}
+
+const fmt = (x: number) => x.toLocaleString("en-GB");
+const plural = (x: number, one: string, many: string) => `${fmt(x)} ${x === 1 ? one : many}`;
+/** "12 (by 5 people)": how many, and how many different people. "0" when none. */
+const cu = (count: number, users: number) => (count === 0 ? "0" : `${fmt(count)} (by ${plural(users, "person", "people")})`);
+
+/** "92 fewer than Sat 17 Oct (−6%)", "3 more than Sat 17 Oct", "the same as Sat 17 Oct". */
+export function moreOrFewer(now: number, prev: number, than: string): string {
+  const d = now - prev;
+  if (d === 0) return `the same as ${than}`;
+  const pct = prev > 0 ? ` (${d > 0 ? "+" : "−"}${Math.round((Math.abs(d) / prev) * 100)}%)` : "";
+  return `${fmt(Math.abs(d))} ${d > 0 ? "more" : "fewer"} than ${than}${pct}`;
+}
+
+/** "2 NDA, 1 Loan Agreement". */
+const docBreakdown = (list: DocCount[]) => list.map((x) => `${fmt(x.count)} ${x.doc}`).join(", ");
+
+const cellText = (text: string) => ({ type: "raw_text", text: text || " " });
+const cellBold = (text: string) => ({
+  type: "rich_text",
+  elements: [{ type: "rich_text_section", elements: [{ type: "text", text: text || " ", style: { bold: true } }] }],
+});
+const tableBlock = (t: Table) => ({
+  type: "table",
+  column_settings: t.head.map((_, i) => ({ align: i === 0 ? "left" : "right" })),
+  rows: [t.head.map(cellBold), ...t.rows.map((r) => r.map(cellText))],
+});
+
+export interface HouseReport {
+  title: string;
+  subtitle: string;
+  funnelHeading: string;
+  funnel: Table;
+  trafficHeading: string;
+  traffic: Table;
+  explanation: string[];
+}
+
+export function slackBlocks(r: HouseReport): unknown[] {
+  const md = (text: string) => ({ type: "section", text: { type: "mrkdwn", text } });
+  return [
+    md(`*${r.title}*\n_${r.subtitle}_`),
+    md(r.funnelHeading),
+    tableBlock(r.funnel),
+    md(r.trafficHeading),
+    tableBlock(r.traffic),
+    md(`📝 _Explanation_\n${r.explanation.map((x) => `> ${x}`).join("\n")}`),
+  ];
+}
+
+/** The same report as plain Slack lines (no tables). */
+function plainText(r: HouseReport): string {
+  const lines = (t: Table) =>
+    t.rows.map((row) => `${row[0].startsWith(" ") ? "      " : "• "}${row[0].trim()}: ${row.slice(1).map((c, i) => `${t.head[i + 1]} *${c || "–"}*`).join(" · ")}`);
+  return [
+    `*${r.title}*`,
+    `_${r.subtitle}_`,
+    ``,
+    r.funnelHeading,
+    ...lines(r.funnel),
+    ``,
+    r.trafficHeading,
+    ...lines(r.traffic),
+    ``,
+    `📝 _Explanation_`,
+    ...r.explanation.map((x) => `> ${x}`),
+  ].join("\n");
 }
 
 export async function getDailyReport(client: SupabaseClient, now = new Date()): Promise<DailyReport> {
@@ -411,6 +524,9 @@ export async function getDailyReport(client: SupabaseClient, now = new Date()): 
     accounts_created: allAccounts,
     waitlist_signups: allWaitlist,
     page_views: allViews,
+    drafts_users: usersIn(allDrafts),
+    downloads_users: usersIn(allDownloads),
+    uploads_users: usersIn(allUploads),
   };
 
   /* Each document named today carries its total (since records began) beside it. */
@@ -420,48 +536,55 @@ export async function getDailyReport(client: SupabaseClient, now = new Date()): 
   today.drafts_by_doc = today.drafts_by_doc.map((x) => ({ ...x, lifetime: draftsEver.get(x.doc) ?? x.count }));
   today.downloads_by_doc = today.downloads_by_doc.map((x) => ({ ...x, lifetime: downloadsEver.get(x.doc) ?? x.count }));
 
-  const n = (x: number) => x.toLocaleString("en-GB");
-  const row = (label: string, now: number, prev: number, total?: number) =>
-    [label, n(now), n(prev), total === undefined ? "–" : n(total)];
-  const head = ["", "Today", "Day before", "Total"];
-
-  /* Every document drafted or downloaded today, most activity first. */
-  const docsToday = new Map<string, { d: number; x: number }>();
-  for (const x of today.drafts_by_doc) docsToday.set(x.doc, { d: x.count, x: 0 });
-  for (const x of today.downloads_by_doc) docsToday.set(x.doc, { d: docsToday.get(x.doc)?.d ?? 0, x: x.count });
-  const docRows = [...docsToday.entries()]
-    .sort((p, q) => q[1].d + q[1].x - (p[1].d + p[1].x) || p[0].localeCompare(q[0]))
-    .map(([doc, c]) => [doc, n(c.d), n(draftsEver.get(doc) ?? c.d), n(c.x), n(downloadsEver.get(doc) ?? c.x)]);
 
   const day = dayText(end);
-  const lines = [
-    `*📊 FD AI daily report · ${day}*`,
-    `_${inSingapore(start)} – ${inSingapore(end)}, Singapore time · test accounts and admins left out_`,
-    ``,
-    `*📄 Documents*`,
-    slackTable([
-      head,
-      row("Drafts generated", today.drafts_generated, before.drafts_generated, totals.drafts_generated),
-      row("Documents downloaded", today.documents_downloaded, before.documents_downloaded, totals.documents_downloaded),
-      row("Documents uploaded", today.documents_uploaded, before.documents_uploaded, totals.documents_uploaded),
-    ]),
-    `*🗂️ By document*`,
-    docRows.length
-      ? slackTable([
-          ["", "Drafts", "", "Downloads", ""],
-          ["Document", "Today", "Total", "Today", "Total"],
-          ...docRows,
-        ])
-      : `_No drafts or downloads today._`,
-    `*👥 Accounts / Traffic*`,
-    slackTable([
-      head,
-      row("Accounts created", today.accounts_created, before.accounts_created, totals.accounts_created),
-      row("Waitlist sign-ups", today.waitlist_signups, before.waitlist_signups, totals.waitlist_signups),
-      row("Visitors", today.visitors, before.visitors),
-      row("Page views", today.page_views, before.page_views, totals.page_views),
-    ]),
-  ];
+  const short = (d: Date) => dayText(d).replace(/ \d{4}$/, "");
+  const dayCol = short(end);
+  const prevCol = short(start);
+
+  /* Under each event, the documents behind it ("↳ NDA"), most first. */
+  const docRowsFor = (now: DocCount[], prev: DocCount[], ever: Map<string, number>, everUsers: Map<string, number>) =>
+    now.map((x) => {
+      const b = beforeOf(prev, x.doc);
+      return [`   ↳ ${x.doc}`, cu(x.count, x.users ?? 0), b ? cu(b.count, b.users ?? 0) : "0", cu(ever.get(x.doc) ?? x.count, everUsers.get(x.doc) ?? x.users ?? 0)];
+    });
+  const usersEver = (rows: EventRow[]) => new Map(byDoc(rows).map((x) => [x.doc, x.users ?? 0]));
+
+  const report: HouseReport = {
+    title: `📊 FD AI Daily Report — ${dayCol} vs ${prevCol}`,
+    subtitle: `Each day = the 24 hours to 5pm Singapore time (${dayCol}: ${inSingapore(start)} – ${inSingapore(end)}) · test accounts and admins not counted`,
+    funnelHeading: `📄 _Document Process Funnel_ (how many, and by how many different people)`,
+    funnel: {
+      head: ["Event", dayCol, prevCol, "Cumulative"],
+      rows: [
+        ["✍️ Drafts generated", cu(today.drafts_generated, today.drafts_users), cu(before.drafts_generated, before.drafts_users), cu(totals.drafts_generated, totals.drafts_users)],
+        ...docRowsFor(today.drafts_by_doc, before.drafts_by_doc, draftsEver, usersEver(allDrafts)),
+        ["⬇️ Documents downloaded", cu(today.documents_downloaded, today.downloads_users), cu(before.documents_downloaded, before.downloads_users), cu(totals.documents_downloaded, totals.downloads_users)],
+        ...docRowsFor(today.downloads_by_doc, before.downloads_by_doc, downloadsEver, usersEver(allDownloads)),
+        ["📤 Documents uploaded for review", cu(today.documents_uploaded, today.uploads_users), cu(before.documents_uploaded, before.uploads_users), cu(totals.documents_uploaded, totals.uploads_users)],
+      ],
+    },
+    trafficHeading: `👥 _Accounts / Traffic_`,
+    traffic: {
+      head: ["Metric", dayCol, prevCol, "Cumulative / running total"],
+      rows: [
+        ["🆕 New accounts", fmt(today.accounts_created), fmt(before.accounts_created), `${fmt(totals.accounts_created)} (${fmt(totals.accounts_created - today.accounts_created)} + ${fmt(today.accounts_created)})`],
+        ["📝 Waitlist sign-ups", fmt(today.waitlist_signups), fmt(before.waitlist_signups), `${fmt(totals.waitlist_signups)} (${fmt(totals.waitlist_signups - today.waitlist_signups)} + ${fmt(today.waitlist_signups)})`],
+        ["👤 Unique visitors", fmt(today.unique_people), fmt(before.unique_people), "not tracked"],
+        ["🚪 Visits", fmt(today.visitors), fmt(before.visitors), "not tracked"],
+        ["📈 Total page views", fmt(today.page_views), fmt(before.page_views), fmt(totals.page_views)],
+      ],
+    },
+    explanation: [
+      `📈 *Traffic.* ${plural(today.unique_people, "person", "people")} visited the website, ${moreOrFewer(today.unique_people, before.unique_people, prevCol)}. They viewed ${plural(today.page_views, "page", "pages")}, ${moreOrFewer(today.page_views, before.page_views, prevCol)}.`,
+      today.drafts_generated === 0 && today.documents_downloaded === 0
+        ? `📄 *Documents.* No drafts generated and no documents downloaded. Since records began: ${plural(totals.drafts_generated, "draft", "drafts")} and ${plural(totals.documents_downloaded, "download", "downloads")}.`
+        : `📄 *Documents.* ${plural(today.drafts_generated, "draft", "drafts")} generated by ${plural(today.drafts_users, "person", "people")}${today.drafts_by_doc.length ? ` (${docBreakdown(today.drafts_by_doc)})` : ""} and ${plural(today.documents_downloaded, "document", "documents")} downloaded${today.downloads_by_doc.length ? ` (${docBreakdown(today.downloads_by_doc)})` : ""}. Since records began: ${plural(totals.drafts_generated, "draft", "drafts")} and ${plural(totals.documents_downloaded, "download", "downloads")}.`,
+      `🆕 *Accounts.* ${today.accounts_created === 0 ? "No new accounts" : plural(today.accounts_created, "new account", "new accounts")} and ${today.waitlist_signups === 0 ? "no waitlist sign-ups" : plural(today.waitlist_signups, "waitlist sign-up", "waitlist sign-ups")} — now ${plural(totals.accounts_created, "account", "accounts")} in total.`,
+    ],
+  };
+  const blocks = slackBlocks(report);
+  const summary = `FD AI Daily Report · ${day}: ${report.explanation.map((x) => x.replace(/\*/g, "")).join(" ")}`;
   const {
     period_start: _a, period_end: _b, period_start_text: _c, period_end_text: _d, period_label: _e,
     ...previous
@@ -475,6 +598,8 @@ export async function getDailyReport(client: SupabaseClient, now = new Date()): 
     totals,
     drafts_lifetime: allDrafts.length,
     downloads_lifetime: allDownloads.length,
-    slack_text: lines.join("\n"),
+    slack_text: plainText(report),
+    slack_blocks: JSON.stringify(blocks),
+    slack_summary: summary,
   };
 }
