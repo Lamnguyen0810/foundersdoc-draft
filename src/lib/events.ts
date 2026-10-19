@@ -36,7 +36,7 @@ export const EVENTS = {
   draft_regenerated_with_changes: "Answers were changed under a finished draft and it was drafted again",
   draft_exported: "A draft was downloaded as Word",
   draft_abandoned: "The flow was left without generating",
-  exit_prompt_shown: "The 'Before you go' box opened (source: exit_intent or link)",
+  exit_prompt_shown: "The 'Before you go' box opened (source: exit_intent, link or back)",
   exit_prompt_stayed: "Keep going was pressed in the 'Before you go' box",
   exit_prompt_left: "Leave was pressed in the 'Before you go' box without feedback",
   exit_prompt_signup: "Create a free account was pressed in the 'Before you go' box",

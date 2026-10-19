@@ -22,10 +22,14 @@ import { EXIT_REASONS, RATING_WORDS, type ExitReason } from "@/lib/exit-feedback
      the close button, the tab bar or the address bar.
    • Any device: a link to somewhere else on the site is clicked. The click is
      held, the box opens, and the link is followed when they choose to leave.
+   • Any device: the browser's Back button (and Android's back gesture). Once
+     the first question is answered, one extra history entry for this same
+     page is added — a copy of the router's own entry, so the router treats
+     it as its own. Back then lands on the copy: the box opens instead of the
+     page changing. Keep drafting stays; Leave goes back for real.
    Not on closing the tab: a page may only show the browser's own "Leave
    site?" box there, with no question in it, and that box would also stop
-   the sign-up and payment pages the flow itself sends people to. The
-   browser's Back button is left alone too: the app's router owns it.
+   the sign-up and payment pages the flow itself sends people to.
    Links that are part of the flow (sign-up, sign-in, billing) never ask.     */
 
 export interface ExitState {
@@ -41,6 +45,12 @@ export interface ExitState {
 
 /* A tiny store: the screen writes where the visitor is, the host reads it. */
 let current: ExitState | null = null;
+let owner: object | null = null;
+/* What the screen said just before it went away. On Back the router takes
+   the screen down a moment before the browser reports the move, so Back is
+   judged on this when it comes within a couple of seconds. */
+let lastSeen: { state: ExitState; at: number } | null = null;
+const recent = (): ExitState | null => current ?? (lastSeen && Date.now() - lastSeen.at < 2000 ? lastSeen.state : null);
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 const subscribe = (l: () => void) => {
@@ -51,16 +61,23 @@ const subscribe = (l: () => void) => {
 /** Called by each drafting screen on every render. */
 export function useExitFeedback(state: ExitState) {
   const { doc, docLabel, answered, total, finished, guest } = state;
+  /* Which screen wrote last: a screen that goes away clears only its own
+     state, never a newer screen's (the router may mount the new one first). */
+  const [me] = useState(() => ({}));
   useEffect(() => {
     current = { doc, docLabel, answered, total, finished, guest };
+    owner = me;
     emit();
-  }, [doc, docLabel, answered, total, finished, guest]);
+  }, [me, doc, docLabel, answered, total, finished, guest]);
   useEffect(
     () => () => {
+      if (owner !== me) return;
+      if (current) lastSeen = { state: current, at: Date.now() };
       current = null;
+      owner = null;
       emit();
     },
-    [],
+    [me],
   );
 }
 
@@ -87,37 +104,57 @@ const anonId = () => {
   }
 };
 
-type Trigger = "exit_intent" | "link";
+type Trigger = "exit_intent" | "link" | "back";
+/** open.href when Leave should go back in history rather than to a page. */
+const BACK = "__back__";
 
 export default function ExitFeedbackHost() {
   const state = useSyncExternalStore(subscribe, () => current, () => null);
-  const [open, setOpen] = useState<null | { trigger: Trigger; href?: string }>(null);
+  const [open, setOpen] = useState<null | { trigger: Trigger; href?: string; s: ExitState }>(null);
   const [reason, setReason] = useState<ExitReason | null>(null);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [sending, setSending] = useState(false);
   const leaving = useRef(false);
+  /* The extra history entry that catches Back (see the notes above). */
+  const guard = useRef<string | null>(null);
 
   const live = !!state && state.answered > 0 && !state.finished;
-  /* The listeners are registered once, so they read the latest values here. */
-  const liveRef = useRef(live);
-  const stateRef = useRef(state);
+  /* The listeners are registered once, so they read the latest value here. */
   const openRef = useRef(open);
   useEffect(() => {
-    liveRef.current = live;
-    stateRef.current = state;
     openRef.current = open;
-  }, [live, state, open]);
+  }, [open]);
+
+  /* Arm the Back catcher once the first answer is in, if not asked yet. */
+  useEffect(() => {
+    if (!live || guard.current || !state || alreadyAsked(state.doc)) return;
+    try {
+      /* Both entries say "this document's conversation", so the NDA screen's
+         own Back handling (DraftChat) stays on it rather than opening the
+         catalogue when the copy is left. */
+      const here = window.location.href;
+      const entry = { ...((window.history.state as object | null) ?? {}), fdScreen: "chat", fdSlug: state.doc };
+      window.history.replaceState(entry, "", here);
+      window.history.pushState(entry, "", here);
+      guard.current = here;
+    } catch {
+      /* no history API: Back simply leaves */
+    }
+  }, [live, state]);
 
   useEffect(() => {
-    const canAsk = () => liveRef.current && !openRef.current && !leaving.current && !!stateRef.current && !alreadyAsked(stateRef.current.doc);
+    const canAsk = () => {
+      const s = recent();
+      return !!s && s.answered > 0 && !s.finished && !openRef.current && !leaving.current && !alreadyAsked(s.doc);
+    };
     const ask = (trigger: Trigger, href?: string) => {
-      const s = stateRef.current!;
+      const s = recent()!;
       markAsked(s.doc);
       setReason(null);
       setRating(0);
       setComment("");
-      setOpen({ trigger, href });
+      setOpen({ trigger, href, s });
       track("exit_prompt_shown", { doc_type: s.doc, step: s.answered, total_steps: s.total, source: trigger });
     };
 
@@ -148,26 +185,45 @@ export default function ExitFeedbackHost() {
       ask("link", url.href);
     };
 
+    /* Back: the copy was just left, so this is still the same page. */
+    const onPop = (e: PopStateEvent) => {
+      if (!guard.current || window.location.href !== guard.current) {
+        guard.current = null;
+        return;
+      }
+      guard.current = null;
+      /* Still on the same page: nothing else needs to hear about it. */
+      e.stopImmediatePropagation();
+      if (canAsk()) ask("back", BACK);
+      else if (!leaving.current) window.history.back(); // nothing to ask: finish going back
+    };
+
     document.addEventListener("mouseout", onOut);
     document.addEventListener("click", onClick, true);
+    window.addEventListener("popstate", onPop, true);
     return () => {
       document.removeEventListener("mouseout", onOut);
       document.removeEventListener("click", onClick, true);
+      window.removeEventListener("popstate", onPop, true);
     };
   }, []);
 
-  if (!open || !state) return null;
+  if (!open) return null;
+  const st = open.s;
 
   const stay = () => {
-    track("exit_prompt_stayed", { doc_type: state.doc, step: state.answered, source: open.trigger });
+    track("exit_prompt_stayed", { doc_type: st.doc, step: st.answered, source: open.trigger });
     setOpen(null);
   };
 
   const leave = (withFeedback: boolean) => {
     const go = open.href;
-    if (!withFeedback) track("exit_prompt_left", { doc_type: state.doc, step: state.answered, source: open.trigger });
+    if (!withFeedback) track("exit_prompt_left", { doc_type: st.doc, step: st.answered, source: open.trigger });
     setOpen(null);
-    if (go) {
+    if (go === BACK) {
+      leaving.current = true;
+      window.history.back();
+    } else if (go) {
       leaving.current = true;
       window.location.assign(go);
     }
@@ -176,15 +232,15 @@ export default function ExitFeedbackHost() {
   const send = async () => {
     if (!reason && !rating && !comment.trim()) return leave(false);
     setSending(true);
-    track("exit_feedback", { doc_type: state.doc, step: state.answered, total_steps: state.total, reason: reason ?? "none", count: rating, source: open.trigger });
+    track("exit_feedback", { doc_type: st.doc, step: st.answered, total_steps: st.total, reason: reason ?? "none", count: rating, source: open.trigger });
     await fetch("/api/exit-feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       keepalive: true,
       body: JSON.stringify({
-        doc: state.doc,
-        step: state.answered,
-        total: state.total ?? null,
+        doc: st.doc,
+        step: st.answered,
+        total: st.total ?? null,
         reason,
         rating: rating || null,
         comment: comment.trim() || null,
@@ -196,9 +252,9 @@ export default function ExitFeedbackHost() {
     leave(true);
   };
 
-  const done = state.total
-    ? `${state.answered} of ${state.total} questions answered`
-    : `${state.answered} ${state.answered === 1 ? "question" : "questions"} answered`;
+  const done = st.total
+    ? `${st.answered} of ${st.total} questions answered`
+    : `${st.answered} ${st.answered === 1 ? "question" : "questions"} answered`;
   const said = !!(reason || rating || comment.trim());
 
   return (
@@ -206,8 +262,8 @@ export default function ExitFeedbackHost() {
       <div className="fb-modal exit-modal" role="dialog" aria-modal="true" aria-labelledby="exit-title">
         <h3 id="exit-title">Taking a break? 👋</h3>
         <p className="fb-sub">
-          You&rsquo;ve made a good start on your {state.docLabel} ({done}).{" "}
-          {state.guest
+          You&rsquo;ve made a good start on your {st.docLabel} ({done}).{" "}
+          {st.guest
             ? "Your answers are saved in this tab. Create a free account whenever you're ready to keep them and get your draft."
             : "Your answers are saved in this tab, so you can pick up right where you left off."}
         </p>
@@ -246,8 +302,8 @@ export default function ExitFeedbackHost() {
           <button type="button" className="dbtn" onClick={() => void send()} disabled={sending}>
             {sending ? "Sending…" : said ? "Send and leave" : "Maybe later"}
           </button>
-          {state.guest && (
-            <a className="dbtn" href="/signup?from=draft" onClick={() => { leaving.current = true; track("exit_prompt_signup", { doc_type: state.doc, step: state.answered }); }}>
+          {st.guest && (
+            <a className="dbtn" href="/signup?from=draft" onClick={() => { leaving.current = true; track("exit_prompt_signup", { doc_type: st.doc, step: st.answered }); }}>
               Save my progress (free)
             </a>
           )}
