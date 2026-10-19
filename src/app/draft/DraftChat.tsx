@@ -116,6 +116,13 @@ const CATALOGUE: CatFolder[] = [
         true,
         "ia investment agreement investor lead investor preference shares seed series fundraising safe board seat warranties",
       ],
+      [
+        "jva",
+        "Joint Venture Agreement",
+        "Set up a joint venture company with a partner — 50:50 or majority, board, reserved matters, deadlock and exits",
+        true,
+        "jva joint venture agreement jv partner shareholders 50:50 deadlock reserved matters shotgun tag drag company partnership",
+      ],
       ["vesting", "Share Vesting Letter", "Vest founder shares over time", false, "cliff equity founders"],
       ["esop", "Employee Share Option Plan", "Grant options to your team", false, "esop options equity staff"],
     ],
@@ -695,6 +702,7 @@ export default function DraftChat({
         ["fdai.loan-handoff", "loan"],
         ["fdai.cln-handoff", "cln"],
         ["fdai.ipaa-handoff", "ipaa"],
+        ["fdai.jva-handoff", "jva"],
         ["fdai.term-handoff", "term"],
       ] as const) {
         const raw = window.localStorage.getItem(key);
