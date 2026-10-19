@@ -7,7 +7,7 @@
     <script>
       document.documentElement.classList.add("js");
     </script>
-    <title>Founders Doc — Contract review and drafting, backed by lawyers</title>
+    <title>FD AI by Founders Doc | Draft Startup Legal Documents Online</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -22,7 +22,7 @@
     <noscript><style>.intro { display: none !important; }</style></noscript>
     <meta
       name="description"
-      content="Jessica, Founders Doc's AI, reviews and drafts contracts in minutes. When a contract needs a lawyer's name, our practising lawyers take over. Serving founders worldwide."
+      content="Draft NDAs, term sheets, employment and shareholders' agreements online with FD AI, backed by Founders Doc's practising lawyers. Word in minutes, no account needed."
     />
     <style>
       :root {
@@ -2399,6 +2399,65 @@
         overscroll-behavior: contain;
       }
     </style>
+    <!-- Search engines and AI assistants: the page's canonical link, its
+         preview when shared, and who Founders Doc is and what FD AI does
+         (schema.org). The same facts as src/lib/seo.ts — change both. -->
+    <link rel="canonical" href="https://foundersdoc.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Founders Doc" />
+    <meta property="og:url" content="https://foundersdoc.com/" />
+    <meta property="og:title" content="FD AI by Founders Doc | Draft Startup Legal Documents Online" />
+    <meta property="og:description" content="Draft NDAs, term sheets, employment and shareholders&#x27; agreements online with FD AI, backed by Founders Doc&#x27;s practising lawyers. Word in minutes, no account needed." />
+    <meta name="twitter:card" content="summary" />
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://foundersdoc.com/#organization",
+      "name": "Founders Doc",
+      "url": "https://foundersdoc.com",
+      "foundingDate": "2021",
+      "foundingLocation": "Singapore",
+      "description": "Founders Doc is a legal practice for founders and start-ups, founded in Singapore in 2021, advising early-stage companies around the world.",
+      "sameAs": [
+        "https://www.linkedin.com/company/foundersdoc/",
+        "https://www.instagram.com/foundersdoc/",
+        "https://www.youtube.com/channel/UCYQebtLCvD2esHthgPAxrFg"
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://foundersdoc.com/#website",
+      "name": "Founders Doc",
+      "url": "https://foundersdoc.com",
+      "publisher": {
+        "@id": "https://foundersdoc.com/#organization"
+      },
+      "inLanguage": "en"
+    },
+    {
+      "@type": "WebApplication",
+      "@id": "https://foundersdoc.com/draft#fd-ai",
+      "name": "FD AI",
+      "alternateName": "FD AI by Founders Doc",
+      "url": "https://foundersdoc.com/draft",
+      "description": "FD AI drafts start-up legal documents — NDAs, term sheets, employment and contractor agreements, shareholders' agreements, loan agreements and more — from Founders Doc's own lawyer-written masters. Answer a few questions and download a Word draft in minutes; a practising lawyer is one click away. Start without an account.",
+      "applicationCategory": "BusinessApplication",
+      "applicationSubCategory": "Legal document drafting",
+      "operatingSystem": "Any (runs in a web browser)",
+      "audience": {
+        "@type": "BusinessAudience",
+        "audienceType": "Founders and start-ups"
+      },
+      "creator": {
+        "@id": "https://foundersdoc.com/#organization"
+      }
+    }
+  ]
+}
+    </script>
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>
@@ -2672,7 +2731,7 @@
                 </div>
               </div>
               <h3>Draft and Review</h3>
-              <p>Describe what you need and Jessica drafts it on our lawyers' templates, clause by clause — then review, e-sign and go.</p>
+              <p>Describe what you need and FD AI drafts it on our lawyers' templates, clause by clause — then review, e-sign and go.</p>
               <a class="more" href="/draft">Launch FD AI<span class="arr" aria-hidden="true">→</span></a>
             </div>
             <div class="way" id="lawyers" data-rv>
@@ -2769,7 +2828,7 @@
           </div>
           <div class="lanes" aria-hidden="true">
             <div class="lane j">
-              <span class="who">Jessica</span>
+              <span class="who">FD AI</span>
               <div class="bar"><i></i></div>
               <span class="t">0:00</span>
             </div>
@@ -2787,7 +2846,7 @@
       <section class="cta-band">
         <div class="wrap" data-rv>
           <h2>Send us the contract. We'll take it from there.</h2>
-          <p class="sub">Jessica in minutes, or our lawyers in days.</p>
+          <p class="sub">FD AI in minutes, or our lawyers in days.</p>
           <div class="ctas">
             <a class="btn btn-gold" href="/draft">Launch FD AI</a>
             <a class="btn btn-white" href="/contact">Book a consultation</a>
@@ -2802,8 +2861,8 @@
           <div>
             <a class="logo" href="#top" aria-label="Founders Doc — home"><span class="fd-mark">Founders Doc</span></a>
             <p class="about">
-              Contracts for founders everywhere, reviewed and drafted by Jessica, our AI, and the practising
-              lawyers behind her.
+              Contracts for founders everywhere, reviewed and drafted by FD AI and the practising
+              lawyers behind it.
             </p>
           </div>
           <div>
@@ -3318,7 +3377,7 @@
           }
         }
 
-        // The race: Jessica 4 minutes vs a firm's 40 working hours, at true relative speed.
+        // The race: FD AI 4 minutes vs a firm's 40 working hours, at true relative speed.
         // The loop pauses whenever the section is off screen, so it never runs in the background.
         var race = document.querySelector(".race"),
           raceStarted = false;

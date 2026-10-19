@@ -20,33 +20,49 @@ import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { draftHref, PUBLIC_SLUG, slugFromParam } from "@/lib/doc-links";
+import { fdAiLd, ldJson } from "@/lib/seo";
 
 /* The one screen in the app Google is welcome to read: a visitor can open it
    without an account, so it is what a search for "draft an NDA online" should
    land on. The root layout says noindex for everything else. */
 const NDA_META = {
-  title: "Draft a Non-Disclosure Agreement (NDA) online in minutes — FD AI by Founders Doc",
+  title: "Draft an NDA Online in Minutes | FD AI by Founders Doc",
   description:
-    "Answer a few questions and FD AI drafts a non-disclosure agreement from Founders Doc's own playbook — nothing invented, lawyer-backed, Word in minutes. Start without an account.",
+    "Draft a mutual or one-way non-disclosure agreement (NDA) online. Answer a few questions, get a lawyer-backed NDA in Word in minutes. No account needed.",
 };
 
 /* A shared link names the document it opens. The page used to say "Draft an
    NDA" for every one, so /draft?type=loanagreement previewed as an NDA in
    Slack and on WhatsApp. Each document now has its own title and its own
    canonical link; the NDA and the catalogue keep theirs. */
+/** A document's name inside a sentence: "an IP assignment agreement" — capitals such as IP and NDA stay. */
+const inSentence = (label: string) => label.replace(/\b[A-Z][a-z]+\b/g, (w) => w.toLowerCase());
+
+/** Title, description and canonical link of /draft or of one document's link. */
+function pageMeta(slug: string | undefined, docTypes: { slug: string; label: string }[]) {
+  const d = slug && slug !== "nda" ? docTypes.find((x) => x.slug === slug) : undefined;
+  if (!d) return { ...NDA_META, url: `https://foundersdoc.com${slug === "nda" ? draftHref("nda") : "/draft"}` };
+  const article = /^[aeiou]/i.test(d.label) ? "an" : "a";
+  return {
+    title: `Draft ${article} ${d.label} Online | FD AI by Founders Doc`,
+    description: `Answer a few questions and FD AI drafts ${article} ${inSentence(d.label)} from Founders Doc's own master — lawyer-backed, Word in minutes. Start without an account.`,
+    url: `https://foundersdoc.com${draftHref(d.slug)}`,
+  };
+}
+
 export async function generateMetadata({ searchParams }: { searchParams: Promise<{ type?: string }> }): Promise<Metadata> {
   const slug = slugFromParam((await searchParams).type);
-  const base = { robots: { index: true, follow: true } };
-  if (!slug) return { ...base, ...NDA_META, alternates: { canonical: "https://foundersdoc.com/draft" } };
-  if (slug === "nda") return { ...base, ...NDA_META, alternates: { canonical: `https://foundersdoc.com${draftHref("nda")}` } };
-  const { docTypes } = await loadDocTypes();
-  const d = docTypes.find((x) => x.slug === slug);
-  if (!d) return { ...base, ...NDA_META, alternates: { canonical: "https://foundersdoc.com/draft" } };
-  const article = /^[aeiou]/i.test(d.label) ? "an" : "a";
-  const title = `Draft ${article} ${d.label} online — FD AI by Founders Doc`;
-  const description = `Answer a few questions and FD AI drafts ${article} ${d.label.toLowerCase()} from Founders Doc's own master — lawyer-backed, Word in minutes. Start without an account.`;
-  const url = `https://foundersdoc.com${draftHref(d.slug)}`;
-  return { ...base, title, description, alternates: { canonical: url }, openGraph: { title, description, url }, twitter: { title, description } };
+  const { docTypes } = slug && slug !== "nda" ? await loadDocTypes() : { docTypes: [] };
+  const { title, description, url } = pageMeta(slug, docTypes);
+  return {
+    robots: { index: true, follow: true },
+    /* absolute: the title already names FD AI, so the layout's "· FD AI" is not added again. */
+    title: { absolute: title },
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url, siteName: "Founders Doc", type: "website" },
+    twitter: { card: "summary", title, description },
+  };
 }
 export const dynamic = "force-dynamic";
 
@@ -90,6 +106,17 @@ export default async function DraftPage({
   ]);
   const guest = isSupabaseConfigured() && !user;
 
+  /* Structured data (schema.org): what FD AI is, who makes it and which
+     documents it drafts, so a search engine or an AI assistant can describe
+     it in its own words. Same description and link as the page's meta tags. */
+  const meta = pageMeta(requested, loaded);
+  const ld = (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: ldJson(fdAiLd({ url: meta.url, description: meta.description, documents: loaded.map((d) => d.label) })) }}
+    />
+  );
+
   /* An assembled document — the term sheet, the employment agreement — has
      a screen of its own. The catalogue is DraftChat's; a pick there
      hard-navigates here with the slug, and this is where the branch happens. */
@@ -121,15 +148,18 @@ export default async function DraftPage({
                             ? Ipaa
                             : TermSheet;
     return (
-      <Screen
-        look={looks[preset.slug]}
-        userEmail={user?.email ?? null}
-        guest={guest}
-        wallet={!guest && wallet && Number.isFinite(wallet.credits) ? { credits: wallet.credits, inTrial: wallet.inTrial, trialEndsAt: wallet.trialEndsAt } : null}
-        isAdmin={admin}
-        company={company}
-        recent={recent}
-      />
+      <>
+        {ld}
+        <Screen
+          look={looks[preset.slug]}
+          userEmail={user?.email ?? null}
+          guest={guest}
+          wallet={!guest && wallet && Number.isFinite(wallet.credits) ? { credits: wallet.credits, inTrial: wallet.inTrial, trialEndsAt: wallet.trialEndsAt } : null}
+          isAdmin={admin}
+          company={company}
+          recent={recent}
+        />
+      </>
     );
   }
 
@@ -140,23 +170,26 @@ export default async function DraftPage({
   const credits = guest ? null : wallet;
 
   return (
-    <DraftChat
-      docTypes={docTypes}
-      looks={looks}
-      presetSlug={presetSlug}
-      userEmail={user?.email ?? null}
-      /* Accounts exist and this person has none: the questions are open to
-         them, Generate is where they sign up. Never true when Supabase is
-         absent — local development drafts without accounts at all. */
-      guest={guest}
-      recent={recent}
-      wallet={
-        credits && Number.isFinite(credits.credits)
-          ? { credits: credits.credits, inTrial: credits.inTrial, trialEndsAt: credits.trialEndsAt }
-          : null /* a visitor, or unmetered local dev: show nothing */
-      }
-      isAdmin={admin}
-      prefill={prefill}
-    />
+    <>
+      {ld}
+      <DraftChat
+        docTypes={docTypes}
+        looks={looks}
+        presetSlug={presetSlug}
+        userEmail={user?.email ?? null}
+        /* Accounts exist and this person has none: the questions are open to
+           them, Generate is where they sign up. Never true when Supabase is
+           absent — local development drafts without accounts at all. */
+        guest={guest}
+        recent={recent}
+        wallet={
+          credits && Number.isFinite(credits.credits)
+            ? { credits: credits.credits, inTrial: credits.inTrial, trialEndsAt: credits.trialEndsAt }
+            : null /* a visitor, or unmetered local dev: show nothing */
+        }
+        isAdmin={admin}
+        prefill={prefill}
+      />
+    </>
   );
 }

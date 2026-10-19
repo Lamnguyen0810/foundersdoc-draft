@@ -1,0 +1,25 @@
+# Founders Doc
+
+> Founders Doc is a legal practice for founders and start-ups, founded in Singapore in 2021, advising early-stage companies around the world. FD AI is its online drafting tool: answer a few questions and FD AI drafts a start-up legal document from Founders Doc's own lawyer-written masters, ready as a Word document in minutes. A practising lawyer is one click away. Anyone can start without an account.
+
+## FD AI — draft a document
+
+- [Draft a Non-Disclosure Agreement (NDA)](https://foundersdoc.com/draft?type=nondisclosureagreement): mutual or one-way NDA for founders
+- [All documents FD AI drafts](https://foundersdoc.com/draft): term sheets, employment and contractor agreements, shareholders', share purchase and share subscription agreements, investment, loan, convertible loan, services and IP assignment agreements
+
+## Talk to a lawyer
+
+- [FD Consult](https://foundersdoc.com/fd-consult): a fixed-price call with a practising lawyer
+- [Contact](https://foundersdoc.com/contact)
+
+## Guides
+
+- [How to draft an NDA online](https://foundersdoc.com/resources/how-to-draft-an-nda-online)
+- [NDA vs confidentiality agreement](https://foundersdoc.com/resources/nda-vs-confidentiality-agreement)
+- [Before you sign an NDA](https://foundersdoc.com/resources/before-you-sign-an-nda)
+- [Can breaching an NDA be expensive?](https://foundersdoc.com/resources/can-breaching-an-nda-be-expensive)
+- [What is a term sheet?](https://foundersdoc.com/resources/what-is-a-term-sheet)
+- [Is a term sheet legally binding?](https://foundersdoc.com/resources/is-a-term-sheet-legally-binding)
+- [Term sheet checklist](https://foundersdoc.com/resources/term-sheet-checklist)
+- [Common term sheet mistakes](https://foundersdoc.com/resources/term-sheet-mistakes)
+- [All articles](https://foundersdoc.com/resources/all)
