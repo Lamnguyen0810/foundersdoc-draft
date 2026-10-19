@@ -489,4 +489,21 @@ export const IPAA_DATA = {
     "Assembled from Founders Doc's IP assignment agreement wording. The AI only flags points for the lawyer (upload the playbook under Playbook → IP Assignment Agreement).",
 };
 
-export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA, IA_DATA, SERVICES_DATA, LOAN_DATA, CLN_DATA, IPAA_DATA];
+/**
+ * The joint venture agreement (103): Founders Doc's wording for a joint
+ * venture company owned by two parties, 50:50 or with a majority, Basic,
+ * Standard or Complex, any governing law, assembled by rule (src/lib/jva).
+ * The database gets this row from 103_joint_venture_agreement.sql.
+ */
+export const JVA_DATA = {
+  slug: "jva",
+  label: "Joint Venture Agreement",
+  description:
+    "An agreement between two parties — individuals or companies — who own a joint venture company, 50:50 or with one holding the majority: the company and its business, the shares and what each party pays, the board and casting vote, the decisions that need both parties, deadlock, transfers and pre-emption, and confidentiality. Basic, Standard or Complex: Standard adds further funding, the full reserved matters, the business plan, information, dividends, a buy-out or winding up on deadlock, a lock-in, default at fair value, restrictions on competing and a deed of adherence; Complex adds tag- and drag-along, a discount for a party at fault and anti-corruption. Singapore, England and Wales, Hong Kong, Delaware, New York or another law. With a majority, the usual answers lean to the user's side. Assembled by rule; FD AI flags points for the lawyer.",
+  engine: "assembly",
+  fields: [],
+  systemPrompt:
+    "Assembled from Founders Doc's joint venture agreement wording. The AI only flags points for the lawyer (upload the playbook under Playbook → Joint Venture Agreement).",
+};
+
+export const DOC_TYPE_DATA = [NDA_DATA, TERM_DATA, EMPLOYMENT_DATA, CONTRACTOR_DATA, COFOUNDER_DATA, SHA_DATA, SPA_DATA, SSA_DATA, IA_DATA, SERVICES_DATA, LOAN_DATA, CLN_DATA, IPAA_DATA, JVA_DATA];

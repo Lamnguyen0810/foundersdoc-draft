@@ -15,6 +15,7 @@ import Services from "./Services";
 import Loan from "./Loan";
 import Cln from "./Cln";
 import Ipaa from "./Ipaa";
+import Jva from "./Jva";
 import { recentDrafts } from "./recent";
 import { loadCompanyProfile, loadPrefill } from "@/lib/settings.server";
 import { redirect } from "next/navigation";
@@ -146,7 +147,9 @@ export default async function DraftPage({
                           ? Cln
                           : preset.slug === "ipaa"
                             ? Ipaa
-                            : TermSheet;
+                            : preset.slug === "jva"
+                              ? Jva
+                              : TermSheet;
     return (
       <>
         {ld}

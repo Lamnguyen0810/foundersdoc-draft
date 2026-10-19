@@ -136,6 +136,7 @@ export function fontStack(font: string): string {
 export const BUILT_IN_LOOK: Record<string, string> = {
   cln: "font: Arial\nbody_size_pt: 10\ntitle_size_pt: 11\nline_spacing: 1.15\nspace_after_pt: 8\nalignment_body: justified\nlayout: formal",
   ipaa: "font: Arial\nbody_size_pt: 10\ntitle_size_pt: 11\nline_spacing: 1.15\nspace_after_pt: 8\nalignment_body: justified\nlayout: formal",
+  jva: "font: Arial\nbody_size_pt: 10\ntitle_size_pt: 11\nline_spacing: 1.15\nspace_after_pt: 8\nalignment_body: justified\nlayout: formal",
 };
 
 /** The texts to read a type's look from, in order: its own playbook, its master's look, the firm's. */

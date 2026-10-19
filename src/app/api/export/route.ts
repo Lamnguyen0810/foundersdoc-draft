@@ -493,6 +493,7 @@ type FrontMatter = { title: string | RegExp; header: string; breakBefore: RegExp
 const FRONT_MATTER: Record<string, FrontMatter> = {
   cln: { title: "CONVERTIBLE LOAN AGREEMENT", header: "Private and Confidential", breakBefore: [/^By signing below/i, /^SCHEDULE\s+\d+\b/i] },
   ipaa: { title: /^INTELLECTUAL PROPERTY (ASSIGNMENT|OWNERSHIP AND LICENCE) (AGREEMENT|DEED)$/, header: "Private and Confidential", breakBefore: [/^IN WITNESS WHEREOF/i, /^SCHEDULE\s+\d+\b/i], coverParty: 1 },
+  jva: { title: "JOINT VENTURE AGREEMENT", header: "Private and Confidential", breakBefore: [/^IN WITNESS WHEREOF/i, /^SCHEDULE\s+\d+\b/i] },
 };
 
 const plainOf = (fragment: string) => decodeHtml(fragment.replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim();

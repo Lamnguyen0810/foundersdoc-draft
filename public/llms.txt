@@ -5,7 +5,7 @@
 ## FD AI — draft a document
 
 - [Draft a Non-Disclosure Agreement (NDA)](https://foundersdoc.com/draft?type=nondisclosureagreement): mutual or one-way NDA for founders
-- [All documents FD AI drafts](https://foundersdoc.com/draft): term sheets, employment and contractor agreements, shareholders', share purchase and share subscription agreements, investment, loan, convertible loan, services and IP assignment agreements
+- [All documents FD AI drafts](https://foundersdoc.com/draft): term sheets, employment and contractor agreements, shareholders', share purchase and share subscription agreements, investment, loan, convertible loan, services, IP assignment and joint venture agreements
 
 ## Talk to a lawyer
 

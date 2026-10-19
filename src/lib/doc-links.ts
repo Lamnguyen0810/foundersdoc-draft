@@ -28,6 +28,7 @@ export const PUBLIC_SLUG: Record<string, string> = {
   loan: "loanagreement",
   cln: "convertibleloanagreement",
   ipaa: "ipassignmentagreement",
+  jva: "jointventureagreement",
 };
 
 /** The link to start a document. */
