@@ -26,9 +26,9 @@ import { fdAiLd, ldJson } from "@/lib/seo";
    without an account, so it is what a search for "draft an NDA online" should
    land on. The root layout says noindex for everything else. */
 const NDA_META = {
-  title: "Draft a Non-Disclosure Agreement (NDA) online in minutes — FD AI by Founders Doc",
+  title: "Draft an NDA Online in Minutes | FD AI by Founders Doc",
   description:
-    "Answer a few questions and FD AI drafts a non-disclosure agreement from Founders Doc's own playbook — nothing invented, lawyer-backed, Word in minutes. Start without an account.",
+    "Draft a mutual or one-way non-disclosure agreement (NDA) online. Answer a few questions, get a lawyer-backed NDA in Word in minutes. No account needed.",
 };
 
 /* A shared link names the document it opens. The page used to say "Draft an
@@ -44,7 +44,7 @@ function pageMeta(slug: string | undefined, docTypes: { slug: string; label: str
   if (!d) return { ...NDA_META, url: `https://foundersdoc.com${slug === "nda" ? draftHref("nda") : "/draft"}` };
   const article = /^[aeiou]/i.test(d.label) ? "an" : "a";
   return {
-    title: `Draft ${article} ${d.label} online — FD AI by Founders Doc`,
+    title: `Draft ${article} ${d.label} Online | FD AI by Founders Doc`,
     description: `Answer a few questions and FD AI drafts ${article} ${inSentence(d.label)} from Founders Doc's own master — lawyer-backed, Word in minutes. Start without an account.`,
     url: `https://foundersdoc.com${draftHref(d.slug)}`,
   };
@@ -56,7 +56,8 @@ export async function generateMetadata({ searchParams }: { searchParams: Promise
   const { title, description, url } = pageMeta(slug, docTypes);
   return {
     robots: { index: true, follow: true },
-    title,
+    /* absolute: the title already names FD AI, so the layout's "· FD AI" is not added again. */
+    title: { absolute: title },
     description,
     alternates: { canonical: url },
     openGraph: { title, description, url, siteName: "Founders Doc", type: "website" },
