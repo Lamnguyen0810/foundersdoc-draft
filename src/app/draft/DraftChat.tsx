@@ -38,6 +38,7 @@ import { answerFor, answerLocally, isQuestion, offTopicAnswer, smallTalk } from 
 import { formatPeriod, parsePeriod } from "@/lib/period";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { PERPETUAL, SKIP_LABEL, SOURCE_ATTACH, SOURCE_EXPLANATION, SOURCE_FRESH, explainField } from "@/lib/explain";
+import { useExitFeedback } from "./ExitFeedback";
 
 /* ────────────────────────────────────────────────────── the catalogue */
 
@@ -1976,6 +1977,9 @@ function Chat({
 
      It fires once, and only for someone who started answering and never got a
      draft: leaving after you have your document is success, not abandonment. */
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: docType.slug, docLabel: docType.label, answered: i, total: steps.length, finished: output.length > 0 || busy, guest });
+
   const progressRef = useRef({ step: 0, total: 0, generated: false, started: false });
   progressRef.current = {
     step: i,

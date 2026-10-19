@@ -30,6 +30,7 @@ import { DEFAULT_JURISDICTIONS } from "@/lib/jurisdictions";
 import { applyDefaults, problemWith, questionsFor, workJurisdiction, type Option, type Question } from "@/lib/contractor/questions";
 import { CONTRACTOR_INTRO } from "@/lib/contractor/data/intro";
 import type { Answers, Company as Employer, Contractor as Employee, DraftStatus, Engagement as Job, Flag } from "@/lib/contractor/types";
+import { useExitFeedback } from "./ExitFeedback";
 
 /** Kept from the employment screen for shape; the contractor master has no AI-written lines yet. */
 type AiFields = { dismissal_grounds?: string[] };
@@ -189,6 +190,8 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
   const [busy, setBusy] = useState(false);
   /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
   const fd = useAskFD("Contractor Agreement", "contractor", guest);
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: "contractor", docLabel: "Contractor Agreement", answered: Object.keys(settled).length, finished: stage === "drafted" || busy, guest });
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);

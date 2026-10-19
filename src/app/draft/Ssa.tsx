@@ -26,6 +26,7 @@ import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { ALWAYS_PARTIES, applyDefaults, founderCount, investorCount, problemWith, questionsFor, withRequiredParties, type Option, type Question } from "@/lib/ssa/questions";
 import { SSA_INTRO } from "@/lib/ssa/data/intro";
 import type { Answers, Company, DraftStatus, Flag, Founder, Investor, PartyKind } from "@/lib/ssa/types";
+import { useExitFeedback } from "./ExitFeedback";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -160,6 +161,8 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
   const [busy, setBusy] = useState(false);
   /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
   const fd = useAskFD("Share Subscription Agreement", "ssa", guest);
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: "ssa", docLabel: "Share Subscription Agreement", answered: Object.keys(settled).length, finished: stage === "drafted" || busy, guest });
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);

@@ -25,6 +25,7 @@ import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { applyDefaults, problemWith, questionsFor, sellerCount, type Option, type Question } from "@/lib/spa/questions";
 import { SPA_INTRO } from "@/lib/spa/data/intro";
 import type { Answers, DraftStatus, Flag, Party, PartyKind, Seller, Target } from "@/lib/spa/types";
+import { useExitFeedback } from "./ExitFeedback";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -151,6 +152,8 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
   const [busy, setBusy] = useState(false);
   /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
   const fd = useAskFD("Share Purchase Agreement", "spa", guest);
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: "spa", docLabel: "Share Purchase Agreement", answered: Object.keys(settled).length, finished: stage === "drafted" || busy, guest });
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);

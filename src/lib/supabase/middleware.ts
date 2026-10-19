@@ -19,6 +19,10 @@ const PUBLIC_PATHS = [
   // quota and writes through a function that decides what a row may contain,
   // so it is safe to leave open in a way that /api/generate is not.
   "/api/events",
+  // "Before you go" answers (app/draft/ExitFeedback.tsx): most people who
+  // leave a document half-way have no account. Checked and rate-limited in
+  // the database by leave_exit_feedback() (102); spends nothing.
+  "/api/exit-feedback",
   // Marking a browser as one of the team's devices (lib/team-device.ts):
   // Rachel's phone may never have signed in. It only sets a cookie.
   "/api/team-device",

@@ -27,6 +27,7 @@ import { applyDefaults, founderCount, problemWith, questionsFor, type Option, ty
 import { percentOf } from "@/lib/cofounder/checks";
 import { COFOUNDER_INTRO } from "@/lib/cofounder/data/intro";
 import type { Answers, Company, DraftStatus, Flag, Founder, Holding } from "@/lib/cofounder/types";
+import { useExitFeedback } from "./ExitFeedback";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -193,6 +194,8 @@ export default function Cofounder({ look = DEFAULT_LOOK, userEmail, guest, walle
   const [busy, setBusy] = useState(false);
   /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
   const fd = useAskFD("Co-Founders' Agreement", "cofounder", guest);
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: "cofounder", docLabel: "Co-Founders' Agreement", answered: Object.keys(settled).length, finished: stage === "drafted" || busy, guest });
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);

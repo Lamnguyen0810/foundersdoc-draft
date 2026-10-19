@@ -35,6 +35,7 @@ import { applyDefaults, problemWith, questionsFor, workJurisdiction, type Option
 import { builtInGuide, countriesFrom, guideKey, issueFor, leaveIssue, type LawGuide } from "@/lib/employment/guide";
 import { EMPLOYMENT_INTRO } from "@/lib/employment/data/intro";
 import type { AiFields, Answers, DraftStatus, Employee, Employer, Flag, Job } from "@/lib/employment/types";
+import { useExitFeedback } from "./ExitFeedback";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -186,6 +187,8 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
   const [busy, setBusy] = useState(false);
   /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
   const fd = useAskFD("Employment Contract", "employment", guest);
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: "employment", docLabel: "Employment Contract", answered: Object.keys(settled).length, finished: stage === "drafted" || busy, guest });
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);

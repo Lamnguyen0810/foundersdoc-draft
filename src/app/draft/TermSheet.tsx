@@ -39,6 +39,7 @@ import { INTRO } from "@/lib/termsheet/data/intro";
 import { DOCUMENT_TITLES } from "@/lib/termsheet/data/master";
 import { normaliseMoney } from "@/lib/termsheet/format";
 import type { AiFields, DraftStatus, Flag, KeyTerm, Party } from "@/lib/termsheet/types";
+import { useExitFeedback } from "./ExitFeedback";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -220,6 +221,8 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
   const [busy, setBusy] = useState(false);
   /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
   const fd = useAskFD("Term Sheet", "term", guest);
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: "term", docLabel: "Term Sheet", answered: Object.keys(settled).length, finished: stage === "drafted" || busy, guest });
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   /* Questions to settle before the term sheet can be prepared, each with

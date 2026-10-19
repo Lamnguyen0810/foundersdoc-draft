@@ -26,6 +26,7 @@ import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { applyDefaults, problemWith, questionsFor, type Option, type Question } from "@/lib/cln/questions";
 import { CLN_INTRO } from "@/lib/cln/data/intro";
 import type { Answers, DraftStatus, Flag, Party } from "@/lib/cln/types";
+import { useExitFeedback } from "./ExitFeedback";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -137,6 +138,8 @@ export default function Cln({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
   const [busy, setBusy] = useState(false);
   /* As on the NDA: questions to FD AI, and the progress bar while drafting. */
   const fd = useAskFD("Convertible Loan Agreement", "cln", guest);
+  /* Leaving half-way: "Before you go" asks why (ExitFeedback.tsx). */
+  useExitFeedback({ doc: "cln", docLabel: "Convertible Loan Agreement", answered: Object.keys(settled).length, finished: stage === "drafted" || busy, guest });
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
