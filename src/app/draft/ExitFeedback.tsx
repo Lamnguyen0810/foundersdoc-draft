@@ -178,7 +178,7 @@ export default function ExitFeedbackHost() {
       }
       if (url.origin !== window.location.origin) return;
       if (url.pathname === window.location.pathname && url.search === window.location.search) return;
-      if (/^\/(signup|login|auth|billing|api)(\/|$)/.test(url.pathname) || a.closest("[data-no-exit]")) return;
+      if (/^\/(signup|login|auth|billing|pricing|api)(\/|$)/.test(url.pathname) || a.closest("[data-no-exit]")) return;
       if (!canAsk()) return;
       e.preventDefault();
       e.stopPropagation();

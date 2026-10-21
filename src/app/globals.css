@@ -3603,6 +3603,8 @@ html[data-theme=dark]{
   padding:8px 12px;border-radius:10px;
   font-size:13px;font-weight:600;
 }
+.guest-small{font-size:12px;text-align:center;text-decoration:underline;text-underline-offset:2px;color:inherit;opacity:.75}
+.guest-small:hover{opacity:1}
 .rail .guest-block{margin:0;padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#fff}
 .rail .guest-block p{color:rgba(255,255,255,.66)}
 .rail .guest-signup{background:var(--gold);color:#141414}
@@ -3610,14 +3612,25 @@ html[data-theme=dark]{
 .rail .guest-login{border:1px solid rgba(255,255,255,.22);color:#fff}
 .rail .guest-login:hover{background:rgba(255,255,255,.08)}
 .rail .guest-actions a:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* Set apart from the "Coming soon" note above it: a card of its own. */
 .guest-catalogue{
-  align-self:start;max-width:360px;
-  padding:16px 18px;border-radius:14px;
+  align-self:start;max-width:400px;margin-top:22px;
+  padding:18px 20px;border-radius:14px;gap:10px;
   border:1px solid var(--rule-2);background:var(--bg-2, var(--bg));
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
 }
-.guest-catalogue b{font-size:14px}
+.guest-catalogue .guest-kicker{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a67300}
+.guest-catalogue b{font-size:15px}
 .guest-catalogue p{color:var(--grey-5)}
-.guest-catalogue .guest-actions{grid-template-columns:1fr 1fr;margin-top:4px}
+.guest-steps{list-style:none;margin:2px 0 4px;padding:0;display:grid;gap:9px}
+.guest-steps li{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start}
+.guest-steps li > span{
+  width:22px;height:22px;border-radius:999px;display:grid;place-items:center;
+  font-size:11.5px;font-weight:700;background:rgba(243,191,75,.22);color:#8a5b00;
+}
+.guest-steps strong{color:var(--tx);font-weight:600}
+.guest-catalogue .guest-small{color:var(--grey-5)}
+.guest-catalogue .guest-actions{grid-template-columns:1fr;margin-top:4px}
 .guest-catalogue .guest-signup{background:var(--black);color:#fff}
 .guest-catalogue .guest-signup:hover{background:#333}
 .guest-catalogue .guest-login{border:1px solid var(--rule-2);color:var(--tx)}

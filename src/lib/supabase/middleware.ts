@@ -45,6 +45,8 @@ const PUBLIC_PATHS = [
   // Feedback typed in Slack arrives from Zapier with a shared secret, which
   // the route and the database both check. No browser, no session.
   "/api/feedback/slack",
+  // The public price list (app/pricing). /billing stays the account's page.
+  "/pricing",
   // The published blog posts, for the cards on the public blog page (055).
   // Read-only, and row-level security returns published rows only.
   "/api/blog",
@@ -154,6 +156,15 @@ async function checkSession(request: NextRequest): Promise<NextResponse> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  /* /pricing's buy buttons link to /billing. Without an account the next
+     step is the free trial, so sign-up — not the log-in page. */
+  if (!user && request.nextUrl.pathname.replace(/\/$/, "") === "/billing") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/signup";
+    url.search = "?from=pricing";
+    return NextResponse.redirect(url);
+  }
 
   if (!user && !isPublic(request.nextUrl.pathname)) {
     const url = request.nextUrl.clone();

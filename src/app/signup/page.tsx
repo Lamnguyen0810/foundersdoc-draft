@@ -50,7 +50,10 @@ export default async function SignupPage({
      DraftChat); this screen's job is to say so, because a person who has just
      answered eight questions and is now looking at a sign-up form will
      otherwise assume the answers are gone. */
-  const fromDraft = (await searchParams).from === "draft";
+  const from = (await searchParams).from;
+  const fromDraft = from === "draft";
+  /* `from=pricing`: a buy button on /pricing, so a returning customer signs in to /billing. */
+  const fromPricing = from === "pricing";
   const url = supabaseUrl();
   const key = supabasePublishableKey();
   if (!url || !key) redirect("/login");
@@ -99,7 +102,7 @@ export default async function SignupPage({
 
         <p className="login-note" style={{ borderTop: "none", paddingTop: 0, marginTop: 10 }}>
           Already have an account?{" "}
-          <Link href={fromDraft ? "/login?next=%2Fdraft&from=draft" : "/login"}>Sign in</Link>.
+          <Link href={fromDraft ? "/login?next=%2Fdraft&from=draft" : fromPricing ? "/login?next=%2Fbilling" : "/login"}>Sign in</Link>.
         </p>
       </div>
     </div>
