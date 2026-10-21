@@ -45,6 +45,9 @@ const PUBLIC_PATHS = [
   // Feedback typed in Slack arrives from Zapier with a shared secret, which
   // the route and the database both check. No browser, no session.
   "/api/feedback/slack",
+  // The daily website scan, called by Vercel Cron with CRON_SECRET (no
+  // session); the route refuses anyone without it (app/api/seo-scan/cron).
+  "/api/seo-scan/cron",
   // The public price list (app/pricing). /billing stays the account's page.
   "/pricing",
   // The published blog posts, for the cards on the public blog page (055).

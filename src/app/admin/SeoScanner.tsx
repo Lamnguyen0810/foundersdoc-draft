@@ -3,6 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import type { Finding, Level } from "@/lib/seo-audit/checks";
 import type { ScanReport } from "@/lib/seo-audit/scan";
+import { findingName } from "@/lib/seo-audit/summary";
 
 /**
  * The SEO tab: a scanner that reads our own website the way Google does and
@@ -17,38 +18,6 @@ const LEVEL: Record<Level, { label: string; badge: string; icon: string }> = {
 };
 const ORDER: Level[] = ["problem", "improve", "idea"];
 
-/* One short name per kind of finding, for the grouped list. */
-const NAME: Record<string, string> = {
-  status: "Pages that do not load",
-  redirect: "Sitemap lists redirecting addresses",
-  noindex: "Pages hidden from Google but in the sitemap",
-  "title-missing": "Missing page title",
-  "title-long": "Title too long for Google",
-  "title-short": "Title too short",
-  "desc-missing": "Missing description",
-  "desc-long": "Description too long",
-  "desc-short": "Description too short",
-  "h1-missing": "No main heading",
-  "h1-many": "More than one main heading",
-  "canonical-missing": "No main address (canonical)",
-  "og-missing": "No share preview text",
-  "jsonld-invalid": "Broken structured data",
-  "jsonld-missing": "No structured data on a key page",
-  "img-alt": "Images without a description",
-  "lang-missing": "Language not set",
-  thin: "Very little text",
-  slow: "Slow to load",
-  heavy: "Very large page",
-  "dup-title": "Pages with the same title",
-  "dup-desc": "Pages with the same description",
-  orphan: "Pages nothing links to",
-  sitemap: "Sitemap unreadable",
-  robots: "robots.txt unreadable",
-  "robots-block": "robots.txt blocks Google",
-  "robots-sitemap": "robots.txt does not point to the sitemap",
-  llms: "llms.txt unreadable",
-  "broken-link": "Links that lead nowhere",
-};
 
 type Group = { code: string; level: Level; items: Finding[] };
 
@@ -111,7 +80,7 @@ export default function SeoScanner() {
           <div>
             <h2>SEO scanner</h2>
             <p className="blog-help">
-              Reads every page of our website the way Google does, and lists what to fix so more people find us. Free — it only reads our own pages, and changes nothing.
+              Reads every page of our website the way Google does, and lists what to fix so more people find us. It also runs by itself every morning at 9am and posts a summary in Slack. Free — it only reads our own pages, and changes nothing.
             </p>
           </div>
           <button className="btn yellow" type="button" disabled={busy} onClick={() => void scan()}>
@@ -196,7 +165,7 @@ export default function SeoScanner() {
                             </span>
                           </td>
                           <td>
-                            <strong>{NAME[g.code] ?? g.code}</strong>
+                            <strong>{findingName(g.code)}</strong>
                             {g.items.length === 1 && <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>{g.items[0].what}</div>}
                           </td>
                           <td>{g.items.some((f) => f.url) ? g.items.filter((f) => f.url).length : "Whole site"}</td>
