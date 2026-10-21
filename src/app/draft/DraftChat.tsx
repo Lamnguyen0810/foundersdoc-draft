@@ -22,6 +22,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { BetaBadge, isBeta } from "./beta";
+import { MEMBERSHIPS, PACKS, TRIAL, money } from "@/lib/billing/plans";
 import { stepsFor, type DocType, type Field } from "@/lib/doctypes";
 import { track } from "@/lib/track";
 import { draftHref } from "@/lib/doc-links";
@@ -1544,27 +1545,77 @@ function DraftName({
 /**
  * What stands where the account block would, for a visitor with none.
  *
- * Two doors and one promise. The promise matters more than the doors: a
- * person who has answered six questions and is now told to sign up will
- * assume their answers are gone. They are not — see THE GUEST'S DRAFT — and
- * the block says so before they have to wonder.
+ * An introduction before it is a pair of doors: how it works (answer now,
+ * sign up at "Generate draft", the first documents free), what it costs
+ * after that, and where the full prices are (/pricing). The promise matters
+ * most: a person who has answered six questions and is then told to sign up
+ * will assume their answers are gone. They are not — see THE GUEST'S DRAFT —
+ * and the block says so before they have to wonder.
+ *
+ * The figures come from the price list (billing/plans.ts), so they move with it.
  */
 function GuestBlock({ where }: { where: "rail" | "catalogue" }) {
+  const single = money(PACKS[0].amountCents);
+  const monthly = money(MEMBERSHIPS[0].amountCents);
+  if (where === "rail") {
+    return (
+      <div className="guest-block guest-rail">
+        <b>{TRIAL.credits} free documents</b>
+        <p>
+          Answer now, sign up when you generate — your answers come with you. Then from {single} a document.
+        </p>
+        <div className="guest-actions">
+          <a className="guest-signup" href="/signup?from=draft">
+            Sign up for free
+          </a>
+          <a className="guest-login" href="/pricing">
+            Check out our pricing
+          </a>
+        </div>
+        <a className="guest-small" href="/login?next=%2Fdraft&from=draft">
+          Already have an account? Log in
+        </a>
+      </div>
+    );
+  }
   return (
-    <div className={`guest-block guest-${where}`}>
-      <b>No account needed to start</b>
-      <p>
-        Answer the questions now. Create a free account when you press “Generate draft” — your
-        answers come with you.
-      </p>
+    <div className="guest-block guest-catalogue">
+      <span className="guest-kicker">New to FD AI?</span>
+      <b>Your first {TRIAL.credits} documents are free</b>
+      <ol className="guest-steps">
+        <li>
+          <span aria-hidden="true">1</span>
+          <p>
+            <strong>Answer the questions</strong> — no account needed to start.
+          </p>
+        </li>
+        <li>
+          <span aria-hidden="true">2</span>
+          <p>
+            <strong>Sign up free at &ldquo;Generate draft&rdquo;</strong> — your answers come with you.
+          </p>
+        </li>
+        <li>
+          <span aria-hidden="true">3</span>
+          <p>
+            <strong>
+              {TRIAL.credits} documents free for {TRIAL.days} days
+            </strong>{" "}
+            — no card. After that, {single} a document or from {monthly} a month.
+          </p>
+        </li>
+      </ol>
       <div className="guest-actions">
         <a className="guest-signup" href="/signup?from=draft">
           Sign up for free
         </a>
-        <a className="guest-login" href="/login?next=%2Fdraft&from=draft">
-          Log in
+        <a className="guest-login" href="/pricing">
+          Check out our pricing <span aria-hidden="true">&rsaquo;</span>
         </a>
       </div>
+      <a className="guest-small" href="/login?next=%2Fdraft&from=draft">
+        Already have an account? Log in
+      </a>
     </div>
   );
 }

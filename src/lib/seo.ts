@@ -7,8 +7,13 @@
  * facts written out by hand — change both together.
  *
  * Only facts the site already states: founded 2021, Singapore, lawyer-backed,
- * a Word draft in minutes, start without an account. No prices or ratings.
+ * a Word draft in minutes, start without an account. Prices come from the
+ * price list (billing/plans.ts) and are shown on the public /pricing page,
+ * which Google requires before it accepts them here. No ratings: those need
+ * real reviews.
  */
+
+import { MEMBERSHIPS, PACKS, TRIAL } from "./billing/plans";
 
 export const SITE = "https://foundersdoc.com";
 
@@ -28,7 +33,37 @@ export const ORGANIZATION = {
   ],
 } as const;
 
-/** FD AI as an application, for /draft and each document's own link. */
+const sgd = (cents: number) => (cents / 100).toFixed(2);
+
+/** What FD AI costs, as schema.org offers: the free trial, pay as you go and the memberships. */
+export function fdAiOffers() {
+  return [
+    {
+      "@type": "Offer",
+      name: `Free trial — ${TRIAL.credits} documents over ${TRIAL.days} days`,
+      price: "0",
+      priceCurrency: "SGD",
+      url: `${SITE}/pricing#trial`,
+    },
+    ...PACKS.map((p) => ({
+      "@type": "Offer",
+      name: p.label,
+      price: sgd(p.amountCents),
+      priceCurrency: "SGD",
+      url: `${SITE}/pricing#credits`,
+    })),
+    ...MEMBERSHIPS.map((m) => ({
+      "@type": "Offer",
+      name: `${m.label} membership`,
+      price: sgd(m.amountCents),
+      priceCurrency: "SGD",
+      url: `${SITE}/pricing#memberships`,
+      priceSpecification: { "@type": "UnitPriceSpecification", price: sgd(m.amountCents), priceCurrency: "SGD", billingDuration: "P1M", unitText: "month" },
+    })),
+  ];
+}
+
+/** FD AI as an application, for /draft, each document's own link and /pricing. */
 export function fdAiLd(opts: { url: string; description: string; documents: string[] }) {
   return {
     "@context": "https://schema.org",
@@ -43,7 +78,8 @@ export function fdAiLd(opts: { url: string; description: string; documents: stri
     operatingSystem: "Any (runs in a web browser)",
     browserRequirements: "Requires JavaScript",
     inLanguage: "en",
-    featureList: opts.documents,
+    ...(opts.documents.length ? { featureList: opts.documents } : {}),
+    offers: fdAiOffers(),
     audience: {
       "@type": "BusinessAudience",
       audienceType: "Founders and start-ups",
@@ -59,4 +95,4 @@ export function ldJson(data: unknown): string {
 }
 
 /** The marketing pages served from public/ that should be found (not coming-soon). */
-export const PUBLIC_PAGES = ["", "about", "contact", "fd-consult", "resources/all", "podcast", "terms-of-service"];
+export const PUBLIC_PAGES = ["", "pricing", "about", "contact", "fd-consult", "resources/all", "podcast", "terms-of-service"];

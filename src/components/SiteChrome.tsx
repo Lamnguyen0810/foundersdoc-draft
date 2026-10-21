@@ -258,6 +258,7 @@ export function AppNav({
             <a href="/coming-soon?f=Courses">Courses</a>
             <a href="/podcast">Podcast</a>
           </Dropdown>
+          <a href="/pricing" aria-current={here("/pricing")}>Pricing</a>
           <a href="/about">About us</a>
         </div>
 
@@ -349,6 +350,7 @@ export function AppNav({
             <a href="/coming-soon?f=Courses">Courses</a>
             <a href="/podcast">Podcast</a>
           </div>
+          <a href="/pricing">Pricing</a>
           <a href="/about">About us</a>
           <a href="/contact">Contact us</a>
           {!signedIn && (
@@ -405,6 +407,9 @@ export function SiteFooter() {
               </li>
               <li>
                 <Link href="/usage">Usage</Link>
+              </li>
+              <li>
+                <Link href="/pricing">Pricing</Link>
               </li>
             </ul>
           </div>
