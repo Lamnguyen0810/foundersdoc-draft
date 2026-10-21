@@ -244,6 +244,9 @@ export function AppNav({
               Draft
             </Link>
             <a href="/#about">Review</a>
+            <Link href="/templates" aria-current={here("/templates")}>
+              Templates
+            </Link>
           </Dropdown>
           <a href="/#lawyers">Ask a Lawyer</a>
           <Dropdown label="Services" {...sub("svc")}>
@@ -337,6 +340,7 @@ export function AppNav({
             <span>FD AI</span>
             <Link href="/draft">Draft</Link>
             <a href="/#about">Review</a>
+            <Link href="/templates">Templates</Link>
           </div>
           <a href="/#lawyers">Ask a Lawyer</a>
           <div className="menu-group">
@@ -410,6 +414,9 @@ export function SiteFooter() {
               </li>
               <li>
                 <Link href="/pricing">Pricing</Link>
+              </li>
+              <li>
+                <Link href="/templates">Templates</Link>
               </li>
             </ul>
           </div>

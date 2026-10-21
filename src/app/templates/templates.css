@@ -1,0 +1,343 @@
+/* The template pages (/templates…): a reading page with one gold button. */
+
+.tpl {
+  padding: 96px 0 64px;
+  background: var(--white);
+  color: var(--black);
+}
+.tpl-wrap {
+  max-width: 860px;
+}
+
+.tpl-crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+  color: var(--grey-5);
+}
+.tpl-crumbs li + li::before {
+  content: "›";
+  margin-right: 6px;
+  color: var(--grey-3);
+}
+.tpl-crumbs a {
+  color: var(--grey-5);
+  text-decoration: none;
+}
+.tpl-crumbs a:hover {
+  color: var(--black);
+  text-decoration: underline;
+}
+
+.tpl-hero {
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--grey-2);
+}
+.tpl-hero h1 {
+  margin: 10px 0 14px;
+  font-family: var(--display);
+  font-size: clamp(30px, 5vw, 44px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+.tpl-lead {
+  max-width: 680px;
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--grey-5);
+}
+.tpl-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin-top: 24px;
+}
+.tpl-cta {
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.tpl-small {
+  font-size: 13px;
+  color: var(--grey-5);
+}
+.tpl-tip {
+  margin: 20px 0 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--gold);
+  background: var(--gold-soft);
+  border-radius: 0 6px 6px 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.tpl-section {
+  padding: 36px 0 4px;
+}
+.tpl-section h2 {
+  margin: 0 0 16px;
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+}
+
+.tpl-points {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+}
+.tpl-points > div {
+  padding: 16px;
+  border: 1px solid var(--grey-2);
+  border-radius: 10px;
+}
+.tpl-points dt {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.tpl-points dd {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--grey-5);
+}
+.tpl-points-law > div {
+  border-color: color-mix(in srgb, var(--gold) 45%, var(--grey-2));
+}
+
+.tpl-list,
+.tpl-reading {
+  margin: 0;
+  padding-left: 20px;
+  list-style: disc;
+  line-height: 1.7;
+  font-size: 15px;
+}
+.tpl-reading a,
+.tpl-more a,
+.tpl-note a {
+  color: var(--black);
+  text-decoration: underline;
+  text-decoration-color: var(--gold);
+  text-underline-offset: 3px;
+}
+
+.tpl-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tpl-steps li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 10px;
+  background: var(--grey-1);
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+.tpl-steps li > span:last-child {
+  color: var(--grey-5);
+}
+.tpl-step-n {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: #0f0f0f;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.tpl-faqs details {
+  border-bottom: 1px solid var(--grey-2);
+  padding: 14px 0;
+}
+.tpl-faqs summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15.5px;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tpl-faqs summary::-webkit-details-marker {
+  display: none;
+}
+.tpl-faqs summary::after {
+  content: "+";
+  color: var(--gold-deep);
+  font-weight: 500;
+}
+.tpl-faqs details[open] summary::after {
+  content: "–";
+}
+.tpl-faqs p {
+  margin: 10px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--grey-5);
+}
+
+.tpl-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tpl-chips a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--grey-3);
+  border-radius: 999px;
+  font-size: 13.5px;
+  color: var(--black);
+  text-decoration: none;
+}
+.tpl-chips a:hover {
+  border-color: var(--gold-deep);
+  background: var(--gold-soft);
+}
+
+.tpl-countries {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.tpl-countries a {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  padding: 16px;
+  border: 1px solid var(--grey-2);
+  border-radius: 10px;
+  color: var(--black);
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.tpl-countries a > span:last-child {
+  color: var(--grey-5);
+}
+.tpl-countries a:hover {
+  border-color: var(--gold-deep);
+}
+.tpl-flag {
+  font-size: 22px;
+}
+.tpl-countries strong {
+  font-size: 15.5px;
+}
+
+.tpl-cards {
+  display: grid;
+  gap: 14px;
+}
+.tpl-card {
+  padding: 20px;
+  border: 1px solid var(--grey-2);
+  border-radius: 12px;
+}
+.tpl-card h2 {
+  margin: 0 0 8px;
+}
+.tpl-card h2 a {
+  color: var(--black);
+  text-decoration: none;
+}
+.tpl-card h2 a:hover {
+  text-decoration: underline;
+  text-decoration-color: var(--gold);
+}
+.tpl-card p {
+  margin: 0 0 14px;
+  color: var(--grey-5);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.tpl-more {
+  margin: 16px 0 0;
+  font-size: 14.5px;
+  color: var(--grey-5);
+}
+
+.tpl-band {
+  margin-top: 44px;
+  padding: 28px;
+  border-radius: 14px;
+  background: var(--black);
+  color: var(--white);
+}
+.tpl-band h2 {
+  margin: 0 0 8px;
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 600;
+}
+.tpl-band p {
+  margin: 0 0 18px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  opacity: 0.8;
+}
+.tpl-band-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+.tpl-link {
+  color: inherit;
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tpl-note {
+  margin: 24px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--grey-5);
+}
+
+@media (max-width: 720px) {
+  .tpl {
+    padding-top: 84px;
+  }
+  .tpl-points,
+  .tpl-steps,
+  .tpl-countries {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tpl-band {
+    padding: 22px 18px;
+  }
+  .tpl-hero-actions .tpl-cta {
+    width: 100%;
+  }
+}

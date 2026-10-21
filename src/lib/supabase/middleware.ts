@@ -87,9 +87,10 @@ const SITE_PAGES = [
  * whole blog answered with a redirect to /login. Middleware runs BEFORE the
  * rewrites, so what arrives here is the pretty URL, not the .html target.
  *
- * A prefix cannot drift. Nothing private has ever lived under /resources.
+ * A prefix cannot drift. Nothing private has ever lived under /resources or
+ * /templates (the public template pages, lib/templates).
  */
-const PUBLIC_PREFIXES = ["/resources"];
+const PUBLIC_PREFIXES = ["/resources", "/templates"];
 
 /**
  * The drafting screen itself, and only itself.
