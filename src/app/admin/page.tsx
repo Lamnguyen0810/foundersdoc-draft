@@ -5,7 +5,7 @@ import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import BlogAdmin, { type BlogRow } from "./BlogAdmin";
 import Videos from "./Videos";
-import SeoScanner from "./SeoScanner";
+import SeoAgent from "./SeoAgent";
 import type { VideoRow } from "@/lib/podcast/videos";
 import { retiredFieldKeys, tidyStepQuestion } from "@/lib/doctypes.server";
 import AiCreditPanel, { type AiCreditMeter } from "./AiCreditPanel";
@@ -78,7 +78,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "blog", label: "Blog" },
   /* YouTube videos put on /podcast from a link (085). */
   { id: "videos", label: "Videos" },
-  /* Reads our own website the way Google does and lists what to fix (0150). */
+  /* The SEO agent: research, recommendations to approve, keywords, and the website scanner (0150–0152). */
   { id: "seo", label: "SEO" },
   /* Stopped term sheets and employment agreements. Rarely used now that 🟡 points go to the user's own
      lawyer, so it lives on its own tab rather than in the AI files flow. */
@@ -1708,7 +1708,7 @@ export default async function AdminPage({
 
             {tab === "videos" && <Videos rows={videoRows} missing={videosMissing} />}
 
-            {tab === "seo" && <SeoScanner />}
+            {tab === "seo" && <SeoAgent />}
 
             {tab === "ai-files" && (
               <>

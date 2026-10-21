@@ -48,6 +48,9 @@ const PUBLIC_PATHS = [
   // The daily website scan, called by Vercel Cron with CRON_SECRET (no
   // session); the route refuses anyone without it (app/api/seo-scan/cron).
   "/api/seo-scan/cron",
+  // Automated SEO research sends its findings here with a private key; the
+  // database checks the key and every field (104, app/api/seo/ingest).
+  "/api/seo/ingest",
   // The public price list (app/pricing). /billing stays the account's page.
   "/pricing",
   // The published blog posts, for the cards on the public blog page (055).

@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { scanSite } from "@/lib/seo-audit/scan";
 import { slackText } from "@/lib/seo-audit/summary";
+import { ingest, scanToPayload } from "@/lib/seo-agent/server";
 
 /**
  * GET /api/seo-scan/cron — the website scans itself every morning.
@@ -10,7 +11,8 @@ import { slackText } from "@/lib/seo-audit/summary";
  * with `Authorization: Bearer <CRON_SECRET>`. It reads every page of the
  * live site (lib/seo-audit/scan.ts) and posts a short summary to Slack
  * through an incoming webhook (SEO_SLACK_WEBHOOK_URL). Free: Vercel's daily
- * cron and Slack incoming webhooks cost nothing, and nothing is stored.
+ * cron and Slack incoming webhooks cost nothing. With SEO_INGEST_KEY set, the
+ * result is also kept in the SEO history (104).
  *
  * Without CRON_SECRET the route refuses everyone; without the webhook it
  * still scans and returns the summary, so it can be tried by hand.
@@ -50,7 +52,15 @@ export async function GET(req: NextRequest) {
       posted = res.ok;
       if (!res.ok) console.error("[seo-scan cron] Slack said", res.status);
     }
-    return NextResponse.json({ ok: true, posted, score: report.score, counts: report.counts, text }, { headers: { "Cache-Control": "no-store" } });
+    /* Kept in the SEO history too, when the key is set (104). */
+    let saved = false;
+    const key = process.env.SEO_INGEST_KEY?.trim();
+    if (key) {
+      const { error } = await ingest(key, scanToPayload(report));
+      saved = !error;
+      if (error) console.error("[seo-scan cron] not saved:", error.message);
+    }
+    return NextResponse.json({ ok: true, posted, saved, score: report.score, counts: report.counts, text }, { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
     console.error("[seo-scan cron] failed", err);
     return NextResponse.json({ error: "The scan could not finish." }, { status: 500 });
