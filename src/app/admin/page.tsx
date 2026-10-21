@@ -5,6 +5,7 @@ import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import BlogAdmin, { type BlogRow } from "./BlogAdmin";
 import Videos from "./Videos";
+import SeoAgent from "./SeoAgent";
 import type { VideoRow } from "@/lib/podcast/videos";
 import { retiredFieldKeys, tidyStepQuestion } from "@/lib/doctypes.server";
 import AiCreditPanel, { type AiCreditMeter } from "./AiCreditPanel";
@@ -58,7 +59,7 @@ import { nameFallback } from "@/lib/draft-name";
 export const metadata = { title: "Admin — FDAI" };
 export const dynamic = "force-dynamic";
 
-type Tab = "overview" | "weekly-report" | "documents" | "users" | "credits" | "ai-files" | "blog" | "videos" | "review" | "logs";
+type Tab = "overview" | "weekly-report" | "documents" | "users" | "credits" | "ai-files" | "blog" | "videos" | "seo" | "review" | "logs";
 
 /* The design's six sections, in its order. Overview and Logs are in the
    sidebar because the design has them there; their panels say plainly that
@@ -77,6 +78,8 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "blog", label: "Blog" },
   /* YouTube videos put on /podcast from a link (085). */
   { id: "videos", label: "Videos" },
+  /* The SEO agent: research, recommendations to approve, keywords, and the website scanner (0150–0152). */
+  { id: "seo", label: "SEO" },
   /* Stopped term sheets and employment agreements. Rarely used now that 🟡 points go to the user's own
      lawyer, so it lives on its own tab rather than in the AI files flow. */
   { id: "review", label: "Review queue" },
@@ -843,7 +846,7 @@ export default async function AdminPage({
             <h1>Admin Dashboard</h1>
           </div>
           <div className="hero-actions">
-            <div className={tab === "ai-files" || tab === "blog" || tab === "videos" || tab === "review" || tab === "weekly-report" ? "period-group is-hidden" : "period-group"}>
+            <div className={tab === "ai-files" || tab === "blog" || tab === "videos" || tab === "seo" || tab === "review" || tab === "weekly-report" ? "period-group is-hidden" : "period-group"}>
               <span className="period-label">Period</span>
               <PeriodSelect tab={tab} days={days} q={q} ranges={RANGES} />
               <Link className="btn refresh-btn" href={tabHref(tab, days, q)}>
@@ -1704,6 +1707,8 @@ export default async function AdminPage({
             )}
 
             {tab === "videos" && <Videos rows={videoRows} missing={videosMissing} />}
+
+            {tab === "seo" && <SeoAgent />}
 
             {tab === "ai-files" && (
               <>

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:seo": "npx --yes tsx --test src/lib/seo-audit/checks.test.ts src/lib/seo-agent/score.test.ts",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
