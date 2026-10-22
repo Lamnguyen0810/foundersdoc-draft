@@ -23,6 +23,8 @@ export async function generateMetadata({ params }: { params: Promise<{ doc: stri
   return {
     title: { absolute: t.title },
     description: t.description,
+    /* The root layout hides every page from Google; these pages are meant to be found. */
+    robots: { index: true, follow: true },
     alternates: { canonical: url },
     openGraph: { title: t.title, description: t.description, url, siteName: "Founders Doc", type: "website" },
   };

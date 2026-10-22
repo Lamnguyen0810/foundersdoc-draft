@@ -19,6 +19,8 @@ const URL = `${SITE}/templates`;
 export const metadata: Metadata = {
   title: { absolute: TITLE },
   description: DESCRIPTION,
+  /* The root layout hides every page from Google; these pages are meant to be found. */
+  robots: { index: true, follow: true },
   alternates: { canonical: URL },
   openGraph: { title: TITLE, description: DESCRIPTION, url: URL, siteName: "Founders Doc", type: "website" },
 };
