@@ -11,9 +11,9 @@ import "./templates.css";
  * one has. The pages themselves live in lib/templates/data.ts.
  */
 
-const TITLE = "Legal Document Templates for Start-ups | FD AI";
+const TITLE = "Free Legal Document Templates | FD AI";
 const DESCRIPTION =
-  "Lawyer-backed legal templates for founders, drafted around your answers by FD AI. Choose a document and a country, then draft it free in minutes.";
+  "Lawyer-backed legal templates, drafted around your answers by FD AI. Choose a document and a country, then draft it free in minutes.";
 const URL = `${SITE}/templates`;
 
 export const metadata: Metadata = {
@@ -38,7 +38,7 @@ export default function TemplatesHub() {
         <Breadcrumbs items={CRUMBS} />
         <header className="tpl-hero">
           <span className="kicker">FD AI templates</span>
-          <h1>Legal document templates for start-ups</h1>
+          <h1>Legal document templates, drafted around you</h1>
           <p className="tpl-lead">
             Not a blank form to fill in: pick a document and FD AI drafts it around your answers, from Founders Doc&rsquo;s own
             lawyer-written wording. Your first {TRIAL.credits} documents are free.
@@ -66,7 +66,7 @@ export default function TemplatesHub() {
             ))}
           </div>
           <p className="tpl-more">
-            More documents are on FD AI already — term sheets, employment, services, shareholders&rsquo; and loan agreements and
+            More documents are on FD AI already — employment, services, loan, shareholders&rsquo; agreements, term sheets and
             more. <Link href="/draft">See them all</Link>.
           </p>
         </section>
