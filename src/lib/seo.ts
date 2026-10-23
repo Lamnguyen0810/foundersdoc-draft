@@ -81,8 +81,8 @@ export function fdAiLd(opts: { url: string; description: string; documents: stri
     ...(opts.documents.length ? { featureList: opts.documents } : {}),
     offers: fdAiOffers(),
     audience: {
-      "@type": "BusinessAudience",
-      audienceType: "Founders and start-ups",
+      "@type": "Audience",
+      audienceType: "Individuals and businesses",
     },
     creator: ORGANIZATION,
     publisher: { "@id": ORGANIZATION["@id"] },

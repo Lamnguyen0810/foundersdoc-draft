@@ -35,7 +35,7 @@ const NDA_META = {
 /* /draft on its own is the catalogue of every document, so it gets its own
    title: sharing the NDA's made Google treat the two as copies. */
 const CATALOGUE_META = {
-  title: "Draft Start-up Legal Documents Online | FD AI",
+  title: "Draft Legal Documents Online in Minutes | FD AI",
   description:
     "Answer a few questions and FD AI drafts your NDA, employment, contractor or shareholders' agreement from Founders Doc's own playbook. Start free.",
 };

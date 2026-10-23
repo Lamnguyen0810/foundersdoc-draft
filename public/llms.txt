@@ -1,6 +1,6 @@
 # Founders Doc
 
-> Founders Doc is a legal practice for founders and start-ups, founded in Singapore in 2021, advising early-stage companies around the world. FD AI is its online drafting tool: answer a few questions and FD AI drafts a start-up legal document from Founders Doc's own lawyer-written masters, ready as a Word document in minutes. A practising lawyer is one click away. Anyone can start without an account.
+> Founders Doc is a legal practice for founders and start-ups, founded in Singapore in 2021, advising early-stage companies around the world. FD AI is its online drafting tool: answer a few questions and FD AI drafts a legal document from Founders Doc's own lawyer-written masters, ready as a Word document in minutes. A practising lawyer is one click away. Anyone can start free.
 
 ## FD AI — draft a document
 
