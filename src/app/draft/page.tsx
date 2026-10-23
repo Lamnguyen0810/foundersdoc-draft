@@ -29,7 +29,15 @@ import { fdAiLd, ldJson } from "@/lib/seo";
 const NDA_META = {
   title: "Draft an NDA Online in Minutes | FD AI by Founders Doc",
   description:
-    "Draft a mutual or one-way non-disclosure agreement (NDA) online. Answer a few questions, get a lawyer-backed NDA in Word in minutes. No account needed.",
+    "Draft a mutual or one-way non-disclosure agreement (NDA) online. Answer a few questions, get a lawyer-backed NDA in Word in minutes. Start free.",
+};
+
+/* /draft on its own is the catalogue of every document, so it gets its own
+   title: sharing the NDA's made Google treat the two as copies. */
+const CATALOGUE_META = {
+  title: "Draft Start-up Legal Documents Online | FD AI",
+  description:
+    "Answer a few questions and FD AI drafts your NDA, employment, contractor or shareholders' agreement from Founders Doc's own playbook. Start free.",
 };
 
 /* A shared link names the document it opens. The page used to say "Draft an
@@ -42,11 +50,11 @@ const inSentence = (label: string) => label.replace(/\b[A-Z][a-z]+\b/g, (w) => w
 /** Title, description and canonical link of /draft or of one document's link. */
 function pageMeta(slug: string | undefined, docTypes: { slug: string; label: string }[]) {
   const d = slug && slug !== "nda" ? docTypes.find((x) => x.slug === slug) : undefined;
-  if (!d) return { ...NDA_META, url: `https://foundersdoc.com${slug === "nda" ? draftHref("nda") : "/draft"}` };
+  if (!d) return slug === "nda" ? { ...NDA_META, url: `https://foundersdoc.com${draftHref("nda")}` } : { ...CATALOGUE_META, url: "https://foundersdoc.com/draft" };
   const article = /^[aeiou]/i.test(d.label) ? "an" : "a";
   return {
-    title: `Draft ${article} ${d.label} Online | FD AI by Founders Doc`,
-    description: `Answer a few questions and FD AI drafts ${article} ${inSentence(d.label)} from Founders Doc's own master — lawyer-backed, Word in minutes. Start without an account.`,
+    title: `Draft ${article} ${d.label} Online | FD AI`,
+    description: `Answer a few questions and FD AI drafts ${article} ${inSentence(d.label)} from Founders Doc's own master — lawyer-backed, Word in minutes. Start free.`,
     url: `https://foundersdoc.com${draftHref(d.slug)}`,
   };
 }

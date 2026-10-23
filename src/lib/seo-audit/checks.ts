@@ -121,7 +121,9 @@ export function readPage(input: { url: string; origin: string; status: number; l
 
   let images = 0;
   let imagesWithoutAlt = 0;
-  for (const m of html.matchAll(/<img\b[^>]*>/gi)) {
+  /* Only real images: an "<img>" written inside a script or a comment is not one. */
+  const markup = html.replace(/<script\b[\s\S]*?<\/script>/gi, " ").replace(/<!--[\s\S]*?-->/g, " ");
+  for (const m of markup.matchAll(/<img\b[^>]*>/gi)) {
     images += 1;
     if (!/\balt\s*=/i.test(m[0])) imagesWithoutAlt += 1;
   }
