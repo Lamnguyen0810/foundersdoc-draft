@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SITE } from "@/lib/seo";
-import { TRIAL } from "@/lib/billing/plans";
-import { TEMPLATES, countryPage, draftLink } from "@/lib/templates/data";
-import { Breadcrumbs, CtaBand, Disclaimer, Faqs, Steps, TemplateLd } from "../../parts";
-import TemplateCta from "../../TemplateCta";
+import { TEMPLATES, countryPage, draftLink, inSentence } from "@/lib/templates/data";
+import { Aside, CtaBand, Disclaimer, Faqs, Hero, Steps, TemplateLd } from "../../parts";
 import "../../templates.css";
 
 /** /templates/<doc>/<country> — one document under one country's law. */
@@ -47,7 +45,7 @@ export default async function TemplateCountryPage({ params }: { params: Params }
     { name: page.short, href: `/templates/${t.slug}/${page.slug}` },
   ];
   const href = draftLink(t);
-  const label = `Draft my ${t.short} free`;
+  const label = `Draft my ${inSentence(t)} free`;
   const source = `template:${t.slug}:${page.slug}`;
   const faqs = [...page.faqs, ...t.faqs];
   const others = t.countries.filter((c) => c.slug !== page.slug);
@@ -55,82 +53,82 @@ export default async function TemplateCountryPage({ params }: { params: Params }
   return (
     <main className="tpl">
       <TemplateLd crumbs={crumbs} faqs={faqs} page={{ url, name: page.title, description: page.description }} />
-      <div className="wrap tpl-wrap">
-        <Breadcrumbs items={crumbs} />
-        <header className="tpl-hero">
-          <span className="kicker">
-            <span aria-hidden="true">{page.flag}</span> {t.short} template · {page.short}
-          </span>
-          <h1>
-            {t.short} template for {page.name}
-          </h1>
-          <p className="tpl-lead">{page.lead}</p>
-          <div className="tpl-hero-actions">
-            <TemplateCta href={href} label={label} source={source} />
-            <span className="tpl-small">{TRIAL.credits} free documents · no card needed</span>
-          </div>
+      <Hero
+        crumbs={crumbs}
+        eyebrow={`${page.flag} ${t.short} template · ${page.short}`}
+        title={`${t.short} template for ${page.name}`}
+        lead={page.lead}
+        cta={{ href, label, source }}
+        chips={[t.beta ? "Beta on FD AI" : "Ready on FD AI", `${page.short} law`, "No card needed", "Word download"]}
+      />
+
+      <div className="wrap tpl-body">
+        <div className="tpl-main">
           <p className="tpl-tip">
             <strong>In FD AI:</strong> {page.lawChoice}
           </p>
-        </header>
 
-        <section className="tpl-section" aria-labelledby="tpl-covers">
-          <h2 id="tpl-covers">What this {t.short} covers</h2>
-          <dl className="tpl-points">
-            {t.covers.map((c) => (
-              <div key={c.label}>
-                <dt>{c.label}</dt>
-                <dd>{c.text}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
+          <section className="tpl-section" aria-labelledby="tpl-law">
+            <h2 id="tpl-law">{page.short} law points to know</h2>
+            <ul className="tpl-checks tpl-checks-law">
+              {page.lawPoints.map((c) => (
+                <li key={c.label}>
+                  <strong>{c.label}</strong>
+                  <span>{c.text}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-        <section className="tpl-section" aria-labelledby="tpl-law">
-          <h2 id="tpl-law">
-            {page.short} law points to know
-          </h2>
-          <dl className="tpl-points tpl-points-law">
-            {page.lawPoints.map((c) => (
-              <div key={c.label}>
-                <dt>{c.label}</dt>
-                <dd>{c.text}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
+          <section className="tpl-section" aria-labelledby="tpl-covers">
+            <h2 id="tpl-covers">What this {inSentence(t)} covers</h2>
+            <ul className="tpl-checks">
+              {t.covers.map((c) => (
+                <li key={c.label}>
+                  <strong>{c.label}</strong>
+                  <span>{c.text}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-        <Steps docShort={t.short} />
-        <Faqs items={faqs} />
+          <Steps docShort={inSentence(t)} />
+          <Faqs items={faqs} />
 
-        <section className="tpl-section" aria-labelledby="tpl-other">
-          <h2 id="tpl-other">{t.short} templates for other countries</h2>
-          <ul className="tpl-chips">
-            {others.map((c) => (
-              <li key={c.slug}>
-                <Link href={`/templates/${t.slug}/${c.slug}`}>
-                  <span aria-hidden="true">{c.flag}</span> {t.short} for {c.short}
-                </Link>
+          <section className="tpl-section" aria-labelledby="tpl-other">
+            <h2 id="tpl-other">{t.short} templates for other countries</h2>
+            <ul className="tpl-chips">
+              {others.map((c) => (
+                <li key={c.slug}>
+                  <Link href={`/templates/${t.slug}/${c.slug}`}>
+                    <span aria-hidden="true">{c.flag}</span> {t.short} for {c.short}
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link href={`/templates/${t.slug}`}>All countries</Link>
               </li>
-            ))}
-            <li>
-              <Link href={`/templates/${t.slug}`}>All countries</Link>
-            </li>
-          </ul>
-        </section>
+            </ul>
+          </section>
 
-        <section className="tpl-section" aria-labelledby="tpl-read">
-          <h2 id="tpl-read">Related reading</h2>
-          <ul className="tpl-reading">
-            {t.reading.map((r) => (
-              <li key={r.href}>
-                <a href={r.href}>{r.title}</a>
-              </li>
-            ))}
-          </ul>
-        </section>
+          {t.reading.length > 0 && (
+            <section className="tpl-section" aria-labelledby="tpl-read">
+              <h2 id="tpl-read">Related reading</h2>
+              <ul className="tpl-reading">
+                {t.reading.map((r) => (
+                  <li key={r.href}>
+                    <a href={r.href}>{r.title}</a>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </div>
+        <Aside icon={t.icon} name={`${t.short} · ${page.short}`} href={href} label={label} source={source} beta={t.beta} />
+      </div>
 
-        <CtaBand href={href} label={label} source={`${source}:end`} title={`Draft your ${page.short} ${t.short} now`} />
+      <div className="wrap tpl-end">
+        <CtaBand href={href} label={label} source={`${source}:end`} title={`Draft your ${page.short} ${inSentence(t)} now`} />
         <Disclaimer />
       </div>
     </main>

@@ -16,6 +16,7 @@ import "server-only";
  */
 
 import { STATIC_ARTICLES } from "@/lib/blog/html";
+import { TEMPLATES } from "@/lib/templates/data";
 import { publishedCards } from "@/lib/blog/store";
 import { draftHref } from "@/lib/doc-links";
 import { loadDocTypes } from "@/lib/doctypes.server";
@@ -148,7 +149,8 @@ export async function scanSite(origin: string): Promise<ScanReport> {
   const opportunities: Opportunity[] = [];
   try {
     const [{ docTypes }, cards] = await Promise.all([loadDocTypes(), publishedCards().catch(() => [])]);
-    const titles = [...STATIC_ARTICLES.map((a) => a.title), ...cards.map((c) => c.title)].map((t) => t.toLowerCase());
+    /* A guide = a blog article or a template page (lib/templates) about the document. */
+    const titles = [...STATIC_ARTICLES.map((a) => a.title), ...cards.map((c) => c.title), ...TEMPLATES.map((t) => t.name)].map((t) => t.toLowerCase());
     for (const d of docTypes.filter((x) => x.slug !== "cofounder")) {
       const words = DOC_WORDS[d.slug] ?? [d.label.toLowerCase()];
       const guides = titles.filter((t) => words.some((w) => t.includes(w))).length;
