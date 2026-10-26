@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SITE } from "@/lib/seo";
-import { TEMPLATES, draftLink, inSentence, templateBySlug } from "@/lib/templates/data";
+import { TEMPLATES, draftLink, inSentence, pageLabel, templateBySlug } from "@/lib/templates/data";
 import { Aside, CtaBand, Disclaimer, Faqs, Hero, Steps, TemplateLd } from "../parts";
 import "../templates.css";
 
@@ -46,6 +46,8 @@ export default async function TemplateDocPage({ params }: { params: Promise<{ do
   const href = draftLink(t);
   const label = `Draft my ${inSentence(t)} free`;
   const source = `template:${t.slug}`;
+  const countries = t.countries.filter((c) => c.kind !== "type");
+  const kinds = t.countries.filter((c) => c.kind === "type");
   const chips = [t.beta ? "Beta on FD AI" : "Ready on FD AI", "No card needed", "Word download"];
 
   return (
@@ -68,11 +70,33 @@ export default async function TemplateDocPage({ params }: { params: Promise<{ do
             </p>
           )}
 
-          {t.countries.length > 0 && (
+          {kinds.length > 0 && (
+            <section className="tpl-section" aria-labelledby="tpl-kind">
+              <h2 id="tpl-kind">Mutual or one-way?</h2>
+              <ul className="tpl-countries tpl-kinds">
+                {kinds.map((c) => (
+                  <li key={c.slug}>
+                    <Link href={`/templates/${t.slug}/${c.slug}`}>
+                      <span className="tpl-flag" aria-hidden="true">
+                        {c.flag}
+                      </span>
+                      <strong>{pageLabel(t, c)}</strong>
+                      <span>{c.lead.split(". ")[0]}.</span>
+                      <span className="tpl-go" aria-hidden="true">
+                        →
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          {countries.length > 0 && (
             <section className="tpl-section" aria-labelledby="tpl-country">
               <h2 id="tpl-country">Choose your country</h2>
               <ul className="tpl-countries">
-                {t.countries.map((c) => (
+                {countries.map((c) => (
                   <li key={c.slug}>
                     <Link href={`/templates/${t.slug}/${c.slug}`}>
                       <span className="tpl-flag" aria-hidden="true">
