@@ -118,3 +118,72 @@ export function Disclaimer() {
     </p>
   );
 }
+
+/** The warm hero band at the top of every template page (the /pricing look). */
+export function Hero({
+  crumbs,
+  eyebrow,
+  title,
+  lead,
+  cta,
+  chips,
+}: {
+  crumbs: Crumb[];
+  eyebrow: string;
+  title: string;
+  lead: string;
+  cta?: { href: string; label: string; source: string };
+  chips: string[];
+}) {
+  return (
+    <header className="tpl-top">
+      <div className="wrap tpl-top-inner">
+        <Breadcrumbs items={crumbs} />
+        <div className="tpl-eyebrow">{eyebrow}</div>
+        <h1>{title}</h1>
+        <p className="tpl-lead">{lead}</p>
+        {cta && (
+          <div className="tpl-hero-actions">
+            <TemplateCta href={cta.href} label={cta.label} source={cta.source} className="btn btn-black tpl-cta" />
+            <Link className="btn btn-white tpl-cta" href="/pricing">
+              See pricing
+            </Link>
+          </div>
+        )}
+        <ul className="tpl-pills" aria-label="At a glance">
+          {chips.map((c) => (
+            <li key={c}>{c}</li>
+          ))}
+        </ul>
+      </div>
+    </header>
+  );
+}
+
+/** The card beside the content on wide screens: the one action, always in reach. */
+export function Aside({ icon, name, href, label, source, beta }: { icon: string; name: string; href: string; label: string; source: string; beta?: boolean }) {
+  return (
+    <aside className="tpl-aside" aria-label="Draft it now">
+      <div className="tpl-aside-card">
+        <div className="tpl-aside-head">
+          <span className="tpl-icon" aria-hidden="true">
+            {icon}
+          </span>
+          <div>
+            <strong>{name}</strong>
+            <span className={beta ? "tpl-tag beta" : "tpl-tag ready"}>{beta ? "Beta" : "Ready"}</span>
+          </div>
+        </div>
+        <ul className="tpl-aside-list">
+          <li>Drafted around your answers</li>
+          <li>Founders Doc&rsquo;s lawyer-written wording</li>
+          <li>Edit, then download as Word</li>
+        </ul>
+        <TemplateCta href={href} label={label} source={`${source}:aside`} className="btn btn-gold tpl-cta tpl-aside-cta" />
+        <p className="tpl-aside-small">
+          {TRIAL.credits} free documents · no card needed · <Link href="/pricing">pricing</Link>
+        </p>
+      </div>
+    </aside>
+  );
+}
