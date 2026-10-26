@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SITE } from "@/lib/seo";
-import { TEMPLATES, countryPage, draftLink, inSentence } from "@/lib/templates/data";
+import { TEMPLATES, countryPage, draftLink, inSentence, pageLabel } from "@/lib/templates/data";
 import { Aside, CtaBand, Disclaimer, Faqs, Hero, Steps, TemplateLd } from "../../parts";
 import "../../templates.css";
 
@@ -55,11 +55,11 @@ export default async function TemplateCountryPage({ params }: { params: Params }
       <TemplateLd crumbs={crumbs} faqs={faqs} page={{ url, name: page.title, description: page.description }} />
       <Hero
         crumbs={crumbs}
-        eyebrow={`${page.flag} ${t.short} template · ${page.short}`}
-        title={`${t.short} template for ${page.name}`}
+        eyebrow={`${page.flag} ${pageLabel(t, page)} template`}
+        title={page.h1 ?? `${t.short} template for ${page.name}`}
         lead={page.lead}
         cta={{ href, label, source }}
-        chips={[t.beta ? "Beta on FD AI" : "Ready on FD AI", `${page.short} law`, "No card needed", "Word download"]}
+        chips={[t.beta ? "Beta on FD AI" : "Ready on FD AI", page.kind === "type" ? "Any country's law" : `${page.short} law`, "No card needed", "Word download"]}
       />
 
       <div className="wrap tpl-body">
@@ -69,8 +69,8 @@ export default async function TemplateCountryPage({ params }: { params: Params }
           </p>
 
           <section className="tpl-section" aria-labelledby="tpl-law">
-            <h2 id="tpl-law">{page.short} law points to know</h2>
-            <ul className="tpl-checks tpl-checks-law">
+            <h2 id="tpl-law">{page.pointsTitle ?? `${page.short} law points to know`}</h2>
+            <ul className={page.kind === "type" ? "tpl-checks" : "tpl-checks tpl-checks-law"}>
               {page.lawPoints.map((c) => (
                 <li key={c.label}>
                   <strong>{c.label}</strong>
@@ -96,12 +96,12 @@ export default async function TemplateCountryPage({ params }: { params: Params }
           <Faqs items={faqs} />
 
           <section className="tpl-section" aria-labelledby="tpl-other">
-            <h2 id="tpl-other">{t.short} templates for other countries</h2>
+            <h2 id="tpl-other">More {t.short} templates</h2>
             <ul className="tpl-chips">
               {others.map((c) => (
                 <li key={c.slug}>
                   <Link href={`/templates/${t.slug}/${c.slug}`}>
-                    <span aria-hidden="true">{c.flag}</span> {t.short} for {c.short}
+                    <span aria-hidden="true">{c.flag}</span> {pageLabel(t, c)}
                   </Link>
                 </li>
               ))}
@@ -124,11 +124,11 @@ export default async function TemplateCountryPage({ params }: { params: Params }
             </section>
           )}
         </div>
-        <Aside icon={t.icon} name={`${t.short} · ${page.short}`} href={href} label={label} source={source} beta={t.beta} />
+        <Aside icon={t.icon} name={pageLabel(t, page)} href={href} label={label} source={source} beta={t.beta} />
       </div>
 
       <div className="wrap tpl-end">
-        <CtaBand href={href} label={label} source={`${source}:end`} title={`Draft your ${page.short} ${inSentence(t)} now`} />
+        <CtaBand href={href} label={label} source={`${source}:end`} title={page.kind === "type" ? `Draft your ${page.short.toLowerCase()} ${inSentence(t)} now` : `Draft your ${page.short} ${inSentence(t)} now`} />
         <Disclaimer />
       </div>
     </main>

@@ -25,6 +25,12 @@ export interface Faq {
 export interface CountryPage {
   /** In the address: /templates/nda/<slug>. */
   slug: string;
+  /** "type" = a kind of the document (mutual, one-way) rather than a country. */
+  kind?: "country" | "type";
+  /** The page heading; without it, "<short> template for <name>". */
+  h1?: string;
+  /** Heading of the points section; without it, "<short> law points to know". */
+  pointsTitle?: string;
   /** As it follows "for": "Singapore", "the UK". */
   name: string;
   /** For headings and the menu: "Singapore", "UK". */
@@ -184,6 +190,149 @@ export const TEMPLATES: TemplateDoc[] = [
           { q: "Which state's law should I choose?", a: "Usually the state where you or your company are based. Delaware and New York are common neutral choices for business contracts between parties in different states." },
           { q: "Is one NDA valid in every state?", a: "An NDA governed by one state's law can generally be enforced against parties in other states. The chosen state's law decides how it is read." },
           { q: "Can I use this NDA with a non-US company?", a: "Yes. Choose the governing law you agree on; for parties in different countries, arbitration is often the practical choice for disputes." },
+        ],
+      },
+      {
+        slug: "mutual",
+        kind: "type",
+        name: "a mutual NDA",
+        short: "Mutual",
+        flag: "🤝",
+        searchPhrase: "mutual NDA template",
+        h1: "Mutual NDA template — when both sides share",
+        pointsTitle: "When a mutual NDA is the right choice",
+        title: "Mutual NDA Template — Draft a Two-Way NDA Free | FD AI",
+        description:
+          "Draft a mutual NDA online in minutes: both parties share and both protect each other's information. Any country's law, Word download. Free to start.",
+        lead: "In a mutual NDA, both sides share confidential information and both promise to keep the other's information private. FD AI drafts one from Founders Doc's own wording, under the law you choose.",
+        lawChoice: "Choose \"Mutual: both sides disclose information\" in the Direction question. The same duties then apply to both parties.",
+        lawPoints: [
+          { label: "Both sides share", text: "Use it when information will flow both ways, such as two companies exploring a partnership or a joint project." },
+          { label: "Balanced terms", text: "The same definition of confidential information, the same purpose limit and the same time period apply to both parties." },
+          { label: "Easier to agree", text: "Because neither side is favoured, the other party is often quicker to sign it." },
+          { label: "Not always needed", text: "If only you will share information, a one-way NDA is simpler and puts no duties on you." },
+        ],
+        faqs: [
+          { q: "What is the difference between a mutual and a one-way NDA?", a: "In a one-way NDA only one party shares information and only the other promises to keep it private. In a mutual NDA both share and both promise." },
+          { q: "Is a mutual NDA weaker than a one-way NDA?", a: "No. The protection for your information is the same; the difference is that you also take on the duty to protect the other side's information." },
+          { q: "Can I use a mutual NDA with a supplier or investor?", a: "Yes, if both sides will share confidential information. If only you will share, a one-way NDA usually fits better." },
+        ],
+      },
+      {
+        slug: "one-way",
+        kind: "type",
+        name: "a one-way NDA",
+        short: "One-way",
+        flag: "➡️",
+        searchPhrase: "one-way NDA template",
+        h1: "One-way NDA template — when only one side shares",
+        pointsTitle: "When a one-way NDA is the right choice",
+        title: "One-Way NDA Template — Draft a Unilateral NDA Free | FD AI",
+        description:
+          "Draft a one-way (unilateral) NDA online in minutes, whether you share the information or receive it. Any country's law, Word download. Free to start.",
+        lead: "In a one-way NDA, only one party shares confidential information and only the other promises to keep it private. FD AI drafts one from your side — sharing or receiving — from Founders Doc's own wording.",
+        lawChoice: "Choose \"One-way: we disclose information\" or \"One-way: we receive information\" in the Direction question, so the terms suit your side.",
+        lawPoints: [
+          { label: "Only one side shares", text: "Use it when you show your plans, product or numbers to someone who will not share theirs, such as a freelancer, supplier or buyer." },
+          { label: "Your side matters", text: "If you share, the NDA protects you. If you receive, FD AI keeps your duties clear and reasonable." },
+          { label: "Simple to sign", text: "Only one party takes on duties, so it is usually short and quick to agree." },
+          { label: "Switch if needed", text: "If the other side will share too, choose mutual instead so both are protected." },
+        ],
+        faqs: [
+          { q: "Is a one-way NDA the same as a unilateral NDA?", a: "Yes. Both names mean an NDA where only one party shares confidential information." },
+          { q: "Can I draft a one-way NDA if I am the one receiving the information?", a: "Yes. Tell FD AI you are the receiving party and it drafts the NDA from your side, with duties that are clear and limited to the purpose." },
+          { q: "When should I use a mutual NDA instead?", a: "When both sides will share confidential information, for example in a partnership discussion." },
+        ],
+      },
+      {
+        slug: "malaysia",
+        name: "Malaysia",
+        short: "Malaysia",
+        flag: "🇲🇾",
+        searchPhrase: "NDA template Malaysia",
+        title: "NDA Template Malaysia — Draft a Malaysian NDA Free | FD AI",
+        description:
+          "Draft a Malaysian-law NDA online in minutes: mutual or one-way, Malaysian courts or arbitration, data protection when needed. Free to start.",
+        lead: "Create a Non-Disclosure Agreement governed by Malaysian law in a few minutes. FD AI asks plain-English questions and drafts the NDA from Founders Doc's own wording.",
+        lawChoice: "Choose Malaysia as the governing law.",
+        lawPoints: [
+          { label: "Governing law", text: "The NDA is governed by Malaysian law, whose general contract rules are set out in the Contracts Act 1950." },
+          { label: "Disputes", text: "Choose the Malaysian courts, or arbitration — for example at the Asian International Arbitration Centre in Kuala Lumpur." },
+          { label: "No hidden non-compete", text: "Malaysian law is strict about restraints of trade, so FD AI keeps the NDA to confidentiality and does not add a non-compete." },
+          { label: "Signing", text: "Electronic signatures are generally recognised under the Electronic Commerce Act 2006." },
+          { label: "Personal data", text: "If personal data will be shared, the Personal Data Protection Act 2010 may apply; answer Yes and a data protection clause is added." },
+        ],
+        faqs: [
+          { q: "Can a Malaysian NDA stop someone working for a competitor?", a: "An NDA protects information, not competition. Malaysian law treats restraints of trade strictly, so a separate non-compete may not be enforceable. Ask a Malaysian lawyer if you need one." },
+          { q: "Can I sign the NDA electronically in Malaysia?", a: "Generally yes for commercial agreements like NDAs. Keep the signed copy and a record of how it was signed." },
+        ],
+      },
+      {
+        slug: "hong-kong",
+        name: "Hong Kong",
+        short: "Hong Kong",
+        flag: "🇭🇰",
+        searchPhrase: "NDA template Hong Kong",
+        title: "NDA Template Hong Kong — Draft a Hong Kong NDA Free | FD AI",
+        description:
+          "Draft a Hong Kong-law NDA online in minutes: mutual or one-way, Hong Kong courts or arbitration, data privacy clause when needed. Free to start.",
+        lead: "Create a Non-Disclosure Agreement governed by Hong Kong law in a few minutes. FD AI asks plain-English questions and drafts the NDA from Founders Doc's own wording.",
+        lawChoice: "Choose Hong Kong as the governing law.",
+        lawPoints: [
+          { label: "Governing law", text: "The NDA is governed by Hong Kong law, a common law system familiar to international businesses." },
+          { label: "Disputes", text: "Choose the Hong Kong courts, or arbitration in Hong Kong — often used when the other party is overseas." },
+          { label: "Third parties", text: "The NDA can make clear that only the parties can enforce it, as the Contracts (Rights of Third Parties) Ordinance allows." },
+          { label: "Signing", text: "Electronic signatures are generally recognised under the Electronic Transactions Ordinance." },
+          { label: "Personal data", text: "If personal data will be shared, the Personal Data (Privacy) Ordinance applies; answer Yes and a data protection clause is added." },
+        ],
+        faqs: [
+          { q: "Should I choose the Hong Kong courts or arbitration?", a: "If both parties are in Hong Kong, the courts usually suit an NDA. If the other party is in mainland China or elsewhere, arbitration in Hong Kong is often easier to enforce." },
+          { q: "Can I sign the NDA electronically in Hong Kong?", a: "Generally yes for commercial agreements like NDAs. Keep the signed copy and a record of how it was signed." },
+        ],
+      },
+      {
+        slug: "australia",
+        name: "Australia",
+        short: "Australia",
+        flag: "🇦🇺",
+        searchPhrase: "NDA template Australia",
+        title: "NDA Template Australia — Draft an Australian NDA | FD AI",
+        description:
+          "Draft an NDA under the law of your Australian state or territory in minutes: mutual or one-way, courts or arbitration, privacy clause. Free to start.",
+        lead: "Create a Non-Disclosure Agreement for Australia in a few minutes. Contract law is applied state by state, so FD AI lets you choose your state or territory, then drafts the NDA from Founders Doc's own wording.",
+        lawChoice: "Choose Australia › your state or territory: New South Wales, Victoria, Queensland, Western Australia, South Australia, Tasmania, the ACT or the Northern Territory.",
+        lawPoints: [
+          { label: "Governing law", text: "Choose the state or territory where you are based or where the work happens; its courts and law then apply." },
+          { label: "Disputes", text: "Choose the courts of that state or territory, or arbitration — often preferred when the other party is overseas." },
+          { label: "Signing", text: "Electronic signatures are generally recognised under the federal and state electronic transactions laws." },
+          { label: "Personal data", text: "If personal information will be shared, the Privacy Act 1988 may apply to your business; answer Yes and a data protection clause is added." },
+        ],
+        faqs: [
+          { q: "Which state's law should I choose?", a: "Usually the state or territory where you or your business are based. New South Wales and Victoria are common choices for business contracts." },
+          { q: "Can I sign the NDA electronically in Australia?", a: "Generally yes for commercial agreements like NDAs. Keep the signed copy and a record of how it was signed." },
+        ],
+      },
+      {
+        slug: "india",
+        name: "India",
+        short: "India",
+        flag: "🇮🇳",
+        searchPhrase: "NDA template India",
+        title: "NDA Template India — Draft an Indian-Law NDA Free | FD AI",
+        description:
+          "Draft an Indian-law NDA online in minutes: mutual or one-way, courts or arbitration, data protection when needed. Lawyer-backed. Free to start.",
+        lead: "Create a Non-Disclosure Agreement governed by Indian law in a few minutes. FD AI asks plain-English questions and drafts the NDA from Founders Doc's own wording.",
+        lawChoice: "Choose India as the governing law.",
+        lawPoints: [
+          { label: "Governing law", text: "The NDA is governed by Indian law, whose general contract rules are in the Indian Contract Act 1872." },
+          { label: "Disputes", text: "Choose the Indian courts, or arbitration under the Arbitration and Conciliation Act 1996 — common for business disputes." },
+          { label: "No hidden non-compete", text: "Indian law generally does not enforce restraints of trade, so FD AI keeps the NDA to confidentiality and does not add a non-compete." },
+          { label: "Stamp duty", text: "Agreements in India may need stamp duty paid under state stamp laws to be relied on in court. Check the rate for your state before signing." },
+          { label: "Personal data", text: "If personal data will be shared, India's data protection law may apply; answer Yes and a data protection clause is added." },
+        ],
+        faqs: [
+          { q: "Does an NDA need to be stamped in India?", a: "Often yes. Stamp duty depends on the state, and an unstamped agreement can be harder to rely on in court. Check the local rate before signing." },
+          { q: "Can I sign the NDA electronically in India?", a: "Generally yes under the Information Technology Act 2000. Stamp duty may still apply, so check how it is paid for e-signed agreements in your state." },
         ],
       },
     ],
@@ -380,6 +529,9 @@ export const TEMPLATES: TemplateDoc[] = [
     countries: [],
   },
 ];
+
+/** How a sub-page is named in links: "NDA for Singapore", "Mutual NDA". */
+export const pageLabel = (t: TemplateDoc, c: CountryPage) => (c.kind === "type" ? `${c.short} ${t.short}` : `${t.short} for ${c.short}`);
 
 export function templateBySlug(slug: string): TemplateDoc | undefined {
   return TEMPLATES.find((t) => t.slug === slug);
