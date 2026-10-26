@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE } from "@/lib/seo";
 import { TRIAL } from "@/lib/billing/plans";
-import { TEMPLATES, draftLink } from "@/lib/templates/data";
-import { CtaBand, Disclaimer, Hero, TemplateLd } from "./parts";
+import { TEMPLATES, draftLink, pageLabel } from "@/lib/templates/data";
+import { Breadcrumbs, CtaBand, Disclaimer, TemplateLd } from "./parts";
 import "./templates.css";
 
 /**
@@ -40,49 +40,42 @@ export default function TemplatesHub() {
   return (
     <main className="tpl">
       <TemplateLd crumbs={CRUMBS} page={{ url: URL, name: TITLE, description: DESCRIPTION }} />
-      <Hero
-        crumbs={CRUMBS}
-        eyebrow="FD AI templates"
-        title="Legal document templates, drafted around you"
-        lead={`Not a blank form to fill in: pick a document and FD AI drafts it around your answers, from Founders Doc's own lawyer-written wording. Your first ${TRIAL.credits} documents are free.`}
-        chips={["No card needed", "Lawyer-written wording", "Word download"]}
-      />
+      <div className="wrap tpl-wrap">
+        <Breadcrumbs items={CRUMBS} />
+        <header className="tpl-hero">
+          <span className="kicker">FD AI templates</span>
+          <h1>Legal document templates, drafted around you</h1>
+          <p className="tpl-lead">
+            Not a blank form to fill in: pick a document and FD AI drafts it around your answers, from Founders Doc&rsquo;s own
+            lawyer-written wording. Your first {TRIAL.credits} documents are free.
+          </p>
+        </header>
 
-      <div className="wrap tpl-hub">
-        <section aria-label="Documents">
-          <ul className="tpl-grid">
+        <section className="tpl-section" aria-label="Documents">
+          <div className="tpl-cards">
             {TEMPLATES.map((t) => (
-              <li key={t.slug} className="tpl-doc">
-                <div className="tpl-doc-head">
-                  <span className="tpl-icon" aria-hidden="true">
-                    {t.icon}
-                  </span>
-                  <span className={t.beta ? "tpl-tag beta" : "tpl-tag ready"}>{t.beta ? "Beta" : "Ready"}</span>
-                </div>
+              <article className="tpl-card" key={t.slug}>
                 <h2>
-                  <Link className="tpl-doc-link" href={`/templates/${t.slug}`}>
-                    {t.name}
-                  </Link>
+                  <Link href={`/templates/${t.slug}`}>{t.name}</Link>
                 </h2>
-                <p>{t.summary}</p>
-                {t.countries.length > 0 && (
-                  <ul className="tpl-flags" aria-label={`${t.short} by country`}>
-                    {t.countries.map((c) => (
-                      <li key={c.slug}>
-                        <Link href={`/templates/${t.slug}/${c.slug}`} title={`${t.short} for ${c.short}`}>
-                          <span aria-hidden="true">{c.flag}</span> {c.short}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="tpl-doc-foot">
-                  <span>View template</span>
-                  <span aria-hidden="true">→</span>
-                </div>
-              </li>
+                <p>{t.lead}</p>
+                <ul className="tpl-chips" aria-label={`${t.short} templates`}>
+                  {t.countries.length === 0 && (
+                    <li>
+                      <Link href={`/templates/${t.slug}`}>See the {t.short.toLowerCase()} template ›</Link>
+                    </li>
+                  )}
+                  {t.countries.map((c) => (
+                    <li key={c.slug}>
+                      <Link href={`/templates/${t.slug}/${c.slug}`}>
+                        <span aria-hidden="true">{c.flag}</span> {pageLabel(t, c)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </article>
             ))}
-          </ul>
+          </div>
           <p className="tpl-more">
             More documents are on FD AI already — term sheets, share purchase and subscription, investment, convertible loan, IP assignment
             and joint venture agreements. <Link href="/draft">See them all</Link>.
