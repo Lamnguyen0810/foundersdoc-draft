@@ -1,0 +1,142 @@
+/* ESOP dashboard (app/esop): the mock-up Rachel approved on 28 Oct 2026
+   ("website with a sheet inside"), value for value. A client portal, so it
+   keeps its own light palette rather than following FD AI's dark mode.
+   Class names that the site already uses (.sheet, .btn, .grid, .doc, .foot,
+   .hint, .search) carry an e- prefix so the site's rules cannot reach in. */
+
+/* The client sees their own header only: no FD AI menu, footer or strips. */
+body:has(.esop) > nav.nav,
+body:has(.esop) .foot,
+body:has(.esop) .strip-warn {
+  display: none;
+}
+
+.esop {
+  --black: #0f0f0f;
+  --g5: #666;
+  --g4: #9a9a9a;
+  --g3: #d6d6d6;
+  --g2: #e9e9e9;
+  --g1: #f4f4f4;
+  --gold: #f3bf4b;
+  --goldS: #fbeec9;
+  --goldL: #fdf6e3;
+  --e-display: "Geist", -apple-system, "Segoe UI", Arial, sans-serif;
+  --e-sans: "Inter", -apple-system, "Segoe UI", Arial, sans-serif;
+  min-height: 100vh;
+  background: #f6f6f4;
+  font-family: var(--e-sans);
+  color: var(--black);
+  font-size: 14px;
+  color-scheme: light;
+}
+.esop *, .esop *::before, .esop *::after { box-sizing: border-box; }
+.esop button { font: inherit; cursor: pointer; color: inherit; }
+.esop .ico { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* Header */
+.esop-head { background: #fff; border-bottom: 1px solid var(--g2); height: 64px; display: flex; align-items: center; gap: 16px; padding: 0 28px; }
+.esop-head .fd { background: #161616; color: #fff; font-size: 10px; letter-spacing: 3.2px; font-weight: 500; padding: 0 14px; height: 28px; display: grid; place-items: center; white-space: nowrap; }
+.esop-head .vr { width: 1px; height: 24px; background: #dcdcd8; }
+.esop-head img { height: 26px; display: block; }
+.esop-head .crumb { font-size: 12px; color: var(--g5); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+.esop-head .me { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--g5); white-space: nowrap; }
+.esop-head .lock { display: inline-flex; align-items: center; gap: 6px; background: #161616; color: #fff; border-radius: 20px; padding: 5px 11px; font-weight: 600; }
+.esop-head .lock b { color: var(--gold); font-size: 9px; }
+.esop-head .av { width: 30px; height: 30px; border-radius: 50%; background: var(--gold); display: grid; place-items: center; font-weight: 600; font-size: 11px; color: #161616; }
+
+/* Page */
+.esop-main { max-width: 1320px; margin: 0 auto; padding: 26px 28px 40px; }
+.esop .head { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+.esop h1 { font-family: var(--e-display); font-weight: 600; font-size: 28px; letter-spacing: -0.03em; margin: 0; line-height: 1.2; }
+.esop .sub { color: var(--g5); margin: 4px 0 0; }
+
+/* Four figures */
+.esop .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+.esop .k { background: #fff; border: 1px solid #ebebe8; border-radius: 12px; padding: 16px 18px; }
+.esop .k span { display: block; color: var(--g5); font-size: 12px; }
+.esop .k b { font-family: var(--e-display); font-size: 26px; font-weight: 600; letter-spacing: -0.03em; }
+.esop .k small { display: block; color: var(--g4); font-size: 12px; margin-top: 2px; }
+.esop .k.hl { background: #161616; border-color: #161616; color: #fff; }
+.esop .k.hl span, .esop .k.hl small { color: #bdbdbd; }
+.esop .k.hl b { color: var(--gold); }
+
+/* The sheet */
+.esop .e-sheet { background: #fff; border: 1px solid #e2e2df; border-radius: 12px; overflow: hidden; }
+.esop .bar { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #e2e2df; background: #fafafa; flex-wrap: wrap; }
+.esop .e-search { display: flex; align-items: center; gap: 6px; background: #fff; border: 1px solid #e2e2df; border-radius: 6px; padding: 6px 10px; color: var(--g4); min-width: 220px; }
+.esop .e-search input { border: 0; outline: 0; font: inherit; width: 100%; background: transparent; color: var(--black); }
+.esop .e-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e2e2df; background: #fff; border-radius: 6px; padding: 6px 11px; font-weight: 600; font-size: 12.5px; }
+.esop .e-btn.g { background: var(--gold); border-color: var(--gold); color: #161616; }
+.esop .e-btn.ghost { border-style: dashed; color: var(--g5); font-weight: 500; }
+.esop .e-hint { margin-left: auto; color: var(--g4); font-size: 12px; }
+.esop .e-grid { overflow: auto; max-height: 520px; }
+.esop table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.esop th, .esop td { border-right: 1px solid #ececea; border-bottom: 1px solid #ececea; padding: 0 10px; height: 32px; white-space: nowrap; }
+.esop thead th { position: sticky; top: 0; background: #f3f3f1; font-weight: 600; color: #3d3d3d; font-size: 12px; text-align: left; z-index: 2; }
+.esop thead tr.letters th { background: #fafafa; color: var(--g4); font-weight: 500; text-align: center; height: 22px; font-size: 11px; top: 0; }
+.esop thead tr.names th { top: 22px; }
+.esop thead tr.names.solo th { top: 0; }
+.esop td.rn, .esop th.rn { background: #fafafa; color: var(--g4); text-align: center; width: 42px; min-width: 42px; padding: 0; font-size: 11px; position: sticky; left: 0; z-index: 1; }
+.esop thead th.rn { z-index: 3; }
+.esop td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.esop td.c { text-align: center; }
+.esop td.ed { background: #fff; }
+.esop td.ed input { border: 0; outline: 0; background: transparent; font: inherit; color: inherit; padding: 0; margin: 0; width: auto; min-width: 2ch; height: 30px; text-align: inherit; }
+.esop td.ed:focus-within { outline: 2px solid var(--gold); outline-offset: -2px; background: #fffdf5; }
+.esop td.calc { color: #555; background: #fcfcfb; }
+.esop tr.soon td { background: var(--goldL); }
+.esop tr.soon td.calc { background: #fbf2d6; }
+.esop .pct { display: flex; align-items: center; gap: 8px; }
+.esop .pct i { display: block; height: 6px; border-radius: 3px; background: var(--gold); }
+.esop .pct span { min-width: 34px; text-align: right; }
+.esop .tag { display: inline-block; border-radius: 20px; padding: 1px 8px; font-size: 11px; font-weight: 600; border: 0; }
+.esop select.tag { cursor: pointer; appearance: none; -webkit-appearance: none; text-align: center; font-family: inherit; }
+.esop .t-g { background: #e3f4eb; color: #14633f; }
+.esop .t-b { background: #fde8e8; color: #9b1c1c; }
+.esop .t-u { background: #eef0f4; color: #46526b; }
+.esop .t-s { background: var(--goldS); color: #7a5c12; }
+.esop .e-doc { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border: 1px solid #e2e2df; border-radius: 6px; padding: 3px 8px; background: #fff; color: #0f0f0f; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.esop .up { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; border: 1px dashed #d6a93a; border-radius: 6px; padding: 3px 9px; background: #fffaf0; color: #7a5c12; font-weight: 600; }
+
+/* Row-number menu and certificate list */
+.esop .rnb { border: 0; background: none; width: 100%; height: 31px; color: inherit; font-size: 11px; padding: 0; }
+.esop .rnb:hover { background: #f0f0ed; color: var(--black); }
+.esop td.rel { position: relative; }
+.esop .pop { position: absolute; z-index: 5; left: 40px; top: 4px; background: #fff; border: 1px solid #e2e2df; border-radius: 8px; box-shadow: 0 8px 24px rgba(15, 15, 15, 0.12); padding: 4px; display: grid; min-width: 200px; text-align: left; }
+.esop td.rn .pop { position: absolute; }
+.esop td.rn { overflow: visible; }
+.esop .pop.right { left: auto; right: 6px; top: 30px; }
+.esop .pop button { border: 0; background: none; text-align: left; padding: 7px 10px; border-radius: 6px; font-size: 12.5px; white-space: nowrap; }
+.esop .pop button:hover { background: var(--goldL); }
+
+/* Founders Doc only: batch dates */
+.esop .fdonly { border-top: 1px solid #e2e2df; padding: 12px 0 14px; background: #fafafa; }
+.esop .fdonly p { margin: 0 12px 10px; font-size: 12px; color: var(--g5); }
+.esop .fdonly table { width: auto; min-width: 480px; border-top: 1px solid #ececea; background: #fff; }
+.esop .fdonly .e-btn { margin: 10px 12px 0; }
+
+/* Tabs along the bottom, like a spreadsheet */
+.esop .tabs { display: flex; gap: 2px; padding: 0 8px; background: #f3f3f1; border-top: 1px solid #e2e2df; }
+.esop .tabs button { border: 0; background: none; padding: 9px 16px; font-size: 12.5px; color: var(--g5); font-weight: 500; border-top: 2px solid transparent; margin-top: -1px; }
+.esop .tabs button.on { background: #fff; color: var(--black); border-top-color: var(--gold); font-weight: 600; }
+.esop .tabs .soon2 { margin-left: auto; align-self: center; font-size: 12px; color: var(--g4); display: flex; gap: 6px; align-items: center; padding-right: 8px; }
+.esop .e-foot { color: var(--g4); font-size: 12px; margin-top: 12px; }
+
+.esop .e-toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); background: #161616; color: #fff; border-radius: 8px; padding: 10px 16px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 50; }
+.esop .e-toast.on { opacity: 1; }
+
+.esop-empty { max-width: 560px; margin: 80px auto; padding: 0 20px; text-align: center; }
+.esop-empty h1 { font-family: var(--display); font-size: 26px; }
+
+@media (max-width: 900px) {
+  .esop-head .lock, .esop-head .vr { display: none; }
+  .esop-head img { height: 20px; }
+  .esop-head .fd { letter-spacing: 2px; padding: 0 8px; font-size: 9px; }
+  .esop-head .crumb, .esop-head .me .t { display: none; }
+  .esop-head { padding: 0 14px; gap: 10px; }
+  .esop-main { padding: 18px 14px; }
+  .esop .e-search { min-width: 0; flex: 1; }
+  .esop .kpis { grid-template-columns: repeat(2, 1fr); }
+  .esop .e-hint, .esop .tabs .soon2 { display: none; }
+}
