@@ -51,7 +51,8 @@ export interface EsopDocument {
   holder_id: string;
   kind: DocKind;
   tranche: number | null;
-  path: string;
+  path: string | null; // an uploaded file in the private bucket, or
+  url?: string | null; // a link (a certificate made by Zapier, 106)
   file_name: string;
   uploaded_at: string;
 }

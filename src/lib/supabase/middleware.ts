@@ -51,6 +51,10 @@ const PUBLIC_PATHS = [
   // Automated SEO research sends its findings here with a private key; the
   // database checks the key and every field (104, app/api/seo/ingest).
   "/api/seo/ingest",
+  // Zapier reads who vests and writes back approvals and certificate links
+  // for the ESOP dashboard, with a private key per company that the database
+  // checks (106, app/api/esop/zap). No session; a wrong key gets a 404.
+  "/api/esop/zap",
   // The public price list (app/pricing). /billing stays the account's page.
   "/pricing",
   // The published blog posts, for the cards on the public blog page (055).

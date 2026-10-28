@@ -83,7 +83,7 @@ export default async function EsopPage({ params }: { params: Promise<{ slug: str
       .order("name"),
     supabase
       .from("esop_documents")
-      .select("id, holder_id, kind, tranche, path, file_name, uploaded_at")
+      .select("*")
       .eq("company_id", company.id)
       .order("uploaded_at"),
     isAdmin(),

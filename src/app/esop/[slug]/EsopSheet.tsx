@@ -245,7 +245,11 @@ export default function EsopSheet(props: Props) {
 
   async function openDoc(d: EsopDocument) {
     setMenu(null);
-    if (!client) return say("Preview: files are not stored, so there is nothing to open.");
+    if (d.url) {
+      window.open(d.url, "_blank", "noopener");
+      return;
+    }
+    if (!client || !d.path) return say("Preview: files are not stored, so there is nothing to open.");
     const { data, error } = await client.storage.from(BUCKET).createSignedUrl(d.path, 60);
     if (error || !data) return say(`Could not open the file: ${error?.message ?? "unknown error"}`);
     window.open(data.signedUrl, "_blank", "noopener");
