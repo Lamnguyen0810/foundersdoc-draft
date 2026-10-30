@@ -42,6 +42,7 @@ export interface EsopHolder {
   notes: string | null;
   nationality?: string | null;
   grant_date?: string | null;
+  vested_override?: number | null; // a leaver's vested options as recorded (110), when the last day is unknown
   updated_at: string;
   updated_by: string | null;
 }
@@ -121,7 +122,13 @@ export function calcHolder(h: EsopHolder, batches: Map<number, EsopBatch>, now: 
       if (parseDay(addYears(start, t))! <= cut) vestedTranches++;
     }
   }
-  const vested = vestedTranches * per;
+  let vested = vestedTranches * per;
+  // A leaver whose vested options were recorded by hand (no last day known):
+  // the record wins over the date arithmetic.
+  if (h.status === "Leaver" && typeof h.vested_override === "number" && h.vested_override >= 0) {
+    vested = Math.min(h.vested_override, total || h.vested_override);
+    vestedTranches = per > 0 ? Math.min(tranches, Math.round(vested / per)) : 0;
+  }
   const kept = h.status === "Leaver" && h.leaver_type === "Bad" ? 0 : vested;
   const next = h.status === "Active" && start && vestedTranches < tranches ? addYears(start, vestedTranches + 1) : null;
   return { start, tranches, total, vestedTranches, vested, kept, next, daysToNext: next ? daysBetween(now, parseDay(next)!) : null };

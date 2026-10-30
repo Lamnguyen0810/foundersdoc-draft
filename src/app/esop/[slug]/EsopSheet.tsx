@@ -153,7 +153,7 @@ export default function EsopSheet(props: Props) {
     void saveHolder(h, { [field]: n });
   }
 
-  function setText(h: EsopHolder, field: "name" | "email" | "id_no" | "nationality", raw: string) {
+  function setText(h: EsopHolder, field: "name" | "email" | "id_no" | "nationality" | "notes", raw: string) {
     if (field === "name" && !raw) return say("A holder needs a name.");
     void saveHolder(h, { [field]: raw || null });
   }
@@ -543,7 +543,7 @@ export default function EsopSheet(props: Props) {
                 <thead>
                   <tr className="letters">
                     <th className="rn" />
-                    {letters(16).map((l) => (
+                    {letters(17).map((l) => (
                       <th key={l}>{l}</th>
                     ))}
                   </tr>
@@ -565,6 +565,7 @@ export default function EsopSheet(props: Props) {
                     <th>Days to go</th>
                     <th>Letter of Grant</th>
                     <th>Option certificates</th>
+                    <th>Comments</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -594,6 +595,7 @@ export default function EsopSheet(props: Props) {
                         <td className="calc c">{fmtDay(c.next)}</td>
                         <td className="calc c">{c.daysToNext === null ? "–" : `${c.daysToNext} days`}</td>
                         {docCells(h)}
+                        <Cell label="Comments" value={h.notes ?? ""} onSave={(v) => setText(h, "notes", v)} />
                       </tr>
                     );
                   })}
@@ -606,7 +608,7 @@ export default function EsopSheet(props: Props) {
                 <thead>
                   <tr className="letters">
                     <th className="rn" />
-                    {letters(10).map((l) => (
+                    {letters(11).map((l) => (
                       <th key={l}>{l}</th>
                     ))}
                   </tr>
@@ -622,6 +624,7 @@ export default function EsopSheet(props: Props) {
                     <th>Forfeited</th>
                     <th>Letter of Grant</th>
                     <th>Option certificates</th>
+                    <th>Comments</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -651,6 +654,7 @@ export default function EsopSheet(props: Props) {
                         <td className="calc num">{num(c.kept)}</td>
                         <td className="calc num">{num(c.total - c.kept)}</td>
                         {docCells(h)}
+                        <Cell label="Comments" value={h.notes ?? ""} onSave={(v) => setText(h, "notes", v)} />
                       </tr>
                     );
                   })}
