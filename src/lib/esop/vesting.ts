@@ -222,12 +222,15 @@ export interface ImportedHolder {
   status: HolderStatus;
   leaver_type: LeaverType | null;
   last_day: string | null;
+  nationality?: string | null;
+  grant_date?: string | null;
 }
 
 /**
  * Rows from a CSV with a header line. Accepts the Google Sheet's column names
- * (Name, Email, Batch, Status, Leaver type, ID no., Options per tranche) and
- * the export's (Last day). Unknown columns are ignored. Returns the rows that
+ * (Name, Email, Batch, Status, Leaver type, ID no., Options per tranche,
+ * Nationality, Grant date) and the export's (Last day). Dates may be typed
+ * as 2024-07-12, 12 Jul 2024 or 12/7/2024. Unknown columns are ignored. Returns the rows that
  * could be read and, for the rest, why not.
  */
 export function readHolderCsv(text: string): { rows: ImportedHolder[]; problems: string[] } {
@@ -244,6 +247,8 @@ export function readHolderCsv(text: string): { rows: ImportedHolder[]; problems:
   const iType = col("leavertype");
   const iLast = col("lastday", "leftdate");
   const iPer = col("optionspertranche", "optionstranche", "options");
+  const iNat = col("nationality", "citizenship");
+  const iGrant = col("grantdate", "dateofgrant");
   if (iName < 0 || iBatch < 0) return { rows: [], problems: ['The header must have at least "Name" and "Batch".'] };
 
   const rows: ImportedHolder[] = [];
@@ -259,8 +264,10 @@ export function readHolderCsv(text: string): { rows: ImportedHolder[]; problems:
     const typeRaw = get(iType).toLowerCase();
     const leaver_type: LeaverType | null =
       status === "Leaver" ? (typeRaw.startsWith("bad") ? "Bad" : typeRaw.startsWith("unv") ? "Unvested" : "Good") : null;
-    const last = get(iLast);
-    const last_day = /^\d{4}-\d{2}-\d{2}$/.test(last) ? last : null;
+    const last_day = readTypedDay(get(iLast)) || null;
+    const grantRaw = get(iGrant);
+    const grant_date = readTypedDay(grantRaw) || null;
+    if (grantRaw && !grant_date) problems.push(`Row ${line} (${name}): grant date "${grantRaw}" not read, left empty.`);
     const per = Number.parseInt(get(iPer).replace(/[^0-9]/g, ""), 10);
     rows.push({
       name: name.slice(0, 160),
@@ -271,6 +278,8 @@ export function readHolderCsv(text: string): { rows: ImportedHolder[]; problems:
       status,
       leaver_type,
       last_day,
+      ...(iNat >= 0 ? { nationality: get(iNat).slice(0, 80) || null } : {}),
+      ...(iGrant >= 0 ? { grant_date } : {}),
     });
   });
   return { rows, problems };
