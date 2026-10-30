@@ -16,6 +16,7 @@ import {
   type EsopCompany,
   type EsopDocument,
   type EsopHolder,
+  type EsopRun,
   type LeaverType,
 } from "@/lib/esop/vesting";
 import { buildXlsx, type XSheet } from "@/lib/esop/xlsx";
@@ -52,6 +53,9 @@ interface Props {
   viewer: string;
   supabaseUrl: string | null;
   supabaseKey: string | null;
+  runs: EsopRun[];
+  canApprove: boolean;
+  focusRef: string | null;
 }
 
 const BUCKET = "esop-docs";
@@ -104,7 +108,9 @@ export default function EsopSheet(props: Props) {
   );
   const [batches, setBatches] = useState<EsopBatch[]>(props.batches);
   const [docs, setDocs] = useState<EsopDocument[]>(props.documents);
-  const [tab, setTab] = useState<Tab>("holders");
+  const [tab, setTab] = useState<Tab>(props.focusRef ? "schedule" : "holders");
+  const [runs, setRuns] = useState<EsopRun[]>(props.runs);
+  const [approving, setApproving] = useState("");
   const [q, setQ] = useState("");
   const [toast, setToast] = useState("");
   const [menu, setMenu] = useState<{ id: string; kind: "row" | "files" } | null>(null);
@@ -147,9 +153,15 @@ export default function EsopSheet(props: Props) {
     void saveHolder(h, { [field]: n });
   }
 
-  function setText(h: EsopHolder, field: "name" | "email", raw: string) {
+  function setText(h: EsopHolder, field: "name" | "email" | "id_no" | "nationality", raw: string) {
     if (field === "name" && !raw) return say("A holder needs a name.");
     void saveHolder(h, { [field]: raw || null });
+  }
+
+  function setGrantDate(h: EsopHolder, raw: string) {
+    const d = readTypedDay(raw);
+    if (d === null) return say("Type the date like 12 Jun 2024.");
+    void saveHolder(h, { grant_date: d || null });
   }
 
   function setLastDay(h: EsopHolder, raw: string) {
@@ -205,6 +217,58 @@ export default function EsopSheet(props: Props) {
     }
     setBatches((l) => [...l, row]);
     say(`Batch ${row.batch} added — type its vesting start`);
+  }
+
+  /* ── approval (107) ─────────────────────────────────────────────────── */
+
+  async function approve(ref: string, certificates: number, leavers: number, again: boolean) {
+    const msg = again
+      ? `Send ${ref} to the automation again? Certificate numbers stay the same.`
+      : `Approve ${ref}?\n\n${certificates} Option Certificate(s) and email(s) will be prepared, plus one payment link for ${certificates} certificate(s).${leavers ? ` ${leavers} leaver(s) are skipped.` : ""}`;
+    if (!window.confirm(msg)) return;
+    if (!client) {
+      setRuns((l) => [...l.filter((r) => r.ref !== ref), { ref, approved_by: props.viewer, approved_at: new Date().toISOString(), sent_at: new Date().toISOString(), payment_link: null }]);
+      return say(`${ref} approved${local}`);
+    }
+    setApproving(ref);
+    try {
+      const res = await fetch("/api/esop/approve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company: company.slug, ref }) });
+      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; approved?: boolean; sent?: boolean; error?: string; approved_by?: string };
+      if (out.ok || out.approved) {
+        setRuns((l) => [
+          ...l.filter((r) => r.ref !== ref),
+          { ref, approved_by: out.approved_by ?? props.viewer, approved_at: new Date().toISOString(), sent_at: out.sent ? new Date().toISOString() : null, payment_link: null },
+        ]);
+      }
+      say(out.ok ? `${ref} approved. Payment link, certificates and emails are on their way` : out.error ?? "Could not approve.");
+    } finally {
+      setApproving("");
+    }
+  }
+
+  function approvalCell(ref: string, daysLeft: number, certificates: number, leavers: number) {
+    const r = runs.find((x) => x.ref === ref);
+    if (r?.sent_at)
+      return (
+        <span className="ok" title={r.approved_at ? new Date(r.approved_at).toLocaleString("en-GB") : ""}>
+          ✓ Approved{r.approved_by ? ` · ${r.approved_by.split("@")[0]}` : ""}
+          {r.approved_at ? ` · ${fmtDay(r.approved_at.slice(0, 10))}` : ""}
+        </span>
+      );
+    if (r && props.canApprove)
+      return (
+        <button className="e-btn g sm" disabled={approving === ref} onClick={() => approve(ref, certificates, leavers, true)}>
+          Send again
+        </button>
+      );
+    if (daysLeft > 14 || daysLeft < -60) return <span style={{ color: "#9a9a9a" }}>–</span>;
+    if (certificates === 0) return <span style={{ color: "#9a9a9a" }}>No certificates</span>;
+    if (!props.canApprove) return <span style={{ color: "#9a9a9a" }}>Waiting for approval</span>;
+    return (
+      <button className="e-btn g sm" disabled={approving === ref} onClick={() => approve(ref, certificates, leavers, false)}>
+        {approving === ref ? "Approving…" : "Approve"}
+      </button>
+    );
   }
 
   /* ── documents ──────────────────────────────────────────────────────── */
@@ -479,7 +543,7 @@ export default function EsopSheet(props: Props) {
                 <thead>
                   <tr className="letters">
                     <th className="rn" />
-                    {letters(13).map((l) => (
+                    {letters(16).map((l) => (
                       <th key={l}>{l}</th>
                     ))}
                   </tr>
@@ -487,7 +551,10 @@ export default function EsopSheet(props: Props) {
                     <th className="rn" />
                     <th>Holder</th>
                     <th>Email</th>
+                    <th>ID no.</th>
+                    <th>Nationality</th>
                     <th>Batch</th>
+                    <th>Grant date</th>
                     <th>Vesting start</th>
                     <th>Options / tranche</th>
                     <th>Total options</th>
@@ -509,7 +576,10 @@ export default function EsopSheet(props: Props) {
                         {rowNumber(h, i + 2, "archive")}
                         <Cell label="Holder" value={h.name} onSave={(v) => setText(h, "name", v)} />
                         <Cell label="Email" value={h.email ?? ""} onSave={(v) => setText(h, "email", v)} />
+                        <Cell label="ID no." value={h.id_no ?? ""} onSave={(v) => setText(h, "id_no", v)} />
+                        <Cell label="Nationality" value={h.nationality ?? ""} onSave={(v) => setText(h, "nationality", v)} />
                         <Cell label="Batch" className="c" value={String(h.batch)} onSave={(v) => setNumber(h, "batch", v)} />
+                        <Cell label="Grant date" className="c" value={h.grant_date ? fmtDay(h.grant_date) : ""} onSave={(v) => setGrantDate(h, v)} />
                         <td className="calc c">{fmtDay(c.start)}</td>
                         <Cell label="Options per tranche" className="num" value={num(h.options_per_tranche)} onSave={(v) => setNumber(h, "options_per_tranche", v)} />
                         <td className="calc num">{num(c.total)}</td>
@@ -594,7 +664,7 @@ export default function EsopSheet(props: Props) {
                   <thead>
                     <tr className="letters">
                       <th className="rn" />
-                      {letters(6).map((l) => (
+                      {letters(7).map((l) => (
                         <th key={l}>{l}</th>
                       ))}
                     </tr>
@@ -606,13 +676,18 @@ export default function EsopSheet(props: Props) {
                       <th>Certificates due</th>
                       <th>Leavers</th>
                       <th>Status</th>
+                      <th>Approval</th>
                     </tr>
                   </thead>
                   <tbody>
                     {sched.map((x, i) => {
                       const st = statusOf(x.daysLeft);
                       return (
-                        <tr key={`${x.batch}-${x.tranche}`} className={st === "This week" ? "soon" : ""}>
+                        <tr
+                          key={`${x.batch}-${x.tranche}`}
+                          className={`${st === "This week" ? "soon" : ""} ${props.focusRef === `B${x.batch}-T${x.tranche}` ? "focus" : ""}`}
+                          ref={props.focusRef === `B${x.batch}-T${x.tranche}` ? (el) => el?.scrollIntoView({ block: "center" }) : undefined}
+                        >
                           <td className="rn">{i + 2}</td>
                           <td className="calc">{fmtDay(x.date)}</td>
                           <td className="calc c">{x.batch}</td>
@@ -622,6 +697,7 @@ export default function EsopSheet(props: Props) {
                           <td className="calc c">
                             {st === "Vested" ? <span style={{ color: "#9a9a9a" }}>Vested</span> : st === "Upcoming" ? "Upcoming" : <span className="tag t-s">{st}</span>}
                           </td>
+                          <td className="c">{approvalCell(`B${x.batch}-T${x.tranche}`, x.daysLeft, x.certificates, x.leavers)}</td>
                         </tr>
                       );
                     })}

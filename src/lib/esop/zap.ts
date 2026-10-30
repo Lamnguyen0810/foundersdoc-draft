@@ -22,6 +22,8 @@ export interface DueHolder {
   id_no: string;
   options: number;
   certificate_no: string;
+  nationality?: string;
+  grant_date_text?: string;
 }
 export interface DueLeaver {
   name: string;
@@ -37,6 +39,8 @@ export interface DueItem {
   days_left: number;
   done: boolean;
   invoice_no: string | null;
+  approved_by?: string | null;
+  slack_ts?: string | null;
   holders: DueHolder[];
   leavers: DueLeaver[];
 }
@@ -61,7 +65,7 @@ export async function record(key: string, slug: string, payload: Record<string, 
 const n = (v: number) => v.toLocaleString("en-GB");
 
 /** The Slack alert, same wording as the alert Rachel has seen. */
-export function alertText(company: string, it: DueItem): string {
+export function alertText(company: string, it: DueItem, approveUrl = ""): string {
   const test = /test/i.test(company);
   const plain = company.replace(/\s*\(test\)\s*/i, "").trim();
   const when = it.days_left === 0 ? "vests today" : it.days_left === 1 ? "vests tomorrow" : `vests in ${it.days_left} days`;
@@ -71,7 +75,11 @@ export function alertText(company: string, it: DueItem): string {
     `${test ? "[TEST] " : ""}:date: ${plain} ESOP — Batch ${it.batch}, Tranche ${it.tranche} ${when} (${it.vest_date_text})`,
     `:white_check_mark: Gets a certificate (${it.holders.length}): ${gets}`,
     `:door: Leavers, no certificate: ${leaves}`,
-    it.done ? `:lock: Already approved${it.invoice_no ? ` (invoice ${it.invoice_no})` : ""}.` : "Rachel: react :white_check_mark: to send the vesting email.",
+    it.done
+      ? `:lock: Already approved${it.approved_by ? ` by ${it.approved_by}` : ""}.`
+      : approveUrl
+        ? `:point_right: <${approveUrl}|Review & approve on the dashboard> (payment link, certificates and emails go out only after approval)`
+        : "Waiting for approval on the ESOP dashboard.",
     `Ref: ${it.ref}`,
   ].join("\n");
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
-import type { EsopBatch, EsopCompany, EsopDocument, EsopHolder } from "@/lib/esop/vesting";
+import type { EsopBatch, EsopCompany, EsopDocument, EsopHolder, EsopRun } from "@/lib/esop/vesting";
 import EsopSheet from "./EsopSheet";
 import { DEMO_BATCHES, DEMO_COMPANY, DEMO_HOLDERS } from "../demo";
 import "../esop.css";
@@ -23,8 +23,15 @@ import "../esop.css";
 export const metadata = { title: "ESOP dashboard", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
-export default async function EsopPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function EsopPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ ref?: string }>;
+}) {
   const { slug } = await params;
+  const focusRef = ((await searchParams).ref ?? "").toUpperCase().match(/^B\d{1,3}-T\d{1,2}$/)?.[0] ?? null;
 
   if (!isSupabaseConfigured()) {
     return (
@@ -35,6 +42,9 @@ export default async function EsopPage({ params }: { params: Promise<{ slug: str
         documents={[]}
         role="admin"
         viewer="Preview"
+        runs={[]}
+        canApprove
+        focusRef={null}
         supabaseUrl={null}
         supabaseKey={null}
       />
@@ -77,7 +87,7 @@ export default async function EsopPage({ params }: { params: Promise<{ slug: str
     supabase.from("esop_batches").select("batch, vesting_start, tranches, note").eq("company_id", company.id).order("batch"),
     supabase
       .from("esop_holders")
-      .select("id, name, email, id_no, batch, options_per_tranche, status, leaver_type, last_day, notes, updated_at, updated_by")
+      .select("*")
       .eq("company_id", company.id)
       .order("batch")
       .order("name"),
@@ -88,6 +98,11 @@ export default async function EsopPage({ params }: { params: Promise<{ slug: str
       .order("uploaded_at"),
     isAdmin(),
   ]);
+  /* Approvals (107). Before 107 is run this simply returns nothing. */
+  const runsRes = await supabase.rpc("esop_runs", { p_slug: slug });
+  const runRows = (runsRes.data ?? []) as Array<EsopRun & { can_approve: boolean }>;
+  const canApprove = runRows.some((r) => r.can_approve);
+  const runs = runRows.filter((r) => r.ref) as EsopRun[];
 
   return (
     <EsopSheet
@@ -97,6 +112,9 @@ export default async function EsopPage({ params }: { params: Promise<{ slug: str
       documents={(docsRes.data ?? []) as EsopDocument[]}
       role={admin ? "admin" : "ceo"}
       viewer={user.email ?? ""}
+      runs={runs}
+      canApprove={canApprove}
+      focusRef={focusRef}
       supabaseUrl={supabaseUrl()}
       supabaseKey={supabasePublishableKey()}
     />

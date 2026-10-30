@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
           holder_names: first.holders.map((h) => h.name).join(", "),
           holder_emails: first.holders.map((h) => h.email).filter(Boolean).join(", "),
           leaver_names: first.leavers.map((l) => `${l.name} (${l.leaver_type})`).join(", "),
-          alert_text: items.map((it) => alertText(company, it)).join("\n\n"),
+          alert_text: items.map((it) => alertText(company, it, `${req.nextUrl.origin}/esop/${slug}?ref=${it.ref}`)).join("\n\n"),
           confirm_text: confirmText(company, first),
           holders: first.holders.map((h) => ({ ...h, tranche: first.tranche, vest_date_text: first.vest_date_text, ref: first.ref })),
           leavers: first.leavers,
