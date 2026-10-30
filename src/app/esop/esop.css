@@ -140,3 +140,8 @@ body:has(.esop) .strip-warn {
   .esop .kpis { grid-template-columns: repeat(2, 1fr); }
   .esop .e-hint, .esop .tabs .soon2 { display: none; }
 }
+
+/* Approval column (107) */
+.esop .e-btn.sm { padding: 3px 10px; font-size: 12px; }
+.esop .ok { color: #14633f; font-weight: 600; font-size: 12px; }
+.esop tr.focus td { box-shadow: inset 0 2px 0 var(--gold), inset 0 -2px 0 var(--gold); }

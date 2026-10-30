@@ -40,6 +40,8 @@ export interface EsopHolder {
   leaver_type: LeaverType | null;
   last_day: string | null;
   notes: string | null;
+  nationality?: string | null;
+  grant_date?: string | null;
   updated_at: string;
   updated_by: string | null;
 }
@@ -296,4 +298,13 @@ export function readTypedDay(raw: string): string | null {
     return d.getDate() === Number(m[1]) ? isoDay(d) : null;
   }
   return null;
+}
+
+/** An approval of one vesting (supabase/107), for the Vesting schedule tab. */
+export interface EsopRun {
+  ref: string;
+  approved_by: string | null;
+  approved_at: string | null;
+  sent_at: string | null;
+  payment_link: string | null;
 }
