@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import {
+  addYears,
   calcHolder,
   fmtDay,
   isoDay,
@@ -61,7 +62,7 @@ interface Props {
 const BUCKET = "esop-docs";
 const ACCEPT = ".pdf,.doc,.docx,.png,.jpg,.jpeg";
 const MAX_BYTES = 10 * 1024 * 1024;
-const SELECT_HOLDER = "id, name, email, id_no, batch, options_per_tranche, status, leaver_type, last_day, notes, updated_at, updated_by";
+const SELECT_HOLDER = "*";
 
 const letters = (k: number) => Array.from({ length: k }, (_, i) => String.fromCharCode(65 + i));
 
@@ -113,7 +114,7 @@ export default function EsopSheet(props: Props) {
   const [approving, setApproving] = useState("");
   const [q, setQ] = useState("");
   const [toast, setToast] = useState("");
-  const [menu, setMenu] = useState<{ id: string; kind: "row" | "files" } | null>(null);
+  const [menu, setMenu] = useState<{ id: string; kind: "row" | "files" | "log" } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const csvRef = useRef<HTMLInputElement>(null);
   const upTarget = useRef<{ holder: EsopHolder; kind: DocKind } | null>(null);
@@ -147,13 +148,14 @@ export default function EsopSheet(props: Props) {
     say(done);
   }
 
-  function setNumber(h: EsopHolder, field: "batch" | "options_per_tranche", raw: string) {
+  function setNumber(h: EsopHolder, field: "batch" | "options_per_tranche" | "top_ups", raw: string) {
+    if (field === "top_ups" && !raw.trim()) return void saveHolder(h, { top_ups: 0 });
     const n = Number.parseInt(raw.replace(/[^0-9]/g, ""), 10);
     if (!Number.isFinite(n)) return say("Please type a whole number.");
     void saveHolder(h, { [field]: n });
   }
 
-  function setText(h: EsopHolder, field: "name" | "email" | "id_no" | "nationality", raw: string) {
+  function setText(h: EsopHolder, field: "name" | "email" | "id_no" | "nationality" | "notes", raw: string) {
     if (field === "name" && !raw) return say("A holder needs a name.");
     void saveHolder(h, { [field]: raw || null });
   }
@@ -324,32 +326,21 @@ export default function EsopSheet(props: Props) {
   function downloadExcel() {
     const docCount = (h: EsopHolder, k: DocKind) => docs.filter((d) => d.holder_id === h.id && d.kind === k).length;
     const sheets: XSheet[] = [
-      {
-        name: "Holders",
-        widths: [24, 30, 14, 8, 14, 16, 14, 12, 12, 10, 14, 11, 16, 20],
+      ...(["Active", "Leaver"] as const).map((st) => ({
+        name: st === "Active" ? "Holders" : "Archive",
+        widths: [24, 9, 14, 14, 14, 14, 12, 14, 28, 12, 12, 18, 40, 9, 14, 14, 18, 14, 12],
         rows: [
-          ["Holder", "Email", "ID no.", "Batch", "Vesting start", "Options / tranche", "Total options", "Vested", "Unvested", "% vested", "Next vesting", "Days to go", "Letter of Grant", "Option certificates"],
+          ["Name", "Batch", "Vesting start date", "Tranche 1", "Tranche 2", "Tranche 3", "Letter of Grant", "Tranche 4", "E-mail", "Options vested", "Options unvested", "Status", "Comments", "Top up", "Option certificates", "ID no.", "Nationality", "Grant date", "Options / tranche"],
           ...holders
-            .filter((h) => h.status === "Active")
+            .filter((h) => h.status === st)
             .map((h) => {
               const c = calcHolder(h, batchMap, now);
-              return [h.name, h.email, h.id_no, h.batch, fmtDay(c.start), h.options_per_tranche, c.total, c.vested, c.total - c.vested, c.total ? Math.round((c.vested / c.total) * 100) / 100 : 0, fmtDay(c.next), c.daysToNext, docCount(h, "letter_of_grant") ? "On file" : "Missing", docCount(h, "certificate")];
+              const tr = (n: number) => (c.start && n <= c.tranches ? fmtDay(addYears(c.start, n)) : "");
+              const status = st === "Active" ? (c.vestedTranches ? `Tranche ${c.vestedTranches}` : "In progress") : `Leaver [${h.leaver_type ?? "Good"}]`;
+              return [h.name, `Batch ${h.batch}`, fmtDay(c.start), tr(1), tr(2), tr(3), docCount(h, "letter_of_grant"), tr(4), h.email, c.vested, c.total - c.vested, status, h.notes, h.top_ups ? `${h.top_ups} Top Up` : "", docCount(h, "certificate"), h.id_no, h.nationality, h.grant_date ? fmtDay(h.grant_date) : "", h.options_per_tranche];
             }),
         ],
-      },
-      {
-        name: "Archive",
-        widths: [24, 30, 14, 8, 12, 14, 14, 14, 12, 16, 20],
-        rows: [
-          ["Holder", "Email", "ID no.", "Batch", "Leaver type", "Last day", "Total options", "Options kept", "Forfeited", "Letter of Grant", "Option certificates"],
-          ...holders
-            .filter((h) => h.status === "Leaver")
-            .map((h) => {
-              const c = calcHolder(h, batchMap, now);
-              return [h.name, h.email, h.id_no, h.batch, h.leaver_type, fmtDay(h.last_day), c.total, c.kept, c.total - c.kept, docCount(h, "letter_of_grant") ? "On file" : "Missing", docCount(h, "certificate")];
-            }),
-        ],
-      },
+      })),
       {
         name: "Vesting schedule",
         widths: [14, 8, 9, 16, 10, 12],
@@ -412,50 +403,56 @@ export default function EsopSheet(props: Props) {
     );
   }
 
-  function docCells(h: EsopHolder) {
-    const log = docsOf(h, "letter_of_grant").at(-1);
-    const certs = docsOf(h, "certificate");
-    const open = menu?.id === h.id && menu.kind === "files";
+  /* A document column: one file shows its name, several show "📁 N files"
+     (a top-up gives a second Letter of Grant and certificate). */
+  function docCell(h: EsopHolder, kind: DocKind) {
+    const list = docsOf(h, kind);
+    const mk = kind === "certificate" ? "files" : "log";
+    const open = menu?.id === h.id && menu.kind === mk;
+    const icon = kind === "certificate" ? "📜" : "📄";
     return (
-      <>
-        <td className="c">
-          {log ? (
-            <button className="e-doc" onClick={() => openDoc(log)} title={log.file_name}>
-              📄 {log.file_name}
-            </button>
-          ) : (
-            <button className="up" onClick={() => pickFile(h, "letter_of_grant")}>
-              ⬆ Upload
-            </button>
-          )}
-        </td>
-        <td className="c rel">
-          {certs.length > 0 && (
-            <>
-              <button className="e-doc" onClick={() => setMenu(open ? null : { id: h.id, kind: "files" })}>
-                📁 {certs.length} file{certs.length > 1 ? "s" : ""}
-              </button>{" "}
-            </>
-          )}
-          <button className="up" onClick={() => pickFile(h, "certificate")} aria-label={`Upload a certificate for ${h.name}`}>
-            ⬆
-          </button>
-          {open && (
-            <div className="pop right">
-              {certs.map((d) => (
-                <button key={d.id} onClick={() => openDoc(d)}>
-                  📜 {d.tranche ? `Tranche ${d.tranche} · ` : ""}
-                  {d.file_name}
-                </button>
-              ))}
-            </div>
-          )}
-        </td>
-      </>
+      <td className="c rel">
+        {list.length === 1 && (
+          <>
+            <button className="e-doc" onClick={() => openDoc(list[0])} title={list[0].file_name}>
+              {icon} {list[0].file_name}
+            </button>{" "}
+          </>
+        )}
+        {list.length > 1 && (
+          <>
+            <button className="e-doc" onClick={() => setMenu(open ? null : { id: h.id, kind: mk })}>
+              📁 {list.length} files
+            </button>{" "}
+          </>
+        )}
+        <button className="up" onClick={() => pickFile(h, kind)} aria-label={`Upload for ${h.name}`}>
+          {list.length ? "⬆" : "⬆ Upload"}
+        </button>
+        {open && (
+          <div className="pop right">
+            {list.map((d) => (
+              <button key={d.id} onClick={() => openDoc(d)}>
+                {icon} {d.tranche ? `Tranche ${d.tranche} · ` : ""}
+                {d.file_name}
+              </button>
+            ))}
+          </div>
+        )}
+      </td>
     );
   }
 
   const leaverCls: Record<LeaverType, string> = { Good: "t-g", Bad: "t-b", Unvested: "t-u" };
+  const leaverIcon: Record<LeaverType, string> = { Good: "😇", Bad: "😈", Unvested: "📉" };
+  /* Holders and Archive share one layout, in the order of the client's own
+     schedule (HitPay | ESOP Vesting Schedule). The details the certificate
+     needs (ID no., nationality, grant date, options per tranche) follow at the
+     end, in grey headings. */
+  const HEAD = ["Name", "Batch", "Vesting start date", "Tranche 1", "Tranche 2", "Tranche 3", "Letter of Grant", "Tranche 4", "E-mail", "Options vested", "Options unvested", "Status", "Comments", "Top up", "Option certificates", "ID no.", "Nationality", "Grant date", "Options / tranche"];
+  const list = tab === "archive" ? leavers : active;
+  const mode: "archive" | "restore" = tab === "archive" ? "restore" : "archive";
+  const head = mode === "restore" ? [...HEAD, "Last day"] : HEAD;
 
   return (
     <div className="esop" onClick={(e) => menu && !(e.target as HTMLElement).closest(".pop, .rnb, .e-doc") && setMenu(null)}>
@@ -538,119 +535,66 @@ export default function EsopSheet(props: Props) {
           </div>
 
           <div className="e-grid">
-            {tab === "holders" && (
+            {tab !== "schedule" && (
               <table>
                 <thead>
                   <tr className="letters">
                     <th className="rn" />
-                    {letters(16).map((l) => (
+                    {letters(head.length).map((l) => (
                       <th key={l}>{l}</th>
                     ))}
                   </tr>
                   <tr className="names">
                     <th className="rn" />
-                    <th>Holder</th>
-                    <th>Email</th>
-                    <th>ID no.</th>
-                    <th>Nationality</th>
-                    <th>Batch</th>
-                    <th>Grant date</th>
-                    <th>Vesting start</th>
-                    <th>Options / tranche</th>
-                    <th>Total options</th>
-                    <th>Vested</th>
-                    <th>Unvested</th>
-                    <th>% vested</th>
-                    <th>Next vesting</th>
-                    <th>Days to go</th>
-                    <th>Letter of Grant</th>
-                    <th>Option certificates</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {active.filter(match).map((h, i) => {
-                    const c = calcHolder(h, batchMap, now);
-                    const p = c.total ? Math.round((c.vested / c.total) * 100) : 0;
-                    return (
-                      <tr key={h.id} className={c.daysToNext !== null && c.daysToNext <= 7 ? "soon" : ""}>
-                        {rowNumber(h, i + 2, "archive")}
-                        <Cell label="Holder" value={h.name} onSave={(v) => setText(h, "name", v)} />
-                        <Cell label="Email" value={h.email ?? ""} onSave={(v) => setText(h, "email", v)} />
-                        <Cell label="ID no." value={h.id_no ?? ""} onSave={(v) => setText(h, "id_no", v)} />
-                        <Cell label="Nationality" value={h.nationality ?? ""} onSave={(v) => setText(h, "nationality", v)} />
-                        <Cell label="Batch" className="c" value={String(h.batch)} onSave={(v) => setNumber(h, "batch", v)} />
-                        <Cell label="Grant date" className="c" value={h.grant_date ? fmtDay(h.grant_date) : ""} onSave={(v) => setGrantDate(h, v)} />
-                        <td className="calc c">{fmtDay(c.start)}</td>
-                        <Cell label="Options per tranche" className="num" value={num(h.options_per_tranche)} onSave={(v) => setNumber(h, "options_per_tranche", v)} />
-                        <td className="calc num">{num(c.total)}</td>
-                        <td className="calc num">{num(c.vested)}</td>
-                        <td className="calc num">{num(c.total - c.vested)}</td>
-                        <td className="calc">
-                          <div className="pct">
-                            <i style={{ width: `${p * 0.6}px` }} />
-                            <span>{p}%</span>
-                          </div>
-                        </td>
-                        <td className="calc c">{fmtDay(c.next)}</td>
-                        <td className="calc c">{c.daysToNext === null ? "–" : `${c.daysToNext} days`}</td>
-                        {docCells(h)}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-
-            {tab === "archive" && (
-              <table>
-                <thead>
-                  <tr className="letters">
-                    <th className="rn" />
-                    {letters(10).map((l) => (
-                      <th key={l}>{l}</th>
+                    {head.map((t, k) => (
+                      <th key={t} className={k >= 15 ? "cert" : ""}>
+                        {t}
+                      </th>
                     ))}
                   </tr>
-                  <tr className="names">
-                    <th className="rn" />
-                    <th>Holder</th>
-                    <th>Email</th>
-                    <th>Batch</th>
-                    <th>Leaver type</th>
-                    <th>Last day</th>
-                    <th>Total options</th>
-                    <th>Options kept</th>
-                    <th>Forfeited</th>
-                    <th>Letter of Grant</th>
-                    <th>Option certificates</th>
-                  </tr>
                 </thead>
                 <tbody>
-                  {leavers.filter(match).map((h, i) => {
+                  {list.filter(match).map((h, i) => {
                     const c = calcHolder(h, batchMap, now);
+                    const tr = (n: number) => (c.start && n <= c.tranches ? fmtDay(addYears(c.start, n)) : "–");
                     const t = h.leaver_type ?? "Good";
                     return (
-                      <tr key={h.id}>
-                        {rowNumber(h, i + 2, "restore")}
-                        <Cell label="Holder" value={h.name} onSave={(v) => setText(h, "name", v)} />
-                        <Cell label="Email" value={h.email ?? ""} onSave={(v) => setText(h, "email", v)} />
-                        <td className="ed c">{h.batch}</td>
-                        <td className="ed c">
-                          <select
-                            aria-label="Leaver type"
-                            className={`tag ${leaverCls[t]}`}
-                            value={t}
-                            onChange={(e) => void saveHolder(h, { leaver_type: e.target.value as LeaverType })}
-                          >
-                            <option>Good</option>
-                            <option>Bad</option>
-                            <option>Unvested</option>
-                          </select>
-                        </td>
-                        <Cell label="Last day" className="c" value={fmtDay(h.last_day)} onSave={(v) => setLastDay(h, v)} />
-                        <td className="calc num">{num(c.total)}</td>
-                        <td className="calc num">{num(c.kept)}</td>
-                        <td className="calc num">{num(c.total - c.kept)}</td>
-                        {docCells(h)}
+                      <tr key={h.id} className={mode === "archive" && c.daysToNext !== null && c.daysToNext <= 7 ? "soon" : ""}>
+                        {rowNumber(h, i + 2, mode)}
+                        <Cell label="Name" value={h.name} onSave={(v) => setText(h, "name", v)} />
+                        <Cell label="Batch" className={`c bt b${h.batch % 10}`} value={`Batch ${h.batch}`} onSave={(v) => setNumber(h, "batch", v)} />
+                        <td className="calc c">{fmtDay(c.start)}</td>
+                        <td className="calc c">{tr(1)}</td>
+                        <td className="calc c">{tr(2)}</td>
+                        <td className="calc c">{tr(3)}</td>
+                        {docCell(h, "letter_of_grant")}
+                        <td className="calc c">{tr(4)}</td>
+                        <Cell label="E-mail" value={h.email ?? ""} onSave={(v) => setText(h, "email", v)} />
+                        <td className="calc num">{num(c.vested)}</td>
+                        <td className="calc num">{num(c.total - c.vested)}</td>
+                        {mode === "archive" ? (
+                          <td className="calc c">
+                            <span className="tag t-tr">{c.vestedTranches ? `Tranche ${c.vestedTranches}` : "In progress"}</span>
+                          </td>
+                        ) : (
+                          <td className="ed c">
+                            <select aria-label="Leaver type" className={`tag ${leaverCls[t]}`} value={t} onChange={(e) => void saveHolder(h, { leaver_type: e.target.value as LeaverType })}>
+                              {(["Good", "Bad", "Unvested"] as LeaverType[]).map((x) => (
+                                <option key={x} value={x}>
+                                  {leaverIcon[x]} Leaver [{x}]
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                        )}
+                        <Cell label="Comments" value={h.notes ?? ""} onSave={(v) => setText(h, "notes", v)} />
+                        <Cell label="Top up" className="c" value={h.top_ups ? `${h.top_ups} Top Up` : ""} onSave={(v) => setNumber(h, "top_ups", v)} />
+                        {docCell(h, "certificate")}
+                        <Cell label="ID no." value={h.id_no ?? ""} onSave={(v) => setText(h, "id_no", v)} />
+                        <Cell label="Nationality" value={h.nationality ?? ""} onSave={(v) => setText(h, "nationality", v)} />
+                        <Cell label="Grant date" className="c" value={h.grant_date ? fmtDay(h.grant_date) : ""} onSave={(v) => setGrantDate(h, v)} />
+                        <Cell label="Options per tranche" className="num" value={num(h.options_per_tranche)} onSave={(v) => setNumber(h, "options_per_tranche", v)} />
+                        {mode === "restore" && <Cell label="Last day" className="c" value={fmtDay(h.last_day)} onSave={(v) => setLastDay(h, v)} />}
                       </tr>
                     );
                   })}
