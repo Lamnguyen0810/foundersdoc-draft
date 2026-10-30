@@ -145,3 +145,19 @@ body:has(.esop) .strip-warn {
 .esop .e-btn.sm { padding: 3px 10px; font-size: 12px; }
 .esop .ok { color: #14633f; font-weight: 600; font-size: 12px; }
 .esop tr.focus td { box-shadow: inset 0 2px 0 var(--gold), inset 0 -2px 0 var(--gold); }
+
+/* Client's column order (0169): batch tags coloured like the client's list,
+   status tag for active holders, certificate details muted at the end. */
+.esop .t-tr { background: #e6f0fb; color: #1d4f8a; }
+.esop td.bt input { font-weight: 600; font-size: 12px; border-radius: 20px; padding: 0 8px !important; height: 22px !important; }
+.esop td.b1 input { background: #fbeedd; color: #8a4b0f; }
+.esop td.b2 input { background: #e3f4eb; color: #14633f; }
+.esop td.b3 input { background: #f6ecd9; color: #7a5c12; }
+.esop td.b4 input { background: #fde8e8; color: #9b1c1c; }
+.esop td.b5 input { background: #fff1d6; color: #8a5a00; }
+.esop td.b6 input { background: #efe6fa; color: #5b2d91; }
+.esop td.b7 input { background: #e3f1fb; color: #1d5f8a; }
+.esop td.b8 input { background: #eaf6dc; color: #3f6b12; }
+.esop td.b9 input { background: #f3e6f7; color: #7a2d8a; }
+.esop td.b0 input { background: #e0f4f7; color: #0f6b78; }
+.esop thead tr.names th.cert { color: var(--g4); font-weight: 500; }
