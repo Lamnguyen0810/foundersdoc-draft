@@ -20,7 +20,8 @@ export interface DueHolder {
   name: string;
   email: string;
   id_no: string;
-  options: number;
+  options: number | string; // "4,400" since 111 (as printed on the certificate)
+  options_number?: number;
   certificate_no: string;
   nationality?: string;
   grant_date_text?: string;
@@ -62,7 +63,9 @@ export async function record(key: string, slug: string, payload: Record<string, 
   return { data: data as Record<string, unknown> | null, error };
 }
 
-const n = (v: number) => v.toLocaleString("en-GB");
+const n = (v: number | string) => (typeof v === "number" ? v.toLocaleString("en-GB") : v);
+/** A holder's options as a number, before or after 111. */
+export const optionsOf = (h: DueHolder) => h.options_number ?? (Number(String(h.options).replace(/,/g, "")) || 0);
 
 /** The Slack alert, same wording as the alert Rachel has seen. */
 export function alertText(company: string, it: DueItem, approveUrl = ""): string {

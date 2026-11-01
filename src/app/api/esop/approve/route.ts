@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     ...item,
     approved_by: item.approved_by ?? user.email,
     holders_count: holders.length,
-    options_total: holders.reduce((s, h) => s + (Number(h.options) || 0), 0),
+    options_total: holders.reduce((s, h) => s + (Number(h.options_number ?? String(h.options ?? "").replace(/,/g, "")) || 0), 0),
     holder_names: holders.map((h) => h.name).join(", "),
     dashboard_url: `${req.nextUrl.origin}/esop/${slug}?ref=${ref}`,
     holders: holders.map((h) => ({ ...h, ref, tranche: item.tranche, batch: item.batch, vest_date_text: item.vest_date_text })),
