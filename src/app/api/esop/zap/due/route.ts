@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { alertText, confirmText, loadDue } from "@/lib/esop/zap";
+import { alertText, confirmText, loadDue, optionsOf } from "@/lib/esop/zap";
 
 /**
  * GET /api/esop/zap/due?company=hitpay&days=7      who vests in 7 days
@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
           done: first.done,
           invoice_no: first.invoice_no,
           holders_count: first.holders.length,
-          options_total: first.holders.reduce((s, h) => s + h.options, 0),
+          options_total: first.holders.reduce((s, h) => s + optionsOf(h), 0),
           holder_names: first.holders.map((h) => h.name).join(", "),
           holder_emails: first.holders.map((h) => h.email).filter(Boolean).join(", "),
           leaver_names: first.leavers.map((l) => `${l.name} (${l.leaver_type})`).join(", "),
