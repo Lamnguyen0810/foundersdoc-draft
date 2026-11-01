@@ -21,6 +21,7 @@ import {
   type LeaverType,
 } from "@/lib/esop/vesting";
 import { buildXlsx, type XSheet } from "@/lib/esop/xlsx";
+import BulkUpload from "./BulkUpload";
 
 /**
  * The ESOP dashboard: a spreadsheet the CEO can keep up to date.
@@ -128,10 +129,12 @@ export default function EsopSheet(props: Props) {
   const batchMap = useMemo(() => new Map(batches.map((b) => [b.batch, b])), [batches]);
   const local = client ? "" : " (preview, not stored)";
 
-  function say(text: string) {
+  /* Shows a message; returns false so a failing step can `return say(…)`. */
+  function say(text: string): false {
     setToast(text);
     if (toastTimer.current) clearTimeout(toastTimer.current);
     toastTimer.current = setTimeout(() => setToast(""), 2400);
+    return false;
   }
 
   /* ── saving ─────────────────────────────────────────────────────────── */
@@ -285,16 +288,22 @@ export default function EsopSheet(props: Props) {
 
   async function upload(file: File) {
     const t = upTarget.current;
-    if (!t) return;
-    if (file.size > MAX_BYTES) return say("That file is over 10 MB.");
+    if (t) await uploadFor(t.holder, t.kind, file, null);
+  }
+
+  /* Used by the row ⬆ buttons and by Bulk upload (FD). True when stored. */
+  async function uploadFor(holder: EsopHolder, kind: DocKind, file: File, trancheIn: number | null): Promise<boolean> {
+    const t = { holder, kind };
+    if (file.size > MAX_BYTES) return say(`${file.name} is over 10 MB.`);
     const certs = docs.filter((d) => d.holder_id === t.holder.id && d.kind === "certificate").length;
-    const tranche = t.kind === "certificate" ? Math.min(certs + 1, 10) : null;
+    const tranche = t.kind === "certificate" ? (trancheIn ?? Math.min(certs + 1, 10)) : null;
     const safe = file.name.replace(/[^\w.\-]+/g, "_").slice(-80);
     const path = `${company.id}/${t.holder.id}/${t.kind}-${crypto.randomUUID().slice(0, 8)}-${safe}`;
     const fileName = file.name.slice(0, 200);
     if (!client) {
       setDocs((l) => [...l, { id: crypto.randomUUID(), holder_id: t.holder.id, kind: t.kind, tranche, path, file_name: fileName, uploaded_at: new Date().toISOString() }]);
-      return say(`${file.name} uploaded${local}`);
+      say(`${file.name} uploaded${local}`);
+      return true;
     }
     say("Uploading…");
     const up = await client.storage.from(BUCKET).upload(path, file, { upsert: false, contentType: file.type || undefined });
@@ -307,6 +316,7 @@ export default function EsopSheet(props: Props) {
     if (error || !data) return say(`Saved the file but not its record: ${error?.message ?? "unknown error"}`);
     setDocs((l) => [...l, data]);
     say(`${file.name} uploaded`);
+    return true;
   }
 
   async function openDoc(d: EsopDocument) {
@@ -531,6 +541,7 @@ export default function EsopSheet(props: Props) {
               </Ico>
               Download Excel
             </button>
+            {role === "admin" && <BulkUpload holders={holders} docs={docs} onUpload={uploadFor} />}
             <span className="e-hint">White cells can be edited · grey cells calculate themselves · gold rows vest within 7 days · ⬆ upload documents</span>
           </div>
 

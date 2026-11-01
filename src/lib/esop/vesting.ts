@@ -43,6 +43,7 @@ export interface EsopHolder {
   nationality?: string | null;
   grant_date?: string | null;
   top_ups?: number | null;
+  legal_name?: string | null; // full legal name for the certificate (111)
   vested_override?: number | null; // a leaver's vested options as recorded (110), when the last day is unknown
   updated_at: string;
   updated_by: string | null;

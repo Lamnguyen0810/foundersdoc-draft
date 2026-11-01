@@ -161,3 +161,16 @@ body:has(.esop) .strip-warn {
 .esop td.b9 input { background: #f3e6f7; color: #7a2d8a; }
 .esop td.b0 input { background: #e0f4f7; color: #0f6b78; }
 .esop thead tr.names th.cert { color: var(--g4); font-weight: 500; }
+
+/* Bulk upload (FD admin only) — BulkUpload.tsx */
+.esop .e-modal { position: fixed; inset: 0; background: rgba(15, 15, 15, 0.45); z-index: 60; display: grid; place-items: center; padding: 16px; }
+.esop .e-modal-box { background: #fff; border-radius: 12px; width: min(1000px, 100%); max-height: 88vh; display: flex; flex-direction: column; padding: 18px 20px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25); }
+.esop .e-modal-box h2 { font-family: var(--e-display); font-size: 18px; margin: 0 0 4px; }
+.esop .e-modal-box p { margin: 0 0 12px; color: var(--g5); font-size: 13px; }
+.esop .e-modal-list { overflow: auto; border: 1px solid #ececea; border-radius: 8px; }
+.esop .e-modal-list td:first-child { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+.esop .e-modal-list select, .esop .e-modal-list input { font: inherit; font-size: 12.5px; border: 1px solid #e2e2df; border-radius: 6px; padding: 3px 6px; background: #fff; max-width: 260px; }
+.esop .e-modal-list tr.miss td { background: #fff8e6; }
+.esop .e-modal-list td.st { white-space: normal; min-width: 170px; }
+.esop .e-modal-list td.st small { color: var(--g5); }
+.esop .e-modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
