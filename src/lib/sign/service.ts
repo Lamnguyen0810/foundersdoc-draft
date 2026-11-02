@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { buildSignedPdf, pageCount, sha256 } from "./pdf";
+import { autoFields } from "./place";
 import { notify } from "./notify";
 import type { Envelope, SignField, SignStore, Signer } from "./store";
 
@@ -105,6 +106,16 @@ export async function createSend(
   return { envelopeIds, links };
 }
 
+/** The boxes stored for a document, or (none stored) boxes placed automatically on its signature lines. */
+async function fieldsFor(store: SignStore, envelopeId: string, signers: Signer[]): Promise<SignField[]> {
+  const stored = await store.fields(envelopeId);
+  if (stored.length) return stored;
+  const original = await store.original(envelopeId);
+  if (!original) return [];
+  const ordered = [...signers].sort((a, b) => a.position - b.position);
+  return autoFields(envelopeId, original, ordered.map((s) => ({ name: s.name, role: s.role })));
+}
+
 export interface SignView {
   signerName: string;
   signerRole: string;
@@ -144,7 +155,7 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
       pages: env.page_count,
       status: env.status,
       signers: all.map((s) => ({ name: s.name, role: s.role, status: s.status, signedAt: s.signed_at, me: s.id === me.id })),
-      fields: (await store.fields(env.id)).filter((f) => f.position === me.position),
+      fields: (await fieldsFor(store, env.id, all)).filter((f) => f.position === me.position),
     });
     if (who && !me.viewed_at && me.status !== "signed") {
       await store.updateSigner(me.id, { viewed_at: new Date().toISOString() });
@@ -268,7 +279,7 @@ export async function signedPdf(store: SignStore, envelopeId: string): Promise<U
       if (p) pngs.set(s.id, p);
     }
   }
-  return buildSignedPdf({ original, envelope: env, signers, pngs, events: await store.events(envelopeId), fields: await store.fields(envelopeId) });
+  return buildSignedPdf({ original, envelope: env, signers, pngs, events: await store.events(envelopeId), fields: await fieldsFor(store, envelopeId, signers) });
 }
 
 /** May this token see this envelope's files? */

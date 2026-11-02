@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { matchFile } from "@/lib/esop/match";
 import type { Envelope, Signer } from "@/lib/sign/store";
-import { autoPlace, colour, type Box, type BoxKind } from "../../sign/boxes";
+import { autoPlace, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
 import type { PdfInfo } from "../../sign/PdfPages";
 
 /* pdf.js only runs in the browser */
@@ -62,12 +62,14 @@ export default function SignAdmin({
   director,
   hook,
   preview,
+  boxesReady = true,
 }: {
   recent: Array<Envelope & { signers: Signer[] }>;
   holders: Holder[];
   director: string;
   hook: boolean;
   preview: boolean;
+  boxesReady?: boolean;
 }) {
   const router = useRouter();
   const pick = useRef<HTMLInputElement>(null);
@@ -239,6 +241,21 @@ export default function SignAdmin({
             {preview ? "Preview: nothing is stored" : hook ? "Emails on" : "Emails off: copy links"}
           </div>
         </div>
+
+        {(!boxesReady || (!hook && !preview)) && (
+          <div className="fs-setup">
+            {!boxesReady && (
+              <p>
+                <b>⚠ One step left in Supabase:</b> run <code>113_fd_sign_fields.sql</code> so the signature boxes you place are saved. Until then Send is blocked.
+              </p>
+            )}
+            {!hook && !preview && (
+              <p>
+                <b>✉ Emails are off:</b> nobody is emailed yet. After you send, press <b>Copy link</b> for each person and send it yourself. When a signer finishes, the next person&rsquo;s <b>Copy link</b> appears in <b>Sent</b>. Turn emails on with the Zap &ldquo;FD Sign – emails&rdquo; and <code>SIGN_HOOK_URL</code> in Vercel.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="fs-tabbar" role="tablist">
           <button role="tab" aria-selected={tab === "new"} className={tab === "new" ? "on" : ""} onClick={() => setTab("new")}>
@@ -646,8 +663,8 @@ export default function SignAdmin({
                           </span>
                         </div>
                         {s.status === "invited" && (
-                          <button className="dbtn" onClick={() => void newLink(e.id, s.id)} title="Make a new link and copy it">
-                            New link
+                          <button className={`dbtn ${hook ? "" : "gold"}`} onClick={() => void newLink(e.id, s.id)} title={hook ? "Make a new link (the old one stops working) and copy it" : "Copy this person's signing link to send them"}>
+                            {hook ? "New link" : "Copy link"}
                           </button>
                         )}
                       </div>
