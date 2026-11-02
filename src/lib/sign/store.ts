@@ -48,6 +48,19 @@ export interface Signer {
   user_agent: string | null;
 }
 
+/** The email code for one signing link (SQL 114). */
+export interface SignCode {
+  token_hash: string;
+  code_hash: string | null;
+  expires_at: string | null;
+  tries: number;
+  sent_at: string | null;
+  sends: number;
+  window_start: string | null;
+  session_hash: string | null;
+  verified_at: string | null;
+}
+
 export interface SignEvent {
   id?: number;
   envelope_id: string;
@@ -105,6 +118,10 @@ export interface SignStore {
   fields(envelopeId: string): Promise<SignField[]>;
   /** Is public.sign_fields there (SQL 113 run)? */
   boxesReady(): Promise<boolean>;
+  getCode(tokenHash: string): Promise<SignCode | null>;
+  putCode(row: SignCode): Promise<void>;
+  /** Is public.sign_codes there (SQL 114 run)? */
+  codesReady(): Promise<boolean>;
 }
 
 const ENV_COLS = "id, title, file_name, original_sha256, page_count, message, batch_id, status, esop_holder_id, esop_tranche, filed_document_id, created_by, created_at, completed_at";
@@ -214,6 +231,16 @@ function supabaseStore(): SignStore {
       const r = await db.from("sign_fields").select("id").limit(1);
       return !r.error;
     },
+    async getCode(tokenHash) {
+      return (must(await db.from("sign_codes").select("*").eq("token_hash", tokenHash).maybeSingle()) as SignCode | null) ?? null;
+    },
+    async putCode(row) {
+      must(await db.from("sign_codes").upsert(row, { onConflict: "token_hash" }));
+    },
+    async codesReady() {
+      const r = await db.from("sign_codes").select("token_hash").limit(1);
+      return !r.error;
+    },
     async esopDirector() {
       const c = must(await db.from("esop_companies").select("director_name").eq("slug", "hitpay").maybeSingle()) as { director_name?: string | null } | null;
       return c?.director_name ?? null;
@@ -225,6 +252,7 @@ function supabaseStore(): SignStore {
 
 interface Mem {
   fld: Map<string, SignField[]>;
+  codes: Map<string, SignCode>;
   env: Map<string, Envelope & { original: Uint8Array }>;
   sig: Map<string, Signer & { png: Uint8Array | null }>;
   ev: SignEvent[];
@@ -232,7 +260,8 @@ interface Mem {
 const g = globalThis as unknown as { __fdsign?: Mem };
 
 function memoryStore(): SignStore {
-  const m: Mem = (g.__fdsign ??= { fld: new Map(), env: new Map(), sig: new Map(), ev: [] as SignEvent[] });
+  const m: Mem = (g.__fdsign ??= { fld: new Map(), codes: new Map(), env: new Map(), sig: new Map(), ev: [] as SignEvent[] });
+  m.codes ??= new Map();
   const now = () => new Date().toISOString();
   const strip = <T extends object>(o: T, k: string) => {
     const c = { ...o } as Record<string, unknown>;
@@ -323,6 +352,15 @@ function memoryStore(): SignStore {
       return m.fld.get(envelopeId) ?? [];
     },
     async boxesReady() {
+      return true;
+    },
+    async getCode(tokenHash) {
+      return m.codes.get(tokenHash) ?? null;
+    },
+    async putCode(row) {
+      m.codes.set(row.token_hash, { ...row });
+    },
+    async codesReady() {
       return true;
     },
   };

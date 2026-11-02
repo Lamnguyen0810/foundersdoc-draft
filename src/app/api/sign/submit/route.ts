@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { signStore } from "@/lib/sign/store";
 import { SignError, submitSignature } from "@/lib/sign/service";
 import { who } from "@/lib/sign/http";
+import { CODE_COOKIE, codeRequired, isVerified } from "@/lib/sign/code";
 
 /**
  * POST /api/sign/submit — a signer signs (public: the private link is the key).
@@ -35,8 +36,11 @@ export async function POST(req: NextRequest) {
     typed = String(b.typed ?? "").trim().replace(/\s+/g, " ").slice(0, 80);
     if (typed.length < 2) return NextResponse.json({ error: "Type your full name." }, { status: 400 });
   }
+  const token = String(b.token ?? "");
+  if (codeRequired(store) && !(await isVerified(store, token, req.cookies.get(CODE_COOKIE)?.value)))
+    return NextResponse.json({ error: "Please confirm the code we emailed you first.", needCode: true }, { status: 401 });
   try {
-    const res = await submitSignature(store, { token: String(b.token ?? ""), kind, png, typed, origin: req.nextUrl.origin, who: who(req) });
+    const res = await submitSignature(store, { token, kind, png, typed, origin: req.nextUrl.origin, who: who(req) });
     return NextResponse.json({ ok: true, completed: res.completed.length > 0 });
   } catch (e) {
     if (e instanceof SignError) return NextResponse.json({ error: e.message }, { status: e.status });

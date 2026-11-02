@@ -4,6 +4,7 @@ import { createSend, type DocInput } from "@/lib/sign/service";
 import type { SignField } from "@/lib/sign/store";
 import { adminEmail, who } from "@/lib/sign/http";
 import { isHookConfigured } from "@/lib/sign/notify";
+import { codeRequired } from "@/lib/sign/code";
 
 /**
  * POST /api/sign/envelopes — Founders Doc admins send documents for signing.
@@ -94,6 +95,9 @@ export async function POST(req: NextRequest) {
 
   if (docs.some((d) => d.fields.length) && !(await store.boxesReady()))
     return NextResponse.json({ error: "The signature boxes can't be saved yet: run supabase/113_fd_sign_fields.sql in Supabase, then press Send again." }, { status: 503 });
+
+  if (codeRequired(store) && !(await store.codesReady()))
+    return NextResponse.json({ error: "Signers must confirm an email code before signing, but that isn't set up yet: run supabase/114_fd_sign_codes.sql in Supabase, then press Send again." }, { status: 503 });
 
   try {
     const res = await createSend(store, {

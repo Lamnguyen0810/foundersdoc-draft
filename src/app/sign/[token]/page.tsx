@@ -1,7 +1,8 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { signStore } from "@/lib/sign/store";
 import { viewForToken } from "@/lib/sign/service";
 import { who } from "@/lib/sign/http";
+import { CODE_COOKIE, codeRequired, isVerified, maskEmail } from "@/lib/sign/code";
 import SignClient from "./SignClient";
 import "../sign.css";
 
@@ -37,5 +38,7 @@ export default async function SignPage({ params }: { params: Promise<{ token: st
       </main>
     );
   }
-  return <SignClient token={token} view={view} />;
+  const needCode = view.state === "ready" && codeRequired(store);
+  const verified = needCode ? await isVerified(store, token, (await cookies()).get(CODE_COOKIE)?.value) : true;
+  return <SignClient token={token} view={view} code={{ required: needCode, verified, to: maskEmail(view.signerEmail) }} />;
 }

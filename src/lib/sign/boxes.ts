@@ -104,8 +104,14 @@ export function autoPlace(info: PdfInfo, signers: Array<{ name: string; role: st
     if (label) {
       taken.add(label);
       const pg = info.pages[label.page - 1];
-      const { w, h } = sized("signature", pg);
-      out.push(clamp({ id: boxId(), position, kind: "signature", page: label.page, x: label.x - 0.004, y: label.y - h - 4 / pg.h, w, h }));
+      const size = sized("signature", pg);
+      const x = label.x - 0.004;
+      const bottom = label.y - 4 / pg.h; // just above the label = on the signature line
+      /* don't cover text printed above the line (e.g. the company name): fit the box under it */
+      const above = info.texts.filter((t) => t.page === label.page && t.y + t.h <= bottom && t.x < x + size.w && t.x + t.w > x);
+      const ceiling = above.length ? Math.max(...above.map((t) => t.y + t.h)) + 3 / pg.h : 0;
+      const h = Math.max(Math.min(size.h, bottom - ceiling), 20 / pg.h);
+      out.push(clamp({ id: boxId(), position, kind: "signature", page: label.page, x, y: bottom - h, w: size.w, h }));
     } else {
       const pg = info.pages[last - 1] ?? { w: 595, h: 842 };
       const { w, h } = sized("signature", pg);
