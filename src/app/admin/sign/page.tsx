@@ -17,7 +17,7 @@ export default async function SignAdminPage() {
   const admin = await adminEmail();
   if (!admin) {
     return (
-      <main className="fdsign">
+      <main className="fdsign fs-adm">
         <div className="fs-empty">
           <h1>Founders Doc admins only</h1>
           <p>
@@ -30,7 +30,7 @@ export default async function SignAdminPage() {
   const store = signStore();
   if (store === "no-secret-key") {
     return (
-      <main className="fdsign">
+      <main className="fdsign fs-adm">
         <div className="fs-empty">
           <h1>FD Sign needs one setting</h1>
           <p>
@@ -51,7 +51,7 @@ export default async function SignAdminPage() {
   }
   if (/sign_envelopes|relation|does not exist/i.test(setupError)) {
     return (
-      <main className="fdsign">
+      <main className="fdsign fs-adm">
         <div className="fs-empty">
           <h1>FD Sign is not set up yet</h1>
           <p>
