@@ -2,13 +2,47 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import type { SignView } from "@/lib/sign/service";
 
-/* The signing screen: the document(s) on the left, the signature on the right.
-   Draw (mouse, finger or pen) or type; tick the consent box; Sign. */
+/* The signing screen: the document(s) on the left with this signer's
+   "Sign here" boxes on the signature lines (a live preview of the signature
+   appears in them), the signature on the right. Draw (mouse, finger or pen)
+   or type; tick the consent box; Sign. */
+
+const PdfPages = dynamic(() => import("../PdfPages"), { ssr: false, loading: () => <div className="fs-pages-wait">Loading the document…</div> });
+const today = () => new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Singapore" });
 
 const fmt = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+
+/** The drawing cropped to the ink (plus a little margin), so it fills its box on the line. */
+function trimmed(c: HTMLCanvasElement): string {
+  const ctx = c.getContext("2d");
+  if (!ctx) return c.toDataURL("image/png");
+  const { width: w, height: h } = c;
+  const px = ctx.getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      if (px[(y * w + x) * 4 + 3] > 8) {
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+  if (x1 < 0) return c.toDataURL("image/png");
+  const pad = Math.round(6 * (window.devicePixelRatio || 1));
+  x0 = Math.max(0, x0 - pad);
+  y0 = Math.max(0, y0 - pad);
+  x1 = Math.min(w - 1, x1 + pad);
+  y1 = Math.min(h - 1, y1 + pad);
+  const out = document.createElement("canvas");
+  out.width = x1 - x0 + 1;
+  out.height = y1 - y0 + 1;
+  out.getContext("2d")?.drawImage(c, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+  return out.toDataURL("image/png");
+}
 
 export default function SignClient({ token, view }: { token: string; view: SignView }) {
   const router = useRouter();
@@ -17,6 +51,7 @@ export default function SignClient({ token, view }: { token: string; view: SignV
   const [typed, setTyped] = useState(view.signerName);
   const [consent, setConsent] = useState(false);
   const [drawn, setDrawn] = useState(false);
+  const [png, setPng] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -69,6 +104,7 @@ export default function SignClient({ token, view }: { token: string; view: SignV
     if (!drawn) setDrawn(true);
   }
   function up() {
+    if (drawing.current && canvas.current) setPng(trimmed(canvas.current));
     drawing.current = false;
     last.current = null;
   }
@@ -76,6 +112,16 @@ export default function SignClient({ token, view }: { token: string; view: SignV
     const c = canvas.current;
     c?.getContext("2d")?.clearRect(0, 0, c.width, c.height);
     setDrawn(false);
+    setPng("");
+  }
+  const ready = view.state === "ready";
+  const mine = ready ? (d?.fields ?? []) : [];
+  const places = mine.filter((f) => f.kind === "signature").length;
+  function gotoBox() {
+    document.querySelector(".fs-here")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+  function gotoPad() {
+    document.querySelector(".fs-side .fs-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   async function sign() {
@@ -88,7 +134,7 @@ export default function SignClient({ token, view }: { token: string; view: SignV
       const res = await fetch("/api/sign/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, consent, kind: mode, png: mode === "draw" ? canvas.current?.toDataURL("image/png") : undefined, typed: mode === "type" ? typed : undefined }),
+        body: JSON.stringify({ token, consent, kind: mode, png: mode === "draw" ? png || (canvas.current ? trimmed(canvas.current) : undefined) : undefined, typed: mode === "type" ? typed : undefined }),
       });
       const j = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(j.error || "Could not sign. Please try again.");
@@ -119,7 +165,7 @@ export default function SignClient({ token, view }: { token: string; view: SignV
                   ? done
                     ? "Everyone has signed. Download the signed copy below."
                     : "We'll email you the signed copy once everyone has signed."
-                  : "Read the document, then sign on the right. Your signature is added on a signature page at the end, with a record of when and how you signed."}
+                  : "Read the document, then sign on the right. Your signature goes on the highlighted lines, with a record of when and how you signed added at the end."}
               </p>
             </div>
           </div>
@@ -141,7 +187,48 @@ export default function SignClient({ token, view }: { token: string; view: SignV
               </span>
             ))}
           </div>
-          <iframe key={`${d.envelopeId}-${view.state}`} className="fs-frame" title={d.title} src={fileUrl(doc, view.state === "signed")} />
+          {ready && (
+            <div className="fs-goto">
+              <span>
+                {places
+                  ? `You sign in ${places === 1 ? "1 place" : `${places} places`} in this document${n > 1 ? "" : ""}.`
+                  : "There is no signature line marked for you here: your signature is added on the record page at the end."}
+              </span>
+              {places > 0 && (
+                <button className="fs-textbtn" onClick={gotoBox}>
+                  Show me where ↓
+                </button>
+              )}
+            </div>
+          )}
+          <div className="fs-viewer">
+            <PdfPages
+              key={`${d.envelopeId}-${view.state}`}
+              src={fileUrl(doc, view.state === "signed")}
+              overlay={(page) =>
+                mine
+                  .filter((f) => f.page === page)
+                  .map((f, i) => {
+                    const filled = f.kind !== "signature" || (mode === "draw" ? !!png : typed.trim().length > 1);
+                    return (
+                      <div
+                        key={i}
+                        className={`fs-here ${filled ? "filled" : ""}`}
+                        style={{ left: `${f.x * 100}%`, top: `${f.y * 100}%`, width: `${f.w * 100}%`, height: `${f.h * 100}%` }}
+                        onClick={gotoPad}
+                        title="Your signature goes here"
+                      >
+                        {f.kind === "signature" && !filled && <span className="fs-here-l">Sign here</span>}
+                        {f.kind === "signature" && filled && (mode === "draw" ? /* eslint-disable-next-line @next/next/no-img-element -- a data: URL of the signature being drawn */
+                          <img src={png} alt="Your signature" /> : <span className="fs-here-t" style={{ ["--n" as string]: Math.max(typed.trim().length, 4) }}>{typed}</span>)}
+                        {f.kind === "date" && <span className="fs-here-d">{today()}</span>}
+                        {f.kind === "name" && <span className="fs-here-d">{view.signerName}</span>}
+                      </div>
+                    );
+                  })
+              }
+            />
+          </div>
           <div className="fs-doc-actions">
             <a className="fs-btn ghost" href={fileUrl(doc, view.state === "signed", true)}>
               ⬇ {view.state === "signed" ? (done ? "Download signed copy" : "Download copy so far") : "Download to read"}
@@ -160,7 +247,11 @@ export default function SignClient({ token, view }: { token: string; view: SignV
             <div className="fs-card">
               <h2>Your signature</h2>
               <div className="fs-seg">
-                <button className={mode === "draw" ? "on" : ""} onClick={() => setMode("draw")}>
+                <button className={mode === "draw" ? "on" : ""} onClick={() => {
+                    setMode("draw");
+                    setDrawn(false);
+                    setPng("");
+                  }}>
                   Draw
                 </button>
                 <button className={mode === "type" ? "on" : ""} onClick={() => setMode("type")}>

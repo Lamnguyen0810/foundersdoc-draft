@@ -59,6 +59,17 @@ export interface SignEvent {
   detail: string | null;
 }
 
+/** A box on the page (113): fractions of the page from the top-left. */
+export interface SignField {
+  position: number; // which signer
+  kind: "signature" | "date" | "name";
+  page: number; // 1-based
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface NewEnvelope {
   title: string;
   file_name: string;
@@ -90,6 +101,8 @@ export interface SignStore {
   fileToEsop(holderId: string, tranche: number | null, pdf: Uint8Array, fileName: string): Promise<string | null>;
   esopHolders(): Promise<Array<{ id: string; name: string; email: string | null; batch: number; status: string }>>;
   esopDirector(): Promise<string | null>;
+  insertFields(envelopeId: string, fields: SignField[]): Promise<void>;
+  fields(envelopeId: string): Promise<SignField[]>;
 }
 
 const ENV_COLS = "id, title, file_name, original_sha256, page_count, message, batch_id, status, esop_holder_id, esop_tranche, filed_document_id, created_by, created_at, completed_at";
@@ -183,6 +196,18 @@ function supabaseStore(): SignStore {
         status: string;
       }>;
     },
+    async insertFields(envelopeId, fields) {
+      if (!fields.length) return;
+      must(await db.from("sign_fields").insert(fields.map((f) => ({ ...f, envelope_id: envelopeId }))));
+    },
+    async fields(envelopeId) {
+      const r = await db.from("sign_fields").select("position, kind, page, x, y, w, h").eq("envelope_id", envelopeId).order("page");
+      if (r.error) {
+        if (/sign_fields/.test(r.error.message)) return []; // 113 not run yet
+        throw new Error(r.error.message);
+      }
+      return (r.data ?? []) as SignField[];
+    },
     async esopDirector() {
       const c = must(await db.from("esop_companies").select("director_name").eq("slug", "hitpay").maybeSingle()) as { director_name?: string | null } | null;
       return c?.director_name ?? null;
@@ -193,6 +218,7 @@ function supabaseStore(): SignStore {
 /* ── memory (local preview only) ─────────────────────────────────────────── */
 
 interface Mem {
+  fld: Map<string, SignField[]>;
   env: Map<string, Envelope & { original: Uint8Array }>;
   sig: Map<string, Signer & { png: Uint8Array | null }>;
   ev: SignEvent[];
@@ -200,7 +226,7 @@ interface Mem {
 const g = globalThis as unknown as { __fdsign?: Mem };
 
 function memoryStore(): SignStore {
-  const m: Mem = (g.__fdsign ??= { env: new Map(), sig: new Map(), ev: [] as SignEvent[] });
+  const m: Mem = (g.__fdsign ??= { fld: new Map(), env: new Map(), sig: new Map(), ev: [] as SignEvent[] });
   const now = () => new Date().toISOString();
   const strip = <T extends object>(o: T, k: string) => {
     const c = { ...o } as Record<string, unknown>;
@@ -283,6 +309,12 @@ function memoryStore(): SignStore {
     },
     async esopDirector() {
       return "Aditya Haripurkar";
+    },
+    async insertFields(envelopeId, fields) {
+      m.fld.set(envelopeId, [...(m.fld.get(envelopeId) ?? []), ...fields]);
+    },
+    async fields(envelopeId) {
+      return m.fld.get(envelopeId) ?? [];
     },
   };
 }

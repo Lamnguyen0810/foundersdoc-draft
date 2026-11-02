@@ -5,7 +5,7 @@ import { adminEmail } from "@/lib/sign/http";
 
 /**
  * GET /api/sign/file?e=<envelope id>&t=<token>[&signed=1][&download=1]
- * The original PDF, or the signed one (original + signature page + audit
+ * The original PDF, or the signed one (signatures stamped on their lines + audit
  * trail). Allowed for a signer on that envelope (by their link) or an admin.
  */
 export const runtime = "nodejs";
