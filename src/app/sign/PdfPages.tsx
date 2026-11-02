@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
+import { readPdf, type PdfInfo } from "@/lib/sign/boxes";
 
 /* The PDF drawn page by page (pdf.js, in the browser), each page with an
    overlay on top for the signature boxes. Box positions are fractions of the
@@ -19,45 +20,13 @@ function pdfjs(): Promise<PdfJs> {
   return lib;
 }
 
-/** A line of text on a page, in page fractions (top-left origin). */
-export interface PdfText {
-  page: number;
-  str: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-export interface PdfInfo {
-  pages: Array<{ w: number; h: number }>;
-  texts: PdfText[];
-}
+export type { PdfInfo, PdfText } from "@/lib/sign/boxes";
+export { readPdf } from "@/lib/sign/boxes";
 
 export async function openPdf(src: Blob | string): Promise<PDFDocumentProxy> {
   const m = await pdfjs();
   if (typeof src === "string") return m.getDocument({ url: src, withCredentials: true }).promise;
   return m.getDocument({ data: new Uint8Array(await src.arrayBuffer()) }).promise;
-}
-
-/** Page sizes and every piece of text with its position (for auto-placing boxes). */
-export async function readPdf(doc: PDFDocumentProxy): Promise<PdfInfo> {
-  const pages: PdfInfo["pages"] = [];
-  const texts: PdfText[] = [];
-  for (let p = 1; p <= doc.numPages; p++) {
-    const page = await doc.getPage(p);
-    const vp = page.getViewport({ scale: 1 });
-    pages.push({ w: vp.width, h: vp.height });
-    const tc = await page.getTextContent();
-    for (const it of tc.items) {
-      if (!("str" in it) || !it.str.trim()) continue;
-      const [a, b, , , e, f] = it.transform as number[];
-      const size = it.height || Math.hypot(a, b) || 10;
-      /* viewport handles rotation; convert the baseline point */
-      const [vx, vy] = vp.convertToViewportPoint(e, f);
-      texts.push({ page: p, str: it.str.trim(), x: vx / vp.width, y: (vy - size) / vp.height, w: it.width / vp.width, h: size / vp.height });
-    }
-  }
-  return { pages, texts };
 }
 
 export default function PdfPages({

@@ -1,7 +1,43 @@
-import type { PdfInfo, PdfText } from "./PdfPages";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 
 /* Signature boxes: where each signer signs, on the line. Positions are page
-   fractions from the top-left (same as public.sign_fields). */
+   fractions from the top-left (same as public.sign_fields). Pure code: used by
+   the admin page, the signer's page and the server (old envelopes with no
+   boxes get them placed the same way). */
+
+/** A piece of text on a page, in page fractions (top-left origin). */
+export interface PdfText {
+  page: number;
+  str: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+export interface PdfInfo {
+  pages: Array<{ w: number; h: number }>;
+  texts: PdfText[];
+}
+
+/** Page sizes and every piece of text with its position (pdf.js document, browser or server). */
+export async function readPdf(doc: PDFDocumentProxy): Promise<PdfInfo> {
+  const pages: PdfInfo["pages"] = [];
+  const texts: PdfText[] = [];
+  for (let p = 1; p <= doc.numPages; p++) {
+    const page = await doc.getPage(p);
+    const vp = page.getViewport({ scale: 1 });
+    pages.push({ w: vp.width, h: vp.height });
+    const tc = await page.getTextContent();
+    for (const it of tc.items) {
+      if (!("str" in it) || !it.str.trim()) continue;
+      const [a, b, , , e, f] = it.transform as number[];
+      const size = it.height || Math.hypot(a, b) || 10;
+      const [vx, vy] = vp.convertToViewportPoint(e, f);
+      texts.push({ page: p, str: it.str.trim(), x: vx / vp.width, y: (vy - size) / vp.height, w: it.width / vp.width, h: size / vp.height });
+    }
+  }
+  return { pages, texts };
+}
 
 export type BoxKind = "signature" | "date" | "name";
 export interface Box {

@@ -92,6 +92,9 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  if (docs.some((d) => d.fields.length) && !(await store.boxesReady()))
+    return NextResponse.json({ error: "The signature boxes can't be saved yet: run supabase/113_fd_sign_fields.sql in Supabase, then press Send again." }, { status: 503 });
+
   try {
     const res = await createSend(store, {
       docs,

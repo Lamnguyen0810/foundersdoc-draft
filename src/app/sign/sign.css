@@ -249,3 +249,6 @@ body:has(.fdsign:not(.fs-adm)) .strip-warn {
 }
 .fs-here { container-type: size; }
 .fs-here-t { font-size: min(62cqh, calc(190cqw / var(--n, 12))); }
+.fs-setup { display: grid; gap: 8px; margin: 0 0 16px; }
+.fs-setup p { margin: 0; padding: 11px 14px; border-radius: 10px; background: var(--gold-soft); color: var(--gold-deep); font-size: 13px; line-height: 1.55; }
+.fs-setup b { color: var(--black); }

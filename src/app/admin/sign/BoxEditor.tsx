@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import PdfPages, { type PdfInfo } from "../../sign/PdfPages";
-import { boxId, clamp, colour, sized, type Box, type BoxKind } from "../../sign/boxes";
+import { boxId, clamp, colour, sized, type Box, type BoxKind } from "@/lib/sign/boxes";
 
 /* The document with its signature boxes: drag a box to move it, drag the
    corner to resize, ✕ to remove. With a box type "armed", a click on a page

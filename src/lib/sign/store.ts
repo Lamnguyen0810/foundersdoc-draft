@@ -103,6 +103,8 @@ export interface SignStore {
   esopDirector(): Promise<string | null>;
   insertFields(envelopeId: string, fields: SignField[]): Promise<void>;
   fields(envelopeId: string): Promise<SignField[]>;
+  /** Is public.sign_fields there (SQL 113 run)? */
+  boxesReady(): Promise<boolean>;
 }
 
 const ENV_COLS = "id, title, file_name, original_sha256, page_count, message, batch_id, status, esop_holder_id, esop_tranche, filed_document_id, created_by, created_at, completed_at";
@@ -207,6 +209,10 @@ function supabaseStore(): SignStore {
         throw new Error(r.error.message);
       }
       return (r.data ?? []) as SignField[];
+    },
+    async boxesReady() {
+      const r = await db.from("sign_fields").select("id").limit(1);
+      return !r.error;
     },
     async esopDirector() {
       const c = must(await db.from("esop_companies").select("director_name").eq("slug", "hitpay").maybeSingle()) as { director_name?: string | null } | null;
@@ -315,6 +321,9 @@ function memoryStore(): SignStore {
     },
     async fields(envelopeId) {
       return m.fld.get(envelopeId) ?? [];
+    },
+    async boxesReady() {
+      return true;
     },
   };
 }

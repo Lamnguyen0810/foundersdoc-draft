@@ -44,8 +44,9 @@ export default async function SignAdminPage() {
   let holders: Awaited<ReturnType<typeof store.esopHolders>> = [];
   let director: string | null = null;
   let setupError = "";
+  let boxesReady = true;
   try {
-    [recent, holders, director] = await Promise.all([store.recent(40), store.esopHolders(), store.esopDirector()]);
+    [recent, holders, director, boxesReady] = await Promise.all([store.recent(40), store.esopHolders(), store.esopDirector(), store.boxesReady()]);
   } catch (e) {
     setupError = e instanceof Error ? e.message : String(e);
   }
@@ -61,5 +62,5 @@ export default async function SignAdminPage() {
       </main>
     );
   }
-  return <SignAdmin recent={recent} holders={holders} director={director ?? ""} hook={isHookConfigured()} preview={store.kind === "memory"} />;
+  return <SignAdmin recent={recent} holders={holders} director={director ?? ""} hook={isHookConfigured()} preview={store.kind === "memory"} boxesReady={boxesReady} />;
 }
