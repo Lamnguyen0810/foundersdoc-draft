@@ -254,3 +254,9 @@ body:has(.fdsign:not(.fs-adm)) .strip-warn {
 .fs-setup b { color: var(--black); }
 .fs-linkbtns { display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .fs-linkbtns .dbtn { display: inline-flex; align-items: center; text-decoration: none; height: 30px; white-space: nowrap; }
+.fs-tight { margin: 0 0 14px; }
+.fs-code { display: block; width: 100%; height: 54px; margin: 0 0 10px; border: 1px solid var(--fs-line); border-radius: 10px; background: var(--fs-card); color: var(--black); font: 600 26px/1 "Courier New", monospace; letter-spacing: 0.5em; text-align: center; padding-left: 0.5em; }
+.fs-code:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--fs-ring); }
+.fs-verified { margin: -4px 0 12px; color: var(--ok, #3d8b5f); font-size: 12.5px; font-weight: 600; }
+.fs-env-actions .fs-cancel { margin-right: auto; color: #b4541b; }
+.fs-env-actions .fs-cancel:hover { border-color: #b4541b; }

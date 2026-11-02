@@ -21,6 +21,11 @@ export const hashToken = (t: string) => createHash("sha256").update(t).digest("h
 const newToken = () => randomBytes(32).toString("base64url");
 export const isTokenShape = (t: string) => /^[A-Za-z0-9_-]{40,60}$/.test(t);
 
+/** A signing link stops working this many days after it was sent (a new one can be issued from Sent). */
+export const LINK_DAYS = 30;
+export const isExpired = (s: Pick<Signer, "status" | "invited_at">) =>
+  s.status === "invited" && !!s.invited_at && Date.now() - Date.parse(s.invited_at) > LINK_DAYS * 86_400_000;
+
 export interface DocInput {
   title: string;
   fileName: string;
@@ -53,7 +58,8 @@ async function invite(store: SignStore, rows: Signer[], titles: string[], origin
   const hash = hashToken(token);
   const at = new Date().toISOString();
   for (const r of rows) {
-    await store.updateSigner(r.id, { token_hash: hash, status: "invited", invited_at: r.invited_at ?? at });
+    /* a re-issued link starts a fresh 30 days */
+    await store.updateSigner(r.id, { token_hash: hash, status: "invited", invited_at: reason === "link" ? at : (r.invited_at ?? at) });
     await store.addEvent({ envelope_id: r.envelope_id, signer_id: r.id, event: reason, ip: who.ip, user_agent: who.ua, detail: r.email });
   }
   const first = rows[0];
@@ -120,7 +126,7 @@ export interface SignView {
   signerName: string;
   signerRole: string;
   signerEmail: string;
-  state: "ready" | "waiting" | "signed" | "voided";
+  state: "ready" | "waiting" | "signed" | "voided" | "expired";
   documents: Array<{
     envelopeId: string;
     title: string;
@@ -164,12 +170,16 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
   }
   const first = mine[0];
   const voided = docs.every((d) => d.status === "voided");
-  const allSigned = mine.every((m) => m.status === "signed");
+  /* in a batch, a cancelled document drops out of the list (unless all are cancelled) */
+  const gone = new Set(docs.filter((d) => d.status === "voided").map((d) => d.envelopeId));
+  if (!voided) for (let i = docs.length - 1; i >= 0; i--) if (docs[i].status === "voided") docs.splice(i, 1);
+  const live = mine.filter((m) => voided || !gone.has(m.envelope_id));
+  const allSigned = live.every((m) => m.status === "signed");
   return {
     signerName: first.name,
     signerRole: first.role,
     signerEmail: first.email,
-    state: voided ? "voided" : allSigned ? "signed" : waitingFor ? "waiting" : "ready",
+    state: voided ? "voided" : allSigned ? "signed" : waitingFor ? "waiting" : live.some(isExpired) ? "expired" : "ready",
     documents: docs,
     message,
     waitingFor,
@@ -193,8 +203,14 @@ export async function submitSignature(
   if (!isTokenShape(input.token)) throw new SignError("This signing link is not valid.", 404);
   const mine = await store.signersByToken(hashToken(input.token));
   if (!mine.length) throw new SignError("This signing link is not valid.", 404);
-  const open = mine.filter((m) => m.status === "invited");
+  let open = mine.filter((m) => m.status === "invited");
   if (!open.length) throw new SignError("You have already signed.", 409);
+  /* a cancelled document in a batch is skipped; the rest can still be signed */
+  const live: Signer[] = [];
+  for (const m of open) if ((await store.envelope(m.envelope_id))?.status === "sent") live.push(m);
+  if (!live.length) throw new SignError("This request was cancelled by Founders Doc.", 409);
+  open = live;
+  if (open.some(isExpired)) throw new SignError("This link has expired. Please reply to the email and Founders Doc will send you a new one.", 410);
   for (const me of open) {
     const env = await store.envelope(me.envelope_id);
     if (!env || env.status !== "sent") throw new SignError("This document is no longer open for signing.", 409);
@@ -280,6 +296,15 @@ export async function signedPdf(store: SignStore, envelopeId: string, opts: { au
     }
   }
   return buildSignedPdf({ original, envelope: env, signers, pngs, events: await store.events(envelopeId), fields: await fieldsFor(store, envelopeId, signers), audit: opts.audit });
+}
+
+/** Founders Doc cancels an open request: nobody can sign it any more; the links show "cancelled". */
+export async function voidEnvelope(store: SignStore, envelopeId: string, who: Who, by: string): Promise<boolean> {
+  const env = await store.envelope(envelopeId);
+  if (!env || env.status !== "sent") return false;
+  await store.updateEnvelope(envelopeId, { status: "voided" });
+  await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "voided", ip: who.ip, user_agent: who.ua, detail: by });
+  return true;
 }
 
 /** May this token see this envelope's files? */

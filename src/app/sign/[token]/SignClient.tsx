@@ -44,7 +44,60 @@ function trimmed(c: HTMLCanvasElement): string {
   return out.toDataURL("image/png");
 }
 
-export default function SignClient({ token, view }: { token: string; view: SignView }) {
+export default function SignClient({
+  token,
+  view,
+  code = { required: false, verified: true, to: "" },
+}: {
+  token: string;
+  view: SignView;
+  code?: { required: boolean; verified: boolean; to: string };
+}) {
+  /* email code before signing (lib/sign/code.ts) */
+  const [ok, setOk] = useState(!code.required || code.verified);
+  const [codeSent, setCodeSent] = useState(false);
+  const [codeVal, setCodeVal] = useState("");
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [codeErr, setCodeErr] = useState("");
+  const [devCode, setDevCode] = useState("");
+  const [wait, setWait] = useState(0);
+  useEffect(() => {
+    if (wait <= 0) return;
+    const t = setTimeout(() => setWait((w) => w - 1), 1000);
+    return () => clearTimeout(t);
+  }, [wait]);
+  async function askCode() {
+    setCodeErr("");
+    setCodeBusy(true);
+    try {
+      const res = await fetch("/api/sign/code", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; devCode?: string };
+      if (!res.ok) throw new Error(j.error || "Could not send a code.");
+      setCodeSent(true);
+      setCodeVal("");
+      setDevCode(j.devCode ?? "");
+      setWait(30);
+    } catch (e) {
+      setCodeErr(e instanceof Error ? e.message : "Could not send a code.");
+    } finally {
+      setCodeBusy(false);
+    }
+  }
+  async function checkCode() {
+    setCodeErr("");
+    if (codeVal.replace(/\D/g, "").length !== 6) return setCodeErr("Enter the 6 digits from the email.");
+    setCodeBusy(true);
+    try {
+      const res = await fetch("/api/sign/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, code: codeVal }) });
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) throw new Error(j.error || "That code isn't right.");
+      setOk(true);
+    } catch (e) {
+      setCodeErr(e instanceof Error ? e.message : "That code isn't right.");
+    } finally {
+      setCodeBusy(false);
+    }
+  }
   const router = useRouter();
   const [doc, setDoc] = useState(0);
   const [mode, setMode] = useState<"draw" | "type">("draw");
@@ -79,7 +132,7 @@ export default function SignClient({ token, view }: { token: string; view: SignV
       ctx.lineJoin = "round";
       ctx.strokeStyle = "#0d1a59";
     }
-  }, [mode, view.state]);
+  }, [mode, view.state, ok]);
 
   function pos(e: React.PointerEvent<HTMLCanvasElement>) {
     const r = e.currentTarget.getBoundingClientRect();
@@ -136,7 +189,11 @@ export default function SignClient({ token, view }: { token: string; view: SignV
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, consent, kind: mode, png: mode === "draw" ? png || (canvas.current ? trimmed(canvas.current) : undefined) : undefined, typed: mode === "type" ? typed : undefined }),
       });
-      const j = (await res.json().catch(() => ({}))) as { error?: string };
+      const j = (await res.json().catch(() => ({}))) as { error?: string; needCode?: boolean };
+      if (j.needCode) {
+        setOk(false);
+        setCodeSent(false);
+      }
       if (!res.ok) throw new Error(j.error || "Could not sign. Please try again.");
       router.refresh();
     } catch (e) {
@@ -254,9 +311,53 @@ export default function SignClient({ token, view }: { token: string; view: SignV
               <p>{view.message}</p>
             </div>
           )}
-          {view.state === "ready" && (
+          {view.state === "ready" && !ok && (
+            <div className="fs-card">
+              <h2>First, confirm it&rsquo;s you</h2>
+              <p className="fs-small fs-tight">
+                We&rsquo;ll email a 6-digit code to <b>{code.to}</b>. It works for 10 minutes.
+              </p>
+              {!codeSent ? (
+                <button className="fs-btn primary" disabled={codeBusy} onClick={() => void askCode()}>
+                  {codeBusy ? "Sending…" : "Email me a code"}
+                </button>
+              ) : (
+                <>
+                  <input
+                    className="fs-code"
+                    value={codeVal}
+                    onChange={(e) => setCodeVal(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    onKeyDown={(e) => e.key === "Enter" && void checkCode()}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="••••••"
+                    aria-label="6-digit code from the email"
+                    autoFocus
+                  />
+                  {devCode && <p className="fs-small">Preview only (no email sent): the code is {devCode}</p>}
+                  <button className="fs-btn primary" disabled={codeBusy} onClick={() => void checkCode()}>
+                    {codeBusy ? "Checking…" : "Confirm"}
+                  </button>
+                  <p className="fs-small">
+                    Didn&rsquo;t get it? Check spam, or{" "}
+                    {wait > 0 ? (
+                      <span>send again in {wait}s</span>
+                    ) : (
+                      <button className="fs-textbtn" onClick={() => void askCode()}>
+                        send a new code
+                      </button>
+                    )}
+                    .
+                  </p>
+                </>
+              )}
+              {codeErr && <p className="fs-err">{codeErr}</p>}
+            </div>
+          )}
+          {view.state === "ready" && ok && (
             <div className="fs-card">
               <h2>Your signature</h2>
+              {code.required && <p className="fs-verified">✓ Email confirmed</p>}
               <div className="fs-seg">
                 <button className={mode === "draw" ? "on" : ""} onClick={() => {
                     setMode("draw");
@@ -308,6 +409,12 @@ export default function SignClient({ token, view }: { token: string; view: SignV
             <div className="fs-card done">
               <h2>✓ Signed</h2>
               <p className="fs-small">{done ? "All parties have signed." : "Waiting for the other signers. You'll get the signed copy by email."}</p>
+            </div>
+          )}
+          {view.state === "expired" && (
+            <div className="fs-card">
+              <h2>This link has expired</h2>
+              <p className="fs-small">Signing links work for 30 days. Reply to the email from Founders Doc and we&rsquo;ll send you a new one.</p>
             </div>
           )}
           {view.state === "voided" && (

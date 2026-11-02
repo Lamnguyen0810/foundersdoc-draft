@@ -63,6 +63,7 @@ export default function SignAdmin({
   hook,
   preview,
   boxesReady = true,
+  codesReady = true,
 }: {
   recent: Array<Envelope & { signers: Signer[] }>;
   holders: Holder[];
@@ -70,6 +71,7 @@ export default function SignAdmin({
   hook: boolean;
   preview: boolean;
   boxesReady?: boolean;
+  codesReady?: boolean;
 }) {
   const router = useRouter();
   const pick = useRef<HTMLInputElement>(null);
@@ -82,6 +84,7 @@ export default function SignAdmin({
     window.history.pushState(null, "", t === "sent" ? "?tab=sent" : window.location.pathname);
     window.scrollTo({ top: 0 });
   }
+  const [now] = useState(() => Date.now()); // for "link expired" (30 days)
   const [issued, setIssued] = useState<Record<string, string>>({}); // signer id → link made this visit
   const [mode, setMode] = useState<"each" | "batch">("each");
   const [dir, setDir] = useState({ name: director, email: "", role: "Director" });
@@ -248,6 +251,15 @@ export default function SignAdmin({
     else w?.close();
   }
   const holderName = (id: string | null) => holders.find((h) => h.id === id)?.name;
+  async function cancelRequest(envelopeId: string, title: string) {
+    if (!window.confirm(`Cancel "${title}"? Nobody will be able to sign it, and the links will say it was cancelled. You can send a corrected one afterwards.`)) return;
+    const res = await fetch("/api/sign/void", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ envelopeId }) });
+    const j = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) return say(j.error || "Could not cancel.");
+    say("Request cancelled");
+    router.refresh();
+  }
+  const expired = (s: Signer) => s.status === "invited" && !!s.invited_at && now - Date.parse(s.invited_at) > 30 * 86_400_000;
 
   /* The plain-English preview of who gets which email. */
   const holderNames = rows.map((r) => r.signers[0]?.name || "the holder");
@@ -268,8 +280,13 @@ export default function SignAdmin({
           </div>
         </div>
 
-        {(!boxesReady || (!hook && !preview)) && (
+        {(!boxesReady || (hook && !codesReady) || (!hook && !preview)) && (
           <div className="fs-setup">
+            {hook && !codesReady && (
+              <p>
+                <b>⚠ One step left in Supabase:</b> run <code>114_fd_sign_codes.sql</code> so signers can confirm the email code before signing. Until then Send is blocked.
+              </p>
+            )}
             {!boxesReady && (
               <p>
                 <b>⚠ One step left in Supabase:</b> run <code>113_fd_sign_fields.sql</code> so the signature boxes you place are saved. Until then Send is blocked.
@@ -690,10 +707,10 @@ export default function SignAdmin({
                             {s.position}. {s.name}
                           </b>
                           <span>
-                            {s.role} · {s.status === "signed" ? `signed ${fmt(s.signed_at)}` : s.status === "invited" ? (s.viewed_at ? "opened, not signed yet" : "link sent") : "waiting for their turn"}
+                            {s.role} · {s.status === "signed" ? `signed ${fmt(s.signed_at)}` : s.status === "invited" ? (expired(s) ? "link expired: send a new one" : s.viewed_at ? "opened, not signed yet" : "link sent") : "waiting for their turn"}
                           </span>
                         </div>
-                        {s.status === "invited" && (
+                        {s.status === "invited" && e.status === "sent" && (
                           <span className="fs-linkbtns">
                             <button className="dbtn gold" onClick={() => void openLink(e.id, s.id)} title="Open this person's signing page in a new tab">
                               Open ↗
@@ -707,6 +724,11 @@ export default function SignAdmin({
                     ))}
                   </div>
                   <div className="fs-env-actions">
+                    {e.status === "sent" && (
+                      <button className="dbtn fs-cancel" onClick={() => void cancelRequest(e.id, e.title)} title="Withdraw this request, e.g. if there is a mistake on the certificate">
+                        Cancel request
+                      </button>
+                    )}
                     <a className="dbtn" href={`/api/sign/file?e=${e.id}`} target="_blank" rel="noreferrer">
                       Original
                     </a>

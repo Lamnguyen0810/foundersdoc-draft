@@ -54,6 +54,10 @@ const EVENT_TEXT: Record<string, string> = {
   completed: "All parties signed - completed",
   filed: "Signed copy filed on the ESOP dashboard",
   link: "New signing link issued",
+  code_sent: "Email code sent",
+  code_verified: "Email code confirmed",
+  code_locked: "Code locked after 5 wrong tries",
+  voided: "Request cancelled by Founders Doc",
 };
 
 function wrap(text: string, font: PDFFont, size: number, width: number): string[] {
@@ -173,7 +177,12 @@ export async function buildSignedPdf(input: {
     ["Sent", sgt(envelope.created_at)],
     ["Completed", sgt(envelope.completed_at)],
     ["Status", envelope.status === "completed" ? "Completed - all parties signed" : "In progress"],
-    ["How signed", "Each signer opened a private link, agreed to sign electronically, and signed (s 8 Electronic Transactions Act 2010, Singapore). Signatures are on the document's signature lines."],
+    [
+      "How signed",
+      events.some((e) => e.event === "code_verified")
+        ? "Each signer opened a private link sent to their email, confirmed a one-time code sent to that email, agreed to sign electronically, and signed (s 8 Electronic Transactions Act 2010, Singapore). Signatures are on the document's signature lines."
+        : "Each signer opened a private link, agreed to sign electronically, and signed (s 8 Electronic Transactions Act 2010, Singapore). Signatures are on the document's signature lines.",
+    ],
   ];
   for (const [k, v] of facts) {
     page.drawText(pdfText(k), { x: M, y, size: 8.5, font: bold, color: grey });
