@@ -1,14 +1,21 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { matchFile } from "@/lib/esop/match";
 import type { Envelope, Signer } from "@/lib/sign/store";
+import { autoPlace, colour, type Box, type BoxKind } from "../../sign/boxes";
+import type { PdfInfo } from "../../sign/PdfPages";
+
+/* pdf.js only runs in the browser */
+const BoxEditor = dynamic(() => import("./BoxEditor"), { ssr: false, loading: () => <div className="fs-pages-wait">Loading the document…</div> });
 
 /* FD Sign — the Founders Doc side, in the site's own look (globals.css
    tokens: Geist/Inter, ink and gold, light and dark).
-   Four numbered steps: 1 documents · 2 how the first signer signs (each /
-   batch, explained with live numbers) · 3 signers and order · 4 review & send.
+   Five numbered steps: 1 documents · 2 how the first signer signs (each /
+   batch, explained with live numbers) · 3 signers and order · 4 signature
+   boxes on the lines (placed automatically, drag to adjust) · 5 review & send.
    Then "Sent" tracks every document. */
 
 interface Holder {
@@ -25,6 +32,8 @@ interface Row {
   holderId: string;
   tranche: string;
   signers: Array<{ name: string; email: string; role: string }>;
+  boxes: Box[];
+  info: PdfInfo | null;
 }
 interface Sent {
   name: string;
@@ -72,6 +81,13 @@ export default function SignAdmin({
   const [sent, setSent] = useState<Sent[] | null>(null);
   const [toast, setToast] = useState("");
   const [over, setOver] = useState(false);
+  const dirRef = useRef(dir);
+  useEffect(() => {
+    dirRef.current = dir;
+  }, [dir]);
+  const [cur, setCur] = useState(0); // document shown in step 4
+  const [who, setWho] = useState(1); // signer the new boxes are for
+  const [armed, setArmed] = useState<BoxKind | null>(null);
   const active = holders.filter((h) => h.status === "Active");
   const n = rows.length;
   const batch = mode === "batch" && n > 1;
@@ -88,9 +104,7 @@ export default function SignAdmin({
     if (!list.length) return setErr("Only PDF files can be sent for signing.");
     setErr("");
     setSent(null);
-    setRows((r) => [
-      ...r,
-      ...list.map((file, i) => {
+    const made = list.map((file, i) => {
         const m = matchFile(file.name, holders.map((h) => ({ id: h.id, name: h.name, legal_name: null })));
         const h = holders.find((x) => x.id === m.holderId);
         return {
@@ -100,9 +114,45 @@ export default function SignAdmin({
           holderId: h?.id ?? "",
           tranche: m.tranche ? String(m.tranche) : "",
           signers: [{ name: h?.name ?? "", email: h?.email ?? "", role: "Option Holder" }],
+          boxes: [] as Box[],
+          info: null as PdfInfo | null,
         };
-      }),
-    ]);
+      });
+    setRows((r) => [...r, ...made]);
+    /* read each PDF in the background and put the boxes on the signature lines */
+    void import("../../sign/PdfPages").then(async ({ openPdf, readPdf }) => {
+      for (const m of made) {
+        try {
+          const d = await openPdf(m.file);
+          const info = await readPdf(d);
+          void d.destroy();
+          setRows((l) => l.map((r) => (r.key === m.key ? { ...r, info, boxes: r.boxes.length ? r.boxes : autoPlace(info, [dirRef.current, ...r.signers]) } : r)));
+        } catch {
+          /* unreadable here: the server check will say so on Send */
+        }
+      }
+    });
+  }
+  function removeSigner(r: Row, i: number) {
+    const pos = i + 2;
+    setRow(r.key, {
+      signers: r.signers.filter((_, k) => k !== i),
+      boxes: r.boxes.filter((b) => b.position !== pos).map((b) => (b.position > pos ? { ...b, position: b.position - 1 } : b)),
+    });
+    setWho(1);
+  }
+  function placeAgain(r: Row) {
+    if (r.info) setRow(r.key, { boxes: autoPlace(r.info, [dir, ...r.signers]) });
+  }
+  function copyToAll(r: Row) {
+    setRows((l) =>
+      l.map((x) =>
+        x.key === r.key
+          ? x
+          : { ...x, boxes: r.boxes.filter((b) => b.position <= x.signers.length + 1 && (!x.info || b.page <= x.info.pages.length)).map((b) => ({ ...b, id: `${b.id}-${x.key}` })) },
+      ),
+    );
+    say(`Boxes copied to ${plural(rows.length - 1, "document")}`);
   }
   const setRow = (key: string, patch: Partial<Row>) => setRows((l) => l.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   function setHolder(r: Row, id: string) {
@@ -118,6 +168,10 @@ export default function SignAdmin({
     if (!n) return setErr("Add at least one PDF in step 1.");
     if (!dir.name.trim() || !EMAIL.test(dir.email.trim())) return setErr("Step 3: fill in the first signer's name and email.");
     for (const r of rows) for (const s of r.signers) if (!s.name.trim() || !EMAIL.test(s.email.trim())) return setErr(`Step 3 · ${r.title}: every signer needs a name and an email.`);
+    for (const r of rows) {
+      const missing = [dir, ...r.signers].filter((_, k) => !r.boxes.some((b) => b.kind === "signature" && b.position === k + 1));
+      if (missing.length && !window.confirm(`${r.title}: no signature box for ${missing.map((m) => m.name || "a signer").join(", ")}. Their signature will go on the audit page instead. Send anyway?`)) return;
+    }
     setBusy(true);
     const form = new FormData();
     form.set(
@@ -130,6 +184,7 @@ export default function SignAdmin({
           holderId: r.holderId || undefined,
           tranche: r.tranche ? Number.parseInt(r.tranche, 10) : undefined,
           signers: [dir, ...r.signers],
+          fields: r.boxes.map((b) => ({ position: b.position, kind: b.kind, page: b.page, x: b.x, y: b.y, w: b.w, h: b.h })),
         })),
       }),
     );
@@ -254,7 +309,14 @@ export default function SignAdmin({
                           ))}
                         </select>
                         <input className="input fs-tr" value={r.tranche} onChange={(e) => setRow(r.key, { tranche: e.target.value.replace(/\D/g, "").slice(0, 2) })} placeholder="Tranche" aria-label="Tranche" />
-                        <button className="fs-icon" onClick={() => setRows((l) => l.filter((x) => x.key !== r.key))} aria-label="Remove">
+                        <button
+                          className="fs-icon"
+                          onClick={() => {
+                            setRows((l) => l.filter((x) => x.key !== r.key));
+                            setCur(0);
+                          }}
+                          aria-label="Remove"
+                        >
                           ✕
                         </button>
                       </div>
@@ -330,51 +392,148 @@ export default function SignAdmin({
                       <input className="input" value={dir.role} onChange={(e) => setDir({ ...dir, role: e.target.value })} />
                     </label>
                   </div>
-                  <span className="fs-order">Signs 1st · all documents</span>
+                  <span className="fs-order">Signs 1st, on every document</span>
+                  <span />
                 </div>
-                {rows.map((r) =>
-                  r.signers.map((s, i) => (
-                    <div key={`${r.key}-${i}`} className="fs-signer">
-                      <span className="fs-av alt">{initials(s.name)}</span>
-                      <div className="fs-signer-f">
-                        <label>
-                          Name
-                          <input className="input" value={s.name} onChange={(e) => setSigner(r, i, { name: e.target.value })} placeholder="Full name" />
-                        </label>
-                        <label>
-                          Email
-                          <input className="input" value={s.email} onChange={(e) => setSigner(r, i, { email: e.target.value })} placeholder="name@company.com" />
-                        </label>
-                        <label>
-                          Role
-                          <input className="input" value={s.role} onChange={(e) => setSigner(r, i, { role: e.target.value })} />
-                        </label>
-                      </div>
-                      <span className="fs-order" title={r.title}>
-                        Signs {i + 2 === 2 ? "2nd" : i + 2 === 3 ? "3rd" : `${i + 2}th`}
-                        <br />
-                        {r.title}
-                      </span>
+                {rows.map((r, d) => (
+                  <div key={r.key} className="fs-sgroup">
+                    <div className="fs-sgroup-h">
+                      <span className="fs-docico sm">PDF</span>
+                      <b title={r.title}>
+                        {d + 1}. {r.title}
+                      </b>
+                      <span className="fs-hint">after {dir.name.trim() || "the first signer"}</span>
                     </div>
-                  )),
-                )}
-                {n > 0 ? (
-                  <div className="fs-addsig">
-                    {rows.map((r) => (
-                      <button key={r.key} className="fs-textbtn" onClick={() => setRow(r.key, { signers: [...r.signers, { name: "", email: "", role: "Signer" }] })}>
-                        + another signer on {r.title.length > 32 ? `${r.title.slice(0, 32)}…` : r.title}
-                      </button>
+                    {r.signers.map((s, i) => (
+                      <div key={i} className="fs-signer">
+                        <span className="fs-av alt">{initials(s.name)}</span>
+                        <div className="fs-signer-f">
+                          <label>
+                            Name
+                            <input className="input" value={s.name} onChange={(e) => setSigner(r, i, { name: e.target.value })} placeholder="Full name" />
+                          </label>
+                          <label>
+                            Email
+                            <input className="input" value={s.email} onChange={(e) => setSigner(r, i, { email: e.target.value })} placeholder="name@company.com" />
+                          </label>
+                          <label>
+                            Role
+                            <input className="input" value={s.role} onChange={(e) => setSigner(r, i, { role: e.target.value })} />
+                          </label>
+                        </div>
+                        <span className="fs-order">Signs {i + 2 === 2 ? "2nd" : i + 2 === 3 ? "3rd" : `${i + 2}th`}</span>
+                        {r.signers.length > 1 ? (
+                          <button className="fs-icon" onClick={() => removeSigner(r, i)} aria-label={`Remove ${s.name || "this signer"}`} title="Remove this signer">
+                            ✕
+                          </button>
+                        ) : (
+                          <span />
+                        )}
+                      </div>
                     ))}
+                    <button className="fs-textbtn" onClick={() => setRow(r.key, { signers: [...r.signers, { name: "", email: "", role: "Signer" }] })}>
+                      + add a signer to this document
+                    </button>
                   </div>
-                ) : (
-                  <p className="fs-hint">Add documents in step 1 to fill in the holders.</p>
-                )}
+                ))}
+                {n === 0 && <p className="fs-hint">Add documents in step 1 to fill in the holders.</p>}
               </section>
 
-              {/* 4 · review */}
+              {/* 4 · signature boxes */}
               <section className="fs-step">
                 <header>
                   <span className="fs-num">4</span>
+                  <div>
+                    <h2>Where each person signs</h2>
+                    <p>Each signature goes on its line in the document. The boxes are placed on the &ldquo;Director&rdquo; and &ldquo;Option Holder&rdquo; lines for you: drag to move, drag the corner to resize.</p>
+                  </div>
+                </header>
+                {n === 0 && <p className="fs-hint">Add documents in step 1 to place the signatures.</p>}
+                {n > 0 &&
+                  (() => {
+                    const r = rows[Math.min(cur, n - 1)];
+                    const people = [dir, ...r.signers];
+                    const names = people.map((p) => p.name.trim());
+                    const missing = people.filter((_, k) => !r.boxes.some((b) => b.kind === "signature" && b.position === k + 1));
+                    const target = Math.min(who, people.length);
+                    return (
+                      <div className="fs-place">
+                        {n > 1 && (
+                          <div className="fs-tabs" role="tablist">
+                            {rows.map((x, i) => (
+                              <button key={x.key} role="tab" aria-selected={x.key === r.key} className={x.key === r.key ? "on" : ""} onClick={() => (setCur(i), setArmed(null))}>
+                                {i + 1}. {x.title}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <div className="fs-place-bar">
+                          <div className="fs-place-who">
+                            {people.map((p, k) => {
+                              const c = r.boxes.filter((b) => b.position === k + 1).length;
+                              return (
+                                <button key={k} className={`fs-who ${target === k + 1 ? "on" : ""}`} style={{ ["--c" as string]: colour(k + 1) }} onClick={() => setWho(k + 1)} title="New boxes are for this person">
+                                  <i />
+                                  {p.name.trim() || `Signer ${k + 1}`}
+                                  <em>{c ? plural(c, "box", "boxes") : "no box"}</em>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="fs-place-tools">
+                            <button className={`dbtn ${armed === "signature" ? "gold" : ""}`} onClick={() => setArmed(armed === "signature" ? null : "signature")}>
+                              + Signature
+                            </button>
+                            <button className={`dbtn ${armed === "date" ? "gold" : ""}`} onClick={() => setArmed(armed === "date" ? null : "date")}>
+                              + Date
+                            </button>
+                            <button className="dbtn" disabled={!r.info} onClick={() => placeAgain(r)} title="Put the boxes back on the Director and Option Holder lines">
+                              ↺ Place automatically
+                            </button>
+                            {n > 1 && (
+                              <button className="dbtn" onClick={() => copyToAll(r)} title="Same layout on every document (certificates in one batch)">
+                                Copy to all {n} documents
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {armed && (
+                          <p className="fs-armed">
+                            Click on the page where {names[target - 1] || "this signer"}&rsquo;s {armed === "date" ? "date" : "signature"} goes.{" "}
+                            <button className="fs-textbtn" onClick={() => setArmed(null)}>
+                              Cancel
+                            </button>
+                          </p>
+                        )}
+                        <div className="fs-place-doc">
+                          <BoxEditor
+                            key={r.key}
+                            file={r.file}
+                            boxes={r.boxes}
+                            onChange={(b) => setRow(r.key, { boxes: b })}
+                            names={names}
+                            active={target}
+                            armed={armed}
+                            onPlaced={() => setArmed(null)}
+                            onInfo={(info) =>
+                              setRows((l) => l.map((x) => (x.key === r.key && !x.info ? { ...x, info, boxes: x.boxes.length ? x.boxes : autoPlace(info, [dirRef.current, ...x.signers]) } : x)))
+                            }
+                          />
+                        </div>
+                        <p className={missing.length ? "fs-warn" : "fs-hint"}>
+                          {missing.length
+                            ? `No signature box yet for ${missing.map((m) => m.name || "a signer").join(", ")}: their signature would go on the audit page instead.`
+                            : `✓ Every signer has a place to sign on this document.`}
+                        </p>
+                      </div>
+                    );
+                  })()}
+              </section>
+
+              {/* 5 · review */}
+              <section className="fs-step">
+                <header>
+                  <span className="fs-num">5</span>
                   <div>
                     <h2>Review and send</h2>
                     <p>What happens when you press Send.</p>
@@ -393,7 +552,7 @@ export default function SignAdmin({
                   </li>
                   <li>
                     <b>When everyone has signed</b>
-                    <span>The signed PDF (with signature page and audit trail) is filed on the holder&rsquo;s row, and everyone gets a copy.</span>
+                    <span>The signed PDF (signatures on their lines, plus an audit trail page) is filed on the holder&rsquo;s row, and everyone gets a copy.</span>
                   </li>
                 </ol>
                 <label className="fs-field">
@@ -436,15 +595,15 @@ export default function SignAdmin({
               <ol>
                 <li>
                   <b>Send</b>
-                  <span>Upload the certificates, set who signs and in what order.</span>
+                  <span>Upload the certificates, set who signs and in what order, and check where each person signs.</span>
                 </li>
                 <li>
                   <b>Sign</b>
-                  <span>Each signer opens a private link, reads the PDF, draws or types a signature and agrees to sign electronically.</span>
+                  <span>Each signer opens a private link, sees their &ldquo;sign here&rdquo; boxes, draws or types a signature and agrees to sign electronically.</span>
                 </li>
                 <li>
                   <b>File</b>
-                  <span>The signed copy gets a signature page and an audit trail (time, IP, browser, document fingerprint) and is filed on the ESOP dashboard.</span>
+                  <span>Signatures are stamped on their lines, an audit trail page is added (time, IP, browser, document fingerprint), and the copy is filed on the ESOP dashboard.</span>
                 </li>
               </ol>
               <div className="fs-how-note">Electronic signatures are recognised under s 8 of the Electronic Transactions Act 2010 (Singapore).</div>

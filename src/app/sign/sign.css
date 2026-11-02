@@ -92,7 +92,7 @@ body:has(.fdsign:not(.fs-adm)) .strip-warn {
 .fs-viz .mail.big { width: 54px; height: 40px; font-size: 20px; border-color: var(--gold); background: var(--gold-soft); color: var(--gold-deep); }
 .fs-viz .mail em { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--black); color: var(--white); font-size: 10px; font-style: normal; font-weight: 700; display: grid; place-items: center; }
 
-.fs-signer { display: grid; grid-template-columns: 36px minmax(0, 1fr) 150px; gap: 12px; align-items: center; padding: 12px 12px 12px 14px; border: 1px solid var(--fs-line); border-left: 3px solid var(--gold); border-radius: 12px; margin-top: 8px; background: var(--fs-card); }
+.fs-signer { display: grid; grid-template-columns: 36px minmax(0, 1fr) 84px 34px; gap: 12px; align-items: center; padding: 12px 12px 12px 14px; border: 1px solid var(--fs-line); border-left: 3px solid var(--gold); border-radius: 12px; margin-top: 8px; background: var(--fs-card); }
 .fs-signer.first { border-left-color: var(--black); }
 .fs-signer-f { display: grid; grid-template-columns: 1.1fr 1.3fr 0.8fr; gap: 8px; }
 .fs-signer-f label, .fs-field { display: grid; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--grey-5); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -101,6 +101,12 @@ body:has(.fdsign:not(.fs-adm)) .strip-warn {
 .fs-field em { text-transform: none; letter-spacing: 0; font-style: normal; font-weight: 400; color: var(--grey-4); }
 .fs-order { font-size: 11.5px; color: var(--grey-5); text-align: right; line-height: 1.4; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .fs-addsig { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+.fs-sgroup { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--fs-line); display: grid; gap: 0; }
+.fs-sgroup > .fs-textbtn { justify-self: start; margin-top: 10px; }
+.fs-sgroup-h { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.fs-sgroup-h b { font-size: 13.5px; color: var(--black); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.fs-sgroup-h .fs-hint { white-space: nowrap; }
+.fs-docico.sm { height: 24px; width: 32px; font-size: 8.5px; border-radius: 6px; flex: none; }
 
 .fs-flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: f; }
 .fs-flow li { position: relative; padding: 0 0 14px 30px; display: grid; gap: 2px; counter-increment: f; }
@@ -187,19 +193,59 @@ body:has(.fdsign:not(.fs-adm)) .strip-warn {
 .fs-empty h1 { font-size: 26px; margin-bottom: 10px; }
 .fs-empty p { color: var(--grey-5); line-height: 1.6; }
 
+/* ── PDF pages and signature boxes (0175) ─────────────────────────────── */
+.fs-pages { display: grid; gap: 14px; }
+.fs-pages-wait { display: grid; place-items: center; min-height: 240px; color: var(--grey-5); font-size: 13px; background: var(--grey-1); border-radius: 10px; }
+.fs-page { position: relative; width: 100%; background: #fff; border: 1px solid var(--fs-line); border-radius: 6px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06); overflow: hidden; }
+.fs-page canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.fs-page-over { position: absolute; inset: 0; }
+.fs-over-hit { position: absolute; inset: 0; }
+.fs-pages.armed .fs-over-hit { cursor: crosshair; background: color-mix(in srgb, var(--gold) 5%, transparent); }
+.fs-page-no { position: absolute; right: 8px; bottom: 6px; font-size: 10.5px; color: #8d8d88; background: rgba(255, 255, 255, 0.85); border-radius: 4px; padding: 1px 6px; pointer-events: none; }
+.fs-box { position: absolute; border: 1.5px dashed var(--c); background: color-mix(in srgb, var(--c) 13%, transparent); border-radius: 4px; cursor: move; touch-action: none; user-select: none; }
+.fs-box.act { border-style: solid; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 22%, transparent); }
+.fs-box-l { position: absolute; left: 0; bottom: 100%; margin-bottom: 2px; white-space: nowrap; font-size: 10.5px; font-weight: 600; color: #fff; background: var(--c); padding: 1px 6px; border-radius: 4px; pointer-events: none; }
+.fs-box-x { position: absolute; top: -9px; right: -9px; width: 18px; height: 18px; border-radius: 50%; border: 0; background: #1d1d1b; color: #fff !important; font-size: 9px; line-height: 18px; padding: 0; display: none; }
+.fs-box:hover .fs-box-x, .fs-box.act .fs-box-x { display: block; }
+.fs-box-r { position: absolute; right: -5px; bottom: -5px; width: 12px; height: 12px; border-radius: 3px; background: var(--c); border: 2px solid #fff; cursor: nwse-resize; touch-action: none; }
+.fs-place-bar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.fs-place-who, .fs-place-tools { display: flex; flex-wrap: wrap; gap: 6px; }
+.fs-who { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--fs-line); background: var(--fs-card); border-radius: 999px; padding: 5px 12px 5px 8px; font-size: 12.5px; font-weight: 500; }
+.fs-who i { width: 10px; height: 10px; border-radius: 50%; background: var(--c); }
+.fs-who em { font-style: normal; color: var(--grey-5); font-size: 11.5px; }
+.fs-who.on { border-color: var(--c); box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 25%, transparent); }
+.fs-place-doc { max-height: 680px; overflow: auto; background: var(--grey-1); border: 1px solid var(--fs-line); border-radius: 12px; padding: 22px 26px; }
+.fs-armed { margin: 0 0 10px; padding: 8px 12px; border-radius: 8px; background: var(--gold-soft); color: var(--gold-deep); font-size: 13px; }
+.fs-warn { margin: 10px 0 0; color: #b4541b; font-size: 12.5px; line-height: 1.5; }
+/* signer's page */
+.fs-viewer { max-height: 78vh; overflow: auto; background: var(--grey-1); border: 1px solid var(--fs-line); border-radius: 12px; padding: 18px; }
+.fs-here { position: absolute; border: 2px solid var(--gold); background: color-mix(in srgb, var(--gold) 16%, transparent); border-radius: 4px; display: grid; place-items: center; cursor: pointer; animation: fs-pulse 1.8s ease-in-out infinite; }
+.fs-here.filled { animation: none; background: rgba(255, 255, 255, 0.35); border-style: dashed; }
+.fs-here img { position: absolute; inset: 4%; width: 92%; height: 92%; object-fit: contain; pointer-events: none; }
+.fs-here-l { position: absolute; left: -2px; bottom: 100%; margin-bottom: 3px; font-size: 11px; font-weight: 700; white-space: nowrap; background: var(--gold); color: #141416; padding: 2px 8px; border-radius: 4px 4px 4px 0; }
+.fs-here-t { font-family: "Segoe Script", "Brush Script MT", "Snell Roundhand", cursive; color: #0d1a59; white-space: nowrap; overflow: hidden; line-height: 1; }
+.fs-here-d { font-size: 11px; color: #222; }
+.fs-goto { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0 0 12px; padding: 10px 14px; border-radius: 10px; background: var(--gold-soft); color: var(--gold-deep); font-size: 13px; }
+@keyframes fs-pulse { 0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--gold) 45%, transparent); } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--gold) 0%, transparent); } }
+
 @media (max-width: 980px) {
   .fs-adm-grid { grid-template-columns: 1fr; }
   .fs-how { position: static; }
   .fs-modes { grid-template-columns: 1fr; }
   .fs-docrow { grid-template-columns: 40px 1fr 34px; }
   .fs-docrow select, .fs-docrow .fs-tr { grid-column: 2 / 4; }
-  .fs-signer { grid-template-columns: 36px 1fr; }
+  .fs-signer { grid-template-columns: 36px 1fr 34px; }
+  .fs-signer .fs-icon { grid-column: 3; grid-row: 1; }
   .fs-signer-f { grid-template-columns: 1fr; }
   .fs-order { grid-column: 2; text-align: left; }
   .fs-sendbar { flex-direction: column; align-items: stretch; }
   .fs-wrap { grid-template-columns: 1fr; padding: 14px; }
   .fs-side { position: static; }
   .fs-frame { height: 60vh; }
+  .fs-place-doc { padding: 12px; max-height: 70vh; }
+  .fs-viewer { padding: 10px; max-height: 70vh; }
   .fs-head { padding: 0 14px; }
   .fs-me { display: none; }
 }
+.fs-here { container-type: size; }
+.fs-here-t { font-size: min(62cqh, calc(190cqw / var(--n, 12))); }

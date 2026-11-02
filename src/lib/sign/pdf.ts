@@ -1,12 +1,11 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import type { Envelope, SignEvent, Signer } from "./store";
+import type { Envelope, SignEvent, SignField, Signer } from "./store";
 
 /**
- * The signed PDF: the original pages, untouched, then
- *   - a SIGNATURE PAGE: each signer's signature (drawn image or typed name),
- *     name, role, email and the time they signed;
+ * The signed PDF: the original pages with each signature stamped into its
+ * box ON THE LINE (113: boxes placed by Founders Doc, drag-and-resize), then
  *   - an AUDIT TRAIL page: every event (sent, viewed, signed, completed) with
  *     time, IP and browser, and the SHA-256 fingerprint of the original.
  * Built on request from what is stored, so the signed copy can always be
@@ -79,8 +78,10 @@ export async function buildSignedPdf(input: {
   signers: Signer[];
   pngs: Map<string, Uint8Array>;
   events: SignEvent[];
+  fields?: SignField[];
 }): Promise<Uint8Array> {
   const { envelope, signers, pngs, events } = input;
+  const fields = input.fields ?? [];
   const doc = await PDFDocument.load(input.original, { ignoreEncryption: true });
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -106,60 +107,60 @@ export async function buildSignedPdf(input: {
     return H - M - 86;
   };
 
-  /* ── signature page ───────────────────────────────────────────────── */
   const images = new Map<string, Awaited<ReturnType<typeof doc.embedPng>>>();
   for (const s of signers) {
     const png = pngs.get(s.id);
     if (s.status === "signed" && s.signature_kind === "draw" && png) images.set(s.id, await doc.embedPng(png));
   }
-  let page = doc.addPage([W, H]);
-  let y = header(page, "Signature page");
-  const colW = (W - 2 * M - 24) / 2;
-  const boxH = 120;
-  signers.forEach((s, i) => {
-    const col = i % 2;
-    if (col === 0 && i > 0) y -= boxH;
-    if (col === 0 && y - boxH < 70) {
-      footer(page, "Signature page");
-      page = doc.addPage([W, H]);
-      y = header(page, "Signature page (continued)");
-    }
-    const x = M + col * (colW + 24);
-    const sigY = y - 62;
-    page.drawText(pdfText(s.role.toUpperCase()), { x, y, size: 8, font: bold, color: grey });
+  const blue = rgb(0.05, 0.1, 0.35);
+  const pageCount = doc.getPageCount();
+
+  /* A signature fitted into a rectangle (PDF points, bottom-left origin). */
+  const drawSignature = (p: PDFPage, s: Signer, x: number, y: number, w: number, h: number) => {
     const img = images.get(s.id);
     if (img) {
-      const scale = Math.min(colW / img.width, 46 / img.height, 1);
-      page.drawImage(img, { x, y: sigY + 3, width: img.width * scale, height: img.height * scale });
-    } else if (s.status === "signed") {
-      page.drawText(pdfText(s.typed_name || s.name), { x, y: sigY + 9, size: 26, font: script, color: rgb(0.05, 0.1, 0.35) });
+      const scale = Math.min(w / img.width, h / img.height);
+      const iw = img.width * scale;
+      const ih = img.height * scale;
+      p.drawImage(img, { x: x + (w - iw) / 2, y: y + (h - ih) / 2, width: iw, height: ih });
     } else {
-      page.drawText("Not signed yet", { x, y: sigY + 10, size: 11, font, color: grey });
+      const text = pdfText(s.typed_name || s.name);
+      let size = Math.min(h * 0.72, 30);
+      while (size > 6 && script.widthOfTextAtSize(text, size) > w) size -= 0.5;
+      p.drawText(text, { x: x + (w - script.widthOfTextAtSize(text, size)) / 2, y: y + (h - size) / 2 + size * 0.22, size, font: script, color: blue });
     }
-    page.drawLine({ start: { x, y: sigY }, end: { x: x + colW, y: sigY }, thickness: 0.8, color: ink });
-    page.drawText(pdfText(s.name), { x, y: sigY - 16, size: 10.5, font: bold, color: ink });
-    page.drawText(pdfText(s.email), { x, y: sigY - 30, size: 8.5, font, color: grey });
-    page.drawText(pdfText(s.status === "signed" ? `Signed ${sgt(s.signed_at)}` : "Waiting"), { x, y: sigY - 43, size: 8.5, font, color: grey });
-  });
-  y -= boxH;
-  const note = wrap(
-    "Each signer opened a private signing link, agreed to sign electronically and signed. " +
-      "Electronic signatures: s 8 Electronic Transactions Act 2010 (Singapore). Details of each step are in the audit trail that follows.",
-    font,
-    8.5,
-    W - 2 * M,
-  );
-  if (y - note.length * 12 < 56) {
-    footer(page, "Signature page");
-    page = doc.addPage([W, H]);
-    y = header(page, "Signature page (continued)");
+  };
+  const drawLineText = (p: PDFPage, text: string, x: number, y: number, w: number, h: number) => {
+    const t = pdfText(text);
+    let size = Math.min(h * 0.6, 11);
+    while (size > 5 && font.widthOfTextAtSize(t, size) > w) size -= 0.5;
+    p.drawText(t, { x, y: y + (h - size) / 2 + size * 0.2, size, font, color: ink });
+  };
+
+  /* ── stamp each signed box on its page ──────────────────────────────── */
+  const placed = new Set<number>();
+  for (const f of fields) {
+    const s = signers.find((x) => x.position === f.position);
+    if (!s || s.status !== "signed" || f.page < 1 || f.page > pageCount) continue;
+    const p = doc.getPage(f.page - 1);
+    const { width: pw, height: ph } = p.getSize();
+    const x = f.x * pw;
+    const w = f.w * pw;
+    const h = f.h * ph;
+    const y = ph - (f.y + f.h) * ph;
+    if (f.kind === "signature") {
+      drawSignature(p, s, x, y, w, h);
+      placed.add(s.position);
+    } else if (f.kind === "date") {
+      drawLineText(p, sgt(s.signed_at).replace(/, \d\d:\d\d:\d\d SGT$/, ""), x, y, w, h);
+    } else {
+      drawLineText(p, s.name, x, y, w, h);
+    }
   }
-  note.forEach((l, k) => page.drawText(l, { x: M, y: y - k * 12, size: 8.5, font, color: grey }));
-  footer(page, "Signature page");
 
   /* ── audit trail ──────────────────────────────────────────────────── */
-  page = doc.addPage([W, H]);
-  y = header(page, "Audit trail");
+  let page = doc.addPage([W, H]);
+  let y = header(page, "Audit trail");
   const facts: Array<[string, string]> = [
     ["Document", envelope.file_name],
     ["Envelope ID", envelope.id],
@@ -168,6 +169,7 @@ export async function buildSignedPdf(input: {
     ["Sent", sgt(envelope.created_at)],
     ["Completed", sgt(envelope.completed_at)],
     ["Status", envelope.status === "completed" ? "Completed - all parties signed" : "In progress"],
+    ["How signed", "Each signer opened a private link, agreed to sign electronically, and signed (s 8 Electronic Transactions Act 2010, Singapore). Signatures are on the document's signature lines."],
   ];
   for (const [k, v] of facts) {
     page.drawText(pdfText(k), { x: M, y, size: 8.5, font: bold, color: grey });
@@ -199,6 +201,33 @@ export async function buildSignedPdf(input: {
       page.drawText(pdfText(e.user_agent).slice(0, 140), { x: cols[1], y, size: 6.5, font, color: grey });
     }
     y -= 15;
+  }
+  /* Anyone who signed but had no box on the document: their signature here. */
+  const unplaced = signers.filter((s) => s.status === "signed" && !placed.has(s.position));
+  if (unplaced.length) {
+    y -= 10;
+    if (y < 150) {
+      footer(page, "Audit trail");
+      page = doc.addPage([W, H]);
+      y = header(page, "Audit trail (continued)");
+    }
+    page.drawText("Signatures", { x: M, y, size: 9, font: bold, color: grey });
+    y -= 12;
+    const colW = (W - 2 * M - 24) / 2;
+    unplaced.forEach((s, i) => {
+      const col = i % 2;
+      if (col === 0 && i > 0) y -= 84;
+      if (col === 0 && y < 110) {
+        footer(page, "Audit trail");
+        page = doc.addPage([W, H]);
+        y = header(page, "Audit trail (continued)");
+      }
+      const x = M + col * (colW + 24);
+      drawSignature(page, s, x, y - 44, Math.min(colW, 220), 40);
+      page.drawLine({ start: { x, y: y - 46 }, end: { x: x + Math.min(colW, 220), y: y - 46 }, thickness: 0.6, color: ink });
+      page.drawText(pdfText(`${s.name} (${s.role})`), { x, y: y - 58, size: 8.5, font: bold, color: ink });
+      page.drawText(pdfText(`Signed ${sgt(s.signed_at)}`), { x, y: y - 70, size: 8, font, color: grey });
+    });
   }
   footer(page, "Audit trail");
 

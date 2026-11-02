@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { buildSignedPdf, pageCount, sha256 } from "./pdf";
 import { notify } from "./notify";
-import type { Envelope, SignStore, Signer } from "./store";
+import type { Envelope, SignField, SignStore, Signer } from "./store";
 
 /**
  * FD Sign rules, in one place:
@@ -27,6 +27,7 @@ export interface DocInput {
   esopHolderId: string | null;
   esopTranche: number | null;
   signers: Array<{ name: string; email: string; role: string }>;
+  fields: SignField[];
 }
 
 export interface Who {
@@ -87,6 +88,7 @@ export async function createSend(
       const s = d.signers[i];
       await store.insertSigner({ envelope_id: id, position: i + 1, name: s.name, email: s.email.toLowerCase(), role: s.role });
     }
+    await store.insertFields(id, d.fields.filter((f) => f.position >= 1 && f.position <= d.signers.length && f.page >= 1 && f.page <= pages));
     const rows = await store.signers(id);
     firsts.push({ row: rows[0], title: d.title });
   }
@@ -114,6 +116,8 @@ export interface SignView {
     pages: number | null;
     status: Envelope["status"];
     signers: Array<{ name: string; role: string; status: Signer["status"]; signedAt: string | null; me: boolean }>;
+    /** Where THIS signer signs on this document. */
+    fields: SignField[];
   }>;
   message: string | null;
   waitingFor: string | null;
@@ -140,6 +144,7 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
       pages: env.page_count,
       status: env.status,
       signers: all.map((s) => ({ name: s.name, role: s.role, status: s.status, signedAt: s.signed_at, me: s.id === me.id })),
+      fields: (await store.fields(env.id)).filter((f) => f.position === me.position),
     });
     if (who && !me.viewed_at && me.status !== "signed") {
       await store.updateSigner(me.id, { viewed_at: new Date().toISOString() });
@@ -263,7 +268,7 @@ export async function signedPdf(store: SignStore, envelopeId: string): Promise<U
       if (p) pngs.set(s.id, p);
     }
   }
-  return buildSignedPdf({ original, envelope: env, signers, pngs, events: await store.events(envelopeId) });
+  return buildSignedPdf({ original, envelope: env, signers, pngs, events: await store.events(envelopeId), fields: await store.fields(envelopeId) });
 }
 
 /** May this token see this envelope's files? */
