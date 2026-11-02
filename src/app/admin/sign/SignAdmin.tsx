@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { matchFile } from "@/lib/esop/match";
 import type { Envelope, Signer } from "@/lib/sign/store";
 import { autoPlace, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
@@ -73,7 +73,16 @@ export default function SignAdmin({
 }) {
   const router = useRouter();
   const pick = useRef<HTMLInputElement>(null);
-  const [tab, setTab] = useState<"new" | "sent">("new");
+  /* The tab lives in the address (?tab=sent), so the browser's Back button
+     returns from Sent to New. */
+  const params = useSearchParams();
+  const tab: "new" | "sent" = params.get("tab") === "sent" ? "sent" : "new";
+  function setTab(t: "new" | "sent") {
+    if (t === tab) return;
+    window.history.pushState(null, "", t === "sent" ? "?tab=sent" : window.location.pathname);
+    window.scrollTo({ top: 0 });
+  }
+  const [issued, setIssued] = useState<Record<string, string>>({}); // signer id → link made this visit
   const [mode, setMode] = useState<"each" | "batch">("each");
   const [dir, setDir] = useState({ name: director, email: "", role: "Director" });
   const [rows, setRows] = useState<Row[]>([]);
@@ -214,12 +223,29 @@ export default function SignAdmin({
       window.prompt("Copy this link:", text);
     }
   }
-  async function newLink(envelopeId: string, signerId: string) {
+  /* A signer's link. Only a fingerprint of each link is stored, so showing it
+     again means making a new one (the old one stops working). Made once per
+     visit, so Open and Copy give the same link. */
+  async function linkFor(envelopeId: string, signerId: string): Promise<string | null> {
+    if (issued[signerId]) return issued[signerId];
     const res = await fetch("/api/sign/link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ envelopeId, signerId }) });
     const j = (await res.json().catch(() => ({}))) as { error?: string; link?: string };
-    if (!res.ok || !j.link) return say(j.error || "Could not make a new link.");
-    await copy(j.link);
-    router.refresh();
+    if (!res.ok || !j.link) {
+      say(j.error || "Could not make a link.");
+      return null;
+    }
+    setIssued((m) => ({ ...m, [signerId]: j.link as string }));
+    return j.link;
+  }
+  async function copyLink(envelopeId: string, signerId: string) {
+    const l = await linkFor(envelopeId, signerId);
+    if (l) await copy(l);
+  }
+  async function openLink(envelopeId: string, signerId: string) {
+    const w = window.open("about:blank", "_blank"); // opened now, so the browser doesn't block it
+    const l = await linkFor(envelopeId, signerId);
+    if (l && w) w.location.href = l;
+    else w?.close();
   }
   const holderName = (id: string | null) => holders.find((h) => h.id === id)?.name;
 
@@ -251,7 +277,7 @@ export default function SignAdmin({
             )}
             {!hook && !preview && (
               <p>
-                <b>✉ Emails are off:</b> nobody is emailed yet. After you send, press <b>Copy link</b> for each person and send it yourself. When a signer finishes, the next person&rsquo;s <b>Copy link</b> appears in <b>Sent</b>. Turn emails on with the Zap &ldquo;FD Sign – emails&rdquo; and <code>SIGN_HOOK_URL</code> in Vercel.
+                <b>✉ Emails are off:</b> nobody is emailed yet. After you send, press <b>Copy link</b> for each person and send it yourself. When a signer finishes, the next person&rsquo;s <b>Open</b> and <b>Copy link</b> buttons appear in <b>Sent</b>. Turn emails on with the Zap &ldquo;FD Sign – emails&rdquo; and <code>SIGN_HOOK_URL</code> in Vercel.
               </p>
             )}
           </div>
@@ -592,11 +618,16 @@ export default function SignAdmin({
                       <div key={s.link} className="fs-done-row">
                         <span className="fs-av sm">{initials(s.name)}</span>
                         <span>
-                          <b>{s.name}</b> · {plural(s.documents.length, "document")} · {s.emailed ? "emailed" : "copy and send this link"}
+                          <b>{s.name}</b> · {plural(s.documents.length, "document")} · {s.emailed ? "emailed" : "send them this link, or open it to sign now"}
                         </span>
-                        <button className="dbtn" onClick={() => void copy(s.link)}>
-                          Copy link
-                        </button>
+                        <span className="fs-linkbtns">
+                          <a className="dbtn gold" href={s.link} target="_blank" rel="noreferrer">
+                            Open ↗
+                          </a>
+                          <button className="dbtn" onClick={() => void copy(s.link)}>
+                            Copy link
+                          </button>
+                        </span>
                       </div>
                     ))}
                     <button className="fs-textbtn" onClick={() => setTab("sent")}>
@@ -663,9 +694,14 @@ export default function SignAdmin({
                           </span>
                         </div>
                         {s.status === "invited" && (
-                          <button className={`dbtn ${hook ? "" : "gold"}`} onClick={() => void newLink(e.id, s.id)} title={hook ? "Make a new link (the old one stops working) and copy it" : "Copy this person's signing link to send them"}>
-                            {hook ? "New link" : "Copy link"}
-                          </button>
+                          <span className="fs-linkbtns">
+                            <button className="dbtn gold" onClick={() => void openLink(e.id, s.id)} title="Open this person's signing page in a new tab">
+                              Open ↗
+                            </button>
+                            <button className="dbtn" onClick={() => void copyLink(e.id, s.id)} title={hook ? "A fresh link (the emailed one stops working), copied" : "Copy this person's signing link to send them"}>
+                              Copy link
+                            </button>
+                          </span>
                         )}
                       </div>
                     ))}
@@ -674,8 +710,13 @@ export default function SignAdmin({
                     <a className="dbtn" href={`/api/sign/file?e=${e.id}`} target="_blank" rel="noreferrer">
                       Original
                     </a>
-                    <a className={`dbtn ${e.status === "completed" ? "gold" : ""}`} href={`/api/sign/file?e=${e.id}&signed=1`} target="_blank" rel="noreferrer">
-                      {e.status === "completed" ? "Signed PDF" : "PDF so far"}
+                    {e.status === "completed" && (
+                      <a className="dbtn gold" href={`/api/sign/file?e=${e.id}&signed=1&doc=1`} target="_blank" rel="noreferrer" title="The signed document on its own, without the audit trail page">
+                        Signed {/certificate/i.test(e.title) ? "certificate" : "document"} only
+                      </a>
+                    )}
+                    <a className="dbtn" href={`/api/sign/file?e=${e.id}&signed=1`} target="_blank" rel="noreferrer">
+                      {e.status === "completed" ? "With audit trail" : "PDF so far"}
                     </a>
                   </div>
                 </article>
