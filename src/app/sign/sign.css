@@ -92,7 +92,7 @@ body:has(.fdsign:not(.fs-adm)) .strip-warn {
 .fs-viz .mail.big { width: 54px; height: 40px; font-size: 20px; border-color: var(--gold); background: var(--gold-soft); color: var(--gold-deep); }
 .fs-viz .mail em { position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--black); color: var(--white); font-size: 10px; font-style: normal; font-weight: 700; display: grid; place-items: center; }
 
-.fs-signer { display: grid; grid-template-columns: 36px minmax(0, 1fr) 150px; gap: 12px; align-items: center; padding: 12px 12px 12px 14px; border: 1px solid var(--fs-line); border-left: 3px solid var(--gold); border-radius: 12px; margin-top: 8px; background: var(--fs-card); }
+.fs-signer { display: grid; grid-template-columns: 36px minmax(0, 1fr) 84px 34px; gap: 12px; align-items: center; padding: 12px 12px 12px 14px; border: 1px solid var(--fs-line); border-left: 3px solid var(--gold); border-radius: 12px; margin-top: 8px; background: var(--fs-card); }
 .fs-signer.first { border-left-color: var(--black); }
 .fs-signer-f { display: grid; grid-template-columns: 1.1fr 1.3fr 0.8fr; gap: 8px; }
 .fs-signer-f label, .fs-field { display: grid; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--grey-5); text-transform: uppercase; letter-spacing: 0.04em; }
@@ -101,6 +101,12 @@ body:has(.fdsign:not(.fs-adm)) .strip-warn {
 .fs-field em { text-transform: none; letter-spacing: 0; font-style: normal; font-weight: 400; color: var(--grey-4); }
 .fs-order { font-size: 11.5px; color: var(--grey-5); text-align: right; line-height: 1.4; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .fs-addsig { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+.fs-sgroup { margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--fs-line); display: grid; gap: 0; }
+.fs-sgroup > .fs-textbtn { justify-self: start; margin-top: 10px; }
+.fs-sgroup-h { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.fs-sgroup-h b { font-size: 13.5px; color: var(--black); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.fs-sgroup-h .fs-hint { white-space: nowrap; }
+.fs-docico.sm { height: 24px; width: 32px; font-size: 8.5px; border-radius: 6px; flex: none; }
 
 .fs-flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; counter-reset: f; }
 .fs-flow li { position: relative; padding: 0 0 14px 30px; display: grid; gap: 2px; counter-increment: f; }
@@ -193,7 +199,8 @@ body:has(.fdsign:not(.fs-adm)) .strip-warn {
   .fs-modes { grid-template-columns: 1fr; }
   .fs-docrow { grid-template-columns: 40px 1fr 34px; }
   .fs-docrow select, .fs-docrow .fs-tr { grid-column: 2 / 4; }
-  .fs-signer { grid-template-columns: 36px 1fr; }
+  .fs-signer { grid-template-columns: 36px 1fr 34px; }
+  .fs-signer .fs-icon { grid-column: 3; grid-row: 1; }
   .fs-signer-f { grid-template-columns: 1fr; }
   .fs-order { grid-column: 2; text-align: left; }
   .fs-sendbar { flex-direction: column; align-items: stretch; }

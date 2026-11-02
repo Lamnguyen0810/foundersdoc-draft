@@ -330,45 +330,51 @@ export default function SignAdmin({
                       <input className="input" value={dir.role} onChange={(e) => setDir({ ...dir, role: e.target.value })} />
                     </label>
                   </div>
-                  <span className="fs-order">Signs 1st · all documents</span>
+                  <span className="fs-order">Signs 1st, on every document</span>
+                  <span />
                 </div>
-                {rows.map((r) =>
-                  r.signers.map((s, i) => (
-                    <div key={`${r.key}-${i}`} className="fs-signer">
-                      <span className="fs-av alt">{initials(s.name)}</span>
-                      <div className="fs-signer-f">
-                        <label>
-                          Name
-                          <input className="input" value={s.name} onChange={(e) => setSigner(r, i, { name: e.target.value })} placeholder="Full name" />
-                        </label>
-                        <label>
-                          Email
-                          <input className="input" value={s.email} onChange={(e) => setSigner(r, i, { email: e.target.value })} placeholder="name@company.com" />
-                        </label>
-                        <label>
-                          Role
-                          <input className="input" value={s.role} onChange={(e) => setSigner(r, i, { role: e.target.value })} />
-                        </label>
-                      </div>
-                      <span className="fs-order" title={r.title}>
-                        Signs {i + 2 === 2 ? "2nd" : i + 2 === 3 ? "3rd" : `${i + 2}th`}
-                        <br />
-                        {r.title}
-                      </span>
+                {rows.map((r, d) => (
+                  <div key={r.key} className="fs-sgroup">
+                    <div className="fs-sgroup-h">
+                      <span className="fs-docico sm">PDF</span>
+                      <b title={r.title}>
+                        {d + 1}. {r.title}
+                      </b>
+                      <span className="fs-hint">after {dir.name.trim() || "the first signer"}</span>
                     </div>
-                  )),
-                )}
-                {n > 0 ? (
-                  <div className="fs-addsig">
-                    {rows.map((r) => (
-                      <button key={r.key} className="fs-textbtn" onClick={() => setRow(r.key, { signers: [...r.signers, { name: "", email: "", role: "Signer" }] })}>
-                        + another signer on {r.title.length > 32 ? `${r.title.slice(0, 32)}…` : r.title}
-                      </button>
+                    {r.signers.map((s, i) => (
+                      <div key={i} className="fs-signer">
+                        <span className="fs-av alt">{initials(s.name)}</span>
+                        <div className="fs-signer-f">
+                          <label>
+                            Name
+                            <input className="input" value={s.name} onChange={(e) => setSigner(r, i, { name: e.target.value })} placeholder="Full name" />
+                          </label>
+                          <label>
+                            Email
+                            <input className="input" value={s.email} onChange={(e) => setSigner(r, i, { email: e.target.value })} placeholder="name@company.com" />
+                          </label>
+                          <label>
+                            Role
+                            <input className="input" value={s.role} onChange={(e) => setSigner(r, i, { role: e.target.value })} />
+                          </label>
+                        </div>
+                        <span className="fs-order">Signs {i + 2 === 2 ? "2nd" : i + 2 === 3 ? "3rd" : `${i + 2}th`}</span>
+                        {r.signers.length > 1 ? (
+                          <button className="fs-icon" onClick={() => setRow(r.key, { signers: r.signers.filter((_, k) => k !== i) })} aria-label={`Remove ${s.name || "this signer"}`} title="Remove this signer">
+                            ✕
+                          </button>
+                        ) : (
+                          <span />
+                        )}
+                      </div>
                     ))}
+                    <button className="fs-textbtn" onClick={() => setRow(r.key, { signers: [...r.signers, { name: "", email: "", role: "Signer" }] })}>
+                      + add a signer to this document
+                    </button>
                   </div>
-                ) : (
-                  <p className="fs-hint">Add documents in step 1 to fill in the holders.</p>
-                )}
+                ))}
+                {n === 0 && <p className="fs-hint">Add documents in step 1 to fill in the holders.</p>}
               </section>
 
               {/* 4 · review */}
