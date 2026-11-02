@@ -55,6 +55,11 @@ const PUBLIC_PATHS = [
   // for the ESOP dashboard, with a private key per company that the database
   // checks (106, app/api/esop/zap). No session; a wrong key gets a 404.
   "/api/esop/zap",
+  // FD Sign (112): people signing have no account — the private link in their
+  // email is the key, checked against its hash on every request. The admin
+  // routes under /api/sign check for a Founders Doc admin themselves.
+  "/sign",
+  "/api/sign",
   // The public price list (app/pricing). /billing stays the account's page.
   "/pricing",
   // The published blog posts, for the cards on the public blog page (055).
