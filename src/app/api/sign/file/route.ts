@@ -4,7 +4,8 @@ import { signedPdf, tokenCanSee } from "@/lib/sign/service";
 import { adminEmail } from "@/lib/sign/http";
 
 /**
- * GET /api/sign/file?e=<envelope id>&t=<token>[&signed=1][&download=1]
+ * GET /api/sign/file?e=<envelope id>&t=<token>[&signed=1][&doc=1][&download=1]
+ * doc=1: the signed document on its own (e.g. just the certificate), no audit trail page.
  * The original PDF, or the signed one (signatures stamped on their lines + audit
  * trail). Allowed for a signer on that envelope (by their link) or an admin.
  */
@@ -22,9 +23,10 @@ export async function GET(req: NextRequest) {
   const env = await store.envelope(envelopeId);
   if (!env) return NextResponse.json({ error: "Not found." }, { status: 404 });
   const wantSigned = q.get("signed") === "1";
-  const bytes = wantSigned ? await signedPdf(store, envelopeId) : await store.original(envelopeId);
+  const docOnly = wantSigned && q.get("doc") === "1";
+  const bytes = wantSigned ? await signedPdf(store, envelopeId, { audit: !docOnly }) : await store.original(envelopeId);
   if (!bytes) return NextResponse.json({ error: "Not found." }, { status: 404 });
-  const name = `${wantSigned ? (env.status === "completed" ? "Signed - " : "In progress - ") : ""}${env.title}`.replace(/[^\w .()-]+/g, "_").slice(0, 120) + ".pdf";
+  const name = `${wantSigned ? (env.status === "completed" ? "Signed - " : "In progress - ") : ""}${env.title}${docOnly ? "" : wantSigned ? " (with audit trail)" : ""}`.replace(/[^\w .()-]+/g, "_").slice(0, 120) + ".pdf";
   return new NextResponse(Buffer.from(bytes), {
     headers: {
       "Content-Type": "application/pdf",

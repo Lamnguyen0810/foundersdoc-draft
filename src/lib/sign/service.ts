@@ -267,7 +267,7 @@ async function complete(store: SignStore, envelopeId: string, origin: string, wh
 }
 
 /** The signed PDF (or the signing-so-far version), built from what is stored. */
-export async function signedPdf(store: SignStore, envelopeId: string): Promise<Uint8Array | null> {
+export async function signedPdf(store: SignStore, envelopeId: string, opts: { audit?: boolean } = {}): Promise<Uint8Array | null> {
   const env = await store.envelope(envelopeId);
   const original = env ? await store.original(envelopeId) : null;
   if (!env || !original) return null;
@@ -279,7 +279,7 @@ export async function signedPdf(store: SignStore, envelopeId: string): Promise<U
       if (p) pngs.set(s.id, p);
     }
   }
-  return buildSignedPdf({ original, envelope: env, signers, pngs, events: await store.events(envelopeId), fields: await fieldsFor(store, envelopeId, signers) });
+  return buildSignedPdf({ original, envelope: env, signers, pngs, events: await store.events(envelopeId), fields: await fieldsFor(store, envelopeId, signers), audit: opts.audit });
 }
 
 /** May this token see this envelope's files? */

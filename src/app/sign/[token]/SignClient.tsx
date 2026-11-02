@@ -230,9 +230,20 @@ export default function SignClient({ token, view }: { token: string; view: SignV
             />
           </div>
           <div className="fs-doc-actions">
-            <a className="fs-btn ghost" href={fileUrl(doc, view.state === "signed", true)}>
-              ⬇ {view.state === "signed" ? (done ? "Download signed copy" : "Download copy so far") : "Download to read"}
-            </a>
+            {done ? (
+              <>
+                <a className="fs-btn ghost" href={`${fileUrl(doc, true, true)}&doc=1`}>
+                  ⬇ Download {/certificate/i.test(d.title) ? "certificate" : "document"} only
+                </a>
+                <a className="fs-btn ghost" href={fileUrl(doc, true, true)}>
+                  ⬇ With audit trail
+                </a>
+              </>
+            ) : (
+              <a className="fs-btn ghost" href={fileUrl(doc, view.state === "signed", true)}>
+                ⬇ {view.state === "signed" ? "Download copy so far" : "Download to read"}
+              </a>
+            )}
           </div>
         </section>
 

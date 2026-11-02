@@ -79,6 +79,8 @@ export async function buildSignedPdf(input: {
   pngs: Map<string, Uint8Array>;
   events: SignEvent[];
   fields?: SignField[];
+  /** false = the signed document only (e.g. the certificate), without the audit trail page */
+  audit?: boolean;
 }): Promise<Uint8Array> {
   const { envelope, signers, pngs, events } = input;
   const fields = input.fields ?? [];
@@ -157,6 +159,8 @@ export async function buildSignedPdf(input: {
       drawLineText(p, s.name, x, y, w, h);
     }
   }
+
+  if (input.audit === false) return doc.save();
 
   /* ── audit trail ──────────────────────────────────────────────────── */
   let page = doc.addPage([W, H]);
