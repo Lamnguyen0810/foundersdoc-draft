@@ -122,6 +122,12 @@ export interface SignStore {
   putCode(row: SignCode): Promise<void>;
   /** Is public.sign_codes there (SQL 114 run)? */
   codesReady(): Promise<boolean>;
+  /** CC: people who get the signed copy (SQL 115). */
+  addViewers(envelopeId: string, emails: string[]): Promise<void>;
+  viewers(envelopeId: string): Promise<Array<{ id: string; email: string; sent_at: string | null }>>;
+  setViewerToken(id: string, tokenHash: string): Promise<void>;
+  viewerEnvelopes(tokenHash: string): Promise<string[]>;
+  viewersReady(): Promise<boolean>;
 }
 
 const ENV_COLS = "id, title, file_name, original_sha256, page_count, message, batch_id, status, esop_holder_id, esop_tranche, filed_document_id, created_by, created_at, completed_at";
@@ -241,6 +247,30 @@ function supabaseStore(): SignStore {
       const r = await db.from("sign_codes").select("token_hash").limit(1);
       return !r.error;
     },
+    async addViewers(envelopeId, emails) {
+      if (!emails.length) return;
+      must(await db.from("sign_viewers").upsert(emails.map((email) => ({ envelope_id: envelopeId, email })), { onConflict: "envelope_id,email", ignoreDuplicates: true }));
+    },
+    async viewers(envelopeId) {
+      const r = await db.from("sign_viewers").select("id, email, sent_at").eq("envelope_id", envelopeId);
+      if (r.error) {
+        if (/sign_viewers/.test(r.error.message)) return []; // 115 not run yet
+        throw new Error(r.error.message);
+      }
+      return (r.data ?? []) as Array<{ id: string; email: string; sent_at: string | null }>;
+    },
+    async setViewerToken(id, tokenHash) {
+      must(await db.from("sign_viewers").update({ token_hash: tokenHash, sent_at: new Date().toISOString() }).eq("id", id));
+    },
+    async viewerEnvelopes(tokenHash) {
+      const r = await db.from("sign_viewers").select("envelope_id").eq("token_hash", tokenHash);
+      if (r.error) return [];
+      return (r.data ?? []).map((x) => (x as { envelope_id: string }).envelope_id);
+    },
+    async viewersReady() {
+      const r = await db.from("sign_viewers").select("id").limit(1);
+      return !r.error;
+    },
     async esopDirector() {
       const c = must(await db.from("esop_companies").select("director_name").eq("slug", "hitpay").maybeSingle()) as { director_name?: string | null } | null;
       return c?.director_name ?? null;
@@ -253,6 +283,7 @@ function supabaseStore(): SignStore {
 interface Mem {
   fld: Map<string, SignField[]>;
   codes: Map<string, SignCode>;
+  view: Array<{ id: string; envelope_id: string; email: string; token_hash: string | null; sent_at: string | null }>;
   env: Map<string, Envelope & { original: Uint8Array }>;
   sig: Map<string, Signer & { png: Uint8Array | null }>;
   ev: SignEvent[];
@@ -260,8 +291,9 @@ interface Mem {
 const g = globalThis as unknown as { __fdsign?: Mem };
 
 function memoryStore(): SignStore {
-  const m: Mem = (g.__fdsign ??= { fld: new Map(), codes: new Map(), env: new Map(), sig: new Map(), ev: [] as SignEvent[] });
+  const m: Mem = (g.__fdsign ??= { fld: new Map(), codes: new Map(), view: [], env: new Map(), sig: new Map(), ev: [] as SignEvent[] });
   m.codes ??= new Map();
+  m.view ??= [];
   const now = () => new Date().toISOString();
   const strip = <T extends object>(o: T, k: string) => {
     const c = { ...o } as Record<string, unknown>;
@@ -361,6 +393,22 @@ function memoryStore(): SignStore {
       m.codes.set(row.token_hash, { ...row });
     },
     async codesReady() {
+      return true;
+    },
+    async addViewers(envelopeId, emails) {
+      for (const email of emails) if (!m.view.some((v) => v.envelope_id === envelopeId && v.email === email)) m.view.push({ id: crypto.randomUUID(), envelope_id: envelopeId, email, token_hash: null, sent_at: null });
+    },
+    async viewers(envelopeId) {
+      return m.view.filter((v) => v.envelope_id === envelopeId).map(({ id, email, sent_at }) => ({ id, email, sent_at }));
+    },
+    async setViewerToken(id, tokenHash) {
+      const v = m.view.find((x) => x.id === id);
+      if (v) Object.assign(v, { token_hash: tokenHash, sent_at: new Date().toISOString() });
+    },
+    async viewerEnvelopes(tokenHash) {
+      return m.view.filter((v) => v.token_hash === tokenHash).map((v) => v.envelope_id);
+    },
+    async viewersReady() {
       return true;
     },
   };

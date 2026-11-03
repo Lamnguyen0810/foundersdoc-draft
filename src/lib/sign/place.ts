@@ -1,5 +1,6 @@
 import "server-only";
 import { autoPlace, readPdf } from "./boxes";
+import { openPdfNode } from "./pdfjs-node";
 import type { SignField } from "./store";
 
 /**
@@ -8,20 +9,6 @@ import type { SignField } from "./store";
  * line above their label ("Director", "Option Holder"), exactly as the admin
  * page does. Kept in memory per envelope, so it runs once per server.
  */
-type PdfJs = typeof import("pdfjs-dist/legacy/build/pdf.mjs");
-let lib: Promise<PdfJs> | null = null;
-function pdfjs(): Promise<PdfJs> {
-  if (!lib) {
-    lib = (async () => {
-      /* load the worker in-process (no worker thread on the server) */
-      const worker = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
-      (globalThis as { pdfjsWorker?: unknown }).pdfjsWorker = worker;
-      return import("pdfjs-dist/legacy/build/pdf.mjs");
-    })();
-  }
-  return lib;
-}
-
 const cache = new Map<string, SignField[]>();
 
 export async function autoFields(envelopeId: string, original: Uint8Array, signers: Array<{ name: string; role: string }>): Promise<SignField[]> {
@@ -29,8 +16,7 @@ export async function autoFields(envelopeId: string, original: Uint8Array, signe
   const hit = cache.get(key);
   if (hit) return hit;
   try {
-    const m = await pdfjs();
-    const doc = await m.getDocument({ data: new Uint8Array(original), isEvalSupported: false, useSystemFonts: false, disableFontFace: true, verbosity: 0 }).promise;
+    const doc = await openPdfNode(original);
     const info = await readPdf(doc as unknown as Parameters<typeof readPdf>[0]);
     void doc.destroy();
     const fields = autoPlace(info, signers).map(({ position, kind, page, x, y, w, h }) => ({ position, kind, page, x, y, w, h }));

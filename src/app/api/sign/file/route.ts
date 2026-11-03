@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   if (!env) return NextResponse.json({ error: "Not found." }, { status: 404 });
   const wantSigned = q.get("signed") === "1";
   const docOnly = wantSigned && q.get("doc") === "1";
-  const bytes = wantSigned ? await signedPdf(store, envelopeId, { audit: !docOnly }) : await store.original(envelopeId);
+  const bytes = wantSigned ? await signedPdf(store, envelopeId, { audit: !docOnly, origin: req.nextUrl.origin }) : await store.original(envelopeId);
   if (!bytes) return NextResponse.json({ error: "Not found." }, { status: 404 });
   const name = `${wantSigned ? (env.status === "completed" ? "Signed - " : "In progress - ") : ""}${env.title}${docOnly ? "" : wantSigned ? " (with audit trail)" : ""}`.replace(/[^\w .()-]+/g, "_").slice(0, 120) + ".pdf";
   return new NextResponse(Buffer.from(bytes), {

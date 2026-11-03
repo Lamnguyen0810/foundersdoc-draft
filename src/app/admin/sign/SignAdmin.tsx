@@ -7,8 +7,10 @@ import { matchFile } from "@/lib/esop/match";
 import type { Envelope, Signer } from "@/lib/sign/store";
 import { autoPlace, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
 import type { PdfInfo } from "../../sign/PdfPages";
+import type { Prepared } from "./EsopPrepare";
 
 /* pdf.js only runs in the browser */
+const EsopPrepare = dynamic(() => import("./EsopPrepare"), { ssr: false });
 const BoxEditor = dynamic(() => import("./BoxEditor"), { ssr: false, loading: () => <div className="fs-pages-wait">Loading the document…</div> });
 
 /* FD Sign — the Founders Doc side, in the site's own look (globals.css
@@ -90,6 +92,9 @@ export default function SignAdmin({
   const [dir, setDir] = useState({ name: director, email: "", role: "Director" });
   const [rows, setRows] = useState<Row[]>([]);
   const [message, setMessage] = useState("");
+  const [source, setSource] = useState<"esop" | "upload">("esop");
+  const [cc, setCc] = useState("rachel.wong@foundersdoc.com");
+  const [simulation, setSimulation] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [sent, setSent] = useState<Sent[] | null>(null);
@@ -133,7 +138,10 @@ export default function SignAdmin({
         };
       });
     setRows((r) => [...r, ...made]);
-    /* read each PDF in the background and put the boxes on the signature lines */
+    place(made);
+  }
+  /* read each PDF in the background and put the boxes on the signature lines */
+  function place(made: Row[]) {
     void import("../../sign/PdfPages").then(async ({ openPdf, readPdf }) => {
       for (const m of made) {
         try {
@@ -146,6 +154,34 @@ export default function SignAdmin({
         }
       }
     });
+  }
+  /* certificates made from the ESOP dashboard: holder, tranche, signer and Director already known */
+  function addPrepared(p: { files: Prepared[]; director: { name: string; email: string; realEmail: string | null }; simulation: string | null; label: string }) {
+    setErr("");
+    setSent(null);
+    const made: Row[] = p.files.map((f, i) => {
+      const bytes = Uint8Array.from(atob(f.pdf), (c) => c.charCodeAt(0));
+      return {
+        key: `${Date.now()}-esop-${i}`,
+        file: new File([bytes], f.fileName, { type: "application/pdf" }),
+        title: f.title,
+        holderId: f.holderId,
+        tranche: String(f.tranche),
+        signers: [{ name: f.signer.name, email: f.signer.email, role: "Option Holder" }],
+        boxes: [],
+        info: null,
+      };
+    });
+    const d = { name: p.director.name, email: p.director.email, role: "Director" };
+    dirRef.current = d;
+    setDir(d);
+    setRows((r) => [...r, ...made]);
+    setMode(made.length > 1 ? "batch" : "each");
+    setSimulation(p.simulation);
+    if (!message.trim()) setMessage(`Option Certificate${made.length > 1 ? "s" : ""} for ${p.label}.`);
+    setSource("upload");
+    say(`${plural(made.length, "certificate")} added`);
+    place(made);
   }
   function removeSigner(r: Row, i: number) {
     const pos = i + 2;
@@ -193,6 +229,10 @@ export default function SignAdmin({
       JSON.stringify({
         batch,
         message,
+        cc: cc
+          .split(/[\s,;]+/)
+          .map((x) => x.trim())
+          .filter(Boolean),
         docs: rows.map((r) => ({
           title: r.title,
           holderId: r.holderId || undefined,
@@ -319,9 +359,24 @@ export default function SignAdmin({
                   <span className="fs-num">1</span>
                   <div>
                     <h2>Documents</h2>
-                    <p>Download each certificate as a PDF (Google Docs → File → Download → PDF). Each is matched to the holder by its file name.</p>
+                    <p>Make the Option Certificates from an approved vesting on the ESOP dashboard, or upload PDFs.</p>
                   </div>
                 </header>
+                <div className="fs-seg fs-src" role="tablist">
+                  <button role="tab" aria-selected={source === "esop"} className={source === "esop" ? "on" : ""} onClick={() => setSource("esop")}>
+                    From the ESOP dashboard
+                  </button>
+                  <button role="tab" aria-selected={source === "upload"} className={source === "upload" ? "on" : ""} onClick={() => setSource("upload")}>
+                    Upload PDFs{n ? ` · ${n}` : ""}
+                  </button>
+                </div>
+                {source === "esop" && <EsopPrepare onCreate={addPrepared} />}
+                {simulation && source === "upload" && n > 0 && (
+                  <p className="fs-sim">
+                    <b>Simulation on:</b> the Director&rsquo;s and holders&rsquo; emails go to <b>{simulation}</b>.
+                  </p>
+                )}
+                {source === "upload" && (
                 <div
                   className={`fs-drop ${over ? "over" : ""}`}
                   onDragOver={(e) => {
@@ -343,6 +398,7 @@ export default function SignAdmin({
                   </button>
                   <small>PDF · up to 4 MB in total per send</small>
                 </div>
+                )}
                 <input
                   ref={pick}
                   type="file"
@@ -620,6 +676,13 @@ export default function SignAdmin({
                     Message to signers <em>optional</em>
                   </span>
                   <textarea className="input" value={message} onChange={(e) => setMessage(e.target.value)} rows={2} placeholder="e.g. Your Option Certificate for Batch 5, Tranche 3." />
+                </label>
+                <label className="fs-field">
+                  <span>
+                    Send the signed copy to (CC) <em>they don&rsquo;t sign</em>
+                  </span>
+                  <input className="input" value={cc} onChange={(e) => setCc(e.target.value)} placeholder="rachel.wong@foundersdoc.com, hr@company.com" />
+                  <small className="fs-hint">When everyone has signed, each gets an email with the signed certificate. Separate several with commas.</small>
                 </label>
                 {err && <p className="fs-err">{err}</p>}
                 <div className="fs-sendbar">

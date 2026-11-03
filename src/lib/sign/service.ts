@@ -2,6 +2,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { buildSignedPdf, pageCount, sha256 } from "./pdf";
 import { autoFields } from "./place";
+import { signFonts } from "./certificate";
 import { notify } from "./notify";
 import type { Envelope, SignField, SignStore, Signer } from "./store";
 
@@ -21,6 +22,9 @@ export const hashToken = (t: string) => createHash("sha256").update(t).digest("h
 const newToken = () => randomBytes(32).toString("base64url");
 export const isTokenShape = (t: string) => /^[A-Za-z0-9_-]{40,60}$/.test(t);
 
+/** One person = same email AND same name (in a simulation several holders share one inbox but must not share a link). */
+const person = (s: Pick<Signer, "email" | "name">) => `${s.email.toLowerCase()}|${s.name.trim().toLowerCase()}`;
+
 /** A signing link stops working this many days after it was sent (a new one can be issued from Sent). */
 export const LINK_DAYS = 30;
 export const isExpired = (s: Pick<Signer, "status" | "invited_at">) =>
@@ -33,6 +37,8 @@ export interface DocInput {
   esopHolderId: string | null;
   esopTranche: number | null;
   signers: Array<{ name: string; email: string; role: string }>;
+  /** CC: get the signed copy when everyone has signed */
+  cc?: string[];
   fields: SignField[];
 }
 
@@ -95,6 +101,7 @@ export async function createSend(
       const s = d.signers[i];
       await store.insertSigner({ envelope_id: id, position: i + 1, name: s.name, email: s.email.toLowerCase(), role: s.role });
     }
+    if (d.cc?.length) await store.addViewers(id, d.cc);
     await store.insertFields(id, d.fields.filter((f) => f.position >= 1 && f.position <= d.signers.length && f.page >= 1 && f.page <= pages));
     const rows = await store.signers(id);
     firsts.push({ row: rows[0], title: d.title });
@@ -102,7 +109,7 @@ export async function createSend(
   /* First signers: one link per person (a batch groups the same email). */
   const groups = new Map<string, typeof firsts>();
   for (const f of firsts) {
-    const k = batchId ? f.row.email : f.row.id;
+    const k = batchId ? person(f.row) : f.row.id;
     groups.set(k, [...(groups.get(k) ?? []), f]);
   }
   const links: SentLink[] = [];
@@ -235,7 +242,7 @@ export async function submitSignature(
     const all = await store.signers(env.id);
     const next = all.find((s) => s.position > me.position && s.status === "waiting");
     if (next) {
-      const k = next.email; // the same next person on several documents gets one link
+      const k = person(next); // the same next person on several documents gets one link
       const g = nextGroups.get(k) ?? { rows: [], titles: [], message: env.message };
       g.rows.push(next);
       g.titles.push(env.title);
@@ -256,7 +263,7 @@ async function complete(store: SignStore, envelopeId: string, origin: string, wh
   const env = (await store.envelope(envelopeId))!;
   if (env.esop_holder_id) {
     try {
-      const pdf = await signedPdf(store, envelopeId);
+      const pdf = await signedPdf(store, envelopeId, { origin });
       if (pdf) {
         const docId = await store.fileToEsop(env.esop_holder_id, env.esop_tranche, pdf, `Signed - ${env.title}.pdf`);
         if (docId) {
@@ -280,10 +287,26 @@ async function complete(store: SignStore, envelopeId: string, origin: string, wh
     }
     await notify({ kind: "completed", to: s.email, name: s.name, role: s.role, link: linkFor(origin, token), documents: [env.title], message: null });
   }
+  /* CC: a private link that downloads the signed copy (certificate only) */
+  for (const v of await store.viewers(envelopeId)) {
+    if (v.sent_at) continue;
+    const token = newToken();
+    await store.setViewerToken(v.id, hashToken(token));
+    await notify({
+      kind: "completed",
+      to: v.email,
+      name: v.email.split("@")[0],
+      role: "Copy",
+      link: `${origin}/api/sign/file?e=${envelopeId}&t=${token}&signed=1&doc=1&download=1`,
+      documents: [env.title],
+      message: null,
+    });
+    await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "copy_sent", ip: null, user_agent: null, detail: v.email });
+  }
 }
 
 /** The signed PDF (or the signing-so-far version), built from what is stored. */
-export async function signedPdf(store: SignStore, envelopeId: string, opts: { audit?: boolean } = {}): Promise<Uint8Array | null> {
+export async function signedPdf(store: SignStore, envelopeId: string, opts: { audit?: boolean; origin?: string } = {}): Promise<Uint8Array | null> {
   const env = await store.envelope(envelopeId);
   const original = env ? await store.original(envelopeId) : null;
   if (!env || !original) return null;
@@ -295,7 +318,7 @@ export async function signedPdf(store: SignStore, envelopeId: string, opts: { au
       if (p) pngs.set(s.id, p);
     }
   }
-  return buildSignedPdf({ original, envelope: env, signers, pngs, events: await store.events(envelopeId), fields: await fieldsFor(store, envelopeId, signers), audit: opts.audit });
+  return buildSignedPdf({ original, envelope: env, signers, pngs, events: await store.events(envelopeId), fields: await fieldsFor(store, envelopeId, signers), audit: opts.audit, fontBytes: opts.origin ? await signFonts(opts.origin).catch(() => null) : null });
 }
 
 /** Founders Doc cancels an open request: nobody can sign it any more; the links show "cancelled". */
@@ -310,8 +333,10 @@ export async function voidEnvelope(store: SignStore, envelopeId: string, who: Wh
 /** May this token see this envelope's files? */
 export async function tokenCanSee(store: SignStore, token: string, envelopeId: string): Promise<boolean> {
   if (!isTokenShape(token)) return false;
-  const mine = await store.signersByToken(hashToken(token));
-  return mine.some((m) => m.envelope_id === envelopeId);
+  const h = hashToken(token);
+  const mine = await store.signersByToken(h);
+  if (mine.some((m) => m.envelope_id === envelopeId)) return true;
+  return (await store.viewerEnvelopes(h)).includes(envelopeId);
 }
 
 /** A new link for someone whose email went astray (admin). Same person's batch rows move together. */
