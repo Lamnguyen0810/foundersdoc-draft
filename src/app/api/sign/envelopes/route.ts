@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Send the form with the files." }, { status: 400 });
   }
-  let meta: { batch?: unknown; message?: unknown; docs?: unknown };
+  let meta: { batch?: unknown; message?: unknown; docs?: unknown; cc?: unknown };
   try {
     meta = JSON.parse(String(form.get("meta") ?? ""));
   } catch {
@@ -65,6 +65,12 @@ export async function POST(req: NextRequest) {
   const docsIn = Array.isArray(meta.docs) ? meta.docs : [];
   if (!docsIn.length || docsIn.length > 30) return NextResponse.json({ error: "Add 1 to 30 documents." }, { status: 400 });
 
+  /* CC: up to 5 people who get the signed copy */
+  const cc = (Array.isArray(meta.cc) ? meta.cc : [])
+    .map((e) => String(e ?? "").trim().toLowerCase())
+    .filter(Boolean)
+    .slice(0, 5);
+  if (cc.some((e) => !EMAIL.test(e) || e.length > 200)) return NextResponse.json({ error: "One of the copy (CC) emails is not valid." }, { status: 400 });
   const docs: DocInput[] = [];
   for (let i = 0; i < docsIn.length; i++) {
     const d = docsIn[i] as Record<string, unknown>;
@@ -90,12 +96,15 @@ export async function POST(req: NextRequest) {
       esopTranche: tranche,
       signers,
       fields: parseFields(d.fields, signers.length),
+      cc: [...new Set(cc)],
     });
   }
 
   if (docs.some((d) => d.fields.length) && !(await store.boxesReady()))
     return NextResponse.json({ error: "The signature boxes can't be saved yet: run supabase/113_fd_sign_fields.sql in Supabase, then press Send again." }, { status: 503 });
 
+  if (cc.length && !(await store.viewersReady()))
+    return NextResponse.json({ error: "Copies (CC) can't be saved yet: run supabase/115_fd_sign_copies.sql in Supabase, then press Send again." }, { status: 503 });
   if (codeRequired(store) && !(await store.codesReady()))
     return NextResponse.json({ error: "Signers must confirm an email code before signing, but that isn't set up yet: run supabase/114_fd_sign_codes.sql in Supabase, then press Send again." }, { status: 503 });
 
