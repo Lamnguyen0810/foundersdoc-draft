@@ -77,6 +77,8 @@ export interface EsopSource {
   runs(): Promise<EsopRun[]>;
   prepare(ref: string): Promise<EsopPrep | null>;
   letter(holderId: string): Promise<Uint8Array | null>;
+  /** for the Letter of Grant check: who the holder is, and who they are not */
+  holderNames(holderId: string): Promise<{ name: string; legalName: string; director: string; contact: string }>;
   saveHolder(holderId: string, v: { legal_name?: string; id_no?: string; nationality?: string; grant_date?: string | null }, by: string): Promise<void>;
 }
 
@@ -168,6 +170,11 @@ function supabaseSource(): EsopSource {
       if (f.error || !f.data) throw new Error(f.error?.message ?? "letter not found");
       return new Uint8Array(await f.data.arrayBuffer());
     },
+    async holderNames(holderId) {
+      const h = must(await db.from("esop_holders").select("name, legal_name, company_id").eq("id", holderId).maybeSingle()) as { name: string; legal_name: string | null; company_id: string } | null;
+      const c = h ? (must(await db.from("esop_companies").select("director_name, contact_name").eq("id", h.company_id).maybeSingle()) as { director_name: string | null; contact_name: string | null } | null) : null;
+      return { name: h?.name ?? "", legalName: h?.legal_name ?? "", director: c?.director_name ?? "", contact: c?.contact_name ?? "" };
+    },
     async saveHolder(holderId, v, by) {
       const patch: Record<string, unknown> = { updated_by: by, updated_at: new Date().toISOString() };
       if (v.legal_name !== undefined) patch.legal_name = v.legal_name || null;
@@ -207,6 +214,9 @@ function memorySource(): EsopSource {
     },
     async letter() {
       return null;
+    },
+    async holderNames() {
+      return { name: "", legalName: "", director: "Specimen Director", contact: "" };
     },
     async saveHolder() {},
   };

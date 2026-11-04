@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
   try {
     const bytes = await src.letter(holderId);
     if (!bytes) return NextResponse.json({ error: "No Letter of Grant uploaded for this holder yet." }, { status: 404 });
-    return NextResponse.json(await readLetterOfGrant(bytes));
+    const { name, legalName, director, contact } = await src.holderNames(holderId);
+    return NextResponse.json(await readLetterOfGrant(bytes, { expectNames: [name, legalName], avoidNames: [director, contact] }));
   } catch (e) {
     console.error("[sign] letter read failed:", e);
     return NextResponse.json({ error: "Could not read the Letter of Grant." }, { status: 500 });

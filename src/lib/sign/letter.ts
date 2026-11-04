@@ -19,7 +19,26 @@ export interface LetterFields {
   shareClass: string | null; // "Class B"
   vestingStart: string | null; // "1 November 2023"
   found: string[]; // which fields were read
+  warnings: string[]; // things Founders Doc must check by hand
 }
+
+/** What the reader should expect, so it never fills in someone else's details. */
+export interface LetterCheck {
+  expectNames?: string[]; // the holder's names on the dashboard (short + legal)
+  avoidNames?: string[]; // never the holder: the Director, the company contact
+}
+
+const tokens = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[^a-z]+/)
+    .filter((t) => t.length > 1);
+const overlap = (a: string, b: string) => {
+  const tb = new Set(tokens(b));
+  return tokens(a).filter((t) => tb.has(t)).length;
+};
 
 const DATE = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})\b/i;
 const blankLabel = (t: string) => t.replace(/_+/g, "").trim();
@@ -42,18 +61,23 @@ const num = (t: string) => {
   return Number.isFinite(n) && n > 0 ? n : null;
 };
 
-export async function readLetterOfGrant(bytes: Uint8Array): Promise<LetterFields> {
-  const lines = (await pdfLines(bytes, 3)).map((l) => l.text).filter((t) => !/^DocuSign Envelope ID/i.test(t));
-  const f: LetterFields = { letterDate: null, name: null, legalName: null, idNo: null, totalOptions: null, trancheOptions: [], shareClass: null, vestingStart: null, found: [] };
+export async function readLetterOfGrant(bytes: Uint8Array, check: LetterCheck = {}): Promise<LetterFields> {
+  const all = (await pdfLines(bytes, 3)).filter((l) => !/^DocuSign Envelope ID/i.test(l.text));
+  /* the holder's own details (Date / Name / ID) sit at the top of the letter's first page;
+     the signature pages further down have their own "Name:" lines (the Director's) */
+  const first = all.find((l) => /LETTER OF GRANT/i.test(l.text))?.page ?? all[0]?.page ?? 1;
+  const head = all.filter((l) => l.page === first).map((l) => l.text);
+  const lines = all.map((l) => l.text);
+  const f: LetterFields = { letterDate: null, name: null, legalName: null, idNo: null, totalOptions: null, trancheOptions: [], shareClass: null, vestingStart: null, found: [], warnings: [] };
 
   /* value printed on the label's own line (after the colon) or on the line above it */
   const near = (label: RegExp, ok: (v: string) => boolean): string | null => {
-    const i = lines.findIndex((t) => label.test(t));
+    const i = head.findIndex((t) => label.test(t));
     if (i < 0) return null;
-    const same = blankLabel(lines[i].replace(label, ""));
+    const same = blankLabel(head[i].replace(label, ""));
     if (same && ok(same)) return same;
     for (const j of [i - 1, i + 1]) {
-      const v = lines[j] ? blankLabel(lines[j]) : "";
+      const v = head[j] ? blankLabel(head[j]) : "";
       if (v && ok(v) && !/:\s*$/.test(v)) return v;
     }
     return null;
@@ -62,12 +86,22 @@ export async function readLetterOfGrant(bytes: Uint8Array): Promise<LetterFields
   const d = near(/^\s*Date\s*:/i, (v) => DATE.test(v));
   if (d) f.letterDate = DATE.exec(d)![0].replace(/(\d)(st|nd|rd|th)/i, "$1");
   const n = near(/^\s*Name\s*:/i, (v) => /\p{L}{2,}/u.test(v) && v.length < 120 && !DATE.test(v));
-  if (n) {
-    f.name = n;
-    f.legalName = titleCase(n);
-  }
   const id = near(/^\s*Identification\s+(Number|No\.?)\s*:/i, (v) => /^[A-Z0-9][A-Z0-9 -]{4,30}$/i.test(v));
-  if (id) f.idNo = id.replace(/\s+/g, " ");
+  if (n) {
+    const avoid = (check.avoidNames ?? []).filter(Boolean).find((a) => overlap(n, a) >= Math.min(2, tokens(a).length));
+    const expect = (check.expectNames ?? []).filter(Boolean);
+    const matches = !expect.length || expect.some((e) => overlap(n, e) >= 1);
+    if (avoid || !matches) {
+      /* someone else's name: leave name AND ID empty rather than fill in the wrong person */
+      f.warnings.push(`The letter's name reads "${titleCase(n)}", which doesn't match this holder: type the name and ID number from the letter.`);
+    } else {
+      f.name = n;
+      f.legalName = titleCase(n);
+      if (id) f.idNo = id.replace(/\s+/g, " ");
+    }
+  } else {
+    f.warnings.push("The holder's name isn't readable text in this letter (it may be a DocuSign field): type the name and ID number from the letter.");
+  }
 
   const at = (label: RegExp, span = 4, before = 0) => {
     const i = lines.findIndex((t) => label.test(t));

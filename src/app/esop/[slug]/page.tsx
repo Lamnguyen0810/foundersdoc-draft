@@ -102,6 +102,9 @@ export default async function EsopPage({
   const runsRes = await supabase.rpc("esop_runs", { p_slug: slug });
   const runRows = (runsRes.data ?? []) as Array<EsopRun & { can_approve: boolean }>;
   const canApprove = runRows.some((r) => r.can_approve);
+  /* Simulation (109): admins may approve an upcoming vesting early, to rehearse it */
+  const sim = admin ? await supabase.from("esop_companies").select("email_override").eq("id", company.id).maybeSingle() : null;
+  const simulation = ((sim?.data as { email_override?: string | null } | null)?.email_override ?? null) || null;
   const runs = runRows.filter((r) => r.ref) as EsopRun[];
 
   return (
@@ -114,6 +117,7 @@ export default async function EsopPage({
       viewer={user.email ?? ""}
       runs={runs}
       canApprove={canApprove}
+      simulation={simulation}
       focusRef={focusRef}
       supabaseUrl={supabaseUrl()}
       supabaseKey={supabasePublishableKey()}

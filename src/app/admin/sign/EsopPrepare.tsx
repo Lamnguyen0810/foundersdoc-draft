@@ -59,7 +59,9 @@ const FIELDS: Array<[keyof Edit, string, string]> = [
 
 export default function EsopPrepare({
   onCreate,
+  initialRef,
 }: {
+  initialRef?: string | null;
   onCreate: (p: { files: Prepared[]; director: { name: string; email: string; realEmail: string | null }; simulation: string | null; label: string }) => void;
 }) {
   const [runs, setRuns] = useState<Run[] | null>(null);
@@ -78,11 +80,14 @@ export default function EsopPrepare({
         if (!alive) return;
         if (j.error) setErr(j.error);
         setRuns(j.runs ?? []);
+        /* opened from the dashboard's "Send for signing →": pick that vesting */
+        if (initialRef && j.runs?.some((r) => r.ref === initialRef)) void pick(initialRef);
       })
       .catch(() => alive && setErr("Could not read the ESOP dashboard."));
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once; initialRef only matters on arrival
   }, []);
 
   async function pick(r: string) {
@@ -115,7 +120,7 @@ export default function EsopPrepare({
     set(h.id, { note: "Reading the Letter of Grant…" });
     try {
       const res = await fetch("/api/sign/esop/letter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ holderId: h.id }) });
-      const j = (await res.json()) as { error?: string; legalName?: string | null; idNo?: string | null; letterDate?: string | null; trancheOptions?: number[]; found?: string[] };
+      const j = (await res.json()) as { error?: string; legalName?: string | null; idNo?: string | null; letterDate?: string | null; trancheOptions?: number[]; found?: string[]; warnings?: string[] };
       if (!res.ok) throw new Error(j.error || "Could not read it.");
       const opt = j.trancheOptions?.[prep.tranche - 1];
       const patch: Partial<Edit> = { read: [], note: "" };
@@ -137,7 +142,8 @@ export default function EsopPrepare({
         read.push("options");
       }
       patch.read = read;
-      patch.note = read.length ? `Read from the Letter of Grant: ${j.found?.join(", ")}. Nationality is not in the letter: please check it.` : "Nothing could be read from this letter: please type the details.";
+      const warn = j.warnings?.length ? ` ⚠ ${j.warnings.join(" ")}` : "";
+      patch.note = (read.length ? `Read from the Letter of Grant: ${j.found?.join(", ")}. Nationality is not in the letter: please check it.` : "Nothing could be read from this letter: please type the details.") + warn;
       set(h.id, patch);
     } catch (e) {
       set(h.id, { note: e instanceof Error ? e.message : "Could not read it." });

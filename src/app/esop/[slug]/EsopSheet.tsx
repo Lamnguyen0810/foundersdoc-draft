@@ -57,6 +57,8 @@ interface Props {
   supabaseKey: string | null;
   runs: EsopRun[];
   canApprove: boolean;
+  /** simulation address (esop_companies.email_override) when on, admins only */
+  simulation?: string | null;
   focusRef: string | null;
 }
 
@@ -229,7 +231,7 @@ export default function EsopSheet(props: Props) {
   async function approve(ref: string, certificates: number, leavers: number, again: boolean) {
     const msg = again
       ? `Send ${ref} to the automation again? Certificate numbers stay the same.`
-      : `Approve ${ref}?\n\n${certificates} Option Certificate(s) and email(s) will be prepared, plus one payment link for ${certificates} certificate(s).${leavers ? ` ${leavers} leaver(s) are skipped.` : ""}`;
+      : `Approve ${ref}?\n\n${certificates} Option Certificate(s) and email(s) will be prepared, plus one payment link for ${certificates} certificate(s).${leavers ? ` ${leavers} leaver(s) are skipped.` : ""}${props.simulation ? `\n\nSimulation is on: every email goes to ${props.simulation}.` : ""}`;
     if (!window.confirm(msg)) return;
     if (!client) {
       setRuns((l) => [...l.filter((r) => r.ref !== ref), { ref, approved_by: props.viewer, approved_at: new Date().toISOString(), sent_at: new Date().toISOString(), payment_link: null }]);
@@ -258,6 +260,14 @@ export default function EsopSheet(props: Props) {
         <span className="ok" title={r.approved_at ? new Date(r.approved_at).toLocaleString("en-GB") : ""}>
           ✓ Approved{r.approved_by ? ` · ${r.approved_by.split("@")[0]}` : ""}
           {r.approved_at ? ` · ${fmtDay(r.approved_at.slice(0, 10))}` : ""}
+          {props.role === "admin" && certificates > 0 && (
+            <>
+              {" · "}
+              <a href={`/admin/sign?ref=${encodeURIComponent(ref)}`} title="Make the certificates and send them for signing in FD Sign">
+                Send for signing →
+              </a>
+            </>
+          )}
         </span>
       );
     if (r && props.canApprove)
@@ -266,12 +276,14 @@ export default function EsopSheet(props: Props) {
           Send again
         </button>
       );
-    if (daysLeft > 14 || daysLeft < -60) return <span style={{ color: "#9a9a9a" }}>–</span>;
+    /* the button shows from 14 days before the vesting; in a simulation, admins can rehearse up to 120 days ahead */
+    const early = daysLeft > 14 && !!props.simulation && daysLeft <= 120;
+    if ((daysLeft > 14 && !early) || daysLeft < -60) return <span style={{ color: "#9a9a9a" }}>–</span>;
     if (certificates === 0) return <span style={{ color: "#9a9a9a" }}>No certificates</span>;
     if (!props.canApprove) return <span style={{ color: "#9a9a9a" }}>Waiting for approval</span>;
     return (
       <button className="e-btn g sm" disabled={approving === ref} onClick={() => approve(ref, certificates, leavers, false)}>
-        {approving === ref ? "Approving…" : "Approve"}
+        {approving === ref ? "Approving…" : early ? "Approve (simulation)" : "Approve"}
       </button>
     );
   }
@@ -735,7 +747,13 @@ export default function EsopSheet(props: Props) {
               <Ico>
                 <path d="M4 20c3-1 4-5 7-5s2 4 5 4 3-6 4-7" />
               </Ico>
-              E-signing of certificates: coming later
+              {props.role === "admin" ? (
+                <a href="/admin/sign" style={{ color: "inherit" }}>
+                  E-signing of certificates: FD Sign →
+                </a>
+              ) : (
+                "Certificates are signed electronically with FD Sign"
+              )}
             </span>
           </div>
         </section>
