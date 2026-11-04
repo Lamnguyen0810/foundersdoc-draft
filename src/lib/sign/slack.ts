@@ -29,6 +29,23 @@ async function vesting(env: Envelope): Promise<{ ref: string | null; thread_ts: 
   }
 }
 
+/** Post straight to #hitpay-esop (in a vesting's thread when given). */
+export async function postToSlack(text: string, ref: string | null, threadTs: string | null): Promise<void> {
+  if (process.env.SIGN_SLACK_PREVIEW === "1" && !isSupabaseConfigured()) return void console.log("[slack]", text);
+  const hook = process.env.SIGN_SLACK_HOOK_URL?.trim();
+  if (!hook || !isSlackConfigured() || !text) return;
+  try {
+    await fetch(hook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: ref ? `*${ref}* · ${text}` : text, ref: ref ?? "", thread_ts: threadTs ?? "" }),
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch (e) {
+    console.error("[esop] slack hand-over failed:", e);
+  }
+}
+
 export async function slack(store: SignStore, envelopeIds: string[], text: string): Promise<void> {
   /* local preview: print instead of posting */
   if (store.kind === "memory" && process.env.SIGN_SLACK_PREVIEW === "1") return void console.log("[slack]", text);

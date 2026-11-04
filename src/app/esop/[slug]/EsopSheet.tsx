@@ -59,6 +59,8 @@ interface Props {
   canApprove: boolean;
   /** simulation address (esop_companies.email_override) when on, admins only */
   simulation?: string | null;
+  /** "Reset simulation" (116): only for Rachel + Lam while simulation is on; refs = approvals made in simulation */
+  reset?: { to: string; refs: string[] } | null;
   focusRef: string | null;
 }
 
@@ -115,6 +117,8 @@ export default function EsopSheet(props: Props) {
   const [tab, setTab] = useState<Tab>(props.focusRef ? "schedule" : "holders");
   const [runs, setRuns] = useState<EsopRun[]>(props.runs);
   const [approving, setApproving] = useState("");
+  const [resetting, setResetting] = useState("");
+  const [resettable, setResettable] = useState<string[]>(props.reset?.refs ?? []);
   const [q, setQ] = useState("");
   const [toast, setToast] = useState("");
   const [menu, setMenu] = useState<{ id: string; kind: "row" | "files" | "log" } | null>(null);
@@ -253,6 +257,62 @@ export default function EsopSheet(props: Props) {
     }
   }
 
+  /* ── reset a simulation (116) ───────────────────────────────────────── */
+
+  async function resetSim(ref: string) {
+    type Out = { ok?: boolean; error?: string; certificate_numbers?: number[]; numbers_restored?: boolean; next_certificate_no?: number; documents?: number; signing_requests?: number };
+    const call = async (dry: boolean) => {
+      const res = await fetch("/api/esop/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company: company.slug, ref, dry }) });
+      return (await res.json().catch(() => ({}))) as Out;
+    };
+    setResetting(ref);
+    try {
+      let p: Out = { ok: true, certificate_numbers: [], numbers_restored: false, documents: 0, signing_requests: 0 };
+      if (client) {
+        p = await call(true);
+        if (!p.ok) return say(p.error ?? "Could not reset.");
+      }
+      const nums = p.certificate_numbers ?? [];
+      const lines = [
+        `Reset the ${ref} simulation?`,
+        "",
+        "This puts it back to \"not approved\", so you can run it again from the start:",
+        `• the approval is removed`,
+        nums.length ? `• certificate No. ${nums.length > 1 ? `${nums[0]}–${nums[nums.length - 1]}` : nums[0]} ${p.numbers_restored ? `freed (the next certificate is No. ${p.next_certificate_no} again)` : "removed (numbers stay as they are, a later certificate uses a higher number)"}` : "",
+        p.signing_requests ? `• ${p.signing_requests} FD Sign request(s) cancelled and removed` : "",
+        p.documents ? `• ${p.documents} certificate(s) removed from the dashboard` : "",
+        "",
+        "Kept: holders and their details, Letters of Grant, emails already in your inbox, the test payment in Stripe.",
+      ].filter((l, i, a) => l !== "" || (a[i - 1] ?? "") !== "");
+      if (!window.confirm(lines.join("\n"))) return;
+      if (client) {
+        const out = await call(false);
+        if (!out.ok) return say(out.error ?? "Could not reset.");
+        say(`${ref} reset${out.certificate_numbers?.length && out.numbers_restored ? ` · next certificate No. ${out.next_certificate_no}` : ""}. Reloading…`);
+        setTimeout(() => window.location.reload(), 900);
+        return;
+      }
+      setRuns((l) => l.filter((r) => r.ref !== ref));
+      setResettable((l) => l.filter((x) => x !== ref));
+      say(`${ref} reset${local}`);
+    } finally {
+      setResetting("");
+    }
+  }
+
+  /** the small "↺ Reset" link next to an approval made in simulation (Rachel + Lam only) */
+  function resetLink(ref: string) {
+    if (!props.reset || !(resettable.includes(ref) || !client)) return null;
+    return (
+      <>
+        {" · "}
+        <button type="button" className="e-reset" disabled={resetting === ref} onClick={() => void resetSim(ref)} title="Put this vesting back to not approved, to try the simulation again">
+          {resetting === ref ? "Resetting…" : "↺ Reset simulation"}
+        </button>
+      </>
+    );
+  }
+
   function approvalCell(ref: string, daysLeft: number, certificates: number, leavers: number) {
     const r = runs.find((x) => x.ref === ref);
     if (r?.sent_at)
@@ -268,13 +328,17 @@ export default function EsopSheet(props: Props) {
               </a>
             </>
           )}
+          {resetLink(ref)}
         </span>
       );
     if (r && props.canApprove)
       return (
-        <button className="e-btn g sm" disabled={approving === ref} onClick={() => approve(ref, certificates, leavers, true)}>
-          Send again
-        </button>
+        <span>
+          <button className="e-btn g sm" disabled={approving === ref} onClick={() => approve(ref, certificates, leavers, true)}>
+            Send again
+          </button>
+          {resetLink(ref)}
+        </span>
       );
     /* the button shows from 14 days before the vesting; in a simulation, admins can rehearse up to 120 days ahead */
     const early = daysLeft > 14 && !!props.simulation && daysLeft <= 120;
@@ -627,6 +691,11 @@ export default function EsopSheet(props: Props) {
 
             {tab === "schedule" && (
               <>
+                {props.reset && (
+                  <div className="e-simbar">
+                    🧪 <b>Simulation is on</b>: every email goes to {props.reset.to}. After a try, press <b>↺ Reset simulation</b> on the approved row to start that vesting again.
+                  </div>
+                )}
                 <table>
                   <thead>
                     <tr className="letters">

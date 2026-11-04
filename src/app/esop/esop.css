@@ -174,3 +174,9 @@ body:has(.esop) .strip-warn {
 .esop .e-modal-list td.st { white-space: normal; min-width: 170px; }
 .esop .e-modal-list td.st small { color: var(--g5); }
 .esop .e-modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+/* Reset simulation (116): Rachel + Lam only */
+.esop .e-simbar { margin: 0; padding: 9px 12px; font-size: 12.5px; background: #fff8e6; border-bottom: 1px solid #f0dfb0; color: #5c4a14; }
+.esop .e-reset { border: 0; background: none; padding: 0; font: inherit; color: #a3471a; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.esop .e-reset:hover { color: #7a3210; }
+.esop .e-reset:disabled { color: #9a9a9a; cursor: default; text-decoration: none; }
