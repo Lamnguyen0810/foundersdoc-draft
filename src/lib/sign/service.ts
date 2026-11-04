@@ -4,6 +4,7 @@ import { buildSignedPdf, pageCount, sha256 } from "./pdf";
 import { autoFields } from "./place";
 import { signFonts } from "./certificate";
 import { notify } from "./notify";
+import { slack, what } from "./slack";
 import type { Envelope, SignField, SignStore, Signer } from "./store";
 
 /**
@@ -116,6 +117,8 @@ export async function createSend(
   for (const g of groups.values()) {
     links.push(await invite(store, g.map((x) => x.row), g.map((x) => x.title), input.origin, input.message, input.who, "invited"));
   }
+  for (const l of links)
+    await slack(store, envelopeIds, `✍️ Sent for signing to *${l.name}* (${l.role}): ${what(l.documents)}${l.emailed ? "" : " · emails off, link to be sent by hand"}`);
   return { envelopeIds, links };
 }
 
@@ -226,6 +229,7 @@ export async function submitSignature(
   }
   const at = new Date().toISOString();
   const completed: string[] = [];
+  const toComplete: string[] = [];
   const nextGroups = new Map<string, { rows: Signer[]; titles: string[]; message: string | null }>();
   for (const me of open) {
     await store.updateSigner(me.id, {
@@ -248,11 +252,21 @@ export async function submitSignature(
       g.titles.push(env.title);
       nextGroups.set(k, g);
     } else if (all.every((s) => s.status === "signed" || s.id === me.id)) {
-      await complete(store, env.id, input.origin, input.who, { token: input.token, ids: new Set(open.map((o) => o.id)) });
-      completed.push(env.id);
+      toComplete.push(env.id);
     }
   }
-  for (const g of nextGroups.values()) await invite(store, g.rows, g.titles, input.origin, g.message, input.who, "invited");
+  const signedTitles: string[] = [];
+  for (const m of open) signedTitles.push((await store.envelope(m.envelope_id))?.title ?? "Document");
+  await slack(store, open.map((m) => m.envelope_id), `✅ *${open[0].name}* (${open[0].role}) signed ${what(signedTitles)}`);
+  /* finish the documents everyone has now signed (after the "signed" update, so Slack reads in order) */
+  for (const id of toComplete) {
+    await complete(store, id, input.origin, input.who, { token: input.token, ids: new Set(open.map((o) => o.id)) });
+    completed.push(id);
+  }
+  for (const g of nextGroups.values()) {
+    const sent = await invite(store, g.rows, g.titles, input.origin, g.message, input.who, "invited");
+    await slack(store, g.rows.map((r) => r.envelope_id), `✍️ Next: sent for signing to *${sent.name}* (${sent.role}): ${what(sent.documents)}`);
+  }
   return { completed };
 }
 
@@ -303,6 +317,15 @@ async function complete(store: SignStore, envelopeId: string, origin: string, wh
     });
     await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "copy_sent", ip: null, user_agent: null, detail: v.email });
   }
+  const filed = (await store.envelope(envelopeId))?.filed_document_id;
+  const copies = (await store.viewers(envelopeId)).map((v) => v.email);
+  await slack(
+    store,
+    [envelopeId],
+    `📄 All parties signed: ${env.title} · <${origin}/api/sign/file?e=${envelopeId}&signed=1&doc=1|signed certificate> (FD admins)` +
+      (filed ? " · filed on the ESOP dashboard" : "") +
+      (copies.length ? ` · copy sent to ${copies.join(", ")}` : ""),
+  );
 }
 
 /** The signed PDF (or the signing-so-far version), built from what is stored. */
@@ -327,6 +350,7 @@ export async function voidEnvelope(store: SignStore, envelopeId: string, who: Wh
   if (!env || env.status !== "sent") return false;
   await store.updateEnvelope(envelopeId, { status: "voided" });
   await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "voided", ip: who.ip, user_agent: who.ua, detail: by });
+  await slack(store, [envelopeId], `❌ Cancelled by ${by.split("@")[0]}: ${env.title}`);
   return true;
 }
 
