@@ -370,7 +370,7 @@ export default function SignAdmin({
                     Upload PDFs{n ? ` · ${n}` : ""}
                   </button>
                 </div>
-                {source === "esop" && <EsopPrepare onCreate={addPrepared} />}
+                {source === "esop" && <EsopPrepare onCreate={addPrepared} initialRef={params.get("ref")} />}
                 {simulation && source === "upload" && n > 0 && (
                   <p className="fs-sim">
                     <b>Simulation on:</b> the Director&rsquo;s and holders&rsquo; emails go to <b>{simulation}</b>.

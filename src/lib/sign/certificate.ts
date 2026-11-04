@@ -16,7 +16,7 @@ export interface CertificateData {
   companyName: string; // HITPAY PAYMENT SOLUTIONS PTE. LTD.
   companyRegNo: string;
   holderName: string; // full legal name, as in the Letter of Grant
-  nationality: string; // "Vietnamese citizenship"
+  nationality: string; // "Vietnamese citizenship"; "" = left out of the certificate
   idNo: string;
   options: number; // this tranche
   shareClass: string; // "Class B"
@@ -173,8 +173,7 @@ export async function buildCertificatePdf(d: CertificateData, origin: string): P
       { t: "THIS IS TO CERTIFY", b: true },
       { t: " that " },
       { t: d.holderName, u: true },
-      { t: " of " },
-      { t: d.nationality, u: true },
+      ...(d.nationality ? [{ t: " of " }, { t: d.nationality, u: true }] : []),
       { t: " of " },
       { t: `Identification No.: ${d.idNo}`, u: true },
       { t: " is the Option Holder to acquire up to a maximum of " },

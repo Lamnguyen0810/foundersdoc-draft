@@ -59,7 +59,9 @@ const FIELDS: Array<[keyof Edit, string, string]> = [
 
 export default function EsopPrepare({
   onCreate,
+  initialRef,
 }: {
+  initialRef?: string | null;
   onCreate: (p: { files: Prepared[]; director: { name: string; email: string; realEmail: string | null }; simulation: string | null; label: string }) => void;
 }) {
   const [runs, setRuns] = useState<Run[] | null>(null);
@@ -67,6 +69,8 @@ export default function EsopPrepare({
   const [prep, setPrep] = useState<Prep | null>(null);
   const [edit, setEdit] = useState<Record<string, Edit>>({});
   const [save, setSave] = useState(true);
+  /* nationality is not in the Letter of Grant: keep it (empty = "[to be confirmed]") or leave it out */
+  const [nat, setNat] = useState<"include" | "omit">("include");
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
 
@@ -78,11 +82,14 @@ export default function EsopPrepare({
         if (!alive) return;
         if (j.error) setErr(j.error);
         setRuns(j.runs ?? []);
+        /* opened from the dashboard's "Send for signing →": pick that vesting */
+        if (initialRef && j.runs?.some((r) => r.ref === initialRef)) void pick(initialRef);
       })
       .catch(() => alive && setErr("Could not read the ESOP dashboard."));
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load once; initialRef only matters on arrival
   }, []);
 
   async function pick(r: string) {
@@ -115,7 +122,7 @@ export default function EsopPrepare({
     set(h.id, { note: "Reading the Letter of Grant…" });
     try {
       const res = await fetch("/api/sign/esop/letter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ holderId: h.id }) });
-      const j = (await res.json()) as { error?: string; legalName?: string | null; idNo?: string | null; letterDate?: string | null; trancheOptions?: number[]; found?: string[] };
+      const j = (await res.json()) as { error?: string; legalName?: string | null; idNo?: string | null; letterDate?: string | null; trancheOptions?: number[]; found?: string[]; warnings?: string[] };
       if (!res.ok) throw new Error(j.error || "Could not read it.");
       const opt = j.trancheOptions?.[prep.tranche - 1];
       const patch: Partial<Edit> = { read: [], note: "" };
@@ -137,7 +144,8 @@ export default function EsopPrepare({
         read.push("options");
       }
       patch.read = read;
-      patch.note = read.length ? `Read from the Letter of Grant: ${j.found?.join(", ")}. Nationality is not in the letter: please check it.` : "Nothing could be read from this letter: please type the details.";
+      const warn = j.warnings?.length ? ` ⚠ ${j.warnings.join(" ")}` : "";
+      patch.note = (read.length ? `Read from the Letter of Grant: ${j.found?.join(", ")}. Nationality is not in the letter: type it, or leave it empty to show "[to be confirmed]".` : "Nothing could be read from this letter: please type the details.") + warn;
       set(h.id, patch);
     } catch (e) {
       set(h.id, { note: e instanceof Error ? e.message : "Could not read it." });
@@ -160,7 +168,7 @@ export default function EsopPrepare({
       const res = await fetch("/api/sign/esop/certificates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ref: prep.ref, save, rows: chosen.map((h) => ({ holderId: h.id, ...edit[h.id] })) }),
+        body: JSON.stringify({ ref: prep.ref, save, nationality: nat, rows: chosen.map((h) => ({ holderId: h.id, ...edit[h.id] })) }),
       });
       const j = (await res.json()) as { error?: string; files?: Prepared[]; director?: { name: string; email: string; realEmail: string | null }; simulation?: string | null };
       if (!res.ok || !j.files || !j.director) throw new Error(j.error || "Could not create the certificates.");
@@ -226,10 +234,10 @@ export default function EsopPrepare({
                 </div>
                 {e.on && (
                   <div className="fs-esop-fields">
-                    {FIELDS.map(([k, label, ph]) => (
-                      <label key={k} className={`${e.read.includes(k) ? "read" : ""} ${String(e[k]).trim() ? "" : "empty"}`}>
+                    {FIELDS.filter(([k]) => !(k === "nationality" && nat === "omit")).map(([k, label, ph]) => (
+                      <label key={k} className={`${e.read.includes(k) ? "read" : ""} ${String(e[k]).trim() ? "" : k === "nationality" ? "tbc" : "empty"}`}>
                         {label}
-                        <input className="input" value={String(e[k])} placeholder={ph} onChange={(x) => set(h.id, { [k]: x.target.value, read: e.read.filter((r) => r !== k) } as Partial<Edit>)} />
+                        <input className="input" value={String(e[k])} placeholder={k === "nationality" ? "[to be confirmed]" : ph} onChange={(x) => set(h.id, { [k]: x.target.value, read: e.read.filter((r) => r !== k) } as Partial<Edit>)} />
                       </label>
                     ))}
                   </div>
@@ -238,6 +246,29 @@ export default function EsopPrepare({
               </div>
             );
           })}
+          <div className="fs-esop-nat">
+            <span>
+              <b>Nationality</b> isn&rsquo;t in the Letter of Grant.
+            </span>
+            <div className="fs-seg">
+              <button className={nat === "include" ? "on" : ""} onClick={() => setNat("include")}>
+                On the certificate
+              </button>
+              <button className={nat === "omit" ? "on" : ""} onClick={() => setNat("omit")}>
+                Leave it out
+              </button>
+            </div>
+            <small className="fs-hint">
+              {nat === "include"
+                ? (() => {
+                    const tbc = prep.holders.filter((h) => edit[h.id]?.on && !edit[h.id]?.nationality.trim()).length;
+                    return tbc
+                      ? `${tbc} empty: ${tbc === 1 ? "it shows" : "they show"} as "[to be confirmed]" on the certificate, to fill in later.`
+                      : "Shown as typed, e.g. \u201cSingapore citizenship\u201d.";
+                  })()
+                : "The certificates say \u201cTHIS IS TO CERTIFY that [name] of Identification No. \u2026\u201d, without nationality."}
+            </small>
+          </div>
           <label className="fs-esop-save">
             <input type="checkbox" checked={save} onChange={(x) => setSave(x.target.checked)} /> Save these details on the holders&rsquo; rows in the ESOP dashboard
           </label>
