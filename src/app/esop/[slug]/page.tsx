@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
+import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
+import { canResetSimulation } from "@/lib/esop/sim-reset";
 import type { EsopBatch, EsopCompany, EsopDocument, EsopHolder, EsopRun } from "@/lib/esop/vesting";
 import EsopSheet from "./EsopSheet";
 import { DEMO_BATCHES, DEMO_COMPANY, DEMO_HOLDERS } from "../demo";
@@ -44,6 +46,8 @@ export default async function EsopPage({
         viewer="Preview"
         runs={[]}
         canApprove
+        simulation="administrator@foundersdoc.com"
+        reset={{ to: "administrator@foundersdoc.com", refs: [] }}
         focusRef={null}
         supabaseUrl={null}
         supabaseKey={null}
@@ -106,6 +110,17 @@ export default async function EsopPage({
   const sim = admin ? await supabase.from("esop_companies").select("email_override").eq("id", company.id).maybeSingle() : null;
   const simulation = ((sim?.data as { email_override?: string | null } | null)?.email_override ?? null) || null;
   const runs = runRows.filter((r) => r.ref) as EsopRun[];
+  /* "Reset simulation" (116): Rachel + Lam only, only while simulation is on, only approvals made in simulation */
+  let reset: { to: string; refs: string[] } | null = null;
+  if (canResetSimulation(user.email) && isAdminClientConfigured()) {
+    const db = supabaseAdmin();
+    const c = (await db.from("esop_companies").select("email_override").eq("id", company.id).maybeSingle()).data as { email_override: string | null } | null;
+    if (c?.email_override) {
+      const r = await db.from("esop_tranche_runs").select("ref").eq("company_id", company.id).eq("simulation", true);
+      /* before 116 is run the column is missing: show the button anyway, the API then says to run 116 */
+      reset = { to: c.email_override, refs: r.error ? runs.map((x) => x.ref) : ((r.data ?? []) as Array<{ ref: string }>).map((x) => x.ref) };
+    }
+  }
 
   return (
     <EsopSheet
@@ -118,6 +133,7 @@ export default async function EsopPage({
       runs={runs}
       canApprove={canApprove}
       simulation={simulation}
+      reset={reset}
       focusRef={focusRef}
       supabaseUrl={supabaseUrl()}
       supabaseKey={supabasePublishableKey()}
