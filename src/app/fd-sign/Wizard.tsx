@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import BoxEditor from "../admin/sign/BoxEditor";
 import { openPdf, readPdf, type PdfInfo } from "../sign/PdfPages";
-import { autoPlace, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
+import { autoPlace, boxId, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
+import type { DraftBlock } from "@/lib/sign/draft-pdf";
 import { Ic, useList } from "./ui";
 
 /* New signing request, in 4 steps: Document → People → Fields → Review and send.
@@ -29,6 +30,11 @@ const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name:
 
 export default function Wizard() {
   const router = useRouter();
+  const params = useSearchParams();
+  /* an FD AI draft as the document (0190): its signature blocks place the boxes */
+  const [fromDraft, setFromDraft] = useState<{ id: string; title: string; blocks: DraftBlock[]; blanks: number } | null>(null);
+  const [drafts, setDrafts] = useState<Array<{ id: string; title: string; updatedAt: string; gaps: number }> | null>(null);
+  const [draftBusy, setDraftBusy] = useState("");
   const { data, reload } = useList();
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
@@ -121,13 +127,69 @@ export default function Wizard() {
   }, [file, title, people, boxes, ccList]);
   const signers = people.filter((x) => x.name.trim() || x.email.trim());
 
+  /* Boxes for everyone: from an FD AI draft, person 1 signs block 1, person 2 block 2 …;
+     otherwise (or for people beyond the blocks) on the line that names them. */
+  const placeAll = (): Box[] => {
+    if (!info) return [];
+    const auto = autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" })));
+    if (!fromDraft?.blocks.length) return auto;
+    const out: Box[] = [];
+    signers.forEach((_, i) => {
+      const blk = fromDraft.blocks[i];
+      if (!blk) return void out.push(...auto.filter((b) => b.position === i + 1));
+      for (const b of blk.boxes)
+        out.push({ id: boxId(), position: i + 1, kind: b.kind, page: b.page, x: b.x, y: b.y, w: b.w, h: b.h, ...(b.kind === "text" ? { label: b.label ?? "Title", required: true } : {}) });
+    });
+    return out;
+  };
   /* first time on Fields: put a signature box on each person's line */
   useEffect(() => {
     if (step !== 3 || placed || !info) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-off auto placement when the step opens
-    setBoxes(autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" }))));
+    setBoxes(placeAll());
     setPlaced(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- placeAll reads the same state
   }, [step, placed, info, signers]);
+
+  /* ?draft=<id> (the "Send for signing" button on an FD AI draft) */
+  async function openDraft(id: string) {
+    setDraftBusy(id);
+    setFileErr("");
+    try {
+      const r = await fetch(`/api/fd-sign/drafts/${id}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error || "Could not open that draft.");
+      const meta = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob((r.headers.get("x-fds-draft") ?? "").replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)))) as {
+        title: string;
+        blocks: DraftBlock[];
+        blanks: number;
+      };
+      const blob = await r.blob();
+      const f = new File([blob], `${meta.title.replace(/[\\/:*?"<>|]+/g, " ").trim() || "Document"}.pdf`, { type: "application/pdf" });
+      await pick(f);
+      setTitle(meta.title);
+      setFromDraft({ id, title: meta.title, blocks: meta.blocks ?? [], blanks: meta.blanks ?? 0 });
+      setDrafts(null);
+    } catch (e) {
+      setFileErr(e instanceof Error ? e.message : "Could not open that draft.");
+    } finally {
+      setDraftBusy("");
+    }
+  }
+  async function listDrafts() {
+    setFileErr("");
+    const r = await fetch("/api/fd-sign/drafts", { cache: "no-store" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return setFileErr(j.error || "Could not load your drafts.");
+    setDrafts(j.drafts ?? []);
+  }
+  const wanted = params.get("draft");
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!wanted || asked.current || !/^[0-9a-f-]{36}$/i.test(wanted)) return;
+    asked.current = true;
+    void openDraft(wanted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the link's draft
+  }, [wanted]);
 
   function go(n: number) {
     for (let k = 1; k < n; k++)
@@ -242,7 +304,43 @@ export default function Wizard() {
               <p>PDF · up to 10 MB</p>
               <span className="fds-btn ink">Choose a file</span>
             </label>
+            <div className="fds-or">or</div>
+            <button className="fds-src" onClick={() => void (drafts ? setDrafts(null) : listDrafts())}>
+              <span className="ci">
+                <Ic n="spark" s={19} />
+              </span>
+              <span>
+                <b>Use an FD AI draft</b>
+                <small>Pick one of your saved drafts. No download or upload needed</small>
+              </span>
+              <Ic n={drafts ? "x" : "chev"} s={16} />
+            </button>
+            {drafts && (
+              <div className="fds-drafts">
+                {drafts.length === 0 && <p className="fds-muted">No saved drafts yet. Draft one with FD AI, then come back.</p>}
+                {drafts.map((d) => (
+                  <button key={d.id} className="fds-draft" disabled={!!draftBusy} onClick={() => void openDraft(d.id)}>
+                    <Ic n="doc" s={16} />
+                    <span>
+                      <b>{d.title}</b>
+                      <small>
+                        Saved {new Date(d.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        {d.gaps ? ` · ${d.gaps} ${d.gaps === 1 ? "gap" : "gaps"} to fill in` : ""}
+                      </small>
+                    </span>
+                    <em>{draftBusy === d.id ? "Opening…" : "Use"}</em>
+                  </button>
+                ))}
+              </div>
+            )}
             {fileErr && <div className="fds-err">{fileErr}</div>}
+            {fromDraft && file && (
+              <div className={`fds-err`} style={fromDraft.blanks ? undefined : { background: "var(--fds-green-soft)", color: "var(--fds-green-tx)" }}>
+                {fromDraft.blanks
+                  ? `From FD AI: this draft still has ${fromDraft.blanks} ${fromDraft.blanks === 1 ? "gap" : "gaps"} ([●]) in the text. Fill ${fromDraft.blanks === 1 ? "it" : "them"} in on FD AI before sending, or send it if that's intended.`
+                  : `From FD AI: ${fromDraft.blocks.length} signature ${fromDraft.blocks.length === 1 ? "block" : "blocks"} found. We'll put each person's boxes on their block.`}
+              </div>
+            )}
             {file && (
               <div className="fds-file">
                 <span className="fds-thumb">
@@ -344,6 +442,17 @@ export default function Wizard() {
             </div>
           </div>
           <aside className="fds-aside">
+            {fromDraft && fromDraft.blocks.length > 0 && (
+              <div className="fds-note" style={{ marginTop: 0, marginBottom: 14, flexDirection: "column", gap: 4 }}>
+                <b style={{ color: "var(--fds-tx)" }}>Signature blocks in this draft</b>
+                {fromDraft.blocks.map((b, i) => (
+                  <span key={i}>
+                    {i + 1}. {b.head}
+                  </span>
+                ))}
+                <span>Person 1 signs block 1, person 2 block 2.</span>
+              </div>
+            )}
             <h3>Signing order</h3>
             <div className="fds-chain">
               {signers.map((s, i) => (
@@ -392,7 +501,7 @@ export default function Wizard() {
             <button
               className="fds-btn"
               style={{ width: "100%", margin: "12px 0 6px", background: "var(--fds-gold-tint)", borderColor: "#ecd9a3", color: "var(--fds-gold-tx)" }}
-              onClick={() => info && setBoxes(autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" }))))}
+              onClick={() => info && setBoxes(placeAll())}
             >
               <Ic n="spark" s={16} />
               Auto-place again

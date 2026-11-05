@@ -26,6 +26,7 @@ import { applyDefaults, founderCount, problemWith, questionsFor, type Option, ty
 import { IA_INTRO } from "@/lib/ia/data/intro";
 import type { Answers, Company, DraftStatus, Flag, Founder, Investor, PartyKind } from "@/lib/ia/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1283,6 +1284,7 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

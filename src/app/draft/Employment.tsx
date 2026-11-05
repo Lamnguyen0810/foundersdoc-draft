@@ -36,6 +36,7 @@ import { builtInGuide, countriesFrom, guideKey, issueFor, leaveIssue, type LawGu
 import { EMPLOYMENT_INTRO } from "@/lib/employment/data/intro";
 import type { AiFields, Answers, DraftStatus, Employee, Employer, Flag, Job } from "@/lib/employment/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1475,6 +1476,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

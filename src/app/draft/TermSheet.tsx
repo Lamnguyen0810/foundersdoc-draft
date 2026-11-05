@@ -40,6 +40,7 @@ import { DOCUMENT_TITLES } from "@/lib/termsheet/data/master";
 import { normaliseMoney } from "@/lib/termsheet/format";
 import type { AiFields, DraftStatus, Flag, KeyTerm, Party } from "@/lib/termsheet/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1676,6 +1677,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

@@ -28,6 +28,7 @@ import { percentOf } from "@/lib/cofounder/checks";
 import { COFOUNDER_INTRO } from "@/lib/cofounder/data/intro";
 import type { Answers, Company, DraftStatus, Flag, Founder, Holding } from "@/lib/cofounder/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1239,6 +1240,7 @@ export default function Cofounder({ look = DEFAULT_LOOK, userEmail, guest, walle
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

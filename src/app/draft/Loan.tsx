@@ -30,6 +30,7 @@ import { applyDefaults, levelOf, problemWith, questionsFor, withFixed, type Opti
 import { LOAN_INTRO } from "@/lib/loan/data/intro";
 import type { Answers, Bank, DraftStatus, Flag, Party, PartyKind, Rep } from "@/lib/loan/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1305,6 +1306,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

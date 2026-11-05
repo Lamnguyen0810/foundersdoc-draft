@@ -26,6 +26,7 @@ import { applyDefaults, problemWith, questionsFor, sellerCount, type Option, typ
 import { SPA_INTRO } from "@/lib/spa/data/intro";
 import type { Answers, DraftStatus, Flag, Party, PartyKind, Seller, Target } from "@/lib/spa/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1248,6 +1249,7 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

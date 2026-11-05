@@ -27,6 +27,7 @@ import { applyDefaults, problemWith, questionsFor, type Option, type Question } 
 import { CLN_INTRO } from "@/lib/cln/data/intro";
 import type { Answers, DraftStatus, Flag, Party } from "@/lib/cln/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1145,6 +1146,7 @@ export default function Cln({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

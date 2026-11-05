@@ -27,6 +27,7 @@ import { ALWAYS_PARTIES, applyDefaults, founderCount, investorCount, problemWith
 import { SSA_INTRO } from "@/lib/ssa/data/intro";
 import type { Answers, Company, DraftStatus, Flag, Founder, Investor, PartyKind } from "@/lib/ssa/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1308,6 +1309,7 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

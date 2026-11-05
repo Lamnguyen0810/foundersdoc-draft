@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { signAccount } from "@/lib/sign/account";
 import Wizard from "../Wizard";
@@ -7,5 +8,9 @@ export const dynamic = "force-dynamic";
 
 export default async function NewRequestPage() {
   if (!(await signAccount())) redirect("/login?next=/fd-sign/new");
-  return <Wizard />;
+  return (
+    <Suspense>
+      <Wizard />
+    </Suspense>
+  );
 }

@@ -29,6 +29,7 @@ import { applyDefaults, levelOf, problemWith, questionsFor, withFixed, type Opti
 import { IPAA_INTRO } from "@/lib/ipaa/data/intro";
 import type { Answers, DraftStatus, Flag, Party, PartyKind } from "@/lib/ipaa/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1182,6 +1183,7 @@ export default function Ipaa({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

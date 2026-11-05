@@ -40,6 +40,7 @@ import { formatPeriod, parsePeriod } from "@/lib/period";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { PERPETUAL, SKIP_LABEL, SOURCE_ATTACH, SOURCE_EXPLANATION, SOURCE_FRESH, explainField } from "@/lib/explain";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ────────────────────────────────────────────────────── the catalogue */
 
@@ -3863,6 +3864,7 @@ function Chat({
                 Feedback
               </button>
             )}
+            {!cutOff && <SignButton draftId={draftId} disabled={!output || busy} />}
             {cutOff ? (
               /* A cut-off draft is incomplete and was not charged for, so it
                  is not offered as a file to send. Drafting again is. */
