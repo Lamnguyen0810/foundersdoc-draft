@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { handOver, hashApprovalToken, isApprovalToken } from "@/lib/esop/approval";
 import { who } from "@/lib/sign/http";
+import { postToSlack } from "@/lib/sign/slack";
 
 /**
  * POST /approve/<token>/confirm: the Confirm button on the approval page
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     return back("?e=1");
   }
 
-  const item = (data ?? {}) as Record<string, unknown> & { holders?: Array<Record<string, unknown>>; company_id?: string; slug?: string; ref?: string };
+  const item = (data ?? {}) as Record<string, unknown> & { holders?: Array<Record<string, unknown>>; company_id?: string; slug?: string; ref?: string; slack_ts?: string | null };
   const slug = String(item.slug ?? "");
   const ref = String(item.ref ?? "");
   const companyId = String(item.company_id ?? "");
@@ -41,8 +42,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
     const r = await db.from("esop_tranche_runs").update({ sent_at: new Date().toISOString() }).eq("company_id", companyId).eq("ref", ref);
     if (r.error) console.error("[approve] mark sent failed:", r.error.message);
   } else if (!out.sent) {
-    /* approved and recorded; Founders Doc sees "Send again" on the dashboard */
+    /* approved and recorded, but nothing went out yet: tell Founders Doc straight away */
     console.error("[approve] hand-over after email approval:", out.error);
+    await postToSlack(
+      `⚠️ Approved from the email by ${String(item.approved_by ?? "the client")}, but the hand-over to Zapier failed, so no payment link or vesting emails went out. Open the ESOP dashboard and press *Send again*.`,
+      ref,
+      typeof item.slack_ts === "string" ? item.slack_ts : null,
+    );
   }
   return back("?done=1");
 }

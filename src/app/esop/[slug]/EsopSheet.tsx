@@ -60,7 +60,7 @@ interface Props {
   /** simulation address (esop_companies.email_override) when on, admins only */
   simulation?: string | null;
   /** "Reset simulation" (116): only for Rachel + Lam while simulation is on; refs = approvals made in simulation */
-  reset?: { to: string; refs: string[] } | null;
+  reset?: { to: string | null; refs: string[] } | null;
   /** "📧 Email for approval" (117): Founders Doc admins (and Rachel / Lam) */
   emailApproval?: boolean;
   focusRef: string | null;
@@ -737,7 +737,7 @@ export default function EsopSheet(props: Props) {
 
             {tab === "schedule" && (
               <>
-                {props.reset && (
+                {props.reset?.to && (
                   <div className="e-simbar">
                     🧪 <b>Simulation is on</b>: every email goes to {props.reset.to}. After a try, press <b>↺ Reset simulation</b> on the approved row to start that vesting again.
                   </div>
