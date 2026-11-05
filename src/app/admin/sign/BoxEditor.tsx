@@ -8,7 +8,7 @@ import { boxId, clamp, colour, sized, type Box, type BoxKind } from "@/lib/sign/
    corner to resize, ✕ to remove. With a box type "armed", a click on a page
    drops a new box there for the chosen signer. */
 
-const LABEL: Record<BoxKind, string> = { signature: "Signature", date: "Date", name: "Name" };
+const LABEL: Record<BoxKind, string> = { signature: "Signature", date: "Date", name: "Name", initials: "Initials", text: "Text", checkbox: "Tick" };
 
 export default function BoxEditor({
   file,
@@ -87,11 +87,11 @@ export default function BoxEditor({
                 onPointerUp={end}
                 onPointerCancel={end}
                 onClick={(e) => e.stopPropagation()}
-                title={`${LABEL[b.kind]} · ${names[b.position - 1] || `Signer ${b.position}`} — drag to move`}
+                title={`${b.label || LABEL[b.kind]} · ${names[b.position - 1] || `Signer ${b.position}`} — drag to move`}
               >
                 <span className="fs-box-l">
-                  {b.kind === "signature" ? "✍ " : ""}
-                  {LABEL[b.kind]} · {names[b.position - 1]?.split(/\s+/)[0] || `Signer ${b.position}`}
+                  {b.kind === "signature" ? "✍ " : b.kind === "checkbox" ? "☑ " : ""}
+                  {(b.kind === "text" || b.kind === "checkbox") && b.label ? b.label : LABEL[b.kind]} · {names[b.position - 1]?.split(/\s+/)[0] || `Signer ${b.position}`}
                 </span>
                 <button className="fs-box-x" aria-label="Remove this box" onClick={(e) => (e.stopPropagation(), onChange(boxes.filter((x) => x.id !== b.id)))}>
                   ✕

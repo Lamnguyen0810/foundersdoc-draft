@@ -74,14 +74,25 @@ export interface SignEvent {
 
 /** A box on the page (113): fractions of the page from the top-left. */
 export interface SignField {
+  /** set once stored (sign_fields.id); boxes placed automatically have none */
+  id?: string;
   position: number; // which signer
-  kind: "signature" | "date" | "name";
+  /** initials / text / checkbox: SQL 120 */
+  kind: "signature" | "date" | "name" | "initials" | "text" | "checkbox";
   page: number; // 1-based
   x: number;
   y: number;
   w: number;
   h: number;
+  /** text / checkbox: what the box asks for (SQL 120) */
+  label?: string | null;
+  required?: boolean;
+  /** what the signer typed or ticked ("yes" / "") when they signed */
+  value?: string | null;
 }
+
+/** New field kinds that need SQL 120. */
+export const NEW_FIELD_KINDS = new Set(["initials", "text", "checkbox"]);
 
 export interface NewEnvelope {
   title: string;
@@ -152,6 +163,10 @@ export interface SignStore {
   fields(envelopeId: string): Promise<SignField[]>;
   /** Is public.sign_fields there (SQL 113 run)? */
   boxesReady(): Promise<boolean>;
+  /** Is SQL 120 run (initials, text, checkbox, labels, values)? */
+  fieldsV2Ready(): Promise<boolean>;
+  /** Save what a signer typed or ticked in their text / checkbox boxes. */
+  setFieldValues(envelopeId: string, rows: Array<{ id: string; value: string }>): Promise<void>;
   getCode(tokenHash: string): Promise<SignCode | null>;
   putCode(row: SignCode): Promise<void>;
   /** Is public.sign_codes there (SQL 114 run)? */
@@ -277,7 +292,13 @@ function supabaseStore(): SignStore {
       must(await db.from("sign_fields").insert(fields.map((f) => ({ ...f, envelope_id: envelopeId }))));
     },
     async fields(envelopeId) {
-      const r = await db.from("sign_fields").select("position, kind, page, x, y, w, h").eq("envelope_id", envelopeId).order("page");
+      let r: { data: unknown[] | null; error: { message: string } | null } = await db
+        .from("sign_fields")
+        .select("id, position, kind, page, x, y, w, h, label, required, value")
+        .eq("envelope_id", envelopeId)
+        .order("page");
+      /* before SQL 120 the label / required / value columns aren't there: read the 113 columns exactly as before */
+      if (r.error && /label|required|value/.test(r.error.message)) r = await db.from("sign_fields").select("id, position, kind, page, x, y, w, h").eq("envelope_id", envelopeId).order("page");
       if (r.error) {
         if (/sign_fields/.test(r.error.message)) return []; // 113 not run yet
         throw new Error(r.error.message);
@@ -287,6 +308,13 @@ function supabaseStore(): SignStore {
     async boxesReady() {
       const r = await db.from("sign_fields").select("id").limit(1);
       return !r.error;
+    },
+    async fieldsV2Ready() {
+      const r = await db.from("sign_fields").select("label, required, value").limit(1);
+      return !r.error;
+    },
+    async setFieldValues(envelopeId, rows) {
+      for (const row of rows) must(await db.from("sign_fields").update({ value: row.value }).eq("envelope_id", envelopeId).eq("id", row.id));
     },
     async getCode(tokenHash) {
       return (must(await db.from("sign_codes").select("*").eq("token_hash", tokenHash).maybeSingle()) as SignCode | null) ?? null;
@@ -499,13 +527,22 @@ function memoryStore(): SignStore {
       return "Aditya Haripurkar";
     },
     async insertFields(envelopeId, fields) {
-      m.fld.set(envelopeId, [...(m.fld.get(envelopeId) ?? []), ...fields]);
+      m.fld.set(envelopeId, [...(m.fld.get(envelopeId) ?? []), ...fields.map((f) => ({ ...f, id: crypto.randomUUID(), required: f.required ?? true, value: null }))]);
     },
     async fields(envelopeId) {
-      return m.fld.get(envelopeId) ?? [];
+      return (m.fld.get(envelopeId) ?? []).map((f) => ({ ...f }));
     },
     async boxesReady() {
       return true;
+    },
+    async fieldsV2Ready() {
+      return true;
+    },
+    async setFieldValues(envelopeId, rows) {
+      for (const f of m.fld.get(envelopeId) ?? []) {
+        const r = rows.find((x) => x.id === f.id);
+        if (r) f.value = r.value;
+      }
     },
     async getCode(tokenHash) {
       return m.codes.get(tokenHash) ?? null;

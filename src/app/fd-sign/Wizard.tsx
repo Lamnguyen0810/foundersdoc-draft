@@ -16,8 +16,10 @@ import { Ic, useList } from "./ui";
 const MAX = 10 * 1024 * 1024;
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const STEPS = ["Document", "People", "Fields", "Review and send"];
-const KIND_TEXT: Record<BoxKind, string> = { signature: "Signature", date: "Date signed", name: "Full name" };
-const KIND_ICON: Record<BoxKind, string> = { signature: "pen", date: "cal", name: "user" };
+const KIND_TEXT: Record<BoxKind, string> = { signature: "Signature", date: "Date signed", name: "Full name", initials: "Initials", text: "Text box", checkbox: "Checkbox" };
+const KIND_ICON: Record<BoxKind, string> = { signature: "pen", date: "cal", name: "user", initials: "type", text: "textbox", checkbox: "box" };
+const KIND_HINT: Partial<Record<BoxKind, string>> = { initials: "from their name", text: "they type it", checkbox: "they tick it" };
+const asks = (k: BoxKind) => k === "text" || k === "checkbox";
 
 interface Person {
   key: string;
@@ -52,6 +54,9 @@ export default function Wizard() {
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [active, setActive] = useState(1);
   const [armed, setArmed] = useState<BoxKind | null>(null);
+  /* text box / checkbox: what it asks, and whether it must be filled in (set before placing, editable after) */
+  const [askLabel, setAskLabel] = useState("");
+  const [askReq, setAskReq] = useState(true);
   const [placed, setPlaced] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -256,7 +261,7 @@ export default function Wizard() {
           folderId: folderId || null,
           signers: signers.map((s) => ({ name: s.name.trim(), email: s.email.trim().toLowerCase(), role: s.role.trim() })),
           cc: ccList,
-          fields: boxes.map(({ position, kind, page, x, y, w, h }) => ({ position, kind, page, x, y, w, h })),
+          fields: boxes.map(({ position, kind, page, x, y, w, h, label, required }) => ({ position, kind, page, x, y, w, h, ...(asks(kind) ? { label: label?.trim() || undefined, required: !!required } : {}) })),
         }),
       );
       const r = await fetch("/api/fd-sign/send", { method: "POST", body: fd });
@@ -549,14 +554,60 @@ export default function Wizard() {
               We look for each person&rsquo;s name or role on the page and put their signature box on that line. Drag to move, drag the corner to resize.
             </p>
             <h4>Add to the page</h4>
-            {(["signature", "date", "name"] as BoxKind[]).map((k) => (
-              <button key={k} className={`fds-fb ${armed === k ? "on" : ""}`} onClick={() => setArmed(armed === k ? null : k)}>
+            {(["signature", "initials", "date", "name", "text", "checkbox"] as BoxKind[]).map((k) => (
+              <button
+                key={k}
+                className={`fds-fb ${armed === k ? "on" : ""}`}
+                onClick={() => {
+                  setArmed(armed === k ? null : k);
+                  if (asks(k)) {
+                    setAskLabel("");
+                    setAskReq(k === "text");
+                  }
+                }}
+              >
                 <span className="ci">
                   <Ic n={KIND_ICON[k]} s={16} />
                 </span>
                 {KIND_TEXT[k]}
+                {KIND_HINT[k] && <small className="fds-muted" style={{ marginLeft: "auto", fontSize: 11 }}>{KIND_HINT[k]}</small>}
               </button>
             ))}
+            {armed && asks(armed) && (
+              <div className="fds-ask">
+                <label htmlFor="fds-ask">{armed === "text" ? "What should they type?" : "What are they ticking?"}</label>
+                <input id="fds-ask" className="fds-inp" maxLength={60} value={askLabel} onChange={(e) => setAskLabel(e.target.value)} placeholder={armed === "text" ? "e.g. Company name" : "e.g. I have read clause 5"} />
+                <label className="fds-check">
+                  <input type="checkbox" checked={askReq} onChange={(e) => setAskReq(e.target.checked)} />
+                  {armed === "text" ? "They must fill this in" : "They must tick this"}
+                </label>
+              </div>
+            )}
+            {boxes.some((b) => b.position === active && asks(b.kind)) && (
+              <>
+                <h4 style={{ marginTop: 16 }}>Questions for {names[active - 1]?.split(/\s+/)[0] || "them"}</h4>
+                {boxes
+                  .filter((b) => b.position === active && asks(b.kind))
+                  .map((b) => (
+                    <div className="fds-q" key={b.id}>
+                      <Ic n={KIND_ICON[b.kind]} s={14} />
+                      <input
+                        aria-label="Question"
+                        maxLength={60}
+                        value={b.label ?? ""}
+                        onChange={(e) => setBoxes((l) => l.map((x) => (x.id === b.id ? { ...x, label: e.target.value } : x)))}
+                      />
+                      <button
+                        className={`fds-req ${b.required ? "on" : ""}`}
+                        title={b.required ? "Required: click to make it optional" : "Optional: click to make it required"}
+                        onClick={() => setBoxes((l) => l.map((x) => (x.id === b.id ? { ...x, required: !x.required } : x)))}
+                      >
+                        {b.required ? "Required" : "Optional"}
+                      </button>
+                    </div>
+                  ))}
+              </>
+            )}
           </div>
           <div className="fds-canvas">
             {armed && (
@@ -564,7 +615,17 @@ export default function Wizard() {
                 Click on the page where {names[active - 1]?.split(/\s+/)[0] || "they"} should put their {KIND_TEXT[armed].toLowerCase()}.
               </div>
             )}
-            <BoxEditor file={file} boxes={boxes} onChange={setBoxes} names={names} active={active} armed={armed} onPlaced={() => setArmed(null)} onInfo={(i) => setInfo((x) => x ?? i)} />
+            <BoxEditor
+              file={file}
+              boxes={boxes}
+              onChange={(b) =>
+                setBoxes(
+                  b.map((x) =>
+                    asks(x.kind) && x.label === undefined ? { ...x, label: askLabel.trim() || (x.kind === "text" ? "Text" : "I agree"), required: askReq } : x,
+                  ),
+                )
+              }
+              names={names} active={active} armed={armed} onPlaced={() => setArmed(null)} onInfo={(i) => setInfo((x) => x ?? i)} />
           </div>
         </div>
       )}
@@ -601,7 +662,7 @@ export default function Wizard() {
                   <span className="r">
                     {boxes
                       .filter((b) => b.position === i + 1)
-                      .map((b) => KIND_TEXT[b.kind].toLowerCase())
+                      .map((b) => (asks(b.kind) && b.label ? `“${b.label}”` : KIND_TEXT[b.kind].toLowerCase()))
                       .filter((v, k, a) => a.indexOf(v) === k)
                       .join(", ")}
                   </span>

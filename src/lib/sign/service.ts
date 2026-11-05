@@ -231,7 +231,16 @@ export class SignError extends Error {
 /** A signer signs every document on their link. */
 export async function submitSignature(
   store: SignStore,
-  input: { token: string; kind: "draw" | "type"; png: Uint8Array | null; typed: string | null; origin: string; who: Who },
+  input: {
+    token: string;
+    kind: "draw" | "type";
+    png: Uint8Array | null;
+    typed: string | null;
+    origin: string;
+    who: Who;
+    /** text / checkbox boxes (SQL 120): field id -> what they typed, or "yes" for a tick */
+    values?: Record<string, string>;
+  },
 ): Promise<{ completed: string[] }> {
   if (!isTokenShape(input.token)) throw new SignError("This signing link is not valid.", 404);
   const mine = await store.signersByToken(hashToken(input.token));
@@ -251,11 +260,28 @@ export async function submitSignature(
     const all = await store.signers(env.id);
     if (all.some((s) => s.position < me.position && s.status !== "signed")) throw new SignError("It is not your turn yet: an earlier signer still has to sign.", 409);
   }
+  /* what this signer typed or ticked in their own boxes; a required one left empty stops the signing */
+  const answers = new Map<string, Array<{ id: string; value: string }>>();
+  for (const me of open) {
+    const asks = (await store.fields(me.envelope_id)).filter((f) => f.position === me.position && f.id && (f.kind === "text" || f.kind === "checkbox"));
+    const rows: Array<{ id: string; value: string }> = [];
+    for (const f of asks) {
+      const raw = String(input.values?.[f.id!] ?? "");
+      const value = f.kind === "checkbox" ? (raw === "yes" ? "yes" : "") : raw.replace(/\s+/g, " ").trim().slice(0, 200);
+      if (f.required !== false && !value)
+        throw new SignError(f.kind === "checkbox" ? `Please tick “${f.label || "the box"}” before signing.` : `Please fill in “${f.label || "the text box"}” before signing.`, 400);
+      rows.push({ id: f.id!, value });
+    }
+    if (rows.length) answers.set(me.envelope_id, rows);
+  }
+
   const at = new Date().toISOString();
   const completed: string[] = [];
   const toComplete: string[] = [];
   const nextGroups = new Map<string, { rows: Signer[]; titles: string[]; message: string | null }>();
   for (const me of open) {
+    const a = answers.get(me.envelope_id);
+    if (a) await store.setFieldValues(me.envelope_id, a);
     await store.updateSigner(me.id, {
       status: "signed",
       signed_at: at,

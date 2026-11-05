@@ -39,7 +39,7 @@ export async function readPdf(doc: PDFDocumentProxy): Promise<PdfInfo> {
   return { pages, texts };
 }
 
-export type BoxKind = "signature" | "date" | "name";
+export type BoxKind = "signature" | "date" | "name" | "initials" | "text" | "checkbox";
 export interface Box {
   id: string;
   position: number; // 1 = first signer (Director), 2+ = the others in order
@@ -49,6 +49,9 @@ export interface Box {
   y: number;
   w: number;
   h: number;
+  /** text / checkbox: what it asks for, and whether the signer must fill it in */
+  label?: string;
+  required?: boolean;
 }
 
 export const COLOURS = ["#b8862b", "#2f6fdb", "#1f9d6b", "#c2410c", "#7c3aed", "#be185d", "#0e7490", "#4d7c0f"];
@@ -59,7 +62,8 @@ export const boxId = () => `b${Date.now().toString(36)}${(seq++).toString(36)}`;
 
 /** Default box size in points, turned into page fractions. */
 export function sized(kind: BoxKind, page: { w: number; h: number }) {
-  const pt = kind === "signature" ? { w: 190, h: 44 } : { w: 120, h: 18 };
+  const pt =
+    kind === "signature" ? { w: 190, h: 44 } : kind === "initials" ? { w: 64, h: 30 } : kind === "checkbox" ? { w: 18, h: 18 } : kind === "text" ? { w: 170, h: 18 } : { w: 120, h: 18 };
   return { w: Math.min(pt.w / page.w, 0.9), h: Math.min(pt.h / page.h, 0.3) };
 }
 

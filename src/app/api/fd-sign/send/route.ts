@@ -5,6 +5,7 @@ import { who } from "@/lib/sign/http";
 import { isHookConfigured } from "@/lib/sign/notify";
 import { codeRequired } from "@/lib/sign/code";
 import { dailyLimit, startOfDaySgt } from "@/lib/sign/account";
+import { NEW_FIELD_KINDS } from "@/lib/sign/store";
 import { ctx, fail, UUID } from "../common";
 
 /**
@@ -71,6 +72,8 @@ export async function POST(req: NextRequest) {
   const missing = signers.findIndex((_, i) => !fields.some((f) => f.position === i + 1 && f.kind === "signature"));
   if (missing >= 0) return NextResponse.json({ error: `${signers[missing].name} needs a signature box on the document.` }, { status: 400 });
   if (!(await store.boxesReady())) return NextResponse.json({ error: "FD Sign is being set up (run supabase/113_fd_sign_fields.sql)." }, { status: 503 });
+  if (fields.some((f) => NEW_FIELD_KINDS.has(f.kind)) && !(await store.fieldsV2Ready()))
+    return NextResponse.json({ error: "Initials, text boxes and checkboxes are being set up (run supabase/120_fd_sign_more_fields.sql). Signature, date and name boxes work now." }, { status: 503 });
 
   let folderId: string | null = null;
   if (typeof meta.folderId === "string" && meta.folderId) {
