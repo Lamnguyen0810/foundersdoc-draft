@@ -146,7 +146,7 @@ begin
   insert into public.esop_approval_links (token_hash, company_id, ref, email, name, created_by, expires_at)
   values (p_token_hash, c.id, v_ref, lower(v_email), nullif(coalesce(c.contact_name, c.director_name), ''), left(p_by, 200), v_exp);
 
-  return v_item || jsonb_build_object('skipped', false, 'company', c.name, 'to', lower(v_email),
+  return v_item || jsonb_build_object('skipped', false, 'company', c.name, 'slug', c.slug, 'to', lower(v_email),
                                       'to_name', coalesce(nullif(c.contact_name, ''), nullif(c.director_name, ''), ''),
                                       'expires_at', v_exp);
 end $$;
@@ -214,7 +214,7 @@ begin
     else 'ok' end;
   if l.opened_at is null then update public.esop_approval_links set opened_at = now() where id = l.id; end if;
 
-  return v_item || jsonb_build_object('status', v_status, 'company', c.name, 'to', l.email, 'to_name', coalesce(l.name, ''), 'expires_at', l.expires_at);
+  return v_item || jsonb_build_object('status', v_status, 'company', c.name, 'slug', c.slug, 'to', l.email, 'to_name', coalesce(l.name, ''), 'expires_at', l.expires_at);
 end $$;
 revoke all on function public.esop_approval_link_view(text) from public, anon, authenticated;
 
