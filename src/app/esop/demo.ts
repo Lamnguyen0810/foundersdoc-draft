@@ -1,4 +1,4 @@
-import type { EsopBatch, EsopCompany, EsopHolder, HolderStatus, LeaverType } from "@/lib/esop/vesting";
+import type { EsopBatch, EsopCompany, EsopDocument, EsopHolder, HolderStatus, LeaverType } from "@/lib/esop/vesting";
 
 /* The same TEST rows supabase/105 adds (the approved mock-up's placeholder
    holders + Test Holder A/B in batch 99), for the local preview without
@@ -10,6 +10,7 @@ export const DEMO_COMPANY: EsopCompany = {
   name: "HitPay (TEST)",
   logo_url: "/email/hitpay-esop/hitpay-logo.png",
   plan: "free",
+  option_pool: 500000,
 };
 
 export const DEMO_BATCHES: EsopBatch[] = [
@@ -84,4 +85,37 @@ export const DEMO_HOLDERS: EsopHolder[] = [
   h(30, "Holder 28", "holder28@example.com", "TEST-ID-028", 8, 1100, "Leaver", "Good", "2026-02-28"),
   h(31, "Holder 29", "holder29@example.com", "TEST-ID-029", 9, 0, "Leaver", "Unvested", "2025-03-31"),
   h(32, "Holder 30", "holder30@example.com", "TEST-ID-030", 10, 1100, "Leaver", "Good", "2026-05-31"),
+];
+
+/* Preview extras for the overview v23 design (placeholders only): two top-up
+   grants (one with its schedule, one without), a legal name, a note with a link. */
+const byNo = (n: number) => DEMO_HOLDERS[n - 1];
+Object.assign(byNo(3), { top_ups: 1, topup_start: "2024-03-01", topup_options_per_tranche: 1000 });
+Object.assign(byNo(8), { top_ups: 1 });
+Object.assign(byNo(13), { legal_name: "Holder Eleven Placeholder-Name" });
+Object.assign(byNo(18), { notes: "Left the company on 23 April 2026. Thread: https://example.slack.com/archives/C000/p000" });
+
+let docNo = 0;
+const doc = (holder: number | null, kind: EsopDocument["kind"], file: string, tranche: number | null = null, label: EsopDocument["label"] = null): EsopDocument => ({
+  id: `00000000-0000-0000-0001-${String(++docNo).padStart(12, "0")}`,
+  holder_id: holder === null ? null : byNo(holder).id,
+  kind,
+  tranche,
+  path: null,
+  file_name: file,
+  size_bytes: 400000 + docNo * 7919,
+  uploaded_at: "2026-10-28T00:00:00Z",
+  ...(label ? { label } : {}),
+});
+
+/* Letters of Grant for everyone except Holder 9; tranche 2 certificates for batch 1 except Holder 5 */
+export const DEMO_DOCUMENTS: EsopDocument[] = [
+  ...DEMO_HOLDERS.map((h, i) => i + 1)
+    .filter((n) => n !== 11 && byNo(n).options_per_tranche > 0)
+    .map((n) => doc(n, "letter_of_grant", `TEST Letter of Grant [${byNo(n).name}].pdf`)),
+  doc(3, "letter_of_grant", "TEST Supplemental Letter of Grant [Holder 1].pdf", null, "Top-up"),
+  doc(8, "letter_of_grant", "TEST Supplemental Letter of Grant [Holder 6].pdf", null, "Top-up"),
+  ...[3, 4, 5, 6].map((n) => doc(n, "certificate", `TEST Option Certificate Tranche 2 [${byNo(n).name}].pdf`, 2)),
+  doc(3, "certificate", "TEST Supplemental Option Certificate Tranche 2 [Holder 1].pdf", 2, "Top-up"),
+  doc(null, "esop_rules", "TEST ESOP Rules (signed).pdf"),
 ];

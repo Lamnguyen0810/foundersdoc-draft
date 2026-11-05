@@ -6,7 +6,7 @@ import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { canResetSimulation } from "@/lib/esop/sim-reset";
 import type { EsopBatch, EsopCompany, EsopDocument, EsopHolder, EsopRun } from "@/lib/esop/vesting";
 import EsopSheet from "./EsopSheet";
-import { DEMO_BATCHES, DEMO_COMPANY, DEMO_HOLDERS } from "../demo";
+import { DEMO_BATCHES, DEMO_COMPANY, DEMO_DOCUMENTS, DEMO_HOLDERS } from "../demo";
 import "../esop.css";
 
 /**
@@ -41,7 +41,8 @@ export default async function EsopPage({
         company={DEMO_COMPANY}
         batches={DEMO_BATCHES}
         holders={DEMO_HOLDERS}
-        documents={[]}
+        documents={DEMO_DOCUMENTS}
+        signPending={3}
         role="admin"
         viewer="Preview"
         runs={[]}
@@ -49,7 +50,7 @@ export default async function EsopPage({
         simulation="administrator@foundersdoc.com"
         reset={{ to: "administrator@foundersdoc.com", refs: [] }}
         emailApproval
-        focusRef={null}
+        focusRef={focusRef}
         supabaseUrl={null}
         supabaseKey={null}
       />
@@ -103,6 +104,18 @@ export default async function EsopPage({
       .order("uploaded_at"),
     isAdmin(),
   ]);
+  /* Option pool (121). Before 121 is run the column is missing: the card then says "not set". */
+  const poolRes = await supabase.from("esop_companies").select("option_pool").eq("id", company.id).maybeSingle();
+  const option_pool = poolRes.error ? null : ((poolRes.data as { option_pool?: number | null } | null)?.option_pool ?? null);
+  /* FD Sign badge (admins): this company's certificates still waiting for a signature */
+  let signPending = 0;
+  if (admin && isAdminClientConfigured()) {
+    const ids = ((holdersRes.data ?? []) as EsopHolder[]).map((h) => h.id);
+    if (ids.length) {
+      const r = await supabaseAdmin().from("sign_envelopes").select("id", { count: "exact", head: true }).eq("status", "sent").in("esop_holder_id", ids);
+      signPending = r.error ? 0 : (r.count ?? 0);
+    }
+  }
   /* Approvals (107). Before 107 is run this simply returns nothing. */
   const runsRes = await supabase.rpc("esop_runs", { p_slug: slug });
   const runRows = (runsRes.data ?? []) as Array<EsopRun & { can_approve: boolean }>;
@@ -126,7 +139,8 @@ export default async function EsopPage({
 
   return (
     <EsopSheet
-      company={company}
+      company={{ ...company, option_pool }}
+      signPending={signPending}
       batches={(batchesRes.data ?? []) as EsopBatch[]}
       holders={(holdersRes.data ?? []) as EsopHolder[]}
       documents={(docsRes.data ?? []) as EsopDocument[]}

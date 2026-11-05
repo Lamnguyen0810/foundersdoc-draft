@@ -17,6 +17,8 @@ export interface EsopCompany {
   name: string;
   logo_url: string | null;
   plan: "free" | "premium";
+  /** the option pool's size (121), for the Option pool bar */
+  option_pool?: number | null;
 }
 
 export interface EsopBatch {
@@ -45,16 +47,24 @@ export interface EsopHolder {
   top_ups?: number | null;
   legal_name?: string | null; // full legal name for the certificate (111)
   vested_override?: number | null; // a leaver's vested options as recorded (110), when the last day is unknown
+  topup_start?: string | null; // a top-up grant's own vesting start (121)
+  topup_options_per_tranche?: number | null;
   updated_at: string;
   updated_by: string | null;
 }
 
 export type DocKind = "letter_of_grant" | "certificate";
+/** The company's own documents, with no holder (121): ESOP rules, Resolutions, anything else. */
+export type CompanyDocKind = "esop_rules" | "resolution" | "other";
+/** A Letter of Grant's kind (121); a certificate with "Top-up" belongs to the top-up grant. */
+export type DocLabel = "Original" | "Amended" | "Top-up";
 
 export interface EsopDocument {
   id: string;
-  holder_id: string;
-  kind: DocKind;
+  holder_id: string | null;
+  kind: DocKind | CompanyDocKind;
+  label?: DocLabel | null;
+  size_bytes?: number | null;
   tranche: number | null;
   path: string | null; // an uploaded file in the private bucket, or
   url?: string | null; // a link (a certificate made by Zapier, 106)
