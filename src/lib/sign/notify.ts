@@ -17,12 +17,16 @@ export interface SignMail {
   message: string | null;
   /** kind "code": the 6-digit code */
   code?: string;
+  /** FD Sign for everyone (SQL 119): the account holder who sent it. Absent = Founders Doc (ESOP etc.), emails unchanged. */
+  sender?: { name: string; email: string | null };
+  /** a reminder for the same request */
+  reminder?: boolean;
 }
 
 const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** The whole email, ready for the Zap's Gmail step (Body = this one field). */
-export function emailHtml(p: { heading: string; documents: string[]; message: string | null; link: string; button: string }): string {
+export function emailHtml(p: { heading: string; documents: string[]; message: string | null; link: string; button: string; from?: string }): string {
   const docs = p.documents.map(esc).join("<br>");
   const link = esc(p.link);
   const msg = p.message ? `<p style="margin:14px 0 0 0;white-space:pre-line;">${esc(p.message)}</p>` : "";
@@ -43,7 +47,11 @@ export function emailHtml(p: { heading: string; documents: string[]; message: st
 <p style="margin:0;">Or open this private link: <a href="${link}" style="color:#666666;word-break:break-all;">${link}</a></p>
 <p style="margin:10px 0 0 0;">This link is personal to you; please don't forward it. Electronic signatures are recognised in Singapore under the Electronic Transactions Act 2010.</p></td></tr>
 <tr><td style="padding:24px 32px 28px 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#666666;">
-<p style="margin:0 0 14px 0;"><b style="color:#161616;">Questions?</b> Just reply to this email.</p><p style="margin:0;">Best,</p><p style="margin:0;font-weight:bold;color:#161616;">Founders Doc</p></td></tr>
+${
+    p.from
+      ? `<p style="margin:0 0 14px 0;"><b style="color:#161616;">Questions?</b> Just reply to this email to reach ${esc(p.from)}.</p><p style="margin:0;font-size:12px;line-height:18px;color:#9a9a96;">Sent with FD Sign by Founders Doc on behalf of ${esc(p.from)}. Founders Doc will never ask for your password.</p>`
+      : `<p style="margin:0 0 14px 0;"><b style="color:#161616;">Questions?</b> Just reply to this email.</p><p style="margin:0;">Best,</p><p style="margin:0;font-weight:bold;color:#161616;">Founders Doc</p>`
+  }</td></tr>
 </table></td></tr></table></body></html>`;
 }
 
@@ -89,19 +97,33 @@ export async function notify(mail: SignMail): Promise<boolean> {
       html: codeHtml({ name: mail.name, code: mail.code ?? "", documents: mail.documents }),
     });
   }
-  const heading = mail.kind === "invite" ? `${mail.name.split(/\s+/)[0]}, please review and sign` : "All parties have signed";
-  const button = mail.kind === "invite" ? (n === 1 ? "Review & sign" : `Review & sign ${n} documents`) : "Download the signed copy";
+  const from = mail.sender?.name;
+  const first = mail.name.split(/\s+/)[0];
+  const heading =
+    mail.kind === "invite"
+      ? from
+        ? mail.reminder
+          ? `Reminder: ${from} is waiting for your signature`
+          : `${from} sent you a document to sign`
+        : `${first}, please review and sign`
+      : "All parties have signed";
+  const button = mail.kind === "invite" ? (n === 1 ? "Review & sign" : `Review & sign ${n} documents`) : mail.role === "Sender" ? "Open in FD Sign" : "Download the signed copy";
+  const subject =
+    mail.kind === "invite" ? (from ? `${mail.reminder ? "Reminder: " : ""}${from} sent you a document to sign: ${what}` : `Please sign: ${what}`) : `Signed: ${what}`;
+  const plain: Partial<SignMail> = { ...mail };
+  delete plain.sender;
+  delete plain.reminder;
   const payload = {
-    ...mail,
+    ...plain,
     documents_text: mail.documents.join("\n"),
     count: n,
-    subject: mail.kind === "invite" ? `Please sign: ${what}` : `Signed: ${what}`,
+    subject,
     heading,
     button,
-    from_name: "Founders Doc",
-    reply_to: "legal@foundersdoc.com",
+    from_name: from ? `${from} via FD Sign` : "Founders Doc",
+    reply_to: (from && mail.sender?.email) || "legal@foundersdoc.com",
     /* the finished email: the Gmail step's Body is just this field */
-    html: emailHtml({ heading, documents: mail.documents, message: mail.message, link: mail.link, button }),
+    html: emailHtml({ heading, documents: mail.documents, message: mail.message, link: mail.link, button, ...(from ? { from } : {}) }),
   };
   return post(hook, payload);
 }

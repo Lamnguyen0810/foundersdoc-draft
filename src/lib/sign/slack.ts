@@ -47,6 +47,8 @@ export async function postToSlack(text: string, ref: string | null, threadTs: st
 }
 
 export async function slack(store: SignStore, envelopeIds: string[], text: string): Promise<void> {
+  /* people's own requests (FD Sign for everyone, SQL 119) are private: never posted */
+  if (envelopeIds.length && (await store.ownerOf(envelopeIds[0]).catch(() => null))) return;
   /* local preview: print instead of posting */
   if (store.kind === "memory" && process.env.SIGN_SLACK_PREVIEW === "1") return void console.log("[slack]", text);
   const hook = process.env.SIGN_SLACK_HOOK_URL?.trim();

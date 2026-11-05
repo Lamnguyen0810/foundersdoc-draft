@@ -410,6 +410,9 @@ export function SiteFooter() {
                 <Link href="/history">Past drafts</Link>
               </li>
               <li>
+                <Link href="/fd-sign">FD Sign</Link>
+              </li>
+              <li>
                 <Link href="/usage">Usage</Link>
               </li>
               <li>

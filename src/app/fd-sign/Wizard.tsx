@@ -1,0 +1,579 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import BoxEditor from "../admin/sign/BoxEditor";
+import { openPdf, readPdf, type PdfInfo } from "../sign/PdfPages";
+import { autoPlace, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
+import { Ic, useList } from "./ui";
+
+/* New signing request, in 4 steps: Document → People → Fields → Review and send.
+   Signers sign in the order listed; each gets an email when it's their turn and
+   confirms a 6-digit email code before signing. */
+
+const MAX = 10 * 1024 * 1024;
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const STEPS = ["Document", "People", "Fields", "Review and send"];
+const KIND_TEXT: Record<BoxKind, string> = { signature: "Signature", date: "Date signed", name: "Full name" };
+const KIND_ICON: Record<BoxKind, string> = { signature: "pen", date: "cal", name: "user" };
+
+interface Person {
+  key: string;
+  name: string;
+  email: string;
+  role: string;
+}
+let seq = 0;
+const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "" });
+
+export default function Wizard() {
+  const router = useRouter();
+  const { data, reload } = useList();
+  const [step, setStep] = useState(1);
+  const [file, setFile] = useState<File | null>(null);
+  const [info, setInfo] = useState<PdfInfo | null>(null);
+  const [fileErr, setFileErr] = useState("");
+  const [over, setOver] = useState(false);
+  const [title, setTitle] = useState("");
+  const [folderId, setFolderId] = useState("");
+  const [people, setPeople] = useState<Person[]>([blank()]);
+  const [cc, setCc] = useState("");
+  const [message, setMessage] = useState("");
+  const [boxes, setBoxes] = useState<Box[]>([]);
+  const [active, setActive] = useState(1);
+  const [armed, setArmed] = useState<BoxKind | null>(null);
+  const [placed, setPlaced] = useState(false);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  const me = data?.me;
+
+  async function pick(f: File | undefined | null) {
+    setFileErr("");
+    if (!f) return;
+    if (f.size > MAX) return setFileErr("This file is over 10 MB. Please make it smaller and try again.");
+    const head = new Uint8Array(await f.slice(0, 5).arrayBuffer());
+    if (String.fromCharCode(...head) !== "%PDF-") return setFileErr(/\.docx?$/i.test(f.name) ? "Word files can't be signed yet: in Word choose File → Save as → PDF, then upload the PDF." : "Please upload a PDF.");
+    try {
+      const doc = await openPdf(f);
+      const i = await readPdf(doc);
+      void doc.destroy();
+      setInfo(i);
+    } catch {
+      return setFileErr("This PDF could not be opened. If it has a password, remove it and try again.");
+    }
+    setFile(f);
+    setBoxes([]);
+    setPlaced(false);
+    if (!title) setTitle(f.name.replace(/\.pdf$/i, "").replace(/[_]+/g, " ").slice(0, 200));
+  }
+
+  /* people */
+  const setP = (k: string, patch: Partial<Person>) => setPeople((l) => l.map((p) => (p.key === k ? { ...p, ...patch } : p)));
+  function addMe() {
+    if (!me) return;
+    if (people.some((p) => p.email.trim().toLowerCase() === me.email)) return;
+    const empty = people.find((p) => !p.name && !p.email);
+    if (empty) setP(empty.key, { name: me.name, email: me.email });
+    else setPeople((l) => [...l, { ...blank(), name: me.name, email: me.email }]);
+  }
+  /* a box belongs to a signer by their place among the filled-in rows (1, 2, …) */
+  const isFilled = (p: Person) => Boolean(p.name.trim() || p.email.trim());
+  const posOf = (i: number) => (isFilled(people[i]) ? people.slice(0, i + 1).filter(isFilled).length : 0);
+  function move(i: number, d: -1 | 1) {
+    const j = i + d;
+    if (j < 0 || j >= people.length) return;
+    const a = posOf(i), b = posOf(j);
+    setPeople((l) => {
+      const n = [...l];
+      [n[i], n[j]] = [n[j], n[i]];
+      return n;
+    });
+    if (a && b) setBoxes((bx) => bx.map((x) => (x.position === a ? { ...x, position: b } : x.position === b ? { ...x, position: a } : x)));
+  }
+  function remove(i: number) {
+    const a = posOf(i);
+    setPeople((l) => (l.length > 1 ? l.filter((_, k) => k !== i) : [blank()]));
+    if (a) setBoxes((b) => b.filter((x) => x.position !== a).map((x) => (x.position > a ? { ...x, position: x.position - 1 } : x)));
+    setActive(1);
+  }
+  const ccList = cc
+    .split(/[\s,;]+/)
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  const problems = useMemo(() => {
+    const p: Record<number, string> = {};
+    if (!file) p[1] = "Upload the document first.";
+    else if (!title.trim()) p[1] = "Give the document a name.";
+    const filled = people.filter((x) => x.name.trim() || x.email.trim());
+    if (!filled.length) p[2] = "Add at least one person to sign.";
+    else if (filled.length > 10) p[2] = "Up to 10 people can sign one document.";
+    else if (filled.some((x) => !x.name.trim())) p[2] = "Every person needs a name.";
+    else if (filled.some((x) => !EMAIL.test(x.email.trim()))) p[2] = "Check the email addresses.";
+    else if (new Set(filled.map((x) => x.email.trim().toLowerCase())).size !== filled.length) p[2] = "Each person needs their own email address.";
+    else if (ccList.length > 5 || ccList.some((e) => !EMAIL.test(e))) p[2] = "Copies: up to 5 valid email addresses.";
+    const missing = filled.findIndex((_, i) => !boxes.some((b) => b.position === i + 1 && b.kind === "signature"));
+    if (missing >= 0) p[3] = `${filled[missing].name || `Person ${missing + 1}`} needs a signature box.`;
+    return p;
+  }, [file, title, people, boxes, ccList]);
+  const signers = people.filter((x) => x.name.trim() || x.email.trim());
+
+  /* first time on Fields: put a signature box on each person's line */
+  useEffect(() => {
+    if (step !== 3 || placed || !info) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-off auto placement when the step opens
+    setBoxes(autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" }))));
+    setPlaced(true);
+  }, [step, placed, info, signers]);
+
+  function go(n: number) {
+    for (let k = 1; k < n; k++)
+      if (problems[k]) {
+        setStep(k);
+        setErr(problems[k]);
+        return;
+      }
+    setErr("");
+    if (step === 2 && n > 2) setPeople((l) => (l.some(isFilled) ? l.filter(isFilled) : l));
+    setStep(n);
+    window.scrollTo({ top: 0 });
+  }
+
+  async function send() {
+    for (const k of [1, 2, 3])
+      if (problems[k]) {
+        setStep(k);
+        return setErr(problems[k]);
+      }
+    setBusy(true);
+    setErr("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file!);
+      fd.append(
+        "meta",
+        JSON.stringify({
+          title: title.trim(),
+          message: message.trim() || null,
+          folderId: folderId || null,
+          signers: signers.map((s) => ({ name: s.name.trim(), email: s.email.trim().toLowerCase(), role: s.role.trim() })),
+          cc: ccList,
+          fields: boxes.map(({ position, kind, page, x, y, w, h }) => ({ position, kind, page, x, y, w, h })),
+        }),
+      );
+      const r = await fetch("/api/fd-sign/send", { method: "POST", body: fd });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "Could not send. Please try again.");
+      try {
+        if (j.previewLink) sessionStorage.setItem("fds-preview-link", j.previewLink);
+      } catch {
+        /* preview only */
+      }
+      router.push(`/fd-sign/d/${j.id}?sent=${encodeURIComponent(j.emailedTo || signers[0].name)}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not send.");
+      setBusy(false);
+    }
+  }
+
+  async function newFolder() {
+    const name = prompt("Folder name")?.trim();
+    if (!name) return;
+    const r = await fetch("/api/fd-sign/folders", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return alert(j.error || "Could not add the folder.");
+    await reload();
+    setFolderId(j.id);
+  }
+
+  const names = signers.map((s) => s.name.trim() || "Signer");
+  const fieldCount = (pos: number) => boxes.filter((b) => b.position === pos).length;
+  const folder = data?.folders.find((f) => f.id === folderId);
+  const senderName = me?.name ?? "You";
+
+  return (
+    <div className="fds wiz">
+      <div className="fds-wtop">
+        <div className="l">
+          <Link className="x" href="/fd-sign" aria-label="Close">
+            <Ic n="x" s={16} />
+          </Link>
+          New signing request
+        </div>
+        <div className="fds-steps">
+          {STEPS.map((t, i) => (
+            <span key={t} style={{ display: "contents" }}>
+              <button className={`fds-stp ${i + 1 < step ? "ok" : i + 1 === step ? "on" : ""}`} onClick={() => go(i + 1)} disabled={i + 1 > step + 1}>
+                <i>{i + 1 < step ? "✓" : i + 1}</i>
+                <span>{t}</span>
+              </button>
+              {i < 3 && <span className={`fds-sl ${i + 1 < step ? "ok" : ""}`} />}
+            </span>
+          ))}
+        </div>
+        <span />
+      </div>
+
+      {step === 1 && (
+        <div className="fds-wbody">
+          <div>
+            <div className="fds-wh">
+              <h2>What needs signing?</h2>
+              <p>Upload the final version. People sign exactly what you upload.</p>
+            </div>
+            <label
+              className={`fds-drop ${over ? "over" : ""}`}
+              onDragOver={(e) => (e.preventDefault(), setOver(true))}
+              onDragLeave={() => setOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setOver(false);
+                void pick(e.dataTransfer.files[0]);
+              }}
+            >
+              <input ref={input} type="file" accept="application/pdf,.pdf" hidden onChange={(e) => void pick(e.target.files?.[0])} />
+              <div className="ic">
+                <Ic n="up" s={26} w={1.8} />
+              </div>
+              <b>{file ? "Drop a different PDF here" : "Drop your PDF here"}</b>
+              <p>PDF · up to 10 MB</p>
+              <span className="fds-btn ink">Choose a file</span>
+            </label>
+            {fileErr && <div className="fds-err">{fileErr}</div>}
+            {file && (
+              <div className="fds-file">
+                <span className="fds-thumb">
+                  <i /><i /><i /><i /><i /><i />
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <b>{file.name}</b>
+                  <small>
+                    {info?.pages.length ?? "?"} {info?.pages.length === 1 ? "page" : "pages"} · {Math.max(1, Math.round(file.size / 1024))} KB · <span className="fds-ok">✓ Ready</span>
+                  </small>
+                </div>
+                <button className="fds-btn sm" onClick={() => input.current?.click()}>
+                  Replace
+                </button>
+              </div>
+            )}
+            <div className="fds-f2">
+              <div className="fds-fld">
+                <label htmlFor="fds-title">Document name (people see this)</label>
+                <input id="fds-title" className="fds-inp" value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Consultancy Agreement" />
+              </div>
+              <div className="fds-fld">
+                <label htmlFor="fds-folder">Save in folder</label>
+                <select id="fds-folder" className="fds-inp" value={folderId} onChange={(e) => (e.target.value === "+" ? void newFolder() : setFolderId(e.target.value))}>
+                  <option value="">No folder</option>
+                  {(data?.folders ?? []).map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                  <option value="+">+ New folder…</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <aside className="fds-aside">
+            <h3>How it works</h3>
+            <ol className="fds-how">
+              <li>
+                <b>Upload</b>The document you want signed
+              </li>
+              <li>
+                <b>Add people</b>Who signs, and in what order
+              </li>
+              <li>
+                <b>Place fields</b>We put a box on each signature line for you
+              </li>
+              <li>
+                <b>Send</b>Each person gets an email. No account needed
+              </li>
+            </ol>
+            <div className="fds-note">
+              <Ic n="help" s={16} />
+              <span>Not for wills, or documents the law says must be signed on paper. If unsure, ask us before sending.</span>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {step === 2 && (
+        <div className="fds-wbody">
+          <div>
+            <div className="fds-wh">
+              <h2>Who needs to sign?</h2>
+              <p>In signing order. Each person is emailed when the one before has signed.</p>
+            </div>
+            {people.map((p, i) => (
+              <div className="fds-pc" key={p.key} style={{ ["--c" as string]: colour(i + 1) }}>
+                <span className="n">{i + 1}</span>
+                <input className="fds-inp" value={p.name} maxLength={160} placeholder="Full name" aria-label={`Person ${i + 1} name`} onChange={(e) => setP(p.key, { name: e.target.value })} />
+                <input className="fds-inp em" type="email" value={p.email} maxLength={200} placeholder="Email" aria-label={`Person ${i + 1} email`} onChange={(e) => setP(p.key, { email: e.target.value })} />
+                <input className="fds-inp role" value={p.role} maxLength={80} placeholder="Role (optional)" aria-label={`Person ${i + 1} role`} onChange={(e) => setP(p.key, { role: e.target.value })} />
+                <span className="ops">
+                  <button className="fds-ico" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}>
+                    <Ic n="arrowUp" s={15} />
+                  </button>
+                  <button className="fds-ico" aria-label="Move down" disabled={i === people.length - 1} onClick={() => move(i, 1)}>
+                    <Ic n="arrowDown" s={15} />
+                  </button>
+                  <button className="fds-ico" aria-label="Remove" onClick={() => remove(i)}>
+                    <Ic n="x" s={15} />
+                  </button>
+                </span>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
+              <button className="fds-btn" disabled={people.length >= 10} onClick={() => setPeople((l) => [...l, blank()])}>
+                <Ic n="plus" s={16} />
+                Add person
+              </button>
+              <button className="fds-btn" disabled={!me || people.some((p) => p.email.trim().toLowerCase() === me?.email)} onClick={addMe}>
+                <Ic n="user" s={16} />
+                Add me
+              </button>
+            </div>
+            <div className="fds-fld" style={{ marginTop: 22 }}>
+              <label htmlFor="fds-cc">Send a copy of the signed document to (optional)</label>
+              <input id="fds-cc" className="fds-inp" value={cc} onChange={(e) => setCc(e.target.value)} placeholder="finance@company.com, partner@company.com" />
+            </div>
+          </div>
+          <aside className="fds-aside">
+            <h3>Signing order</h3>
+            <div className="fds-chain">
+              {signers.map((s, i) => (
+                <div key={i}>
+                  <div className="c">
+                    <span className="fds-av" style={{ background: colour(i + 1) }}>
+                      {i + 1}
+                    </span>
+                    <span>
+                      <b>{s.email.trim().toLowerCase() === me?.email ? "You" : s.name || "Someone"}</b>
+                      <small>{i === 0 ? "emailed when you send" : `after ${signers[i - 1].email.trim().toLowerCase() === me?.email ? "you sign" : `${signers[i - 1].name.split(/\s+/)[0] || "they"} signs`}`}</small>
+                    </span>
+                  </div>
+                  <div className="ln" />
+                </div>
+              ))}
+              <div className="c">
+                <span className="fds-av" style={{ background: "var(--fds-green)" }}>
+                  <Ic n="check" s={13} w={2.4} />
+                </span>
+                <span>
+                  <b>Everyone gets the signed PDF</b>
+                  <small>{ccList.length ? `plus ${ccList.length} ${ccList.length === 1 ? "copy" : "copies"}` : "with the audit trail page"}</small>
+                </span>
+              </div>
+            </div>
+            <div className="fds-note">
+              <Ic n="lock" s={16} />
+              <span>Each person confirms a 6-digit code sent to their email before they can sign.</span>
+            </div>
+          </aside>
+        </div>
+      )}
+
+      {step === 3 && file && (
+        <div className="fds-fwrap">
+          <div className="fds-pal">
+            <h4>Fields for</h4>
+            {signers.map((s, i) => (
+              <button key={i} className={`fds-who ${active === i + 1 ? "on" : ""}`} style={{ ["--c" as string]: colour(i + 1) }} onClick={() => setActive(i + 1)}>
+                <span className="fds-dot" style={{ background: colour(i + 1) }} />
+                {s.name || `Person ${i + 1}`}
+                {boxes.some((b) => b.position === i + 1 && b.kind === "signature") ? <small>{fieldCount(i + 1)} {fieldCount(i + 1) === 1 ? "field" : "fields"}</small> : <small className="miss">needs signature</small>}
+              </button>
+            ))}
+            <button
+              className="fds-btn"
+              style={{ width: "100%", margin: "12px 0 6px", background: "var(--fds-gold-tint)", borderColor: "#ecd9a3", color: "var(--fds-gold-tx)" }}
+              onClick={() => info && setBoxes(autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" }))))}
+            >
+              <Ic n="spark" s={16} />
+              Auto-place again
+            </button>
+            <p className="fds-muted" style={{ fontSize: 11.5, lineHeight: 1.45, margin: "0 0 16px" }}>
+              We look for each person&rsquo;s name or role on the page and put their signature box on that line. Drag to move, drag the corner to resize.
+            </p>
+            <h4>Add to the page</h4>
+            {(["signature", "date", "name"] as BoxKind[]).map((k) => (
+              <button key={k} className={`fds-fb ${armed === k ? "on" : ""}`} onClick={() => setArmed(armed === k ? null : k)}>
+                <span className="ci">
+                  <Ic n={KIND_ICON[k]} s={16} />
+                </span>
+                {KIND_TEXT[k]}
+              </button>
+            ))}
+          </div>
+          <div className="fds-canvas">
+            {armed && (
+              <div className="fds-armed">
+                Click on the page where {names[active - 1]?.split(/\s+/)[0] || "they"} should put their {KIND_TEXT[armed].toLowerCase()}.
+              </div>
+            )}
+            <BoxEditor file={file} boxes={boxes} onChange={setBoxes} names={names} active={active} armed={armed} onPlaced={() => setArmed(null)} onInfo={(i) => setInfo((x) => x ?? i)} />
+          </div>
+        </div>
+      )}
+
+      {step === 4 && (
+        <div className="fds-rv">
+          <div>
+            <div className="fds-wh">
+              <h2>Check and send</h2>
+              <p style={{ marginBottom: 16 }}>
+                <b style={{ color: "var(--fds-tx)" }}>{title}</b> · {info?.pages.length} {info?.pages.length === 1 ? "page" : "pages"} · {folder ? `${folder.name} folder` : "no folder"} ·{" "}
+                <button className="fds-btn sm ghost" style={{ color: "var(--fds-gold-tx)", padding: 0, height: "auto" }} onClick={() => go(1)}>
+                  Change
+                </button>
+              </p>
+            </div>
+            <div className="fds-sec">
+              <h3>
+                <Ic n="users" s={16} />
+                Signing order
+                <button className="r" onClick={() => go(2)}>
+                  Edit
+                </button>
+              </h3>
+              {signers.map((s, i) => (
+                <div className="fds-prow" key={i}>
+                  <span className="fds-av" style={{ background: colour(i + 1), width: 28, height: 28 }}>
+                    {i + 1}
+                  </span>
+                  <span>
+                    <b>{s.email.trim().toLowerCase() === me?.email ? `${s.name} (you)` : s.name}</b>
+                    <small>{s.email}</small>
+                  </span>
+                  <span className="r">
+                    {boxes
+                      .filter((b) => b.position === i + 1)
+                      .map((b) => KIND_TEXT[b.kind].toLowerCase())
+                      .filter((v, k, a) => a.indexOf(v) === k)
+                      .join(", ")}
+                  </span>
+                </div>
+              ))}
+              {ccList.map((e) => (
+                <div className="fds-prow" key={e}>
+                  <span className="fds-av" style={{ background: "#9a9aa0", width: 28, height: 28 }}>
+                    <Ic n="mail" s={13} />
+                  </span>
+                  <span>
+                    <b>{e}</b>
+                    <small>gets a copy when everyone has signed</small>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="fds-sec">
+              <h3>
+                <Ic n="mail" s={16} />
+                Message to everyone (optional)
+              </h3>
+              <textarea className="fds-inp" maxLength={2000} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Hi, please review and sign. Any questions, just reply to this email." />
+            </div>
+            <div className="fds-sec">
+              <h3>
+                <Ic n="shield" s={16} />
+                Security
+              </h3>
+              <div className="fds-set">
+                <span className="ci">
+                  <Ic n="lock" s={16} />
+                </span>
+                <span>
+                  <b>Email code before signing</b>
+                  <small>Every person confirms a 6-digit code</small>
+                </span>
+                <span className="r">Always on</span>
+              </div>
+              <div className="fds-set">
+                <span className="ci">
+                  <Ic n="cal" s={16} />
+                </span>
+                <span>
+                  <b>Link expires after 30 days</b>
+                  <small>You can remind people or send it again</small>
+                </span>
+              </div>
+              <div className="fds-set">
+                <span className="ci">
+                  <Ic n="shield" s={16} />
+                </span>
+                <span>
+                  <b>Audit trail</b>
+                  <small>The signed PDF gets a page with every step, time and a SHA-256 fingerprint</small>
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="fds-mailp">
+            <div className="lab">What {signers[0]?.name.split(/\s+/)[0] || "they"} will receive</div>
+            <div className="fds-em">
+              <div className="hd">
+                <b>From:</b> {senderName} via FD Sign
+                <br />
+                <b>Subject:</b> {senderName} sent you a document to sign: {title}
+              </div>
+              <div className="bd">
+                <span className="pillk">FD SIGN</span>
+                <h4>{senderName} sent you a document to sign</h4>
+                <div className="doc">{title}</div>
+                {message.trim() && <p className="msg">{message.trim()}</p>}
+                <span className="btn">Review &amp; sign →</span>
+              </div>
+              <div className="ft">Questions? Just reply to this email to reach {senderName}. Sent with FD Sign by Founders Doc on behalf of {senderName}.</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="fds-wfoot">
+        {step > 1 && (
+          <button className="fds-btn" onClick={() => go(step - 1)}>
+            <Ic n="back" s={16} />
+            Back
+          </button>
+        )}
+        <span className="hint">
+          {err ? (
+            <span style={{ color: "var(--fds-red-tx)", fontWeight: 600 }}>{err}</span>
+          ) : step === 1 ? (
+            <>
+              <Ic n="lock" s={15} />
+              Only you and the people you add can see this document
+            </>
+          ) : step === 2 ? (
+            `${signers.length} ${signers.length === 1 ? "person signs" : "people sign"}${ccList.length ? ` · ${ccList.length} ${ccList.length === 1 ? "copy" : "copies"}` : ""}`
+          ) : step === 3 ? (
+            problems[3] ? <span style={{ color: "var(--fds-red-tx)" }}>{problems[3]}</span> : <span className="fds-ok">Everyone has a signature box</span>
+          ) : (
+            <>
+              <Ic n="mail" s={15} />
+              {signers[0]?.name || "The first person"} is emailed now{signers.length > 1 ? "; the others when it's their turn" : ""}.
+            </>
+          )}
+        </span>
+        <span className="fds-sp" />
+        {err && step < 4 && <span />}
+        {step < 4 ? (
+          <button className="fds-btn gold lg" onClick={() => go(step + 1)} disabled={!!problems[step]}>
+            Continue
+            <Ic n="chev" s={16} w={2} />
+          </button>
+        ) : (
+          <button className="fds-btn gold lg" onClick={() => void send()} disabled={busy}>
+            <Ic n="mail" s={16} w={2} />
+            {busy ? "Sending…" : "Send for signing"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

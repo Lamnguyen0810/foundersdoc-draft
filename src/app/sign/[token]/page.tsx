@@ -33,7 +33,7 @@ export default async function SignPage({ params }: { params: Promise<{ token: st
       <main className="fdsign">
         <div className="fs-empty">
           <h1>This link is not valid</h1>
-          <p>It may have been replaced by a newer one. Please use the latest email from Founders Doc, or reply to it for a new link.</p>
+          <p>It may have been replaced by a newer one. Please use the latest signing email you received, or reply to it for a new link.</p>
         </div>
       </main>
     );
