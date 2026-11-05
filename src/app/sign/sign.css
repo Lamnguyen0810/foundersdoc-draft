@@ -289,3 +289,12 @@ body:has(.fdsign:not(.fs-adm)) .strip-warn {
 .fs-esop-nat .fs-seg { margin: 0; }
 .fs-esop-nat small { grid-column: 1 / -1; }
 @media (max-width: 980px) { .fs-esop-nat { grid-template-columns: 1fr; } }
+
+/* FD Sign: text boxes and checkboxes the signer fills in (0189, SQL 120) */
+.fs-here.ask { cursor: text; }
+.fs-here-in { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; font: inherit; font-size: min(12px, 70cqh); padding: 0 4px; color: #111; outline: none; }
+.fs-here-cb { width: 80%; height: 80%; max-width: 22px; max-height: 22px; display: grid; place-items: center; font-weight: 800; color: #0d1a59; font-size: min(14px, 75cqh); line-height: 1; cursor: pointer; }
+.fs-asks .fs-ask { display: block; margin-top: 10px; }
+.fs-asks .fs-ask span { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 5px; }
+.fs-asks .fs-ask input { width: 100%; height: 40px; border: 1px solid var(--line, #e6e6ea); border-radius: 9px; padding: 0 10px; font: inherit; font-size: 14px; background: var(--card, #fff); color: inherit; }
+.fs-asks .fs-ask input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--fs-ring); }

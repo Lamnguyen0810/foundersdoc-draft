@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { DocKind, EsopDocument, EsopHolder } from "@/lib/esop/vesting";
 import { matchFile } from "@/lib/esop/match";
 
@@ -28,10 +28,15 @@ export default function BulkUpload({
   holders,
   docs,
   onUpload,
+  className = "e-btn",
+  children,
 }: {
   holders: EsopHolder[];
   docs: EsopDocument[];
   onUpload: (holder: EsopHolder, kind: DocKind, file: File, tranche: number | null) => Promise<boolean>;
+  /** the button's look and content (the dashboard's own "Bulk upload" button) */
+  className?: string;
+  children?: ReactNode;
 }) {
   const pick = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -78,8 +83,8 @@ export default function BulkUpload({
 
   return (
     <>
-      <button className="e-btn" onClick={() => pick.current?.click()} title="Founders Doc only: upload many Letters of Grant / Option Certificates at once">
-        ⬆ Bulk upload (FD)
+      <button className={className} onClick={() => pick.current?.click()} title="Founders Doc only: upload many Letters of Grant / Option Certificates at once">
+        {children ?? "⬆ Bulk upload (FD)"}
       </button>
       <input
         ref={pick}

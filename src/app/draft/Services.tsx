@@ -26,6 +26,7 @@ import { applyDefaults, problemWith, questionsFor, type Option, type Question } 
 import { SERVICES_INTRO } from "@/lib/services/data/intro";
 import type { Answers, DraftStatus, Flag, Party, PartyKind } from "@/lib/services/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1140,6 +1141,7 @@ export default function Services({ look = DEFAULT_LOOK, userEmail, guest, wallet
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

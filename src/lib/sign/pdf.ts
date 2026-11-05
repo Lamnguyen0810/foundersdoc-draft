@@ -168,6 +168,28 @@ export async function buildSignedPdf(input: {
       placed.add(s.position);
     } else if (f.kind === "date") {
       drawLineText(p, sgt(s.signed_at).replace(/, \d\d:\d\d:\d\d SGT$/, ""), x, y, w, h);
+    } else if (f.kind === "initials") {
+      /* initials from the name they signed with, in the signature style */
+      const ini = T(s.typed_name || s.name)
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((part) => part[0]!.toUpperCase())
+        .join("")
+        .slice(0, 4);
+      let size = Math.min(h * 0.72, 24);
+      while (size > 6 && script.widthOfTextAtSize(ini, size) > w) size -= 0.5;
+      p.drawText(ini, { x: x + (w - script.widthOfTextAtSize(ini, size)) / 2, y: y + (h - size) / 2 + size * 0.22, size, font: script, color: blue });
+    } else if (f.kind === "text") {
+      if (f.value) drawLineText(p, f.value, x, y, w, h);
+    } else if (f.kind === "checkbox") {
+      const sq = Math.min(w, h);
+      const bx = x + (w - sq) / 2, by = y + (h - sq) / 2;
+      p.drawRectangle({ x: bx, y: by, width: sq, height: sq, borderColor: grey, borderWidth: 0.6 });
+      if (f.value === "yes") {
+        const t = Math.max(0.9, sq * 0.12);
+        p.drawLine({ start: { x: bx + sq * 0.2, y: by + sq * 0.52 }, end: { x: bx + sq * 0.42, y: by + sq * 0.26 }, thickness: t, color: blue });
+        p.drawLine({ start: { x: bx + sq * 0.42, y: by + sq * 0.26 }, end: { x: bx + sq * 0.82, y: by + sq * 0.8 }, thickness: t, color: blue });
+      }
     } else {
       drawLineText(p, s.name, x, y, w, h);
     }

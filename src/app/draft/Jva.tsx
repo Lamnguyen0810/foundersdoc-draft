@@ -30,6 +30,7 @@ import { applyDefaults, levelOf, problemWith, questionsFor, withFixed, type Opti
 import { JVA_INTRO } from "@/lib/jva/data/intro";
 import type { Answers, DraftStatus, Flag, Party, PartyKind } from "@/lib/jva/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1190,6 +1191,7 @@ export default function Jva({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

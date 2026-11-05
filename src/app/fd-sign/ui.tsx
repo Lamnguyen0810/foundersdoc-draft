@@ -33,6 +33,8 @@ const P: Record<string, ReactNode> = {
   arrowUp: <path d="M12 19V5M6 11l6-6 6 6" />,
   arrowDown: <path d="M12 5v14M6 13l6 6 6-6" />,
   type: <path d="M5 6h14M12 6v13M9 19h6" />,
+  box: <><rect x="5" y="5" width="14" height="14" rx="2" /><path d="M8.5 12l2.5 2.5 4.5-5" /></>,
+  textbox: <><rect x="3.5" y="7" width="17" height="10" rx="2" /><path d="M7 12h6" /></>,
   help: <><circle cx="12" cy="12" r="8.5" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.4M12 17h.01" /></>,
   eye: <><path d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="2.8" /></>,
 };

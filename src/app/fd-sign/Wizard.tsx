@@ -1,11 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import BoxEditor from "../admin/sign/BoxEditor";
 import { openPdf, readPdf, type PdfInfo } from "../sign/PdfPages";
-import { autoPlace, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
+import { autoPlace, boxId, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
+import type { DraftBlock } from "@/lib/sign/draft-pdf";
 import { Ic, useList } from "./ui";
 
 /* New signing request, in 4 steps: Document → People → Fields → Review and send.
@@ -15,8 +16,10 @@ import { Ic, useList } from "./ui";
 const MAX = 10 * 1024 * 1024;
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const STEPS = ["Document", "People", "Fields", "Review and send"];
-const KIND_TEXT: Record<BoxKind, string> = { signature: "Signature", date: "Date signed", name: "Full name" };
-const KIND_ICON: Record<BoxKind, string> = { signature: "pen", date: "cal", name: "user" };
+const KIND_TEXT: Record<BoxKind, string> = { signature: "Signature", date: "Date signed", name: "Full name", initials: "Initials", text: "Text box", checkbox: "Checkbox" };
+const KIND_ICON: Record<BoxKind, string> = { signature: "pen", date: "cal", name: "user", initials: "type", text: "textbox", checkbox: "box" };
+const KIND_HINT: Partial<Record<BoxKind, string>> = { initials: "from their name", text: "they type it", checkbox: "they tick it" };
+const asks = (k: BoxKind) => k === "text" || k === "checkbox";
 
 interface Person {
   key: string;
@@ -29,11 +32,19 @@ const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name:
 
 export default function Wizard() {
   const router = useRouter();
+  const params = useSearchParams();
+  /* an FD AI draft as the document (0190): its signature blocks place the boxes */
+  const [fromDraft, setFromDraft] = useState<{ id: string; title: string; blocks: DraftBlock[]; blanks: number } | null>(null);
+  const [drafts, setDrafts] = useState<Array<{ id: string; title: string; updatedAt: string; gaps: number }> | null>(null);
+  const [draftBusy, setDraftBusy] = useState("");
   const { data, reload } = useList();
   const [step, setStep] = useState(1);
   const [file, setFile] = useState<File | null>(null);
   const [info, setInfo] = useState<PdfInfo | null>(null);
   const [fileErr, setFileErr] = useState("");
+  /* a Word file we turned into a PDF: its name and what was not kept */
+  const [converted, setConverted] = useState<{ name: string; warnings: string[] } | null>(null);
+  const [converting, setConverting] = useState(false);
   const [over, setOver] = useState(false);
   const [title, setTitle] = useState("");
   const [folderId, setFolderId] = useState("");
@@ -43,6 +54,9 @@ export default function Wizard() {
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [active, setActive] = useState(1);
   const [armed, setArmed] = useState<BoxKind | null>(null);
+  /* text box / checkbox: what it asks, and whether it must be filled in (set before placing, editable after) */
+  const [askLabel, setAskLabel] = useState("");
+  const [askReq, setAskReq] = useState(true);
   const [placed, setPlaced] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
@@ -50,12 +64,42 @@ export default function Wizard() {
 
   const me = data?.me;
 
+  /* Word (.docx): turned into a PDF on our server (0191), then used like any PDF */
+  async function fromWord(f: File): Promise<File | null> {
+    setConverting(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      const r = await fetch("/api/fd-sign/convert", { method: "POST", body: fd });
+      if (!r.ok) {
+        setFileErr(((await r.json().catch(() => ({}))) as { error?: string }).error || "This Word file couldn't be read. Save it as PDF in Word, then upload the PDF.");
+        return null;
+      }
+      const meta = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob((r.headers.get("x-fds-word") ?? "").replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)))) as { warnings?: string[] };
+      setConverted({ name: f.name, warnings: meta.warnings ?? [] });
+      return new File([await r.blob()], f.name.replace(/\.docx$/i, "") + ".pdf", { type: "application/pdf" });
+    } catch {
+      setFileErr("This Word file couldn't be read. Save it as PDF in Word, then upload the PDF.");
+      return null;
+    } finally {
+      setConverting(false);
+    }
+  }
+
   async function pick(f: File | undefined | null) {
     setFileErr("");
+    setFromDraft(null);
     if (!f) return;
     if (f.size > MAX) return setFileErr("This file is over 10 MB. Please make it smaller and try again.");
-    const head = new Uint8Array(await f.slice(0, 5).arrayBuffer());
-    if (String.fromCharCode(...head) !== "%PDF-") return setFileErr(/\.docx?$/i.test(f.name) ? "Word files can't be signed yet: in Word choose File → Save as → PDF, then upload the PDF." : "Please upload a PDF.");
+    let head = new Uint8Array(await f.slice(0, 5).arrayBuffer());
+    if (head[0] === 0x50 && head[1] === 0x4b && /\.docx$/i.test(f.name)) {
+      const pdf = await fromWord(f);
+      if (!pdf) return;
+      f = pdf;
+      head = new Uint8Array(await f.slice(0, 5).arrayBuffer());
+    } else setConverted(null);
+    if (/\.doc$/i.test(f.name)) return setFileErr("This is the old Word format (.doc). In Word choose File → Save as → .docx or PDF, then upload that.");
+    if (String.fromCharCode(...head) !== "%PDF-") return setFileErr("Please upload a PDF or a Word file (.docx).");
     try {
       const doc = await openPdf(f);
       const i = await readPdf(doc);
@@ -121,13 +165,69 @@ export default function Wizard() {
   }, [file, title, people, boxes, ccList]);
   const signers = people.filter((x) => x.name.trim() || x.email.trim());
 
+  /* Boxes for everyone: from an FD AI draft, person 1 signs block 1, person 2 block 2 …;
+     otherwise (or for people beyond the blocks) on the line that names them. */
+  const placeAll = (): Box[] => {
+    if (!info) return [];
+    const auto = autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" })), { everyone: true });
+    if (!fromDraft?.blocks.length) return auto;
+    const out: Box[] = [];
+    signers.forEach((_, i) => {
+      const blk = fromDraft.blocks[i];
+      if (!blk) return void out.push(...auto.filter((b) => b.position === i + 1));
+      for (const b of blk.boxes)
+        out.push({ id: boxId(), position: i + 1, kind: b.kind, page: b.page, x: b.x, y: b.y, w: b.w, h: b.h, ...(b.kind === "text" ? { label: b.label ?? "Title", required: true } : {}) });
+    });
+    return out;
+  };
   /* first time on Fields: put a signature box on each person's line */
   useEffect(() => {
     if (step !== 3 || placed || !info) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-off auto placement when the step opens
-    setBoxes(autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" }))));
+    setBoxes(placeAll());
     setPlaced(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- placeAll reads the same state
   }, [step, placed, info, signers]);
+
+  /* ?draft=<id> (the "Send for signing" button on an FD AI draft) */
+  async function openDraft(id: string) {
+    setDraftBusy(id);
+    setFileErr("");
+    try {
+      const r = await fetch(`/api/fd-sign/drafts/${id}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error || "Could not open that draft.");
+      const meta = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob((r.headers.get("x-fds-draft") ?? "").replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)))) as {
+        title: string;
+        blocks: DraftBlock[];
+        blanks: number;
+      };
+      const blob = await r.blob();
+      const f = new File([blob], `${meta.title.replace(/[\\/:*?"<>|]+/g, " ").trim() || "Document"}.pdf`, { type: "application/pdf" });
+      await pick(f);
+      setTitle(meta.title);
+      setFromDraft({ id, title: meta.title, blocks: meta.blocks ?? [], blanks: meta.blanks ?? 0 });
+      setDrafts(null);
+    } catch (e) {
+      setFileErr(e instanceof Error ? e.message : "Could not open that draft.");
+    } finally {
+      setDraftBusy("");
+    }
+  }
+  async function listDrafts() {
+    setFileErr("");
+    const r = await fetch("/api/fd-sign/drafts", { cache: "no-store" });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return setFileErr(j.error || "Could not load your drafts.");
+    setDrafts(j.drafts ?? []);
+  }
+  const wanted = params.get("draft");
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!wanted || asked.current || !/^[0-9a-f-]{36}$/i.test(wanted)) return;
+    asked.current = true;
+    void openDraft(wanted);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the link's draft
+  }, [wanted]);
 
   function go(n: number) {
     for (let k = 1; k < n; k++)
@@ -161,7 +261,7 @@ export default function Wizard() {
           folderId: folderId || null,
           signers: signers.map((s) => ({ name: s.name.trim(), email: s.email.trim().toLowerCase(), role: s.role.trim() })),
           cc: ccList,
-          fields: boxes.map(({ position, kind, page, x, y, w, h }) => ({ position, kind, page, x, y, w, h })),
+          fields: boxes.map(({ position, kind, page, x, y, w, h, label, required }) => ({ position, kind, page, x, y, w, h, ...(asks(kind) ? { label: label?.trim() || undefined, required: !!required } : {}) })),
         }),
       );
       const r = await fetch("/api/fd-sign/send", { method: "POST", body: fd });
@@ -234,15 +334,57 @@ export default function Wizard() {
                 void pick(e.dataTransfer.files[0]);
               }}
             >
-              <input ref={input} type="file" accept="application/pdf,.pdf" hidden onChange={(e) => void pick(e.target.files?.[0])} />
+              <input ref={input} type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden onChange={(e) => void pick(e.target.files?.[0])} />
               <div className="ic">
                 <Ic n="up" s={26} w={1.8} />
               </div>
-              <b>{file ? "Drop a different PDF here" : "Drop your PDF here"}</b>
-              <p>PDF · up to 10 MB</p>
+              <b>{converting ? "Turning your Word file into a PDF…" : file ? "Drop a different file here" : "Drop your document here"}</b>
+              <p>PDF or Word (.docx) · up to 10 MB</p>
               <span className="fds-btn ink">Choose a file</span>
             </label>
+            <div className="fds-or">or</div>
+            <button className="fds-src" onClick={() => void (drafts ? setDrafts(null) : listDrafts())}>
+              <span className="ci">
+                <Ic n="spark" s={19} />
+              </span>
+              <span>
+                <b>Use an FD AI draft</b>
+                <small>Pick one of your saved drafts. No download or upload needed</small>
+              </span>
+              <Ic n={drafts ? "x" : "chev"} s={16} />
+            </button>
+            {drafts && (
+              <div className="fds-drafts">
+                {drafts.length === 0 && <p className="fds-muted">No saved drafts yet. Draft one with FD AI, then come back.</p>}
+                {drafts.map((d) => (
+                  <button key={d.id} className="fds-draft" disabled={!!draftBusy} onClick={() => void openDraft(d.id)}>
+                    <Ic n="doc" s={16} />
+                    <span>
+                      <b>{d.title}</b>
+                      <small>
+                        Saved {new Date(d.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                        {d.gaps ? ` · ${d.gaps} ${d.gaps === 1 ? "gap" : "gaps"} to fill in` : ""}
+                      </small>
+                    </span>
+                    <em>{draftBusy === d.id ? "Opening…" : "Use"}</em>
+                  </button>
+                ))}
+              </div>
+            )}
             {fileErr && <div className="fds-err">{fileErr}</div>}
+            {converted && file && (
+              <div className="fds-err" style={{ background: "var(--fds-blue-soft)", color: "var(--fds-blue-tx)" }}>
+                Converted from Word ({converted.name}). Please check it in step 3: the text, headings, bold and lists are kept, but not the exact fonts and spacing.
+                {converted.warnings.length ? ` ${converted.warnings.join(" ")}` : ""} For an exact copy, save it as PDF in Word and upload the PDF instead.
+              </div>
+            )}
+            {fromDraft && file && (
+              <div className={`fds-err`} style={fromDraft.blanks ? undefined : { background: "var(--fds-green-soft)", color: "var(--fds-green-tx)" }}>
+                {fromDraft.blanks
+                  ? `From FD AI: this draft still has ${fromDraft.blanks} ${fromDraft.blanks === 1 ? "gap" : "gaps"} ([●]) in the text. Fill ${fromDraft.blanks === 1 ? "it" : "them"} in on FD AI before sending, or send it if that's intended.`
+                  : `From FD AI: ${fromDraft.blocks.length} signature ${fromDraft.blocks.length === 1 ? "block" : "blocks"} found. We'll put each person's boxes on their block.`}
+              </div>
+            )}
             {file && (
               <div className="fds-file">
                 <span className="fds-thumb">
@@ -344,6 +486,17 @@ export default function Wizard() {
             </div>
           </div>
           <aside className="fds-aside">
+            {fromDraft && fromDraft.blocks.length > 0 && (
+              <div className="fds-note" style={{ marginTop: 0, marginBottom: 14, flexDirection: "column", gap: 4 }}>
+                <b style={{ color: "var(--fds-tx)" }}>Signature blocks in this draft</b>
+                {fromDraft.blocks.map((b, i) => (
+                  <span key={i}>
+                    {i + 1}. {b.head}
+                  </span>
+                ))}
+                <span>Person 1 signs block 1, person 2 block 2.</span>
+              </div>
+            )}
             <h3>Signing order</h3>
             <div className="fds-chain">
               {signers.map((s, i) => (
@@ -392,7 +545,7 @@ export default function Wizard() {
             <button
               className="fds-btn"
               style={{ width: "100%", margin: "12px 0 6px", background: "var(--fds-gold-tint)", borderColor: "#ecd9a3", color: "var(--fds-gold-tx)" }}
-              onClick={() => info && setBoxes(autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" }))))}
+              onClick={() => info && setBoxes(placeAll())}
             >
               <Ic n="spark" s={16} />
               Auto-place again
@@ -401,14 +554,60 @@ export default function Wizard() {
               We look for each person&rsquo;s name or role on the page and put their signature box on that line. Drag to move, drag the corner to resize.
             </p>
             <h4>Add to the page</h4>
-            {(["signature", "date", "name"] as BoxKind[]).map((k) => (
-              <button key={k} className={`fds-fb ${armed === k ? "on" : ""}`} onClick={() => setArmed(armed === k ? null : k)}>
+            {(["signature", "initials", "date", "name", "text", "checkbox"] as BoxKind[]).map((k) => (
+              <button
+                key={k}
+                className={`fds-fb ${armed === k ? "on" : ""}`}
+                onClick={() => {
+                  setArmed(armed === k ? null : k);
+                  if (asks(k)) {
+                    setAskLabel("");
+                    setAskReq(k === "text");
+                  }
+                }}
+              >
                 <span className="ci">
                   <Ic n={KIND_ICON[k]} s={16} />
                 </span>
                 {KIND_TEXT[k]}
+                {KIND_HINT[k] && <small className="fds-muted" style={{ marginLeft: "auto", fontSize: 11 }}>{KIND_HINT[k]}</small>}
               </button>
             ))}
+            {armed && asks(armed) && (
+              <div className="fds-ask">
+                <label htmlFor="fds-ask">{armed === "text" ? "What should they type?" : "What are they ticking?"}</label>
+                <input id="fds-ask" className="fds-inp" maxLength={60} value={askLabel} onChange={(e) => setAskLabel(e.target.value)} placeholder={armed === "text" ? "e.g. Company name" : "e.g. I have read clause 5"} />
+                <label className="fds-check">
+                  <input type="checkbox" checked={askReq} onChange={(e) => setAskReq(e.target.checked)} />
+                  {armed === "text" ? "They must fill this in" : "They must tick this"}
+                </label>
+              </div>
+            )}
+            {boxes.some((b) => b.position === active && asks(b.kind)) && (
+              <>
+                <h4 style={{ marginTop: 16 }}>Questions for {names[active - 1]?.split(/\s+/)[0] || "them"}</h4>
+                {boxes
+                  .filter((b) => b.position === active && asks(b.kind))
+                  .map((b) => (
+                    <div className="fds-q" key={b.id}>
+                      <Ic n={KIND_ICON[b.kind]} s={14} />
+                      <input
+                        aria-label="Question"
+                        maxLength={60}
+                        value={b.label ?? ""}
+                        onChange={(e) => setBoxes((l) => l.map((x) => (x.id === b.id ? { ...x, label: e.target.value } : x)))}
+                      />
+                      <button
+                        className={`fds-req ${b.required ? "on" : ""}`}
+                        title={b.required ? "Required: click to make it optional" : "Optional: click to make it required"}
+                        onClick={() => setBoxes((l) => l.map((x) => (x.id === b.id ? { ...x, required: !x.required } : x)))}
+                      >
+                        {b.required ? "Required" : "Optional"}
+                      </button>
+                    </div>
+                  ))}
+              </>
+            )}
           </div>
           <div className="fds-canvas">
             {armed && (
@@ -416,7 +615,17 @@ export default function Wizard() {
                 Click on the page where {names[active - 1]?.split(/\s+/)[0] || "they"} should put their {KIND_TEXT[armed].toLowerCase()}.
               </div>
             )}
-            <BoxEditor file={file} boxes={boxes} onChange={setBoxes} names={names} active={active} armed={armed} onPlaced={() => setArmed(null)} onInfo={(i) => setInfo((x) => x ?? i)} />
+            <BoxEditor
+              file={file}
+              boxes={boxes}
+              onChange={(b) =>
+                setBoxes(
+                  b.map((x) =>
+                    asks(x.kind) && x.label === undefined ? { ...x, label: askLabel.trim() || (x.kind === "text" ? "Text" : "I agree"), required: askReq } : x,
+                  ),
+                )
+              }
+              names={names} active={active} armed={armed} onPlaced={() => setArmed(null)} onInfo={(i) => setInfo((x) => x ?? i)} />
           </div>
         </div>
       )}
@@ -453,7 +662,7 @@ export default function Wizard() {
                   <span className="r">
                     {boxes
                       .filter((b) => b.position === i + 1)
-                      .map((b) => KIND_TEXT[b.kind].toLowerCase())
+                      .map((b) => (asks(b.kind) && b.label ? `“${b.label}”` : KIND_TEXT[b.kind].toLowerCase()))
                       .filter((v, k, a) => a.indexOf(v) === k)
                       .join(", ")}
                   </span>

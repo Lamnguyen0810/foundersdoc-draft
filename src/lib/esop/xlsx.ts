@@ -32,7 +32,8 @@ function crc32(data: Uint8Array): number {
   return (c ^ 0xffffffff) >>> 0;
 }
 
-function zip(files: { name: string; data: Uint8Array }[]): Uint8Array {
+/** A plain (stored) zip of files: the Excel file itself, and "Download documents" on the ESOP dashboard. */
+export function zip(files: { name: string; data: Uint8Array }[]): Uint8Array {
   const chunks: Uint8Array[] = [];
   const central: Uint8Array[] = [];
   let offset = 0;

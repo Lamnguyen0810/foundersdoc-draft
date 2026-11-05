@@ -31,6 +31,7 @@ import { applyDefaults, problemWith, questionsFor, workJurisdiction, type Option
 import { CONTRACTOR_INTRO } from "@/lib/contractor/data/intro";
 import type { Answers, Company as Employer, Contractor as Employee, DraftStatus, Engagement as Job, Flag } from "@/lib/contractor/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /** Kept from the employment screen for shape; the contractor master has no AI-written lines yet. */
 type AiFields = { dismissal_grounds?: string[] };
@@ -1389,6 +1390,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

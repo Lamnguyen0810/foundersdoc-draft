@@ -25,6 +25,7 @@ import { applyDefaults, picks, problemWith, questionsFor, shareholderCount, type
 import { SHA_INTRO } from "@/lib/sha/data/intro";
 import type { Answers, Company, DraftStatus, Flag, Shareholder, ShareholderKind } from "@/lib/sha/types";
 import { useExitFeedback } from "./ExitFeedback";
+import SignButton from "./SignButton";
 
 /* ── what the page hands in ───────────────────────────────────────────── */
 
@@ -1242,6 +1243,7 @@ export default function Sha({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                         Feedback
                       </button>
                     )}
+                    <SignButton draftId={draftId} />
                     <button
                       type="button"
                       className="dbtn gold"

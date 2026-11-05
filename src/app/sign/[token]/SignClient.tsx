@@ -107,6 +107,9 @@ export default function SignClient({
   const [png, setPng] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  /* text boxes and checkboxes on my lines (FD Sign, SQL 120): field id -> what I typed, or "yes" */
+  const [vals, setVals] = useState<Record<string, string>>({});
+  const setVal = (id: string, v: string) => setVals((m) => ({ ...m, [id]: v }));
   const canvas = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const last = useRef<{ x: number; y: number } | null>(null);
@@ -170,6 +173,14 @@ export default function SignClient({
   const ready = view.state === "ready";
   const mine = ready ? (d?.fields ?? []) : [];
   const places = mine.filter((f) => f.kind === "signature").length;
+  /* every question on every document of this link (a batch can have several) */
+  const asks = ready ? view.documents.flatMap((x) => x.fields.filter((f) => f.id && (f.kind === "text" || f.kind === "checkbox"))) : [];
+  const initials = (mode === "type" ? typed : view.signerName)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0]!.toUpperCase())
+    .join("")
+    .slice(0, 4);
   function gotoBox() {
     document.querySelector(".fs-here")?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
@@ -182,12 +193,24 @@ export default function SignClient({
     if (!consent) return setErr("Please tick the box to agree to sign electronically.");
     if (mode === "draw" && !drawn) return setErr("Please draw your signature in the box.");
     if (mode === "type" && typed.trim().length < 2) return setErr("Please type your full name.");
+    const missing = asks.find((f) => f.required !== false && !(vals[f.id!] ?? "").trim());
+    if (missing) {
+      document.querySelector(`[data-field="${missing.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return setErr(missing.kind === "checkbox" ? `Please tick “${missing.label || "the box"}”.` : `Please fill in “${missing.label || "the text box"}”.`);
+    }
     setBusy(true);
     try {
       const res = await fetch("/api/sign/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, consent, kind: mode, png: mode === "draw" ? png || (canvas.current ? trimmed(canvas.current) : undefined) : undefined, typed: mode === "type" ? typed : undefined }),
+        body: JSON.stringify({
+          token,
+          consent,
+          kind: mode,
+          png: mode === "draw" ? png || (canvas.current ? trimmed(canvas.current) : undefined) : undefined,
+          typed: mode === "type" ? typed : undefined,
+          ...(asks.length ? { values: vals } : {}),
+        }),
       });
       const j = (await res.json().catch(() => ({}))) as { error?: string; needCode?: boolean };
       if (j.needCode) {
@@ -266,15 +289,27 @@ export default function SignClient({
                 mine
                   .filter((f) => f.page === page)
                   .map((f, i) => {
-                    const filled = f.kind !== "signature" || (mode === "draw" ? !!png : typed.trim().length > 1);
+                    const v = f.id ? (vals[f.id] ?? "") : "";
+                    const filled =
+                      f.kind === "text" ? !!v.trim() || f.required === false : f.kind === "checkbox" ? v === "yes" || f.required === false : f.kind !== "signature" || (mode === "draw" ? !!png : typed.trim().length > 1);
                     return (
                       <div
                         key={i}
-                        className={`fs-here ${filled ? "filled" : ""}`}
+                        data-field={f.id}
+                        className={`fs-here ${filled ? "filled" : ""} ${f.kind === "text" || f.kind === "checkbox" ? "ask" : ""}`}
                         style={{ left: `${f.x * 100}%`, top: `${f.y * 100}%`, width: `${f.w * 100}%`, height: `${f.h * 100}%` }}
-                        onClick={gotoPad}
-                        title="Your signature goes here"
+                        onClick={f.kind === "checkbox" ? () => f.id && setVal(f.id, v === "yes" ? "" : "yes") : f.kind === "text" ? undefined : gotoPad}
+                        title={f.kind === "text" || f.kind === "checkbox" ? (f.label ?? "") : "Your signature goes here"}
                       >
+                        {f.kind === "text" && (
+                          <>
+                            {!v && <span className="fs-here-l">{f.label || "Type here"}{f.required === false ? " (optional)" : ""}</span>}
+                            <input className="fs-here-in" value={v} maxLength={200} aria-label={f.label || "Text"} onChange={(e) => f.id && setVal(f.id, e.target.value)} />
+                          </>
+                        )}
+                        {f.kind === "checkbox" && <span className="fs-here-cb" role="checkbox" aria-checked={v === "yes"} aria-label={f.label || "Tick"}>{v === "yes" ? "✓" : ""}</span>}
+                        {f.kind === "checkbox" && v !== "yes" && f.required !== false && <span className="fs-here-l">Tick</span>}
+                        {f.kind === "initials" && <span className="fs-here-t" style={{ ["--n" as string]: 4 }}>{initials}</span>}
                         {f.kind === "signature" && !filled && <span className="fs-here-l">Sign here</span>}
                         {f.kind === "signature" && filled && (mode === "draw" ? /* eslint-disable-next-line @next/next/no-img-element -- a data: URL of the signature being drawn */
                           <img src={png} alt="Your signature" /> : <span className="fs-here-t" style={{ ["--n" as string]: Math.max(typed.trim().length, 4) }}>{typed}</span>)}
@@ -352,6 +387,30 @@ export default function SignClient({
                 </>
               )}
               {codeErr && <p className="fs-err">{codeErr}</p>}
+            </div>
+          )}
+          {view.state === "ready" && ok && asks.length > 0 && (
+            <div className="fs-card fs-asks">
+              <h2>Fill in</h2>
+              {asks.map((f) =>
+                f.kind === "checkbox" ? (
+                  <label key={f.id} className="fs-consent">
+                    <input type="checkbox" checked={vals[f.id!] === "yes"} onChange={(e) => setVal(f.id!, e.target.checked ? "yes" : "")} />
+                    <span>
+                      {f.label || "I agree"}
+                      {f.required === false ? " (optional)" : ""}
+                    </span>
+                  </label>
+                ) : (
+                  <label key={f.id} className="fs-ask">
+                    <span>
+                      {f.label || "Text"}
+                      {f.required === false ? " (optional)" : ""}
+                    </span>
+                    <input value={vals[f.id!] ?? ""} maxLength={200} onChange={(e) => setVal(f.id!, e.target.value)} />
+                  </label>
+                ),
+              )}
             </div>
           )}
           {view.state === "ready" && ok && (
