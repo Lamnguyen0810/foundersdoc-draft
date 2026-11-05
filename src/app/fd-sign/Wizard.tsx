@@ -40,6 +40,9 @@ export default function Wizard() {
   const [file, setFile] = useState<File | null>(null);
   const [info, setInfo] = useState<PdfInfo | null>(null);
   const [fileErr, setFileErr] = useState("");
+  /* a Word file we turned into a PDF: its name and what was not kept */
+  const [converted, setConverted] = useState<{ name: string; warnings: string[] } | null>(null);
+  const [converting, setConverting] = useState(false);
   const [over, setOver] = useState(false);
   const [title, setTitle] = useState("");
   const [folderId, setFolderId] = useState("");
@@ -56,12 +59,42 @@ export default function Wizard() {
 
   const me = data?.me;
 
+  /* Word (.docx): turned into a PDF on our server (0191), then used like any PDF */
+  async function fromWord(f: File): Promise<File | null> {
+    setConverting(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      const r = await fetch("/api/fd-sign/convert", { method: "POST", body: fd });
+      if (!r.ok) {
+        setFileErr(((await r.json().catch(() => ({}))) as { error?: string }).error || "This Word file couldn't be read. Save it as PDF in Word, then upload the PDF.");
+        return null;
+      }
+      const meta = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob((r.headers.get("x-fds-word") ?? "").replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)))) as { warnings?: string[] };
+      setConverted({ name: f.name, warnings: meta.warnings ?? [] });
+      return new File([await r.blob()], f.name.replace(/\.docx$/i, "") + ".pdf", { type: "application/pdf" });
+    } catch {
+      setFileErr("This Word file couldn't be read. Save it as PDF in Word, then upload the PDF.");
+      return null;
+    } finally {
+      setConverting(false);
+    }
+  }
+
   async function pick(f: File | undefined | null) {
     setFileErr("");
+    setFromDraft(null);
     if (!f) return;
     if (f.size > MAX) return setFileErr("This file is over 10 MB. Please make it smaller and try again.");
-    const head = new Uint8Array(await f.slice(0, 5).arrayBuffer());
-    if (String.fromCharCode(...head) !== "%PDF-") return setFileErr(/\.docx?$/i.test(f.name) ? "Word files can't be signed yet: in Word choose File → Save as → PDF, then upload the PDF." : "Please upload a PDF.");
+    let head = new Uint8Array(await f.slice(0, 5).arrayBuffer());
+    if (head[0] === 0x50 && head[1] === 0x4b && /\.docx$/i.test(f.name)) {
+      const pdf = await fromWord(f);
+      if (!pdf) return;
+      f = pdf;
+      head = new Uint8Array(await f.slice(0, 5).arrayBuffer());
+    } else setConverted(null);
+    if (/\.doc$/i.test(f.name)) return setFileErr("This is the old Word format (.doc). In Word choose File → Save as → .docx or PDF, then upload that.");
+    if (String.fromCharCode(...head) !== "%PDF-") return setFileErr("Please upload a PDF or a Word file (.docx).");
     try {
       const doc = await openPdf(f);
       const i = await readPdf(doc);
@@ -131,7 +164,7 @@ export default function Wizard() {
      otherwise (or for people beyond the blocks) on the line that names them. */
   const placeAll = (): Box[] => {
     if (!info) return [];
-    const auto = autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" })));
+    const auto = autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" })), { everyone: true });
     if (!fromDraft?.blocks.length) return auto;
     const out: Box[] = [];
     signers.forEach((_, i) => {
@@ -296,12 +329,12 @@ export default function Wizard() {
                 void pick(e.dataTransfer.files[0]);
               }}
             >
-              <input ref={input} type="file" accept="application/pdf,.pdf" hidden onChange={(e) => void pick(e.target.files?.[0])} />
+              <input ref={input} type="file" accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" hidden onChange={(e) => void pick(e.target.files?.[0])} />
               <div className="ic">
                 <Ic n="up" s={26} w={1.8} />
               </div>
-              <b>{file ? "Drop a different PDF here" : "Drop your PDF here"}</b>
-              <p>PDF · up to 10 MB</p>
+              <b>{converting ? "Turning your Word file into a PDF…" : file ? "Drop a different file here" : "Drop your document here"}</b>
+              <p>PDF or Word (.docx) · up to 10 MB</p>
               <span className="fds-btn ink">Choose a file</span>
             </label>
             <div className="fds-or">or</div>
@@ -334,6 +367,12 @@ export default function Wizard() {
               </div>
             )}
             {fileErr && <div className="fds-err">{fileErr}</div>}
+            {converted && file && (
+              <div className="fds-err" style={{ background: "var(--fds-blue-soft)", color: "var(--fds-blue-tx)" }}>
+                Converted from Word ({converted.name}). Please check it in step 3: the text, headings, bold and lists are kept, but not the exact fonts and spacing.
+                {converted.warnings.length ? ` ${converted.warnings.join(" ")}` : ""} For an exact copy, save it as PDF in Word and upload the PDF instead.
+              </div>
+            )}
             {fromDraft && file && (
               <div className={`fds-err`} style={fromDraft.blanks ? undefined : { background: "var(--fds-green-soft)", color: "var(--fds-green-tx)" }}>
                 {fromDraft.blanks

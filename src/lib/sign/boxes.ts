@@ -72,11 +72,13 @@ export const clamp = (b: Box): Box => {
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 
 /** The label printed under a signer's line ("Director", "Option Holder", their name). */
-function findLabel(info: PdfInfo, signer: { name: string; role: string }, first: boolean, taken: Set<PdfText>): PdfText | null {
+function findLabel(info: PdfInfo, signer: { name: string; role: string }, first: boolean, taken: Set<PdfText>, preferName = false): PdfText | null {
   const role = norm(signer.role);
   const name = norm(signer.name);
   const tries: Array<(t: string) => boolean> = [];
   if (role) tries.push((t) => t === role, (t) => t.startsWith(role) && t.length < role.length + 25);
+  /* FD Sign for everyone: the person's own name beats the generic "Director" / "Signed by" lines */
+  if (preferName && name.length > 3) tries.push((t) => t.includes(name) && t.length < name.length + 30);
   if (first) tries.push((t) => /^(director|for and on behalf|authori[sz]ed signatory|signed by)/.test(t));
   if (name.length > 3) tries.push((t) => t.includes(name) && t.length < name.length + 30);
   if (!first) tries.push((t) => /^(option holder|holder|employee|grantee|recipient)\b/.test(t));
@@ -93,15 +95,32 @@ function findLabel(info: PdfInfo, signer: { name: string; role: string }, first:
  * that names them ("Director", "Option Holder"). Anyone without a label gets a
  * box in the bottom-right of the last page, stacked upwards.
  */
-export function autoPlace(info: PdfInfo, signers: Array<{ name: string; role: string }>): Box[] {
+export function autoPlace(info: PdfInfo, signers: Array<{ name: string; role: string }>, opts: { everyone?: boolean } = {}): Box[] {
   const out: Box[] = [];
   const taken = new Set<PdfText>();
   const last = info.pages.length;
   let spare = 0;
   signers.forEach((s, i) => {
     const position = i + 1;
-    const label = findLabel(info, s, i === 0, taken);
-    if (label) {
+    const label = findLabel(info, s, i === 0, taken, opts.everyone);
+    /* FD Sign for everyone: a "_______" line under the label (within a few lines, same column) is where they sign */
+    const rule =
+      label && opts.everyone
+        ? info.texts
+            .filter((t) => t.page === label.page && /^_{5,}$/.test(t.str) && t.y > label.y && t.y - label.y < 0.12 && Math.abs(t.x - label.x) < 0.12 && !taken.has(t))
+            .sort((a, b) => a.y - b.y)[0]
+        : undefined;
+    if (rule) {
+      taken.add(rule);
+      if (label) taken.add(label);
+      const pg = info.pages[rule.page - 1];
+      const size = sized("signature", pg);
+      const bottom = rule.y + rule.h * 0.75;
+      const above = info.texts.filter((t) => t.page === rule.page && t !== rule && t.y + t.h <= bottom && t.x < rule.x + size.w && t.x + t.w > rule.x);
+      const ceiling = above.length ? Math.max(...above.map((t) => t.y + t.h)) + 2 / pg.h : 0;
+      const h = Math.max(Math.min(size.h, bottom - ceiling), 20 / pg.h);
+      out.push(clamp({ id: boxId(), position, kind: "signature", page: rule.page, x: rule.x, y: bottom - h, w: Math.max(size.w * 0.8, rule.w), h }));
+    } else if (label) {
       taken.add(label);
       const pg = info.pages[label.page - 1];
       const size = sized("signature", pg);

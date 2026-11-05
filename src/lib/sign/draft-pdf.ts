@@ -51,7 +51,12 @@ type Run = { t: string; bold: boolean };
 
 export async function draftPdf(input: { title: string; text: string; fonts: { regular: Uint8Array; bold: Uint8Array } | null }): Promise<DraftPdf> {
   const { body } = splitNotes(input.text ?? "");
-  const blocks = parseDraft(body);
+  return blocksPdf({ title: input.title, blocks: parseDraft(body), fonts: input.fonts });
+}
+
+/** Blocks (an FD AI draft's, or a Word file's: lib/sign/word.ts) typeset as the PDF to sign. */
+export async function blocksPdf(input: { title: string; blocks: Block[]; fonts: { regular: Uint8Array; bold: Uint8Array } | null }): Promise<DraftPdf> {
+  const blocks = input.blocks;
   const doc = await PDFDocument.create();
   doc.setTitle(input.title || "Document");
   doc.setProducer("FD Sign by Founders Doc");
@@ -122,6 +127,32 @@ export async function draftPdf(input: { title: string; text: string; fonts: { re
     }
     return lines.filter((l, i) => l.length || i === 0);
   };
+  /** A line drawn as few pieces as possible (same font = one piece), so the PDF's text reads
+   *  "Signed by Daniel Tan" and the Fields step can find a person by name. */
+  const drawWords = (ln: ReturnType<typeof lay>[number], x: number, baseline: number, size: number) => {
+    const space = reg.widthOfTextAtSize(" ", size);
+    let cx = x;
+    let i = 0;
+    while (i < ln.length) {
+      const f = ln[i].f;
+      if (ln[i].gap) cx += space;
+      let t = ln[i].t;
+      let w = ln[i].w;
+      i++;
+      /* the following words in the same font join this piece (with their space, if any) */
+      while (i < ln.length && ln[i].f === f) {
+        if (ln[i].gap) {
+          t += " ";
+          w += space;
+        }
+        t += ln[i].t;
+        w += ln[i].w;
+        i++;
+      }
+      page.drawText(t, { x: cx, y: baseline, size, font: f, color: INK });
+      cx += w;
+    }
+  };
   /** Draw a paragraph at x with a width; moves y down. */
   const para = (runs: Run[], x: number, width: number, o: { size?: number; center?: boolean; justify?: boolean; after?: number } = {}) => {
     const size = o.size ?? SIZE;
@@ -135,11 +166,13 @@ export async function draftPdf(input: { title: string; text: string; fonts: { re
       const last = i === lines.length - 1;
       const sp = o.justify && !last && gaps > 0 ? (width - words) / gaps : space;
       let cx = o.center ? x + (width - (words + space * gaps)) / 2 : x;
-      for (const w of ln) {
-        if (w.gap) cx += sp;
-        page.drawText(w.t, { x: cx, y: y - size, size, font: w.f, color: INK });
-        cx += w.w;
-      }
+      if (sp === space) drawWords(ln, cx, y - size, size);
+      else
+        for (const w of ln) {
+          if (w.gap) cx += sp;
+          page.drawText(w.t, { x: cx, y: y - size, size, font: w.f, color: INK });
+          cx += w.w;
+        }
       y -= lead;
     });
     y -= o.after ?? 6;
@@ -199,6 +232,25 @@ export async function draftPdf(input: { title: string; text: string; fonts: { re
         break;
       case "sign-row": {
         const cols = b.cols ?? [];
+        /* a Word table row (lib/sign/word.ts): its cells side by side, as text, no rule or boxes */
+        if (b.num === "table") {
+          const n = Math.max(cols.length, 1);
+          const gap = 18;
+          const cwT = (CW - gap * (n - 1)) / n;
+          const laid = cols.map((lines) => lines.flatMap((l) => lay(runsOf(l), cwT, SIZE)));
+          const rowsT = Math.max(...laid.map((l) => l.length), 1);
+          need(rowsT * LEAD + 6);
+          laid.forEach((lines, ci) => {
+            const x = ML + ci * (cwT + gap);
+            let ly = y;
+            for (const ln of lines) {
+              drawWords(ln, x, ly - SIZE, SIZE);
+              ly -= LEAD;
+            }
+          });
+          y -= rowsT * LEAD + 8;
+          break;
+        }
         const gap = 28;
         const cw = (CW - gap) / 2;
         const rows = Math.max(...cols.map((c) => c.length), 1);
@@ -234,12 +286,7 @@ export async function draftPdf(input: { title: string; text: string; fonts: { re
             }
             const runs = runsOf(line);
             for (const ln of lay(runs, cw, SIZE)) {
-              let cx = x;
-              for (const w of ln) {
-                if (w.gap) cx += reg.widthOfTextAtSize(" ", SIZE);
-                page.drawText(w.t, { x: cx, y: ly - SIZE, size: SIZE, font: w.f, color: INK });
-                cx += w.w;
-              }
+              drawWords(ln, x, ly - SIZE, SIZE);
               ly -= LEAD;
             }
           }
