@@ -60,6 +60,9 @@ const PUBLIC_PATHS = [
   // routes under /api/sign check for a Founders Doc admin themselves.
   "/sign",
   "/api/sign",
+  // ESOP approval from the email (117): the client's director has no account;
+  // the private one-time link is the key, checked against its hash.
+  "/approve",
   // The public price list (app/pricing). /billing stays the account's page.
   "/pricing",
   // The published blog posts, for the cards on the public blog page (055).

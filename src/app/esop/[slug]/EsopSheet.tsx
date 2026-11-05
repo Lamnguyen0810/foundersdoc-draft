@@ -61,6 +61,8 @@ interface Props {
   simulation?: string | null;
   /** "Reset simulation" (116): only for Rachel + Lam while simulation is on; refs = approvals made in simulation */
   reset?: { to: string; refs: string[] } | null;
+  /** "📧 Email for approval" (117): Founders Doc admins (and Rachel / Lam) */
+  emailApproval?: boolean;
   focusRef: string | null;
 }
 
@@ -118,6 +120,7 @@ export default function EsopSheet(props: Props) {
   const [runs, setRuns] = useState<EsopRun[]>(props.runs);
   const [approving, setApproving] = useState("");
   const [resetting, setResetting] = useState("");
+  const [emailing, setEmailing] = useState("");
   const [resettable, setResettable] = useState<string[]>(props.reset?.refs ?? []);
   const [q, setQ] = useState("");
   const [toast, setToast] = useState("");
@@ -300,6 +303,40 @@ export default function EsopSheet(props: Props) {
     }
   }
 
+  /* ── approve from the email (117) ───────────────────────────────────── */
+
+  async function emailForApproval(ref: string, certificates: number) {
+    const to = props.simulation ?? "the client's contact (Aditya)";
+    if (!window.confirm(`Email ${to} to approve ${ref}?\n\nThe email lists who gets a certificate (${certificates}), their options and the leavers, with one "Approve issuance of Option Certificates" button. No login needed. The link works once.`)) return;
+    if (!client) return say(`Approval email for ${ref} sent${local}`);
+    setEmailing(ref);
+    try {
+      const res = await fetch("/api/esop/approval-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company: company.slug, ref }) });
+      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; sent?: boolean; to?: string; link?: string; error?: string };
+      if (!out.ok) return say(out.error ?? "Could not send.");
+      if (out.sent) return say(`Approval email for ${ref} sent to ${out.to}`);
+      if (out.link) {
+        await navigator.clipboard?.writeText(out.link).catch(() => undefined);
+        return say("Emails are off, so the approval link was copied instead");
+      }
+      say("Could not send the email.");
+    } finally {
+      setEmailing("");
+    }
+  }
+
+  function emailLink(ref: string, certificates: number) {
+    if (!props.emailApproval) return null;
+    return (
+      <>
+        {" "}
+        <button type="button" className="e-reset e-mail" disabled={emailing === ref} onClick={() => void emailForApproval(ref, certificates)} title="Email the client's contact to approve from the email, no login">
+          {emailing === ref ? "Sending…" : "📧 Email for approval"}
+        </button>
+      </>
+    );
+  }
+
   /** the small "↺ Reset" link next to an approval made in simulation (Rachel + Lam only) */
   function resetLink(ref: string) {
     if (!props.reset || !(resettable.includes(ref) || !client)) return null;
@@ -344,11 +381,20 @@ export default function EsopSheet(props: Props) {
     const early = daysLeft > 14 && !!props.simulation && daysLeft <= 120;
     if ((daysLeft > 14 && !early) || daysLeft < -60) return <span style={{ color: "#9a9a9a" }}>–</span>;
     if (certificates === 0) return <span style={{ color: "#9a9a9a" }}>No certificates</span>;
-    if (!props.canApprove) return <span style={{ color: "#9a9a9a" }}>Waiting for approval</span>;
+    if (!props.canApprove)
+      return (
+        <span>
+          <span style={{ color: "#9a9a9a" }}>Waiting for approval</span>
+          {emailLink(ref, certificates)}
+        </span>
+      );
     return (
-      <button className="e-btn g sm" disabled={approving === ref} onClick={() => approve(ref, certificates, leavers, false)}>
-        {approving === ref ? "Approving…" : early ? "Approve (simulation)" : "Approve"}
-      </button>
+      <span>
+        <button className="e-btn g sm" disabled={approving === ref} onClick={() => approve(ref, certificates, leavers, false)}>
+          {approving === ref ? "Approving…" : early ? "Approve (simulation)" : "Approve"}
+        </button>
+        {emailLink(ref, certificates)}
+      </span>
     );
   }
 
