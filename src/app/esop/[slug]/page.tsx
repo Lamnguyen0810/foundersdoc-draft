@@ -111,16 +111,17 @@ export default async function EsopPage({
   const sim = admin ? await supabase.from("esop_companies").select("email_override").eq("id", company.id).maybeSingle() : null;
   const simulation = ((sim?.data as { email_override?: string | null } | null)?.email_override ?? null) || null;
   const runs = runRows.filter((r) => r.ref) as EsopRun[];
-  /* "Reset simulation" (116): Rachel + Lam only, only while simulation is on, only approvals made in simulation */
-  let reset: { to: string; refs: string[] } | null = null;
+  /* "Reset simulation" (116, 118): Rachel + Lam only, only on approvals made in simulation; also after
+     simulation is switched off, so a rehearsal can never block the real vesting */
+  let reset: { to: string | null; refs: string[] } | null = null;
   if (canResetSimulation(user.email) && isAdminClientConfigured()) {
     const db = supabaseAdmin();
     const c = (await db.from("esop_companies").select("email_override").eq("id", company.id).maybeSingle()).data as { email_override: string | null } | null;
-    if (c?.email_override) {
-      const r = await db.from("esop_tranche_runs").select("ref").eq("company_id", company.id).eq("simulation", true);
-      /* before 116 is run the column is missing: show the button anyway, the API then says to run 116 */
-      reset = { to: c.email_override, refs: r.error ? runs.map((x) => x.ref) : ((r.data ?? []) as Array<{ ref: string }>).map((x) => x.ref) };
-    }
+    const r = await db.from("esop_tranche_runs").select("ref").eq("company_id", company.id).eq("simulation", true);
+    const to = c?.email_override?.trim() || null;
+    /* before 116 is run the column is missing: in simulation show the button anyway, the API then says to run 116 */
+    const refs = r.error ? (to ? runs.map((x) => x.ref) : []) : ((r.data ?? []) as Array<{ ref: string }>).map((x) => x.ref);
+    if (to || refs.length) reset = { to, refs };
   }
 
   return (

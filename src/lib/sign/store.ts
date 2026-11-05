@@ -211,15 +211,18 @@ function supabaseStore(): SignStore {
       return (row as { id: string }).id;
     },
     async esopHolders() {
-      const c = must(await db.from("esop_companies").select("id").eq("slug", "hitpay").maybeSingle()) as { id: string } | null;
+      const c = must(await db.from("esop_companies").select("id, email_override").eq("slug", "hitpay").maybeSingle()) as { id: string; email_override: string | null } | null;
       if (!c) return [];
-      return (must(await db.from("esop_holders").select("id, name, email, batch, status").eq("company_id", c.id).order("batch").order("name")) ?? []) as Array<{
+      const rows = (must(await db.from("esop_holders").select("id, name, email, batch, status").eq("company_id", c.id).order("batch").order("name")) ?? []) as Array<{
         id: string;
         name: string;
         email: string | null;
         batch: number;
         status: string;
       }>;
+      /* simulation: never hand a real holder's address to the send form */
+      const sim = c.email_override?.trim() || null;
+      return sim ? rows.map((r) => ({ ...r, email: sim })) : rows;
     },
     async insertFields(envelopeId, fields) {
       if (!fields.length) return;

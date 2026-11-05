@@ -5,6 +5,7 @@ import type { SignField } from "@/lib/sign/store";
 import { adminEmail, who } from "@/lib/sign/http";
 import { isHookConfigured } from "@/lib/sign/notify";
 import { codeRequired } from "@/lib/sign/code";
+import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
  * POST /api/sign/envelopes — Founders Doc admins send documents for signing.
@@ -98,6 +99,21 @@ export async function POST(req: NextRequest) {
       fields: parseFields(d.fields, signers.length),
       cc: [...new Set(cc)],
     });
+  }
+
+  /* simulation (email_override on the holder's company): every signer goes to the FD address,
+     whatever the form says, so a real holder can never get a signing link from a rehearsal */
+  const holderIds = [...new Set(docs.map((d) => d.esopHolderId).filter((x): x is string => !!x))];
+  if (holderIds.length && store.kind !== "memory" && isAdminClientConfigured()) {
+    const db = supabaseAdmin();
+    const hs = ((await db.from("esop_holders").select("id, company_id").in("id", holderIds)).data ?? []) as Array<{ id: string; company_id: string }>;
+    const cs = hs.length ? (((await db.from("esop_companies").select("id, email_override").in("id", [...new Set(hs.map((h) => h.company_id))])).data ?? []) as Array<{ id: string; email_override: string | null }>) : [];
+    const sim = cs.map((c) => c.email_override?.trim()).find(Boolean);
+    if (sim) for (const d of docs) {
+      d.signers = d.signers.map((s) => ({ ...s, email: sim }));
+      /* copies: Founders Doc addresses stay (e.g. Rachel's), anyone else goes to the simulation address */
+      if (d.cc?.length) d.cc = [...new Set(d.cc.map((e) => (/@foundersdoc\.com$/i.test(e) ? e : sim)))];
+    }
   }
 
   if (docs.some((d) => d.fields.length) && !(await store.boxesReady()))

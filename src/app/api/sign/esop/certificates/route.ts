@@ -44,6 +44,9 @@ export async function POST(req: NextRequest) {
     };
     /* nationality is optional: empty = "[to be confirmed]", or left out altogether */
     const typedNationality = v.nationality;
+    /* a signed certificate can't be "filled in later": outside a simulation, ask for it or leave it out */
+    if (!omitNationality && !typedNationality && !prep.simulation)
+      return NextResponse.json({ error: `${h.name}: type the nationality, or choose "Leave it out" for nationality.` }, { status: 400 });
     v.nationality = omitNationality ? "" : typedNationality || TBC;
     const missing = [!v.legalName && "name", !v.idNo && "ID number", !isoFromLong(v.grantDate) && "grant date (e.g. 24 October 2023)", !(v.options > 0) && "options"].filter(Boolean);
     if (missing.length) return NextResponse.json({ error: `${h.name}: fill in ${missing.join(", ")}.` }, { status: 400 });
