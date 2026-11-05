@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { signStore } from "@/lib/sign/store";
 import { signedPdf, tokenCanSee } from "@/lib/sign/service";
 import { adminEmail } from "@/lib/sign/http";
+import { signAccount } from "@/lib/sign/account";
+import type { SignStore } from "@/lib/sign/store";
 
 /**
  * GET /api/sign/file?e=<envelope id>&t=<token>[&signed=1][&doc=1][&download=1]
@@ -18,7 +20,8 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams;
   const envelopeId = q.get("e") ?? "";
   const token = q.get("t") ?? "";
-  const allowed = token ? await tokenCanSee(store, token, envelopeId) : Boolean(await adminEmail());
+  /* a signer (their link), a Founders Doc admin, or the account that sent it (FD Sign for everyone, SQL 119) */
+  const allowed = token ? await tokenCanSee(store, token, envelopeId) : Boolean(await adminEmail()) || (await isOwner(store, envelopeId));
   if (!allowed) return NextResponse.json({ error: "Not found." }, { status: 404 });
   const env = await store.envelope(envelopeId);
   if (!env) return NextResponse.json({ error: "Not found." }, { status: 404 });
@@ -35,4 +38,10 @@ export async function GET(req: NextRequest) {
       "X-Robots-Tag": "noindex",
     },
   });
+}
+
+async function isOwner(store: SignStore, envelopeId: string): Promise<boolean> {
+  if (!/^[0-9a-f-]{36}$/i.test(envelopeId)) return false;
+  const [me, o] = await Promise.all([signAccount().catch(() => null), store.ownerOf(envelopeId).catch(() => null)]);
+  return Boolean(me && o && o.owner_id === me.id);
 }

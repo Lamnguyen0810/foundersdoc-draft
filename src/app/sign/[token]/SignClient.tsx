@@ -206,7 +206,7 @@ export default function SignClient({
     <main className="fdsign">
       <header className="fs-head">
         <span className="fs-pill">FD SIGN</span>
-        <span className="fs-by">Founders Doc</span>
+        <span className="fs-by">{view.sender ? `from ${view.sender}` : "Founders Doc"}</span>
         <span className="fs-me">
           {view.signerName} · {view.signerRole}
         </span>
@@ -307,7 +307,7 @@ export default function SignClient({
         <aside className="fs-side">
           {view.message && (
             <div className="fs-note">
-              <b>Message from Founders Doc</b>
+              <b>Message from {view.sender ?? "Founders Doc"}</b>
               <p>{view.message}</p>
             </div>
           )}
@@ -414,13 +414,13 @@ export default function SignClient({
           {view.state === "expired" && (
             <div className="fs-card">
               <h2>This link has expired</h2>
-              <p className="fs-small">Signing links work for 30 days. Reply to the email from Founders Doc and we&rsquo;ll send you a new one.</p>
+              <p className="fs-small">{view.sender ? `Signing links work for 30 days. Reply to the email to ask ${view.sender} for a new one.` : <>Signing links work for 30 days. Reply to the email from Founders Doc and we&rsquo;ll send you a new one.</>}</p>
             </div>
           )}
           {view.state === "voided" && (
             <div className="fs-card">
               <h2>This request was cancelled</h2>
-              <p className="fs-small">Founders Doc cancelled this signing request. Nothing more is needed from you.</p>
+              <p className="fs-small">{view.sender ?? "Founders Doc"} cancelled this signing request. Nothing more is needed from you.</p>
             </div>
           )}
           <p className="fs-legal">Electronic signatures are recognised in Singapore under the Electronic Transactions Act 2010.</p>

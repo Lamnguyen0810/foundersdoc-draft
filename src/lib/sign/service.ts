@@ -59,8 +59,15 @@ export interface SentLink {
 
 const linkFor = (origin: string, token: string) => `${origin}/sign/${token}`;
 
-/** Give these signer rows a fresh token and mark them invited. */
-async function invite(store: SignStore, rows: Signer[], titles: string[], origin: string, message: string | null, who: Who, reason: "invited" | "link"): Promise<SentLink> {
+/** Who to name as the sender in emails and on the signing page: the account holder for own requests (SQL 119), else Founders Doc. */
+export async function senderOf(store: SignStore, envelopeId: string): Promise<{ name: string; email: string | null } | null> {
+  const o = await store.ownerOf(envelopeId).catch(() => null);
+  if (!o) return null;
+  return { name: (o.owner_name || o.owner_email || "Someone").slice(0, 160), email: o.owner_email };
+}
+
+/** Give these signer rows a fresh token and mark them invited ("reminded" = the same, emailed again, same 30 days). */
+async function invite(store: SignStore, rows: Signer[], titles: string[], origin: string, message: string | null, who: Who, reason: "invited" | "link" | "reminded"): Promise<SentLink> {
   const token = newToken();
   const hash = hashToken(token);
   const at = new Date().toISOString();
@@ -71,13 +78,24 @@ async function invite(store: SignStore, rows: Signer[], titles: string[], origin
   }
   const first = rows[0];
   const link = linkFor(origin, token);
-  const emailed = reason === "invited" ? await notify({ kind: "invite", to: first.email, name: first.name, role: first.role, link, documents: titles, message }) : false;
+  const sender = await senderOf(store, first.envelope_id);
+  const emailed =
+    reason !== "link" ? await notify({ kind: "invite", to: first.email, name: first.name, role: first.role, link, documents: titles, message, ...(sender ? { sender } : {}), ...(reason === "reminded" ? { reminder: true } : {}) }) : false;
   return { name: first.name, email: first.email, role: first.role, documents: titles, link, emailed };
 }
 
 export async function createSend(
   store: SignStore,
-  input: { docs: DocInput[]; batch: boolean; message: string | null; createdBy: string; origin: string; who: Who },
+  input: {
+    docs: DocInput[];
+    batch: boolean;
+    message: string | null;
+    createdBy: string;
+    origin: string;
+    who: Who;
+    /** FD Sign for everyone: the account sending it (never set for Founders Doc / ESOP sends) */
+    owner?: { id: string; email: string; name: string; folderId: string | null };
+  },
 ): Promise<{ envelopeIds: string[]; links: SentLink[] }> {
   const batchId = input.batch && input.docs.length > 1 ? crypto.randomUUID() : null;
   const firsts: Array<{ row: Signer; title: string }> = [];
@@ -95,6 +113,7 @@ export async function createSend(
       esop_holder_id: d.esopHolderId,
       esop_tranche: d.esopTranche,
       created_by: input.createdBy,
+      ...(input.owner ? { owner_id: input.owner.id, owner_email: input.owner.email, owner_name: input.owner.name, folder_id: input.owner.folderId } : {}),
     });
     envelopeIds.push(id);
     await store.addEvent({ envelope_id: id, signer_id: null, event: "created", ip: input.who.ip, user_agent: input.who.ua, detail: input.createdBy });
@@ -148,6 +167,8 @@ export interface SignView {
   }>;
   message: string | null;
   waitingFor: string | null;
+  /** Who sent it: the account holder's name for own requests, null = Founders Doc */
+  sender: string | null;
 }
 
 /** What a signing link shows. Null when the link is unknown. */
@@ -179,6 +200,7 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
     }
   }
   const first = mine[0];
+  const sender = docs.length ? (await senderOf(store, docs[0].envelopeId))?.name ?? null : null;
   const voided = docs.every((d) => d.status === "voided");
   /* in a batch, a cancelled document drops out of the list (unless all are cancelled) */
   const gone = new Set(docs.filter((d) => d.status === "voided").map((d) => d.envelopeId));
@@ -193,6 +215,7 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
     documents: docs,
     message,
     waitingFor,
+    sender,
   };
 }
 
@@ -218,9 +241,10 @@ export async function submitSignature(
   /* a cancelled document in a batch is skipped; the rest can still be signed */
   const live: Signer[] = [];
   for (const m of open) if ((await store.envelope(m.envelope_id))?.status === "sent") live.push(m);
-  if (!live.length) throw new SignError("This request was cancelled by Founders Doc.", 409);
+  const by = (await senderOf(store, open[0].envelope_id))?.name ?? "Founders Doc";
+  if (!live.length) throw new SignError(`This request was cancelled by ${by}.`, 409);
   open = live;
-  if (open.some(isExpired)) throw new SignError("This link has expired. Please reply to the email and Founders Doc will send you a new one.", 410);
+  if (open.some(isExpired)) throw new SignError(`This link has expired. Please reply to the email and ${by} can send you a new one.`, 410);
   for (const me of open) {
     const env = await store.envelope(me.envelope_id);
     if (!env || env.status !== "sent") throw new SignError("This document is no longer open for signing.", 409);
@@ -293,13 +317,18 @@ async function complete(store: SignStore, envelopeId: string, origin: string, wh
      just signed keeps theirs (they are looking at it), the others get a fresh
      one (only the hash of the old one was kept). */
   const all = await store.signers(envelopeId);
+  const sender = await senderOf(store, envelopeId);
   for (const s of all) {
     let token = current.token;
     if (!current.ids.has(s.id)) {
       token = newToken();
       await store.updateSigner(s.id, { token_hash: hashToken(token) });
     }
-    await notify({ kind: "completed", to: s.email, name: s.name, role: s.role, link: linkFor(origin, token), documents: [env.title], message: null });
+    await notify({ kind: "completed", to: s.email, name: s.name, role: s.role, link: linkFor(origin, token), documents: [env.title], message: null, ...(sender ? { sender } : {}) });
+  }
+  /* own request: the sender gets it too when they were not a signer (their copy is in My documents) */
+  if (sender?.email && !all.some((s) => s.email.toLowerCase() === sender.email!.toLowerCase())) {
+    await notify({ kind: "completed", to: sender.email, name: sender.name, role: "Sender", link: `${origin}/fd-sign/d/${envelopeId}`, documents: [env.title], message: null, sender });
   }
   /* CC: a private link that downloads the signed copy (certificate only) */
   for (const v of await store.viewers(envelopeId)) {
@@ -314,6 +343,7 @@ async function complete(store: SignStore, envelopeId: string, origin: string, wh
       link: `${origin}/api/sign/file?e=${envelopeId}&t=${token}&signed=1&doc=1&download=1`,
       documents: [env.title],
       message: null,
+      ...(sender ? { sender } : {}),
     });
     await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "copy_sent", ip: null, user_agent: null, detail: v.email });
   }
@@ -372,4 +402,43 @@ export async function reissueLink(store: SignStore, signerId: string, origin: st
   const titles: string[] = [];
   for (const r of rows) titles.push((await store.envelope(r.envelope_id))?.title ?? "Document");
   return invite(store, rows, titles, origin, null, who, "link");
+}
+
+/* ── FD Sign for everyone (SQL 119): the sender's own actions ─────────────────── */
+
+/** Email the person whose turn it is again (a fresh link; their old one stops working). At most once an hour. */
+export async function remind(store: SignStore, ownerId: string, envelopeId: string, origin: string, who: Who): Promise<SentLink> {
+  const o = await store.ownerOf(envelopeId);
+  const env = o?.owner_id === ownerId ? await store.envelope(envelopeId) : null;
+  if (!env) throw new SignError("Not found.", 404);
+  if (env.status !== "sent") throw new SignError("Only a request that is still open can be reminded.", 409);
+  const last = (await store.events(envelopeId)).filter((e) => e.event === "reminded").pop();
+  if (last && Date.now() - Date.parse(last.at) < 3_600_000) throw new SignError("A reminder went out less than an hour ago.", 429);
+  const now = (await store.signers(envelopeId)).find((s) => s.status === "invited");
+  if (!now) throw new SignError("Nobody is waiting to sign.", 409);
+  if (isExpired(now)) throw new SignError("This request has expired. Cancel it and send it again.", 410);
+  return invite(store, [now], [env.title], origin, env.message, who, "reminded");
+}
+
+/**
+ * "Sign now" in My documents, for a signed-in person whose turn it is.
+ *   - my own request (I uploaded it): straight to a fresh signing page (the email code is still asked);
+ *   - someone else's request: a fresh signing link is emailed to me, so seeing the document
+ *     still needs that inbox (an account alone never proves who owns an email address).
+ */
+export async function openForMe(store: SignStore, account: { id: string; email: string }, signerId: string, origin: string, who: Who): Promise<{ url: string } | { emailed: string }> {
+  const mine = (await store.waitingFor(account.email)).find((w) => w.signer_id === signerId);
+  if (!mine) throw new SignError("Not found.", 404);
+  const all = await store.signers(mine.envelope_id);
+  const me = all.find((s) => s.id === signerId);
+  if (!me || me.status !== "invited") throw new SignError("Nothing to sign.", 409);
+  if (all.some((s) => s.position < me.position && s.status !== "signed")) throw new SignError("It isn't your turn yet.", 409);
+  if (isExpired(me)) throw new SignError("This request has expired. Ask the sender to send it again.", 410);
+  const owner = await store.ownerOf(mine.envelope_id);
+  if (owner?.owner_id === account.id) return { url: (await invite(store, [me], [mine.title], origin, null, who, "link")).link };
+  const last = (await store.events(mine.envelope_id)).filter((e) => e.event === "reminded" && e.signer_id === me.id).pop();
+  if (last && Date.now() - Date.parse(last.at) < 600_000) throw new SignError(`We emailed you a signing link a few minutes ago. Please check ${me.email}.`, 429);
+  const env = await store.envelope(mine.envelope_id);
+  await invite(store, [me], [mine.title], origin, env?.message ?? null, who, "reminded");
+  return { emailed: me.email };
 }

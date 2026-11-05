@@ -55,6 +55,7 @@ const EVENT_TEXT: Record<string, string> = {
   completed: "All parties signed - completed",
   filed: "Signed copy filed on the ESOP dashboard",
   link: "New signing link issued",
+  reminded: "Reminder sent",
   code_sent: "Email code sent",
   code_verified: "Email code confirmed",
   code_locked: "Code locked after 5 wrong tries",
