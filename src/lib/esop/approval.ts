@@ -24,6 +24,7 @@ export interface ApprovalItem {
   approved_by?: string | null;
   approved_at?: string | null;
   company?: string;
+  slug?: string;
   company_legal_name?: string;
   share_class?: string;
   simulation?: boolean;
@@ -57,66 +58,132 @@ export function approvalSummary(it: ApprovalItem) {
   return { certificates, options, button, vest: longDate(it.vest_date), names: namesText(it.holders.map((h) => h.name)) };
 }
 
-/** The approval email: everything Aditya needs to decide, then one button. */
+const ASSETS = "https://foundersdoc.com/email/hitpay-esop";
+const FONT = "Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const HEAD = "Geist,Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+
+/**
+ * The approval email, in the house style of the HitPay vesting email (same
+ * header, hero, step circles, sign-off and notice): everything Aditya needs
+ * to decide, then one button.
+ */
 export function approvalEmail(it: ApprovalItem, link: string) {
   const s = approvalSummary(it);
   const company = plainCompany(it);
   const first = (it.to_name ?? "").trim().split(/\s+/)[0] || "there";
   const sim = it.simulation ? "[SIMULATION] " : "";
   const subject = `${sim}Please approve: issuance of Option Certificates for ${s.names} (vesting ${it.vest_date_text})`;
-  const rows = it.holders
-    .map(
-      (h) =>
-        `<tr><td style="padding:7px 0;font-size:15px;line-height:22px;color:#161616;">&#9989;&nbsp; <b>${esc(h.name)}</b></td><td align="right" style="padding:7px 0;font-size:15px;line-height:22px;color:#161616;white-space:nowrap;">${esc(fmt(optionsOf(h)))} options</td></tr>`,
-    )
-    .join("");
-  const leavers = it.leavers
-    .map(
-      (l) =>
-        `<tr><td colspan="2" style="padding:7px 0;font-size:14px;line-height:21px;color:#8a8a86;">&#10134;&nbsp; ${esc(l.name)} has left (${esc(l.leaver_type)} leaver), so no certificate this time</td></tr>`,
-    )
-    .join("");
-  const simNote = it.simulation
-    ? `<tr><td style="padding:16px 32px 0 32px;font-family:Arial,Helvetica,sans-serif;"><p style="margin:0;padding:10px 12px;background-color:#fff8e6;border:1px solid #f0dfb0;font-size:13px;line-height:19px;color:#5c4a14;">&#129514; <b>Simulation</b>: this is a practice run. Every email goes to Founders Doc, not to the client or holders.</p></td></tr>`
-    : "";
+  const hitpay = (it.slug ?? "").toLowerCase() === "hitpay" || /hitpay/i.test(company);
   const url = esc(link);
-  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Please approve</title></head>
+  const td = (css: string, inner: string) => `<td style="font-family:${FONT};${css}">${inner}</td>`;
+
+  const logos = `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td valign="middle"><img src="${ASSETS}/fd-logo.png" width="150" height="28" alt="Founders Doc" style="display:block;width:150px;height:28px;"></td>${
+    hitpay
+      ? `<td valign="middle" style="padding:0 16px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="1" height="24" bgcolor="#dcdcd8" style="width:1px;height:24px;background-color:#dcdcd8;font-size:1px;line-height:1px;">&nbsp;</td></tr></table></td>
+<td valign="middle"><img src="${ASSETS}/hitpay-logo.png" width="98" height="24" alt="HitPay" style="display:block;width:98px;height:24px;"></td>`
+      : ""
+  }</tr></table>`;
+
+  const simNote = it.simulation
+    ? `<tr><td class="px" style="padding:0 32px 18px 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${td(
+        "padding:10px 14px;background-color:#fff8e6;border:1px solid #f0dfb0;border-radius:8px;font-size:13px;line-height:19px;color:#5c4a14;",
+        "&#129514; <b>Simulation</b> &middot; a practice run. Every email goes to Founders Doc, not to the client or holders.",
+      )}</tr></table></td></tr>`
+    : "";
+
+  /* three figures at a glance */
+  const stat = (big: string, small: string, last = false) =>
+    `<td width="33%" valign="top" style="width:33%;padding:16px 16px 15px 16px;${last ? "" : "border-right:1px solid #ecebe6;"}font-family:${FONT};">
+<p class="big" style="margin:0;font-family:${HEAD};font-size:24px;line-height:28px;font-weight:bold;letter-spacing:-0.6px;color:#161616;white-space:nowrap;">${big}</p>
+<p style="margin:4px 0 0 0;font-size:12px;line-height:16px;color:#8a8a86;">${small}</p></td>`;
+  const stats = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border:1px solid #ecebe6;border-radius:10px;"><tr>
+${stat(String(s.certificates), s.certificates === 1 ? "Certificate" : "Certificates")}${stat(esc(fmt(s.options)), "Options")}${stat(esc(it.share_class ?? "—"), "Share class", true)}</tr></table>`;
+
+  /* who gets one */
+  const row = (left: string, right: string, muted = false, lastRow = false) =>
+    `<tr><td style="padding:12px 0;${lastRow ? "" : "border-bottom:1px solid #ecebe6;"}font-family:${FONT};font-size:15px;line-height:22px;color:${muted ? "#9a9a96" : "#161616"};">${left}</td>
+<td align="right" style="padding:12px 0;${lastRow ? "" : "border-bottom:1px solid #ecebe6;"}font-family:${FONT};font-size:15px;line-height:22px;white-space:nowrap;color:${muted ? "#9a9a96" : "#161616"};">${right}</td></tr>`;
+  const all = [
+    ...it.holders.map((h) => ({ l: `<b style="font-weight:600;">${esc(h.name)}</b>`, r: `${esc(fmt(optionsOf(h)))} options`, m: false })),
+    ...it.leavers.map((l) => ({ l: `${esc(l.name)} <span style="font-size:13px;">&middot; ${esc(l.leaver_type)} leaver</span>`, r: `<span style="font-size:13px;">No certificate</span>`, m: true })),
+  ];
+  const list = all.map((x, i) => row(x.l, x.r, x.m, i === all.length - 1)).join("");
+
+  const step = (n: number, title: string, text: string, top: number) => `<tr><td style="padding:${top}px 32px 0 32px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td width="50" valign="top" style="width:50px;"><img src="${ASSETS}/step-${n}.png" width="34" height="34" alt="${n}" style="display:block;width:34px;height:34px;"></td>
+<td valign="top" style="padding-top:4px;font-family:${FONT};font-size:14.5px;line-height:22px;color:#666666;">
+<p style="margin:0 0 4px 0;font-family:${HEAD};font-size:17px;line-height:24px;font-weight:bold;letter-spacing:-0.3px;color:#161616;">${title}</p>
+<p style="margin:0;font-size:14.5px;line-height:22px;color:#666666;">${text}</p></td></tr></table></td></tr>`;
+
+  const preheader = `${s.certificates} Option Certificate${s.certificates === 1 ? "" : "s"} vesting ${s.vest}: one tap to approve, no login needed.`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only">
+<title>Please approve: Option Certificates</title>
+<style>body{margin:0;padding:0;width:100% !important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;-webkit-font-smoothing:antialiased;}table{border-collapse:collapse;}img{border:0;outline:none;text-decoration:none;display:block;}p{margin:0;}
+@media (max-width:480px){.px{padding-left:20px !important;padding-right:20px !important;}.big{font-size:19px !important;line-height:24px !important;}}</style></head>
 <body style="margin:0;padding:0;background-color:#f6f6f4;">
+<div style="display:none;max-height:0;overflow:hidden;font-size:1px;line-height:1px;color:#f6f6f4;">${esc(preheader)}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f6f6f4" style="width:100%;background-color:#f6f6f4;"><tr><td align="center" style="padding:24px 8px;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:600px;max-width:600px;background-color:#ffffff;border:1px solid #ebebe8;">
-<tr><td style="padding:22px 32px;border-bottom:1px solid #ecebe6;"><img src="https://foundersdoc.com/email/hitpay-esop/fd-logo.png" width="150" height="28" alt="Founders Doc" style="display:block;width:150px;height:28px;border:0;"></td></tr>${simNote}
-<tr><td style="padding:28px 32px 0 32px;font-family:Arial,Helvetica,sans-serif;">
-<p style="margin:0;font-size:12px;font-weight:bold;letter-spacing:2px;color:#a07a00;">FD x ${esc(company.toUpperCase())} &middot; ESOP</p>
-<p style="margin:10px 0 0 0;font-size:23px;line-height:30px;font-weight:bold;color:#161616;">Please approve: Option Certificates vesting ${esc(it.vest_date_text)}</p></td></tr>
-<tr><td style="padding:16px 32px 0 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#444444;">
-<p style="margin:0 0 10px 0;">Hi ${esc(first)},</p>
-<p style="margin:0;">These ${esc(company)} ESOP options vest on <b style="color:#161616;">${esc(s.vest)}</b>. Founders Doc will issue one Option Certificate for each person below.</p></td></tr>
-<tr><td style="padding:14px 32px 0 32px;font-family:Arial,Helvetica,sans-serif;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background-color:#fafaf7;border:1px solid #ecebe6;border-radius:8px;"><tr><td style="padding:8px 16px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;font-family:Arial,Helvetica,sans-serif;">${rows}${leavers}</table></td></tr></table></td></tr>
-<tr><td style="padding:12px 32px 0 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#161616;">
-<p style="margin:0;"><b>${s.certificates} Option Certificate${s.certificates === 1 ? "" : "s"}</b> &middot; ${esc(fmt(s.options))} options in total${it.share_class ? ` &middot; ${esc(it.share_class)} shares` : ""}</p></td></tr>
-<tr><td style="padding:20px 32px 0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" bgcolor="#f2c14e" style="background-color:#f2c14e;border-radius:8px;">
-<a href="${url}" style="display:block;padding:15px 18px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:bold;color:#161616;text-decoration:none;">&#9989; ${esc(s.button)}</a></td></tr></table>
-<p style="margin:8px 0 0 0;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#8a8a86;">One tap, then Confirm. No login needed.</p></td></tr>
-<tr><td style="padding:16px 32px 0 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#444444;">
-<p style="margin:0;">Once approved, we'll send the payment link, and then the certificates for your signature.</p></td></tr>
-<tr><td style="padding:18px 32px 0 32px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#9a9a96;">
-<p style="margin:0;">This button is personal to you; please don't forward this email. It works once and expires 30 days after the vesting date.</p></td></tr>
-<tr><td style="padding:22px 32px 28px 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#666666;">
-<p style="margin:0 0 14px 0;"><b style="color:#161616;">Something not right?</b> Just reply to this email and we'll fix it before anything is issued.</p><p style="margin:0;">Best,</p><p style="margin:0;font-weight:bold;color:#161616;">Founders Doc</p><p style="margin:0;font-size:13px;color:#9a9a96;">ESOP Administration</p></td></tr>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:600px;background-color:#ffffff;border:1px solid #ebebe8;">
+
+<tr><td style="padding:24px 32px;">${logos}</td></tr>
+
+<tr><td style="border-top:1px solid #ecebe6;border-bottom:1px solid #ecebe6;font-size:0;line-height:0;">
+<img src="${ASSETS}/approve-hero.png" width="600" alt="Approval needed. Please approve. Option Certificates are ready to be issued." style="display:block;width:100%;max-width:600px;height:auto;"></td></tr>
+
+<tr><td style="padding:28px 32px 0 32px;"></td></tr>
+${simNote}
+<tr><td class="px" style="padding:0 32px;font-family:${FONT};font-size:15px;line-height:23px;color:#666666;">
+<p style="margin:0 0 14px 0;color:#161616;">Hi ${esc(first)},</p>
+<p style="margin:0;">${esc(company)} ESOP options vest on <b style="color:#161616;">${esc(s.vest)}</b>. Please approve the issuance of the Option Certificates below.</p></td></tr>
+
+<tr><td class="px" style="padding:22px 32px 0 32px;">${stats}</td></tr>
+
+<tr><td class="px" style="padding:24px 32px 0 32px;font-family:${FONT};">
+<p style="margin:0 0 2px 0;font-size:11px;line-height:16px;font-weight:bold;letter-spacing:1.6px;color:#8a8a86;">WHO GETS A CERTIFICATE</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">${list}</table></td></tr>
+
+<tr><td class="px" style="padding:26px 32px 0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td align="center" bgcolor="#f2c14e" style="background-color:#f2c14e;border-radius:10px;">
+<a href="${url}" style="display:block;padding:16px 18px;font-family:${FONT};font-size:16px;line-height:22px;font-weight:bold;color:#161616;text-decoration:none;">${esc(s.button)} &rarr;</a></td></tr></table>
+<p style="margin:10px 0 0 0;text-align:center;font-family:${FONT};font-size:13px;line-height:18px;color:#8a8a86;">&#128274; Opens a confirmation page &middot; No login needed</p></td></tr>
+
+<tr><td class="px" style="padding:30px 32px 0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid #ecebe6;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>
+<p style="margin:20px 0 0 0;font-family:${FONT};font-size:11px;line-height:16px;font-weight:bold;letter-spacing:1.6px;color:#8a8a86;">WHAT HAPPENS NEXT</p></td></tr>
+${step(1, "Approve", "Tap the button above, then Confirm. It takes a few seconds.", 16)}
+${step(2, "Payment", "We'll email you the payment link for the certificates.", 20)}
+${step(3, "Review &amp; sign", "Sign the certificates online through a secure link. No account needed.", 20)}
+
+<tr><td class="px" style="padding:30px 32px 0 32px;font-family:${FONT};font-size:15px;line-height:23px;color:#666666;">
+<p style="margin:0 0 18px 0;"><b style="color:#161616;">Something not right?</b> Just reply to this email and we'll fix it before anything is issued.</p>
+<p style="margin:0;">Best,</p><p style="margin:0;font-weight:bold;color:#161616;">Founders Doc</p></td></tr>
+
+<tr><td class="px" style="padding:26px 32px 0 32px;"><a href="https://foundersdoc.com" style="text-decoration:none;"><img src="${ASSETS}/button.png" width="176" height="42" alt="foundersdoc.com" style="display:block;width:176px;height:42px;"></a></td></tr>
+
+<tr><td class="px" style="padding:26px 32px 28px 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="border-top:1px solid #ebebe8;padding-top:18px;font-family:${FONT};font-size:10px;line-height:15px;color:#9a9a96;">
+<p style="margin:0 0 8px 0;">This approval button is personal to you; please don't forward this email. It works once and expires 30 days after the vesting date.</p>
+<b style="color:#666666;">Confidentiality notice:</b> This message is intended only for the individual or entity to which it is addressed and may contain privileged and confidential information. If you are not the intended recipient, please notify us by return email, delete this message, and do not disseminate, distribute or copy any information contained herein.</td></tr></table></td></tr>
+
 </table></td></tr></table></body></html>`;
+
   const text = [
     `Hi ${first},`,
     "",
-    `These ${company} ESOP options vest on ${s.vest}. Founders Doc will issue one Option Certificate for each person below:`,
+    `${company} ESOP options vest on ${s.vest}. Please approve the issuance of these Option Certificates:`,
     ...it.holders.map((h) => `  - ${h.name}: ${fmt(optionsOf(h))} options`),
-    ...it.leavers.map((l) => `  - ${l.name} has left (${l.leaver_type} leaver), so no certificate this time`),
+    ...it.leavers.map((l) => `  - ${l.name} (${l.leaver_type} leaver): no certificate`),
     "",
-    `${s.certificates} Option Certificate(s) · ${fmt(s.options)} options in total${it.share_class ? ` · ${it.share_class} shares` : ""}`,
+    `${s.certificates} Option Certificate(s) · ${fmt(s.options)} options${it.share_class ? ` · ${it.share_class}` : ""}`,
     "",
     `${s.button}: ${link}`,
-    "(One tap, then Confirm. No login needed.)",
+    "(Opens a confirmation page. No login needed.)",
+    "",
+    "What happens next: 1. Approve  2. Payment link  3. Review & sign online",
     "",
     "Something not right? Just reply to this email and we'll fix it before anything is issued.",
     "",
