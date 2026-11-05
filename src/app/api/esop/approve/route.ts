@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { handOver } from "@/lib/esop/approval";
 
 /**
  * POST /api/esop/approve  { "company": "hitpay", "ref": "B99-T1" }
@@ -43,29 +44,9 @@ export async function POST(req: NextRequest) {
   }
 
   const item = (data ?? {}) as Record<string, unknown> & { holders?: Array<Record<string, unknown>> };
-  const holders = item.holders ?? [];
-  const payload = {
-    ...item,
-    approved_by: item.approved_by ?? user.email,
-    holders_count: holders.length,
-    options_total: holders.reduce((s, h) => s + (Number(h.options_number ?? String(h.options ?? "").replace(/,/g, "")) || 0), 0),
-    holder_names: holders.map((h) => h.name).join(", "),
-    dashboard_url: `${req.nextUrl.origin}/esop/${slug}?ref=${ref}`,
-    holders: holders.map((h) => ({ ...h, ref, tranche: item.tranche, batch: item.batch, vest_date_text: item.vest_date_text })),
-  };
-
-  const hook = process.env.ESOP_APPROVE_HOOK_URL?.trim();
-  if (!hook || !/^https:\/\/hooks\.zapier\.com\//.test(hook)) {
-    return NextResponse.json({ ok: false, sent: false, approved: true, error: "Approved, but ESOP_APPROVE_HOOK_URL is not set in Vercel, so nothing was sent yet." }, { status: 502 });
-  }
-  try {
-    const res = await fetch(hook, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), signal: AbortSignal.timeout(15000) });
-    if (!res.ok) throw new Error(`Zapier answered ${res.status}`);
-  } catch (e) {
-    console.error("[esop approve] hand-over failed:", e);
-    return NextResponse.json({ ok: false, sent: false, approved: true, error: "Approved, but Zapier could not be reached. Press Send again." }, { status: 502 });
-  }
+  const out = await handOver(item, req.nextUrl.origin, slug, ref, user.email ?? "");
+  if (!out.sent) return NextResponse.json({ ok: false, sent: false, approved: true, error: out.error }, { status: 502 });
 
   await supabase.rpc("esop_mark_sent", { p_slug: slug, p_ref: ref });
-  return NextResponse.json({ ok: true, sent: true, approved_by: payload.approved_by, holders_count: holders.length });
+  return NextResponse.json({ ok: true, sent: true, approved_by: out.approvedBy, holders_count: out.holders });
 }

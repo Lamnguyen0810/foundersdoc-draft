@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@supabase/supabase-js";
 import { supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
+import { hashApprovalToken, newApprovalToken, type ApprovalItem } from "./approval";
 
 /**
  * The ESOP dashboard's list, for Zapier (supabase/106).
@@ -56,6 +57,13 @@ interface DueResult {
 export async function loadDue(key: string, slug: string, days: number, ref: string | null) {
   const { data, error } = await anon().rpc("esop_due", { p_key: key, p_slug: slug, p_days: days, p_ref: ref });
   return { data: data as DueResult | null, error };
+}
+
+/** A private approval link for the client's contact (117); the key is checked in the database. */
+export async function newApprovalLink(key: string, slug: string, ref: string) {
+  const token = newApprovalToken();
+  const { data, error } = await anon().rpc("esop_approval_link_new", { p_key: key, p_slug: slug, p_ref: ref, p_token_hash: hashApprovalToken(token), p_once_hours: 20 });
+  return { token, item: data as (ApprovalItem & { skipped?: boolean }) | null, error: error?.message ?? null };
 }
 
 export async function record(key: string, slug: string, payload: Record<string, unknown>) {

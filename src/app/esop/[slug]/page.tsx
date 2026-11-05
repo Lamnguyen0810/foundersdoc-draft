@@ -48,6 +48,7 @@ export default async function EsopPage({
         canApprove
         simulation="administrator@foundersdoc.com"
         reset={{ to: "administrator@foundersdoc.com", refs: [] }}
+        emailApproval
         focusRef={null}
         supabaseUrl={null}
         supabaseKey={null}
@@ -134,6 +135,7 @@ export default async function EsopPage({
       canApprove={canApprove}
       simulation={simulation}
       reset={reset}
+      emailApproval={admin || canResetSimulation(user.email)}
       focusRef={focusRef}
       supabaseUrl={supabaseUrl()}
       supabaseKey={supabasePublishableKey()}

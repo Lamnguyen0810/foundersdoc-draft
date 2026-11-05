@@ -106,6 +106,24 @@ export async function notify(mail: SignMail): Promise<boolean> {
   return post(hook, payload);
 }
 
+/** Any other finished email (e.g. the ESOP approval email) through the same Zap: To / Subject / Html. */
+export async function sendEmail(p: { kind: string; to: string; name: string; subject: string; html: string; text: string; link: string }): Promise<boolean> {
+  const hook = process.env.SIGN_HOOK_URL?.trim();
+  if (!hook || !isHookConfigured()) return false;
+  return post(hook, {
+    ...p,
+    role: "",
+    documents: [],
+    documents_text: "",
+    count: 0,
+    message: null,
+    heading: p.subject,
+    button: "",
+    from_name: "Founders Doc",
+    reply_to: "legal@foundersdoc.com",
+  });
+}
+
 async function post(hook: string, payload: Record<string, unknown>): Promise<boolean> {
   try {
     const res = await fetch(hook, {

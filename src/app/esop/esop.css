@@ -180,3 +180,5 @@ body:has(.esop) .strip-warn {
 .esop .e-reset { border: 0; background: none; padding: 0; font: inherit; color: #a3471a; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .esop .e-reset:hover { color: #7a3210; }
 .esop .e-reset:disabled { color: #9a9a9a; cursor: default; text-decoration: none; }
+.esop .e-mail { color: #1d5fa8; margin-left: 6px; }
+.esop .e-mail:hover { color: #144a85; }

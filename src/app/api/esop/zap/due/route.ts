@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { alertText, confirmText, loadDue, optionsOf } from "@/lib/esop/zap";
+import { alertText, confirmText, loadDue, newApprovalLink, optionsOf } from "@/lib/esop/zap";
+import { sendApprovalEmail } from "@/lib/esop/approval";
 
 /**
  * GET /api/esop/zap/due?company=hitpay&days=7      who vests in 7 days
@@ -12,6 +13,12 @@ import { alertText, confirmText, loadDue, optionsOf } from "@/lib/esop/zap";
  * …), its `holders` as line items for a loop, and every match under `items`.
  * `found` is false when nothing vests: put a Filter on it. Without the right
  * key it answers 404.
+ *
+ * &send_approval=1 (117): also email the client's contact the approval email
+ * ("Approve issuance of Option Certificates", no login) for the first vesting
+ * that is not approved yet. At most once every 20 hours per vesting, so a
+ * re-run or a Zap test does not email twice. `approval_email` says what
+ * happened: sent / already_sent / failed / not_needed.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,8 +45,22 @@ export async function GET(req: NextRequest) {
   const first = items[0];
   const company = data?.company ?? slug;
 
+  let approvalEmail: "sent" | "already_sent" | "failed" | "not_needed" | "off" = "off";
+  if (sp.get("send_approval") === "1") {
+    approvalEmail = "not_needed";
+    if (first && !first.done && first.holders.length) {
+      const made = await newApprovalLink(key, slug, first.ref);
+      if (made.error) {
+        console.error("[esop due] approval link failed:", made.error);
+        approvalEmail = "failed";
+      } else if (made.item?.skipped) approvalEmail = "already_sent";
+      else if (made.item) approvalEmail = (await sendApprovalEmail(made.item, `${req.nextUrl.origin}/approve/${made.token}`)) ? "sent" : "failed";
+    }
+  }
+
   return NextResponse.json({
     found: Boolean(first),
+    approval_email: approvalEmail,
     count: items.length,
     company,
     today: data?.today,
