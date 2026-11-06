@@ -411,6 +411,26 @@ export default function EsopSheet(props: Props) {
     );
   }
 
+  /* ── holders' own page (124) ─────────────────────────────────────────── */
+
+  async function sendHolderLink(h: EsopHolder) {
+    if (!h.email) return say(`${h.name} has no email address. Add it with Edit grant first.`);
+    if (!window.confirm(`Email ${h.name} a private link to see their own share options?${props.simulation ? `\n\nSimulation is on: it goes to ${props.simulation}.` : ""}`)) return;
+    setBusy("link");
+    try {
+      const res = await fetch("/api/esop/holder-link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company: company.slug, holderId: h.id }) });
+      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; to?: string; devLink?: string; error?: string };
+      if (!out.ok) return say(out.error ?? "Could not send the link.");
+      if (out.devLink) {
+        await navigator.clipboard?.writeText(out.devLink).catch(() => undefined);
+        return say(`Preview: link copied (${out.devLink.replace(/^https?:\/\/[^/]+/, "")})`);
+      }
+      say(`Link sent to ${out.to ?? h.email}`);
+    } finally {
+      setBusy("");
+    }
+  }
+
   /* ── documents ──────────────────────────────────────────────────────── */
 
   function pickFile(holder: EsopHolder | null, kind: DocKind | CompanyDocKind, tranche: number | null = null, label: DocLabel | null = null) {
@@ -1374,6 +1394,7 @@ export default function EsopSheet(props: Props) {
               onUpload={(kind, tranche, label) => pickFile(sel.h, kind, tranche, label)}
               onZip={() => void downloadZip([...sel.letters, ...sel.certs], `${sel.display}-ESOP-documents`)}
               onVesting={(ref) => setPanel({ kind: "vesting", ref })}
+              onSendLink={props.settings?.holder_access && props.access?.canManage && sel.h.email ? () => void sendHolderLink(sel.h) : null}
               say={say}
             />
           )}
@@ -1625,6 +1646,8 @@ function HolderDrawer(p: {
   onUpload: (kind: DocKind, tranche: number | null, label: DocLabel | null) => void;
   onZip: () => void;
   onVesting: (ref: string) => void;
+  /** holder access on (124): email this holder their private page link */
+  onSendLink: (() => void) | null;
   say: (t: string) => false;
 }) {
   const { r } = p;
@@ -1729,6 +1752,11 @@ function HolderDrawer(p: {
                 </button>
               ))}
           </div>
+          {p.onSendLink && (
+            <button className="ev-link center" onClick={p.onSendLink} disabled={p.busy}>
+              Email {h.name.split(/\s+/)[0]} a link to their own share options →
+            </button>
+          )}
           {r.active && r.c.next && (
             <button className="ev-link center" onClick={() => p.onVesting(`B${h.batch}-T${r.c.vestedTranches + 1}`)}>
               Next vesting {fmtDay(r.c.next)}: open the approval →
