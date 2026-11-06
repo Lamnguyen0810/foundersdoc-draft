@@ -411,8 +411,10 @@ export default function EsopSheet(props: Props) {
   }
 
   /* A holder's Letter of Grant or certificate (also used by FD's Bulk upload). True when stored. */
-  async function uploadFor(holder: EsopHolder, kind: DocKind, file: File, trancheIn: number | null, label: DocLabel | null = null): Promise<boolean> {
+  async function uploadFor(holder: EsopHolder, kind: DocKind, file: File, trancheIn: number | null, labelIn: DocLabel | null = null): Promise<boolean> {
     if (file.size > MAX_BYTES) return say(`${file.name} is over 10 MB.`);
+    /* Bulk upload and the plain buttons pass no label: a "Supplemental" or "Amended" file name says which grant it is */
+    const label: DocLabel | null = labelIn ?? (/supplemental|top[\s_-]?up/i.test(file.name) ? "Top-up" : kind === "letter_of_grant" && /amended/i.test(file.name) ? "Amended" : null);
     const certs = docs.filter((d) => d.holder_id === holder.id && d.kind === "certificate" && (label === "Top-up") === (d.label === "Top-up")).length;
     const tranche = kind === "certificate" ? (trancheIn ?? Math.min(certs + 1, 10)) : null;
     const safe = file.name.replace(/[^\w.\-]+/g, "_").slice(-80);
@@ -1290,6 +1292,7 @@ export default function EsopSheet(props: Props) {
               useBatches={useBatches}
               editing={!!panel.edit}
               busy={busy === "zip"}
+              live={!!client}
               onEdit={(on) => setPanel({ kind: "holder", id: sel.h.id, edit: on })}
               onClose={() => setPanel(null)}
               onSave={(patch, msg) => saveHolder(sel.h, patch, msg)}
@@ -1513,6 +1516,14 @@ export default function EsopSheet(props: Props) {
   );
 }
 
+/** "1 March 2024" -> "2024-03-01" */
+function isoLong(s: string): string | null {
+  const m = /^\s*(\d{1,2})(?:st|nd|rd|th)?\s+([A-Za-z]+)\s+(\d{4})\s*$/.exec(s);
+  if (!m) return null;
+  const mi = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"].indexOf(m[2].slice(0, 3).toLowerCase());
+  return mi < 0 ? null : `${m[3]}-${String(mi + 1).padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+}
+
 function RowBlock({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
@@ -1530,6 +1541,7 @@ function HolderDrawer(p: {
   useBatches: boolean;
   editing: boolean;
   busy: boolean;
+  live: boolean;
   onEdit: (on: boolean) => void;
   onClose: () => void;
   onSave: (patch: Partial<EsopHolder>, msg?: string) => Promise<boolean>;
@@ -1569,7 +1581,7 @@ function HolderDrawer(p: {
       </div>
 
       {p.editing ? (
-        <EditForm r={r} batches={p.batches} role={p.role} onCancel={() => p.onEdit(false)} onSave={p.onSave} say={p.say} />
+        <EditForm r={r} batches={p.batches} role={p.role} live={p.live} onCancel={() => p.onEdit(false)} onSave={p.onSave} say={p.say} />
       ) : (
         <div className="ev-dbody">
           {noteParts.length > 0 && (
@@ -1751,7 +1763,7 @@ function GrantCard({ g, r, onOpen, onUpload, onSchedule }: { g: Grant; r: Row; o
 }
 
 /* "Edit grant": every field the sheet had, in one form */
-function EditForm({ r, batches, role, onCancel, onSave, say }: { r: Row; batches: EsopBatch[]; role: Role; onCancel: () => void; onSave: (patch: Partial<EsopHolder>, msg?: string) => Promise<boolean>; say: (t: string) => false }) {
+function EditForm({ r, batches, role, live, onCancel, onSave, say }: { r: Row; batches: EsopBatch[]; role: Role; live: boolean; onCancel: () => void; onSave: (patch: Partial<EsopHolder>, msg?: string) => Promise<boolean>; say: (t: string) => false }) {
   const h = r.h;
   const [f, setF] = useState({
     name: h.name,
@@ -1772,6 +1784,26 @@ function EditForm({ r, batches, role, onCancel, onSave, say }: { r: Row; batches
     vested_override: h.vested_override == null ? "" : String(h.vested_override),
   });
   const [saving, setSaving] = useState(false);
+  const [reading, setReading] = useState(false);
+  const topLetter = r.grants[1]?.letters.length ? r.grants[1].letters : null;
+
+  /* Fill the top-up schedule from the Supplemental Letter of Grant (FD's letter reader), for FD to check and save */
+  async function readTopUp() {
+    if (!live) return say("Preview: the letter reader needs the live site.");
+    setReading(true);
+    try {
+      const res = await fetch("/api/sign/esop/letter", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ holderId: h.id, which: "top-up" }) });
+      const out = (await res.json().catch(() => ({}))) as { error?: string; vestingStart?: string | null; trancheOptions?: number[]; letterDate?: string | null };
+      if (!res.ok) return say(out.error ?? "Could not read the letter.");
+      const start = isoLong(out.vestingStart ?? "") ?? null;
+      const per = out.trancheOptions?.[0] ?? null;
+      if (!start && !per) return say("The letter was read, but no vesting start or options were found. Please type them from the letter.");
+      setF((x) => ({ ...x, ...(start ? { topup_start: start } : {}), ...(per ? { topup_options_per_tranche: String(per) } : {}) }));
+      say(`Read from the letter: ${start ? `start ${fmtDay(start)}` : "no start date"}${per ? ` · ${per.toLocaleString("en-GB")} options a tranche` : ""}. Check, then Save.`);
+    } finally {
+      setReading(false);
+    }
+  }
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF((x) => ({ ...x, [k]: e.target.value }));
   const int = (v: string) => (v.trim() === "" ? null : Number.parseInt(v.replace(/[^0-9]/g, ""), 10));
 
@@ -1863,6 +1895,13 @@ function EditForm({ r, batches, role, onCancel, onSave, say }: { r: Row; batches
       <div className="ev-sec">
         <h3>Top-up grant schedule</h3>
         <div className="ev-sub">From the Supplemental Letter of Grant. Tranches vest yearly from the start, like the batch.</div>
+        {role === "admin" && topLetter && (
+          <div>
+            <button className="ev-btn sm" type="button" disabled={reading} onClick={() => void readTopUp()}>
+              {reading ? "Reading the letter…" : "Read from the Supplemental Letter"}
+            </button>
+          </div>
+        )}
         <div className="ev-fgrid">
           <label>
             Top-up vesting start
@@ -1947,7 +1986,8 @@ function DocsPage(p: {
     .filter((d) => {
       const s = p.q.trim().toLowerCase();
       const who = d.holder_id ? (byId.get(d.holder_id)?.name ?? "") : "company";
-      return !s || d.file_name.toLowerCase().includes(s) || who.toLowerCase().includes(s);
+      const legal = d.holder_id ? (byId.get(d.holder_id)?.legal_name ?? "") : "";
+      return !s || d.file_name.toLowerCase().includes(s) || who.toLowerCase().includes(s) || legal.toLowerCase().includes(s);
     })
     .sort((a, b) => b.uploaded_at.localeCompare(a.uploaded_at));
   const companyKind: CompanyDocKind | null = p.section === "esop_rules" ? "esop_rules" : p.section === "resolution" ? "resolution" : p.section === "all" ? "other" : null;
@@ -2014,7 +2054,15 @@ function DocsPage(p: {
                         </span>
                       </button>
                     </td>
-                    <td>{h ? <button className="ev-link" onClick={() => p.onHolder(h.id)}>{h.name}</button> : <span className="ev-muted">Company</span>}</td>
+                    <td>
+                      {h ? (
+                        <button className="ev-link" onClick={() => p.onHolder(h.id)}>
+                          {h.legal_name?.trim() || h.name}
+                        </button>
+                      ) : (
+                        <span className="ev-muted">Company</span>
+                      )}
+                    </td>
                     <td>
                       {KIND_TEXT[d.kind] ?? "Document"}
                       {d.kind === "certificate" && d.tranche ? ` · T${d.tranche}` : ""}

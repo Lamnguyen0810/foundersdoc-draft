@@ -134,7 +134,8 @@ export function buildRows(holders: EsopHolder[], docs: EsopDocument[], batches: 
     const topMissing = multi && grants.some((g) => !g.known);
     const startDay = parseDay(h.grant_date ?? c.start);
     const granted = c.total;
-    const vested = active ? c.vested : c.kept;
+    /* a leaver shows what had vested by the last day (as the register does); what they keep is c.kept */
+    const vested = c.vested;
     const certMissing = active && grants[0].certDue !== null;
     return {
       h,
