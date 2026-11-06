@@ -44,6 +44,13 @@ export async function POST(req: NextRequest) {
   }
 
   const item = (data ?? {}) as Record<string, unknown> & { holders?: Array<Record<string, unknown>> };
+  /* A dashboard the client made themselves (123) has no Zapier flow (that is HitPay's payment link and
+     certificates): the approval is recorded, numbered and marked done; certificates are uploaded or signed in FD Sign. */
+  const own = await supabase.from("esop_companies").select("self_serve").eq("slug", slug).maybeSingle();
+  if (!own.error && (own.data as { self_serve?: boolean } | null)?.self_serve) {
+    await supabase.rpc("esop_mark_sent", { p_slug: slug, p_ref: ref });
+    return NextResponse.json({ ok: true, sent: true, approved_by: user.email ?? "", holders_count: (item.holders ?? []).length, own: true });
+  }
   const out = await handOver(item, req.nextUrl.origin, slug, ref, user.email ?? "");
   if (!out.sent) return NextResponse.json({ ok: false, sent: false, approved: true, error: out.error }, { status: 502 });
 

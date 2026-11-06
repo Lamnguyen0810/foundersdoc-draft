@@ -17,12 +17,15 @@ import {
   type EsopDocument,
   type EsopHolder,
   type EsopRun,
+  type EsopSettings,
   type LeaverType,
+  type MemberRole,
   addYears,
   calcHolder,
 } from "@/lib/esop/vesting";
 import { buildXlsx, zip, type XSheet } from "@/lib/esop/xlsx";
 import BulkUpload from "./BulkUpload";
+import SettingsPage from "./SettingsPage";
 import "./overview.css";
 import { Ic, type IconName } from "./icons";
 import { buildRows, fileSize, nf, shortNames, type Grant, type Row } from "./model";
@@ -51,7 +54,7 @@ import { buildRows, fileSize, nf, shortNames, type Grant, type Row } from "./mod
 
 type Role = "admin" | "ceo";
 type Tab = "active" | "alumni";
-type Section = "esop" | "letter_of_grant" | "certificate" | "esop_rules" | "resolution" | "all";
+type Section = "esop" | "letter_of_grant" | "certificate" | "esop_rules" | "resolution" | "all" | "settings";
 type Chip = "all" | "soon" | "behind" | "certs" | "multi" | "good" | "bad" | "unvested";
 type SortKey = "name" | "vested" | "next";
 type Panel = { kind: "holder"; id: string; edit?: boolean } | { kind: "vesting"; ref: string | null } | null;
@@ -76,6 +79,10 @@ interface Props {
   focusRef: string | null;
   /** FD Sign: certificates waiting for a signature (admins), for the sidebar badge */
   signPending?: number;
+  /** what the client can change (123): approvers, access, holder access, alerts */
+  settings?: EsopSettings;
+  /** this person: may they change holders (not View only), and the settings (Admin)? */
+  access?: { role: MemberRole | null; canEdit: boolean; canManage: boolean };
 }
 
 const BUCKET = "esop-docs";
@@ -92,7 +99,7 @@ const LEAVER: Record<LeaverType | "Active", [string, string]> = {
   Bad: ["Bad leaver", "bad"],
   Unvested: ["Unvested", "grey"],
 };
-const SECTION_TITLE: Record<Exclude<Section, "esop">, string> = {
+const SECTION_TITLE: Record<Exclude<Section, "esop" | "settings">, string> = {
   esop_rules: "ESOP rules",
   resolution: "Resolutions",
   letter_of_grant: "Letters of Grant",
@@ -141,6 +148,11 @@ export default function EsopSheet(props: Props) {
   const now = useMemo(() => today(), []);
   const batchMap = useMemo(() => new Map(batches.map((b) => [b.batch, b])), [batches]);
   const local = client ? "" : " (preview, not stored)";
+  const canEdit = props.access?.canEdit ?? true;
+  /* batch dates, CSV import and the pool: Founders Doc, or the client's Admin on a dashboard they made themselves */
+  const canSetup = role === "admin" || (!!props.access?.canManage && !!props.settings?.self_serve);
+  /* FD Sign's certificate maker is built for HitPay's certificate; other companies upload theirs */
+  const fdSignEsop = role === "admin" && company.slug === "hitpay";
 
   /* "Review" and "View alumni" scroll to the register */
   const [jump, setJump] = useState(0);
@@ -230,7 +242,11 @@ export default function EsopSheet(props: Props) {
     const before = pool;
     setPool(n);
     if (!client) return say("Saved" + local);
-    const { error } = await client.from("esop_companies").update({ option_pool: n }).eq("id", company.id);
+    const s = props.settings;
+    const { error } =
+      role === "admin"
+        ? await client.from("esop_companies").update({ option_pool: n }).eq("id", company.id)
+        : await client.rpc("esop_save_settings", { p_company: company.id, p_alert_days: s?.alert_days ?? [], p_alert_emails: s?.alert_emails ?? [], p_holder_access: s?.holder_access ?? false, p_option_pool: n });
     if (error) {
       setPool(before);
       return say(/option_pool/.test(error.message) ? "Not saved: run supabase/121_esop_overview_v23.sql first." : `Not saved: ${error.message}`);
@@ -243,7 +259,9 @@ export default function EsopSheet(props: Props) {
   async function approve(ref: string, certificates: number, leavers: number, again: boolean) {
     const msg = again
       ? `Send ${ref} to the automation again? Certificate numbers stay the same.`
-      : `Approve ${ref}?\n\n${certificates} Option Certificate(s) and email(s) will be prepared, plus one payment link for ${certificates} certificate(s).${leavers ? ` ${leavers} leaver(s) are skipped.` : ""}${props.simulation ? `\n\nSimulation is on: every email goes to ${props.simulation}.` : ""}`;
+      : props.settings?.self_serve
+        ? `Approve ${ref}?\n\n${certificates} Option Certificate(s) will be approved and numbered, and your approval recorded with the date.${leavers ? ` ${leavers} leaver(s) are skipped.` : ""}\n\nThen upload each signed certificate on the holder, or send it for signing in FD Sign.`
+        : `Approve ${ref}?\n\n${certificates} Option Certificate(s) and email(s) will be prepared, plus one payment link for ${certificates} certificate(s).${leavers ? ` ${leavers} leaver(s) are skipped.` : ""}${props.simulation ? `\n\nSimulation is on: every email goes to ${props.simulation}.` : ""}`;
     if (!window.confirm(msg)) return;
     if (!client) {
       setRuns((l) => [...l.filter((r) => r.ref !== ref), { ref, approved_by: props.viewer, approved_at: new Date().toISOString(), sent_at: new Date().toISOString(), payment_link: null }]);
@@ -259,7 +277,7 @@ export default function EsopSheet(props: Props) {
           { ref, approved_by: out.approved_by ?? props.viewer, approved_at: new Date().toISOString(), sent_at: out.sent ? new Date().toISOString() : null, payment_link: null },
         ]);
       }
-      say(out.ok ? `${ref} approved. Payment link, certificates and emails are on their way` : (out.error ?? "Could not approve."));
+      say(out.ok ? (props.settings?.self_serve ? `${ref} approved and recorded` : `${ref} approved. Payment link, certificates and emails are on their way`) : (out.error ?? "Could not approve."));
     } finally {
       setApproving("");
     }
@@ -354,7 +372,7 @@ export default function EsopSheet(props: Props) {
             ✓ Approved{r.approved_by ? ` · ${r.approved_by.split("@")[0]}` : ""}
             {r.approved_at ? ` · ${fmtDay(r.approved_at.slice(0, 10))}` : ""}
           </span>
-          {role === "admin" && certificates > 0 && (
+          {fdSignEsop && certificates > 0 && (
             <a className="ev-btn sm" href={`/admin/sign?ref=${encodeURIComponent(ref)}`} title="Make the certificates and send them for signing in FD Sign">
               Send for signing
               <Ic n="chev" s={12} w={2.2} />
@@ -600,7 +618,7 @@ export default function EsopSheet(props: Props) {
         gold: true,
         go: () => setPanel({ kind: "vesting", ref: nxRef }),
       });
-    else if (role === "admin")
+    else if (fdSignEsop)
       tasks.push({ title: `Send ${nx.certificates} certificates for signing`, sub: `${nxRef} approved · vests ${fmtDay(nx.date)}`, action: "Open", gold: true, go: () => undefined, href: `/admin/sign?ref=${encodeURIComponent(nxRef)}` });
   }
   const behindN = activeR.filter((r) => r.behind).length;
@@ -769,7 +787,17 @@ export default function EsopSheet(props: Props) {
             </div>
           </nav>
           <div className="ev-foot">
-            <a className="ev-nav" href="/settings">
+            <a
+              href="#settings"
+              aria-current={section === "settings" ? "page" : undefined}
+              className={`ev-nav ${section === "settings" ? "on" : ""}`}
+              onClick={(e) => {
+                e.preventDefault();
+                setSection("settings");
+                setPanel(null);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
               <Ic n="settings" />
               Settings
             </a>
@@ -791,7 +819,10 @@ export default function EsopSheet(props: Props) {
               <>
                 <header className="ev-title">
                   <h1>{company.name.replace(/\s*\(TEST\)\s*$/i, "")} ESOP</h1>
-                  <span>Updated {fmtDay((updated || isoDay(now)).slice(0, 10))} · maintained by Founders Doc</span>
+                  <span>
+                    Updated {fmtDay((updated || isoDay(now)).slice(0, 10))}
+                    {props.settings?.self_serve ? "" : " · maintained by Founders Doc"}
+                  </span>
                 </header>
 
                 <section aria-label="Summary" className="ev-summary">
@@ -800,7 +831,9 @@ export default function EsopSheet(props: Props) {
                       <div className="ev-card">
                         <div className="ev-k">Active</div>
                         <div className="ev-n">{activeR.length}</div>
-                        {noLetterN === 0 ? (
+                        {activeR.length === 0 ? (
+                          <div className="ev-k">No holders yet</div>
+                        ) : noLetterN === 0 ? (
                           <div className="ev-okline">
                             <Ic n="check" s={12} w={2.8} />
                             All letters on file
@@ -845,7 +878,7 @@ export default function EsopSheet(props: Props) {
                           ) : (
                             "not set"
                           )}
-                          {role === "admin" && (
+                          {canSetup && (
                             <button className="ev-link" onClick={() => void savePool()}>
                               {pool !== null ? "Edit" : "Set pool size"}
                             </button>
@@ -869,6 +902,8 @@ export default function EsopSheet(props: Props) {
                             <div style={{ width: pctOf(goodSum), background: "#A3A39C" }} />
                             <div className="ev-avail" />
                           </>
+                        ) : grantedSum + goodSum === 0 ? (
+                          <div style={{ flex: 1, background: "#E9E9E9" }} />
                         ) : (
                           <>
                             <div style={{ flex: Math.max(vestedSum, 1), background: "#161616" }} />
@@ -934,6 +969,32 @@ export default function EsopSheet(props: Props) {
                   </div>
                 </section>
 
+                {holders.length === 0 && canEdit && (
+                  <section className="ev-card ev-start" aria-label="Set up your ESOP">
+                    <div className="ev-seth">
+                      <h2>Set up your ESOP in three steps</h2>
+                      <span>Add your grants once; the dashboard then works out every vesting date, reminds the right people and keeps the documents in one place.</span>
+                    </div>
+                    <div className="ev-steps">
+                      <button className={`ev-step ${batches.length ? "done" : ""}`} onClick={() => setPanel({ kind: "vesting", ref: null })}>
+                        <span className="ev-tn">{batches.length ? "✓" : "1"}</span>
+                        <b>Add a batch</b>
+                        <span>Each batch has a vesting start; tranche 1 vests a year later, then yearly.</span>
+                      </button>
+                      <button className="ev-step" onClick={() => void addGrant()}>
+                        <span className="ev-tn">2</span>
+                        <b>Add your option holders</b>
+                        <span>One by one with Add grant, or many at once with Import holders (CSV) in the Vesting panel.</span>
+                      </button>
+                      <button className="ev-step" onClick={() => (setSection("settings"), window.scrollTo({ top: 0 }))}>
+                        <span className="ev-tn">3</span>
+                        <b>Choose approvers and alerts</b>
+                        <span>Who approves certificates, who can open the dashboard, and who is reminded before each vesting.</span>
+                      </button>
+                    </div>
+                  </section>
+                )}
+
                 <div className="ev-oh" ref={registerRef}>
                   <h2>Option holders</h2>
                   <div className="ev-ohb">
@@ -947,10 +1008,10 @@ export default function EsopSheet(props: Props) {
                         Bulk upload
                       </BulkUpload>
                     )}
-                    <button className="ev-btn gold" onClick={() => void addGrant()}>
+                    {canEdit && <button className="ev-btn gold" onClick={() => void addGrant()}>
                       <Ic n="plus" w={2.2} />
                       Add grant
-                    </button>
+                    </button>}
                   </div>
                 </div>
 
@@ -1103,7 +1164,7 @@ export default function EsopSheet(props: Props) {
                         {pageRows.length === 0 && (
                           <tr>
                             <td colSpan={8} className="ev-empty">
-                              No one matches these filters.
+                              {holders.length === 0 ? "No option holders yet. Press Add grant to add the first one." : "No one matches these filters."}
                             </td>
                           </tr>
                         )}
@@ -1262,6 +1323,16 @@ export default function EsopSheet(props: Props) {
                   {client ? "changes save automatically" : "preview: changes are not stored"}
                 </p>
               </>
+            ) : section === "settings" ? (
+              <SettingsPage
+                company={company}
+                settings={props.settings ?? { self_serve: false, holder_access: false, alert_days: [], alert_emails: [], plan: company.plan, ready: false }}
+                access={props.access ?? { role: null, canEdit: true, canManage: role === "admin" }}
+                isAdmin={role === "admin"}
+                viewer={props.viewer}
+                client={client}
+                say={say}
+              />
             ) : (
               <DocsPage
                 section={section}
@@ -1272,6 +1343,7 @@ export default function EsopSheet(props: Props) {
                 busy={busy === "zip"}
                 onOpen={(d) => void openDoc(d)}
                 onUpload={(k) => pickFile(null, k)}
+                canUpload={canEdit}
                 onZip={(list, name) => void downloadZip(list, name)}
                 onHolder={(id) => setPanel({ kind: "holder", id })}
               />
@@ -1290,7 +1362,9 @@ export default function EsopSheet(props: Props) {
               role={role}
               batches={batches}
               useBatches={useBatches}
-              editing={!!panel.edit}
+              canEdit={canEdit}
+              fdSignEsop={fdSignEsop}
+              editing={!!panel.edit && canEdit}
               busy={busy === "zip"}
               live={!!client}
               onEdit={(on) => setPanel({ kind: "holder", id: sel.h.id, edit: on })}
@@ -1440,9 +1514,9 @@ export default function EsopSheet(props: Props) {
                   </div>
                 </div>
 
-                {role === "admin" && (
+                {canSetup && (
                   <div className="ev-sec">
-                    <h3>Batch dates · Founders Doc only</h3>
+                    <h3>{role === "admin" ? "Batch dates · Founders Doc only" : "Batches"}</h3>
                     <div className="ev-sub">Tranche 1 vests one year after the vesting start, then once a year.</div>
                     {batches.map((b) => (
                       <div key={b.batch} className="ev-batchrow">
@@ -1542,6 +1616,8 @@ function HolderDrawer(p: {
   editing: boolean;
   busy: boolean;
   live: boolean;
+  canEdit: boolean;
+  fdSignEsop: boolean;
   onEdit: (on: boolean) => void;
   onClose: () => void;
   onSave: (patch: Partial<EsopHolder>, msg?: string) => Promise<boolean>;
@@ -1628,7 +1704,7 @@ function HolderDrawer(p: {
               </div>
             )}
             {r.grants.map((g) => (
-              <GrantCard key={g.title} g={g} r={r} onOpen={p.onOpen} onUpload={p.onUpload} onSchedule={() => p.onEdit(true)} />
+              <GrantCard key={g.title} g={g} r={r} canEdit={p.canEdit} onOpen={p.onOpen} onUpload={p.onUpload} onSchedule={() => p.onEdit(true)} />
             ))}
           </div>
 
@@ -1636,11 +1712,14 @@ function HolderDrawer(p: {
             <button className="ev-btn lg" disabled={p.busy || r.files === 0} onClick={p.onZip}>
               Download all ({r.files})
             </button>
-            <button className="ev-btn lg" onClick={() => p.onEdit(true)}>
-              Edit grant
-            </button>
+            {p.canEdit && (
+              <button className="ev-btn lg" onClick={() => p.onEdit(true)}>
+                Edit grant
+              </button>
+            )}
             {r.active &&
-              (p.role === "admin" ? (
+              p.canEdit &&
+              (p.fdSignEsop ? (
                 <a className="ev-btn lg gold right" href={issueRef ? `/admin/sign?ref=${encodeURIComponent(issueRef)}` : "/admin/sign"} title="Make the certificate and send it for signing in FD Sign">
                   Issue certificate
                 </a>
@@ -1661,7 +1740,7 @@ function HolderDrawer(p: {
   );
 }
 
-function GrantCard({ g, r, onOpen, onUpload, onSchedule }: { g: Grant; r: Row; onOpen: (d: EsopDocument) => void; onUpload: (kind: DocKind, tranche: number | null, label: DocLabel | null) => void; onSchedule: () => void }) {
+function GrantCard({ g, r, canEdit, onOpen, onUpload, onSchedule }: { g: Grant; r: Row; canEdit: boolean; onOpen: (d: EsopDocument) => void; onUpload: (kind: DocKind, tranche: number | null, label: DocLabel | null) => void; onSchedule: () => void }) {
   const pct = g.tranches.length ? Math.round((g.done / g.tranches.length) * 100) : 0;
   const label: DocLabel | null = g.top ? "Top-up" : null;
   return (
@@ -1691,7 +1770,7 @@ function GrantCard({ g, r, onOpen, onUpload, onSchedule }: { g: Grant; r: Row; o
                   <button className="ev-trt ok" onClick={() => onOpen(t.cert!)}>
                     ✓ Certificate
                   </button>
-                ) : t.state === "vested" && t.n > 1 && r.active ? (
+                ) : t.state === "vested" && t.n > 1 && r.active && canEdit ? (
                   <button className="ev-trt warn" onClick={() => onUpload("certificate", t.n, label)} title="Upload this tranche's certificate">
                     No certificate · Upload
                   </button>
@@ -1705,7 +1784,7 @@ function GrantCard({ g, r, onOpen, onUpload, onSchedule }: { g: Grant; r: Row; o
         {!g.known && (
           <div className="ev-unkbox">
             <span>No vesting schedule recorded for this grant. Add its start date and tranche dates from the letter below.</span>
-            <button onClick={onSchedule}>Add schedule</button>
+            {canEdit && <button onClick={onSchedule}>Add schedule</button>}
           </div>
         )}
         <div className="ev-filesl">
@@ -1746,7 +1825,7 @@ function GrantCard({ g, r, onOpen, onUpload, onSchedule }: { g: Grant; r: Row; o
             </button>
           ))}
           {g.certs.length === 0 && <div className="ev-sub">No certificates for this grant yet.</div>}
-          <div className="ev-ups">
+          {canEdit && <div className="ev-ups">
             <button onClick={() => onUpload("letter_of_grant", null, label)}>
               <Ic n="upload" s={13} />
               {g.letters.length ? "Add another letter" : g.top ? "Upload Supplemental Letter" : "Upload Letter of Grant"}
@@ -1755,7 +1834,7 @@ function GrantCard({ g, r, onOpen, onUpload, onSchedule }: { g: Grant; r: Row; o
               <Ic n="upload" s={13} />
               Upload certificate
             </button>
-          </div>
+          </div>}
         </div>
       </div>
     </div>
@@ -1968,8 +2047,9 @@ function EditForm({ r, batches, role, live, onCancel, onSave, say }: { r: Row; b
 /* ── the documents pages (sidebar: ESOP rules … All documents) ────────── */
 
 function DocsPage(p: {
-  section: Exclude<Section, "esop">;
+  section: Exclude<Section, "esop" | "settings">;
   docs: EsopDocument[];
+  canUpload: boolean;
   holders: EsopHolder[];
   q: string;
   setQ: (v: string) => void;
@@ -2011,7 +2091,7 @@ function DocsPage(p: {
             <Ic n="download" />
             Download all
           </button>
-          {companyKind && (
+          {companyKind && p.canUpload && (
             <button className="ev-btn gold" onClick={() => p.onUpload(companyKind)}>
               <Ic n="upload" />
               Upload {p.section === "all" ? "document" : title.replace(/s$/, "").replace(/^ESOP rule$/, "ESOP rules")}

@@ -21,6 +21,28 @@ export interface EsopCompany {
   option_pool?: number | null;
 }
 
+/** The settings the client changes (123). Before 123 is run: none of these, nothing changes. */
+export interface EsopSettings {
+  /** made by the client themselves (self sign-up), not set up by Founders Doc */
+  self_serve: boolean;
+  holder_access: boolean;
+  /** days before a vesting to email the alert people, e.g. [14, 7, 0]; empty = no emails from FD AI */
+  alert_days: number[];
+  alert_emails: string[];
+  plan: "free" | "premium";
+  /** false until supabase/123 is run */
+  ready: boolean;
+}
+
+/** "approver" is 107's older role: an Editor who approves (the settings show it as Editor). */
+export type MemberRole = "ceo" | "editor" | "viewer" | "approver";
+export interface EsopMember {
+  email: string;
+  role: MemberRole;
+  approves: boolean;
+  alerts: boolean;
+}
+
 export interface EsopBatch {
   batch: number;
   vesting_start: string | null; // yyyy-mm-dd

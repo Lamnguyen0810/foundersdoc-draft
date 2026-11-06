@@ -48,6 +48,8 @@ const PUBLIC_PATHS = [
   // The daily website scan, called by Vercel Cron with CRON_SECRET (no
   // session); the route refuses anyone without it (app/api/seo-scan/cron).
   "/api/seo-scan/cron",
+  // The daily ESOP vesting alerts (123), also Vercel Cron with CRON_SECRET (app/api/esop/alerts/cron).
+  "/api/esop/alerts/cron",
   // Automated SEO research sends its findings here with a private key; the
   // database checks the key and every field (104, app/api/seo/ingest).
   "/api/seo/ingest",

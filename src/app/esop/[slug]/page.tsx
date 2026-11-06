@@ -4,9 +4,9 @@ import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { canResetSimulation } from "@/lib/esop/sim-reset";
-import type { EsopBatch, EsopCompany, EsopDocument, EsopHolder, EsopRun } from "@/lib/esop/vesting";
+import type { EsopBatch, EsopCompany, EsopDocument, EsopHolder, EsopRun, EsopSettings, MemberRole } from "@/lib/esop/vesting";
 import EsopSheet from "./EsopSheet";
-import { DEMO_BATCHES, DEMO_COMPANY, DEMO_DOCUMENTS, DEMO_HOLDERS } from "../demo";
+import { DEMO_BATCHES, DEMO_COMPANY, DEMO_DOCUMENTS, DEMO_HOLDERS, DEMO_NEW_COMPANY } from "../demo";
 import "../esop.css";
 
 /**
@@ -30,12 +30,32 @@ export default async function EsopPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ ref?: string }>;
+  searchParams: Promise<{ ref?: string; demo?: string }>;
 }) {
   const { slug } = await params;
-  const focusRef = ((await searchParams).ref ?? "").toUpperCase().match(/^B\d{1,3}-T\d{1,2}$/)?.[0] ?? null;
+  const sp = await searchParams;
+  const focusRef = (sp.ref ?? "").toUpperCase().match(/^B\d{1,3}-T\d{1,2}$/)?.[0] ?? null;
 
   if (!isSupabaseConfigured()) {
+    /* preview of a company that signed up by itself: empty, the client is its Admin */
+    if (sp.demo === "new")
+      return (
+        <EsopSheet
+          company={DEMO_NEW_COMPANY}
+          batches={[]}
+          holders={[]}
+          documents={[]}
+          role="ceo"
+          viewer="founder@example.com"
+          runs={[]}
+          canApprove
+          focusRef={null}
+          supabaseUrl={null}
+          supabaseKey={null}
+          settings={{ self_serve: true, holder_access: false, alert_days: [7, 0], alert_emails: [], plan: "free", ready: true }}
+          access={{ role: "ceo", canEdit: true, canManage: true }}
+        />
+      );
     return (
       <EsopSheet
         company={DEMO_COMPANY}
@@ -53,6 +73,8 @@ export default async function EsopPage({
         focusRef={focusRef}
         supabaseUrl={null}
         supabaseKey={null}
+        settings={{ self_serve: false, holder_access: false, alert_days: [], alert_emails: ["hr@example.com"], plan: "free", ready: true }}
+        access={{ role: "ceo", canEdit: true, canManage: true }}
       />
     );
   }
@@ -104,6 +126,24 @@ export default async function EsopPage({
       .order("uploaded_at"),
     isAdmin(),
   ]);
+  /* Settings (123) and this person's access. Before 123 is run: no settings, everyone edits as before. */
+  const setRes = await supabase.from("esop_companies").select("self_serve, holder_access, alert_days, alert_emails").eq("id", company.id).maybeSingle();
+  const sr = (setRes.error ? null : setRes.data) as { self_serve: boolean; holder_access: boolean; alert_days: number[] | null; alert_emails: string[] | null } | null;
+  const settings: EsopSettings = {
+    self_serve: !!sr?.self_serve,
+    holder_access: !!sr?.holder_access,
+    alert_days: sr?.alert_days ?? [],
+    alert_emails: sr?.alert_emails ?? [],
+    plan: company.plan === "premium" ? "premium" : "free",
+    ready: !!sr,
+  };
+  const me = await supabase.from("esop_members").select("role").eq("company_id", company.id).eq("email", (user.email ?? "").toLowerCase()).maybeSingle();
+  const myRole = ((me.data as { role?: MemberRole } | null)?.role ?? null) as MemberRole | null;
+  const access = {
+    role: myRole,
+    canEdit: admin || !settings.ready || myRole !== "viewer",
+    canManage: admin || myRole === "ceo",
+  };
   /* Option pool (121). Before 121 is run the column is missing: the card then says "not set". */
   const poolRes = await supabase.from("esop_companies").select("option_pool").eq("id", company.id).maybeSingle();
   const option_pool = poolRes.error ? null : ((poolRes.data as { option_pool?: number | null } | null)?.option_pool ?? null);
@@ -141,6 +181,8 @@ export default async function EsopPage({
     <EsopSheet
       company={{ ...company, option_pool }}
       signPending={signPending}
+      settings={settings}
+      access={access}
       batches={(batchesRes.data ?? []) as EsopBatch[]}
       holders={(holdersRes.data ?? []) as EsopHolder[]}
       documents={(docsRes.data ?? []) as EsopDocument[]}
