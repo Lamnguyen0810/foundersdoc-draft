@@ -72,11 +72,14 @@ const vestOf = (start: string | null, tranche: number) => {
   return d.toISOString().slice(0, 10);
 };
 const REF = /^B(\d{1,3})-T(\d{1,2})$/;
+/** a Supplemental (top-up) Letter of Grant or certificate, by its file name */
+export const TOP_UP_NAME = /supplemental|top[\s_-]?up/i;
 
 export interface EsopSource {
   runs(): Promise<EsopRun[]>;
   prepare(ref: string): Promise<EsopPrep | null>;
-  letter(holderId: string): Promise<Uint8Array | null>;
+  /** the holder's Letter of Grant: the original (default) or the top-up's Supplemental Letter */
+  letter(holderId: string, which?: "original" | "top-up"): Promise<Uint8Array | null>;
   /** for the Letter of Grant check: who the holder is, and who they are not */
   holderNames(holderId: string): Promise<{ name: string; legalName: string; director: string; contact: string }>;
   saveHolder(holderId: string, v: { legal_name?: string; id_no?: string; nationality?: string; grant_date?: string | null }, by: string): Promise<void>;
@@ -163,9 +166,17 @@ function supabaseSource(): EsopSource {
         leavers: rows.filter((r) => r.status !== "Active").map((r) => r.name),
       };
     },
-    async letter(holderId) {
-      const d = must(await db.from("esop_documents").select("path").eq("holder_id", holderId).eq("kind", "letter_of_grant").order("uploaded_at", { ascending: false }).limit(1).maybeSingle()) as { path: string } | null;
-      if (!d) return null;
+    async letter(holderId, which = "original") {
+      /* A top-up holder has two letters. Before 0193 the newest one was read, which could be the
+         Supplemental Letter; now the label (121) or the file name tells them apart. */
+      type L = { path: string | null; file_name: string; label?: string | null };
+      const q = (cols: string) => db.from("esop_documents").select(cols).eq("holder_id", holderId).eq("kind", "letter_of_grant").order("uploaded_at", { ascending: false });
+      let r = await q("path, file_name, label");
+      if (r.error && /label/.test(r.error.message)) r = await q("path, file_name");
+      const all = ((must(r as { data: unknown; error: { message: string } | null }) ?? []) as L[]).filter((x) => x.path);
+      const isTop = (x: L) => x.label === "Top-up" || (!x.label && TOP_UP_NAME.test(x.file_name));
+      const d = which === "top-up" ? all.find(isTop) : (all.find((x) => !isTop(x)) ?? null);
+      if (!d?.path) return null;
       const f = await db.storage.from("esop-docs").download(d.path);
       if (f.error || !f.data) throw new Error(f.error?.message ?? "letter not found");
       return new Uint8Array(await f.data.arrayBuffer());
