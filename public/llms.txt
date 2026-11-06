@@ -18,6 +18,11 @@
 - [Contractor agreement template](https://foundersdoc.com/templates/contractor-agreement): Engage a freelancer or consultant: scope, fees, IP and how it ends
 - [Services agreement template](https://foundersdoc.com/templates/services-agreement): Sell or buy a software subscription or professional services
 
+## Other Founders Doc tools
+
+- [FD Sign](https://foundersdoc.com/e-signature): send PDF or Word documents for e-signature; signers need no account (private link + email code), with an audit trail
+- [ESOP dashboard](https://foundersdoc.com/esop-software): track option holders, vesting dates and certificates, with approvals, vesting alerts and e-signing; any company can create one
+
 ## Talk to a lawyer
 
 - [FD Consult](https://foundersdoc.com/fd-consult): a fixed-price call with a practising lawyer

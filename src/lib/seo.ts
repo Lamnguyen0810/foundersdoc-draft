@@ -95,4 +95,4 @@ export function ldJson(data: unknown): string {
 }
 
 /** The marketing pages served from public/ that should be found (not coming-soon). */
-export const PUBLIC_PAGES = ["", "pricing", "about", "contact", "fd-consult", "resources/all", "podcast", "terms-of-service"];
+export const PUBLIC_PAGES = ["", "pricing", "e-signature", "esop-software", "about", "contact", "fd-consult", "resources/all", "podcast", "terms-of-service"];

@@ -13,6 +13,16 @@ export const DEMO_COMPANY: EsopCompany = {
   option_pool: 500000,
 };
 
+/* A company that signed up by itself (123), for the preview: /esop/acme?demo=new */
+export const DEMO_NEW_COMPANY: EsopCompany = {
+  id: "00000000-0000-0000-0000-00000000acme",
+  slug: "acme",
+  name: "Acme (TEST)",
+  logo_url: null,
+  plan: "free",
+  option_pool: null,
+};
+
 export const DEMO_BATCHES: EsopBatch[] = [
   { batch: 1, vesting_start: "2023-03-01", tranches: 4, note: "TEST" },
   { batch: 2, vesting_start: "2023-09-01", tranches: 4, note: "TEST" },

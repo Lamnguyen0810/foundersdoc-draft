@@ -182,3 +182,12 @@ body:has(.esop) .strip-warn {
 .esop .e-reset:disabled { color: #9a9a9a; cursor: default; text-decoration: none; }
 .esop .e-mail { color: #1d5fa8; margin-left: 6px; }
 .esop .e-mail:hover { color: #144a85; }
+
+/* /esop: create a dashboard (123) */
+.esop-create { margin: 28px auto 0; max-width: 420px; text-align: left; background: #fff; border: 1px solid #e9e9e9; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; font-family: Inter, -apple-system, "Segoe UI", sans-serif; }
+.esop-create h2 { margin: 0; font-family: Geist, Inter, sans-serif; font-size: 20px; font-weight: 500; }
+.esop-create p { margin: 0; font-size: 13px; color: #666; line-height: 1.5; }
+.esop-create label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 500; color: #4a4a4a; }
+.esop-create input { height: 40px; border: 1px solid #d6d6d6; border-radius: 6px; padding: 0 12px; font: 400 15px Inter, sans-serif; }
+.esop-create .esop-create-err { color: #9a3b30; }
+.esop-create .e-btn { height: 40px; border-radius: 6px; border: 1px solid #f3bf4b; background: #f3bf4b; font: 600 14px Inter, sans-serif; cursor: pointer; }

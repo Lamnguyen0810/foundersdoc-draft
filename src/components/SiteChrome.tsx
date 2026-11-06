@@ -247,6 +247,12 @@ export function AppNav({
             <Link href="/templates" aria-current={here("/templates")}>
               Templates
             </Link>
+            <Link href="/e-signature" aria-current={here("/e-signature")}>
+              FD Sign
+            </Link>
+            <Link href="/esop-software" aria-current={here("/esop-software")}>
+              ESOP dashboard
+            </Link>
           </Dropdown>
           <a href="/#lawyers">Ask a Lawyer</a>
           <Dropdown label="Services" {...sub("svc")}>
@@ -341,6 +347,8 @@ export function AppNav({
             <Link href="/draft">Draft</Link>
             <a href="/#about">Review</a>
             <Link href="/templates">Templates</Link>
+            <Link href="/e-signature">FD Sign</Link>
+            <Link href="/esop-software">ESOP dashboard</Link>
           </div>
           <a href="/#lawyers">Ask a Lawyer</a>
           <div className="menu-group">
@@ -420,6 +428,12 @@ export function SiteFooter() {
               </li>
               <li>
                 <Link href="/templates">Templates</Link>
+              </li>
+              <li>
+                <Link href="/e-signature">FD Sign</Link>
+              </li>
+              <li>
+                <Link href="/esop-software">ESOP dashboard</Link>
               </li>
             </ul>
           </div>
