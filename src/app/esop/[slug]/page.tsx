@@ -73,7 +73,7 @@ export default async function EsopPage({
         focusRef={focusRef}
         supabaseUrl={null}
         supabaseKey={null}
-        settings={{ self_serve: false, holder_access: false, alert_days: [], alert_emails: ["hr@example.com"], plan: "free", ready: true }}
+        settings={{ self_serve: false, holder_access: true, alert_days: [], alert_emails: ["hr@example.com"], plan: "premium", ready: true }}
         access={{ role: "ceo", canEdit: true, canManage: true }}
       />
     );

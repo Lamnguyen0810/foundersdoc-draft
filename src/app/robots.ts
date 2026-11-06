@@ -24,6 +24,7 @@ export default function robots(): MetadataRoute.Robots {
           "/signup",
           "/zzqa",
           "/draft/",
+          "/my-options/",
         ],
       },
     ],

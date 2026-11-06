@@ -133,6 +133,19 @@ export default function SettingsPage(p: {
     p.say("Settings saved");
   }
 
+  async function sendAll() {
+    if (!window.confirm("Email every active holder with an email address a private link to their own share options?")) return;
+    setBusy("links");
+    try {
+      const res = await fetch("/api/esop/holder-link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company: company.slug, all: true }) });
+      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; sent?: number; failed?: number; error?: string };
+      if (!out.ok) return p.say(out.error ?? "Could not send the links.");
+      p.say(`${out.sent ?? 0} link${out.sent === 1 ? "" : "s"} sent${out.failed ? ` · ${out.failed} could not be sent` : ""}`);
+    } finally {
+      setBusy("");
+    }
+  }
+
   const toggleDay = (d: number) => {
     setDays((l) => (l.includes(d) ? l.filter((x) => x !== d) : [...l, d].sort((a, b) => b - a)));
     setDirty(true);
@@ -276,7 +289,16 @@ export default function SettingsPage(p: {
           </span>
         </button>
         {!premium && <div className="ev-sub">Part of Premium. <a href="mailto:legal@foundersdoc.com?subject=ESOP%20Premium">Ask Founders Doc</a> to switch it on.</div>}
-        {premium && <div className="ev-sub">The holders&rsquo; own page opens soon; the setting is saved now.</div>}
+        {premium && p.settings.holder_access && (
+          <div className="ev-setadd">
+            <button className="ev-btn" disabled={!can || busy === "links"} onClick={() => void sendAll()}>
+              <Ic n="mail" />
+              {busy === "links" ? "Sending…" : "Email every active holder their link"}
+            </button>
+            <span className="ev-sub">Each holder gets a private link to their own page (foundersdoc.com/my-options). You can also send one from a holder&rsquo;s details.</span>
+          </div>
+        )}
+        {premium && !p.settings.holder_access && <div className="ev-sub">Switch it on and save; you can then email holders their private links.</div>}
       </section>
 
       <section className="ev-card ev-set">

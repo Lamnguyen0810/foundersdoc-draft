@@ -65,6 +65,10 @@ const PUBLIC_PATHS = [
   // ESOP approval from the email (117): the client's director has no account;
   // the private one-time link is the key, checked against its hash.
   "/approve",
+  // "My share options" (124): option holders have no account; the private link in
+  // their email plus a code to that email is the key (lib/esop/holder.ts).
+  "/my-options",
+  "/api/my-options",
   // The public price list (app/pricing). /billing stays the account's page.
   "/pricing",
   // The published blog posts, for the cards on the public blog page (055).
