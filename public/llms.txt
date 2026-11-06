@@ -7,7 +7,16 @@
 - [Draft a Non-Disclosure Agreement (NDA)](https://foundersdoc.com/draft?type=nondisclosureagreement): mutual or one-way NDA for founders
 - [All documents FD AI drafts](https://foundersdoc.com/draft): term sheets, employment and contractor agreements, shareholders', share purchase and share subscription agreements, investment, loan, convertible loan, services, IP assignment and joint venture agreements
 - [Pricing](https://foundersdoc.com/pricing): start free with 3 documents over 14 days (no card), then S$8.80 a document or a membership from S$18.80 a month (SGD)
-- [NDA templates](https://foundersdoc.com/templates/nda): draft a Non-Disclosure Agreement free with FD AI, with pages for Singapore (https://foundersdoc.com/templates/nda/singapore), the UK (https://foundersdoc.com/templates/nda/uk) and the US (https://foundersdoc.com/templates/nda/us)
+
+## Free templates (drafted by FD AI)
+
+- [All templates](https://foundersdoc.com/templates)
+- [NDA template](https://foundersdoc.com/templates/nda): Keep what you share private — mutual or one-way, under the law you choose. Also: NDA for Singapore (https://foundersdoc.com/templates/nda/singapore), NDA for UK (https://foundersdoc.com/templates/nda/uk), NDA for US (https://foundersdoc.com/templates/nda/us), Mutual NDA (https://foundersdoc.com/templates/nda/mutual), One-way NDA (https://foundersdoc.com/templates/nda/one-way), NDA for Malaysia (https://foundersdoc.com/templates/nda/malaysia), NDA for Hong Kong (https://foundersdoc.com/templates/nda/hong-kong), NDA for Australia (https://foundersdoc.com/templates/nda/australia), NDA for India (https://foundersdoc.com/templates/nda/india)
+- [Employment contract template](https://foundersdoc.com/templates/employment-contract): Hire in any country: probation, notice, IP, confidentiality and restrictions. Also: Employment contract for Singapore (https://foundersdoc.com/templates/employment-contract/singapore)
+- [Loan agreement template](https://foundersdoc.com/templates/loan-agreement): Lend or borrow money with clear repayment, interest and security terms
+- [Shareholders' agreement template](https://foundersdoc.com/templates/shareholders-agreement): How the company is run, and what happens when shareholders join, sell or leave
+- [Contractor agreement template](https://foundersdoc.com/templates/contractor-agreement): Engage a freelancer or consultant: scope, fees, IP and how it ends
+- [Services agreement template](https://foundersdoc.com/templates/services-agreement): Sell or buy a software subscription or professional services
 
 ## Talk to a lawyer
 

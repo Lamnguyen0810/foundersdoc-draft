@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SITE, ORGANIZATION, ldJson } from "@/lib/seo";
 import { TRIAL } from "@/lib/billing/plans";
-import type { Faq } from "@/lib/templates/data";
+import { TEMPLATES, type Faq } from "@/lib/templates/data";
 import TemplateCta from "./TemplateCta";
 
 /** Shared pieces of the template pages (/templates, /templates/<doc>, /templates/<doc>/<country>). */
@@ -116,5 +116,27 @@ export function Disclaimer() {
       This page is general information, not legal advice. Every deal is different — for advice on your situation,{" "}
       <a href="/contact">talk to a Founders Doc lawyer</a>.
     </p>
+  );
+}
+
+/** Links to the other template pages, so every page leads to the rest (and search engines find them all). */
+export function MoreTemplates({ current }: { current: string }) {
+  const others = TEMPLATES.filter((t) => t.slug !== current);
+  return (
+    <section className="tpl-section" aria-labelledby="tpl-more">
+      <h2 id="tpl-more">More free templates</h2>
+      <ul className="tpl-chips">
+        {others.map((t) => (
+          <li key={t.slug}>
+            <Link href={`/templates/${t.slug}`}>
+              <span aria-hidden="true">{t.icon}</span> {t.short} template
+            </Link>
+          </li>
+        ))}
+        <li>
+          <Link href="/templates">All templates</Link>
+        </li>
+      </ul>
+    </section>
   );
 }

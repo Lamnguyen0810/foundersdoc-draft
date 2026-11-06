@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { SITE } from "@/lib/seo";
 import { TRIAL } from "@/lib/billing/plans";
 import { TEMPLATES, countryPage, draftLink, inSentence, pageLabel } from "@/lib/templates/data";
-import { Breadcrumbs, CtaBand, Disclaimer, Faqs, Steps, TemplateLd } from "../../parts";
+import { Breadcrumbs, CtaBand, Disclaimer, Faqs, MoreTemplates, Steps, TemplateLd } from "../../parts";
 import TemplateCta from "../../TemplateCta";
 import "../../templates.css";
 
@@ -130,6 +130,8 @@ export default async function TemplateCountryPage({ params }: { params: Params }
             </ul>
           </section>
         )}
+
+        <MoreTemplates current={t.slug} />
 
         <CtaBand
           href={href}

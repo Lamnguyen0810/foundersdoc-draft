@@ -349,7 +349,7 @@ export const TEMPLATES: TemplateDoc[] = [
     law: "Hire in any country. FD AI uses the law of the place where the employee works and flags local rules you should check.",
     title: "Employment Contract Template — Draft One Free | FD AI",
     description:
-      "Draft an employment contract online in minutes: permanent or fixed-term, probation, notice, IP and restrictions after leaving. Any country. Free to start.",
+      "Draft an employment contract online: probation, notice, leave, IP and non-competes, under Singapore, UK, Hong Kong or US law. Lawyer-backed. Start free.",
     lead: "An employment contract sets out the job, the pay and the rules both sides agree to. FD AI asks about ten plain-English questions and drafts one from Founders Doc's own lawyer-written wording.",
     covers: [
       { label: "Type of role", text: "A regular employee or a senior manager, so the protections that apply to each are handled correctly." },
@@ -374,7 +374,38 @@ export const TEMPLATES: TemplateDoc[] = [
       { q: "Can I edit the contract after FD AI drafts it?", a: "Yes. Change any wording before you download it as a Word document, and ask FD AI to explain any clause." },
     ],
     reading: [],
-    countries: [],
+    /* Singapore page (0195, 6 Nov 2026): general Employment Act points, worded cautiously.
+       A Founders Doc lawyer checks it before it goes live. */
+    countries: [
+      {
+        slug: "singapore",
+        name: "Singapore",
+        short: "Singapore",
+        flag: "🇸🇬",
+        searchPhrase: "employment contract template Singapore",
+        h1: "Employment contract template for Singapore",
+        title: "Employment Contract Template Singapore — Draft Free | FD AI",
+        description:
+          "Draft a Singapore employment contract online: key employment terms, probation, notice, leave and non-competes. Lawyer-backed, Word in minutes. Start free.",
+        lead: "Hiring in Singapore? FD AI asks plain-English questions and drafts an employment contract under Singapore law from Founders Doc's own wording — a Singapore law practice for founders.",
+        lawChoice: "Choose Singapore as the place the employee works.",
+        pointsTitle: "Singapore employment points to know",
+        lawPoints: [
+          { label: "Who the Employment Act covers", text: "Since April 2019 the Employment Act covers most employees, including managers and executives, whatever their salary. Some extra protections on hours and overtime (Part IV) apply only to lower-paid staff." },
+          { label: "Key employment terms in writing", text: "Most employees covered by the Act must get their key employment terms (KETs) in writing within 14 days of starting. A full written contract is the simplest way to do this." },
+          { label: "What to include", text: "The job, pay and when it is paid, working hours, place of work, probation, leave, sick leave, benefits, confidentiality, IP and notice." },
+          { label: "Notice", text: "Each side gives the notice the contract sets. If the contract is silent, the Employment Act sets a minimum that grows with length of service." },
+          { label: "CPF", text: "Employers pay CPF contributions for Singapore citizens and permanent residents. Employees on work passes do not have CPF, but other duties may apply." },
+          { label: "Non-competes", text: "A restriction on working for a competitor after leaving is only enforced if it is reasonable in length, area and scope and protects a real business interest." },
+        ],
+        faqs: [
+          { q: "Do I have to give a written employment contract in Singapore?", a: "A contract can be agreed verbally, but most employees covered by the Employment Act must receive their key employment terms in writing within 14 days of starting. Putting everything in one written contract is simplest." },
+          { q: "Does the Employment Act cover managers and executives?", a: "Yes. Since April 2019 it covers almost all employees, whatever their salary. Some extra protections on hours and overtime apply only to lower-paid staff." },
+          { q: "Do I pay CPF for every employee?", a: "Only for Singapore citizens and permanent residents. Foreign employees on work passes do not get CPF, though other duties may apply to their employer." },
+          { q: "Will a non-compete hold up in Singapore?", a: "Only if it is reasonable: a short period, a limited area and only the business you actually compete in. FD AI lets you choose a period and flags the risk of going too wide." },
+        ],
+      },
+    ],
   },
   {
     slug: "loan-agreement",
@@ -386,9 +417,9 @@ export const TEMPLATES: TemplateDoc[] = [
     h1: "Loan agreement template — draft one in minutes",
     beta: true,
     law: "Drafted under Singapore law, in Singapore or US dollars.",
-    title: "Loan Agreement Template — Draft One Free | FD AI",
+    title: "Loan Agreement Template Singapore — Draft Free | FD AI",
     description:
-      "Draft a loan agreement online in minutes: one or several lenders, interest or interest-free, repayment in full or in instalments. Free to start.",
+      "Draft a Singapore loan agreement online: one or several lenders, interest or interest-free, repaid in full or in instalments. Lawyer-backed. Start free.",
     lead: "A loan agreement records who lends what, when it is paid back and what interest applies. FD AI drafts one from your answers, from the lender's or the borrower's side.",
     covers: [
       { label: "Lender or borrower", text: "Tell FD AI which side you are on, and the usual answers lean your way." },
@@ -424,7 +455,7 @@ export const TEMPLATES: TemplateDoc[] = [
     h1: "Shareholders' agreement template — draft one in minutes",
     beta: true,
     law: "Drafted for a Singapore company, under Singapore law.",
-    title: "Shareholders' Agreement Template — Draft Free | FD AI",
+    title: "Shareholders' Agreement Template Singapore | FD AI",
     description:
       "Draft a shareholders' agreement online: board, voting, share transfers, tag- and drag-along, exits and leavers. For Singapore companies. Free to start.",
     lead: "A shareholders' agreement sets out how a company is run and what happens when shareholders join, sell or leave. FD AI drafts one from your answers, from Founders Doc's own lawyer-written wording.",
@@ -501,9 +532,9 @@ export const TEMPLATES: TemplateDoc[] = [
     h1: "Services agreement template — draft one in minutes",
     beta: true,
     law: "Drafted under Singapore law, in Singapore or US dollars.",
-    title: "Services Agreement Template — Draft One Free | FD AI",
+    title: "Services Agreement Template Singapore — Draft Free | FD AI",
     description:
-      "Draft a services agreement online: software subscriptions or professional services, fees, renewal and ending it. From the provider's or customer's side.",
+      "Draft a Singapore services agreement online: SaaS subscriptions or professional services, fees, renewal and ending it. Provider or customer side. Free.",
     lead: "A services agreement sets out what one business provides to another and what it costs. FD AI drafts one for a software subscription or for professional work, leaning to your side as the provider or the customer.",
     covers: [
       { label: "Type of service", text: "A platform or software subscription (SaaS), or professional services such as consulting or advisory work." },
@@ -547,6 +578,9 @@ export const draftLink = (t: TemplateDoc) => draftHref(t.docSlug);
 
 /** The short name inside a sentence: "your employment contract", but "your NDA". */
 export const inSentence = (t: TemplateDoc) => (/^[A-Z]{2}/.test(t.short) ? t.short : t.short.charAt(0).toLowerCase() + t.short.slice(1));
+
+/** When the template pages last changed (the sitemap tells search engines, so they read them again). */
+export const TEMPLATES_UPDATED = "2026-11-06";
 
 /** Every template address, for the sitemap. */
 export function templatePaths(): string[] {
