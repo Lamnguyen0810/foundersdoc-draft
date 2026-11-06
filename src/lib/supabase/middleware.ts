@@ -104,7 +104,7 @@ const SITE_PAGES = [
  * A prefix cannot drift. Nothing private has ever lived under /resources or
  * /templates (the public template pages, lib/templates).
  */
-const PUBLIC_PREFIXES = ["/resources", "/templates"];
+const PUBLIC_PREFIXES = ["/resources", "/templates", "/e-signature", "/esop-software"];
 
 /**
  * The drafting screen itself, and only itself.
