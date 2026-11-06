@@ -17,7 +17,7 @@ import { SITE, fdAiLd, ldJson } from "@/lib/seo";
  */
 export const revalidate = 3600;
 
-const TITLE = `FD AI Pricing — ${TRIAL.credits} Free Documents, Then From ${money(PACKS[0].amountCents)} | Founders Doc`;
+const TITLE = `FD AI Pricing: ${TRIAL.credits} Free Documents, Then From ${money(PACKS[0].amountCents)}`;
 const DESCRIPTION =
   `Start free with ${TRIAL.credits} documents over ${TRIAL.days} days, no card needed. Then from ${money(PACKS[0].amountCents)} a document, ` +
   `or a membership from ${money(MEMBERSHIPS[0].amountCents)} a month. Lawyer-backed.`;

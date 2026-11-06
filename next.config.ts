@@ -55,9 +55,34 @@ const STAND_INS = [
   { source: "/community-guidelines", destination: "/coming-soon?f=Our%20community%20guidelines" },
 ];
 
+/**
+ * Old WordPress addresses that search engines still list (6 Nov 2026: About Us,
+ * Services, the template shop, Infographics, FD MXMN...). Since the new site went
+ * live they were 404s, so Google was dropping them and the trust they had built
+ * was lost. Permanent (308) redirects pass that on to the matching new page.
+ * Add more from Search Console > Pages > "Not found (404)".
+ */
+const OLD_SITE = [
+  { source: "/about-us", destination: "/about" },
+  { source: "/contact-us", destination: "/contact" },
+  { source: "/services", destination: "/fd-consult" },
+  { source: "/services/:path*", destination: "/fd-consult" },
+  { source: "/product/:path*", destination: "/templates" },
+  { source: "/shop", destination: "/templates" },
+  { source: "/shop/:path*", destination: "/templates" },
+  { source: "/infographics", destination: "/resources/all" },
+  { source: "/resources/fundraising", destination: "/resources/all" },
+  { source: "/blog", destination: "/resources/all" },
+  { source: "/category/:path*", destination: "/resources/all" },
+  { source: "/tag/:path*", destination: "/resources/all" },
+  { source: "/fd-mxmn", destination: "/" },
+  { source: "/my-account", destination: "/login" },
+  { source: "/my-account/:path*", destination: "/login" },
+];
+
 const nextConfig: NextConfig = {
   async redirects() {
-    return STAND_INS.map((r) => ({ ...r, permanent: false }));
+    return [...STAND_INS.map((r) => ({ ...r, permanent: false })), ...OLD_SITE.map((r) => ({ ...r, permanent: true }))];
   },
   async rewrites() {
     return {

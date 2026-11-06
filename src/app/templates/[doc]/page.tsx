@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SITE } from "@/lib/seo";
-import { TEMPLATES, draftLink, inSentence, templateBySlug } from "@/lib/templates/data";
-import { Aside, CtaBand, Disclaimer, Faqs, Hero, Steps, TemplateLd } from "../parts";
+import { TRIAL } from "@/lib/billing/plans";
+import { TEMPLATES, draftLink, inSentence, pageLabel, templateBySlug } from "@/lib/templates/data";
+import { Breadcrumbs, CtaBand, Disclaimer, Faqs, MoreTemplates, Steps, TemplateLd } from "../parts";
+import TemplateCta from "../TemplateCta";
 import "../templates.css";
 
 /** /templates/<doc> — one document: what it covers, when you need one, and its countries. */
@@ -46,82 +48,100 @@ export default async function TemplateDocPage({ params }: { params: Promise<{ do
   const href = draftLink(t);
   const label = `Draft my ${inSentence(t)} free`;
   const source = `template:${t.slug}`;
-  const chips = [t.beta ? "Beta on FD AI" : "Ready on FD AI", "No card needed", "Word download"];
+  const countries = t.countries.filter((c) => c.kind !== "type");
+  const kinds = t.countries.filter((c) => c.kind === "type");
 
   return (
     <main className="tpl">
       <TemplateLd crumbs={crumbs} faqs={t.faqs} page={{ url, name: t.title, description: t.description }} />
-      <Hero
-        crumbs={crumbs}
-        eyebrow={`${t.short} template`}
-        title={t.h1 ?? `${t.short} template — draft a ${t.name.replace(/ \(.*\)$/, "")} in minutes`}
-        lead={t.lead}
-        cta={{ href, label, source }}
-        chips={chips}
-      />
-
-      <div className="wrap tpl-body">
-        <div className="tpl-main">
+      <div className="wrap tpl-wrap">
+        <Breadcrumbs items={crumbs} />
+        <header className="tpl-hero">
+          <span className="kicker">{t.short} template</span>
+          <h1>{t.h1 ?? `${t.short} template — draft a ${t.name.replace(/ \(.*\)$/, "")} in minutes`}</h1>
+          <p className="tpl-lead">{t.lead}</p>
+          <div className="tpl-hero-actions">
+            <TemplateCta href={href} label={label} source={source} />
+            <span className="tpl-small">
+              {t.beta && (
+                <span className="tpl-beta" title="This document is in Beta on FD AI: it works, and we are still refining it.">
+                  Beta
+                </span>
+              )}
+              {TRIAL.credits} free documents · no card needed
+            </span>
+          </div>
           {t.law && (
             <p className="tpl-tip">
               <strong>In FD AI:</strong> {t.law}
             </p>
           )}
+        </header>
 
-          {t.countries.length > 0 && (
-            <section className="tpl-section" aria-labelledby="tpl-country">
-              <h2 id="tpl-country">Choose your country</h2>
-              <ul className="tpl-countries">
-                {t.countries.map((c) => (
-                  <li key={c.slug}>
-                    <Link href={`/templates/${t.slug}/${c.slug}`}>
-                      <span className="tpl-flag" aria-hidden="true">
-                        {c.flag}
-                      </span>
-                      <strong>
-                        {t.short} for {c.short}
-                      </strong>
-                      <span>{c.lawChoice.replace(/^Choose /, "")}</span>
-                      <span className="tpl-go" aria-hidden="true">
-                        →
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-              <p className="tpl-small">Somewhere else? FD AI offers many more countries and US states — choose yours in the governing-law question.</p>
-            </section>
-          )}
-
-          <section className="tpl-section" aria-labelledby="tpl-covers">
-            <h2 id="tpl-covers">What your {inSentence(t)} covers</h2>
-            <ul className="tpl-checks">
-              {t.covers.map((c) => (
-                <li key={c.label}>
-                  <strong>{c.label}</strong>
-                  <span>{c.text}</span>
+        {kinds.length > 0 && (
+          <section className="tpl-section" aria-labelledby="tpl-kind">
+            <h2 id="tpl-kind">Mutual or one-way?</h2>
+            <ul className="tpl-countries tpl-kinds">
+              {kinds.map((c) => (
+                <li key={c.slug}>
+                  <Link href={`/templates/${t.slug}/${c.slug}`}>
+                    <span className="tpl-flag" aria-hidden="true">
+                      {c.flag}
+                    </span>
+                    <strong>{pageLabel(t, c)}</strong>
+                    <span>{c.lead.split(". ")[0]}.</span>
+                  </Link>
                 </li>
               ))}
             </ul>
           </section>
+        )}
 
-          <section className="tpl-section" aria-labelledby="tpl-when">
-            <h2 id="tpl-when">When you need one</h2>
-            <ul className="tpl-when">
-              {t.whenNeeded.map((w) => (
-                <li key={w}>{w}</li>
+        {countries.length > 0 && (
+          <section className="tpl-section" aria-labelledby="tpl-country">
+            <h2 id="tpl-country">Choose your country</h2>
+            <ul className="tpl-countries">
+              {countries.map((c) => (
+                <li key={c.slug}>
+                  <Link href={`/templates/${t.slug}/${c.slug}`}>
+                    <span className="tpl-flag" aria-hidden="true">
+                      {c.flag}
+                    </span>
+                    <strong>{pageLabel(t, c)}</strong>
+                    <span>{c.lawChoice.replace(/^Choose /, "")}</span>
+                  </Link>
+                </li>
               ))}
             </ul>
+            <p className="tpl-small">Somewhere else? FD AI offers many more countries and US states — choose yours in the governing-law question.</p>
           </section>
+        )}
 
-          <Steps docShort={inSentence(t)} />
-          <Faqs items={t.faqs} />
-          <Reading items={t.reading} />
-        </div>
-        <Aside icon={t.icon} name={t.short} href={href} label={label} source={source} beta={t.beta} />
-      </div>
+        <section className="tpl-section" aria-labelledby="tpl-covers">
+          <h2 id="tpl-covers">What your {inSentence(t)} covers</h2>
+          <dl className="tpl-points">
+            {t.covers.map((c) => (
+              <div key={c.label}>
+                <dt>{c.label}</dt>
+                <dd>{c.text}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
 
-      <div className="wrap tpl-end">
+        <section className="tpl-section" aria-labelledby="tpl-when">
+          <h2 id="tpl-when">When you need one</h2>
+          <ul className="tpl-list">
+            {t.whenNeeded.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        </section>
+
+        <Steps docShort={inSentence(t)} />
+        <Faqs items={t.faqs} />
+        <Reading items={t.reading} />
+        <MoreTemplates current={t.slug} />
         <CtaBand href={href} label={label} source={`${source}:end`} title={`Ready to draft your ${inSentence(t)}?`} />
         <Disclaimer />
       </div>

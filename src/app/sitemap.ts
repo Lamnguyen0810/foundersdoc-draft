@@ -4,7 +4,7 @@ import { STATIC_ARTICLES } from "@/lib/blog/html";
 import { publishedCards } from "@/lib/blog/store";
 import { loadDocTypes } from "@/lib/doctypes.server";
 import { PUBLIC_PAGES, SITE } from "@/lib/seo";
-import { templatePaths } from "@/lib/templates/data";
+import { TEMPLATES_UPDATED, templatePaths } from "@/lib/templates/data";
 
 /**
  * /sitemap.xml — every public page: the marketing site, the blog (the
@@ -31,7 +31,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...PUBLIC_PAGES.map((p) => page(p ? `/${p}` : "", p ? 0.6 : 1)),
     page("/draft", 0.9),
     ...docs.map((d) => page(draftHref(d.slug), d.slug === "nda" ? 0.9 : 0.8)),
-    ...templatePaths().map((p) => page(p, p.split("/").length > 3 ? 0.8 : 0.7)),
+    ...templatePaths().map((p) => page(p, p.split("/").length > 3 ? 0.8 : 0.7, TEMPLATES_UPDATED)),
     ...STATIC_ARTICLES.map((a) => page(`/resources/${a.slug}`, 0.7)),
     ...posts.filter((p) => !fromFiles.has(p.slug)).map((p) => page(`/resources/${p.slug}`, 0.7, p.published_at)),
   ];

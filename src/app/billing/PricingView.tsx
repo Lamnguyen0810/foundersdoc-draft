@@ -134,7 +134,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
             <h2>Choose the path that fits your workflow.</h2>
             <p className="sub">Start free, stay flexible with one-off credits, or choose a monthly membership for better value.</p>
             <div className="journey-steps">
-              <div className="journey-step"><small>Start free</small><strong>{TRIAL.credits} trial credits</strong><p>Try FD AI over {TRIAL.days} days before making any commitment.</p></div>
+              <div className="journey-step"><small>Start free</small><strong>{TRIAL.credits} free documents</strong><p>Try FD AI over {TRIAL.days} days before making any commitment.</p></div>
               <div className="journey-step"><small>Occasional use</small><strong>From {catalogue.packs[0].price}</strong><p>Buy credits only when you need them, with no expiry.</p></div>
               <div className="journey-step"><small>Regular use</small><strong>From {catalogue.memberships[0].price} / month</strong><p>Lower your effective cost with a monthly membership.</p></div>
             </div>
