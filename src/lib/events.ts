@@ -79,6 +79,16 @@ export const ALLOWED_PROP_KEYS = [
   "reason", // a short code, e.g. "email_not_confirmed"
   "source", // which page a click came from
   "count",
+  /* 0211: where the visit began, on "draft_started" only, so Slack can say "Came from" for
+     visitors without an account too. The same first page + referring SITE (host only) + utm
+     tags already kept for sign-ups (lib/signup-source.ts); public page titles, never a draft's. */
+  "land_path",
+  "land_title",
+  "land_kind",
+  "land_ref",
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
 ] as const;
 
 export type EventProps = Partial<Record<(typeof ALLOWED_PROP_KEYS)[number], string | number | boolean>>;

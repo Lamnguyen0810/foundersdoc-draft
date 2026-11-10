@@ -1,7 +1,7 @@
 "use client";
 
 import type { EventName, EventProps } from "./events";
-import { rememberLanding } from "./signup-source";
+import { readSignupSource, rememberLanding } from "./signup-source";
 
 /**
  * Record an event from the browser.
@@ -36,6 +36,20 @@ function anonId(): string | null {
   }
 }
 
+/* 0211: the first page of the visit, for the "Came from" line of a draft's first Slack message */
+function landing(): EventProps {
+  const s = readSignupSource();
+  const out: EventProps = {};
+  if (s.path) out.land_path = s.path;
+  if (s.title) out.land_title = s.title;
+  if (s.kind) out.land_kind = s.kind;
+  if (s.ref) out.land_ref = s.ref;
+  if (s.utm_source) out.utm_source = s.utm_source;
+  if (s.utm_medium) out.utm_medium = s.utm_medium;
+  if (s.utm_campaign) out.utm_campaign = s.utm_campaign;
+  return out;
+}
+
 export function track(name: EventName, props?: EventProps): void {
   if (typeof window === "undefined") return;
   // The first page of the visit, kept for the sign-up (lib/signup-source.ts).
@@ -46,7 +60,7 @@ export function track(name: EventName, props?: EventProps): void {
       anon_id: anonId(),
       path: window.location.pathname,
       referrer: document.referrer || null,
-      props: props ?? {},
+      props: name === "draft_started" ? { ...landing(), ...(props ?? {}) } : (props ?? {}),
     });
 
     const blob = new Blob([body], { type: "application/json" });
