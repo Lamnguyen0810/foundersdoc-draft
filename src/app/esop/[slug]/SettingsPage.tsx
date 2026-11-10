@@ -61,6 +61,10 @@ export default function SettingsPage(p: {
   const [newEmail, setNewEmail] = useState("");
   const [newRole, setNewRole] = useState<Role>("viewer");
   const [newAlert, setNewAlert] = useState("");
+  /* 0202: finance copies of the payment email */
+  const [finance, setFinance] = useState<string[]>(p.settings.finance_emails ?? []);
+  const [newFinance, setNewFinance] = useState("");
+  const [financeDirty, setFinanceDirty] = useState(false);
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -127,6 +131,14 @@ export default function SettingsPage(p: {
     }
     setBusy("settings");
     const { error } = await client.rpc("esop_save_settings", { p_company: company.id, p_alert_days: days, p_alert_emails: emails, p_holder_access: holderAccess, p_option_pool: null });
+    if (!error && financeDirty) {
+      const f = await client.rpc("esop_set_finance_emails", { p_company: company.id, p_emails: finance });
+      if (f.error) {
+        setBusy("");
+        return p.say(/esop_set_finance_emails|does not exist/.test(f.error.message) ? "Finance copies need supabase/126_esop_payment_email.sql first." : why(f.error.message));
+      }
+      setFinanceDirty(false);
+    }
     setBusy("");
     if (error) return p.say(why(error.message));
     setDirty(false);
@@ -395,10 +407,67 @@ export default function SettingsPage(p: {
         </div>
       </section>
 
+      {!p.settings.self_serve && (
+        <section className="ev-card ev-set">
+          <div className="ev-seth">
+            <h2>Finance copies</h2>
+            <span>Who also gets each payment email with the Stripe link, e.g. your finance team. Not sent during a simulation.</span>
+          </div>
+          <ul className="ev-setlist">
+            {finance.length === 0 && (
+              <li>
+                <span className="ev-muted">No one yet: the payment email goes to the company contact only.</span>
+              </li>
+            )}
+            {finance.map((e) => (
+              <li key={e}>
+                <span className="ev-setwho">
+                  {e} <span className="ev-muted">· payment emails only, no access</span>
+                </span>
+                {can && (
+                  <button
+                    className="ev-x sm"
+                    aria-label={`Stop payment emails to ${e}`}
+                    onClick={() => {
+                      setFinance((l) => l.filter((x) => x !== e));
+                      setFinanceDirty(true);
+                    }}
+                  >
+                    <Ic n="close" s={14} w={2} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {can && finance.length < 5 && (
+            <form
+              className="ev-setadd"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const v = newFinance.trim().toLowerCase();
+                if (!EMAIL.test(v)) return p.say("Check the email address.");
+                if (!finance.includes(v)) setFinance((l) => [...l, v]);
+                setNewFinance("");
+                setFinanceDirty(true);
+              }}
+            >
+              <label className="ev-search wide">
+                <Ic n="mail" w={2} />
+                <span className="ev-sr">Finance email</span>
+                <input type="email" placeholder="e.g. finance@company.com" value={newFinance} onChange={(e) => setNewFinance(e.target.value)} />
+              </label>
+              <button className="ev-btn" type="submit">
+                Add email
+              </button>
+            </form>
+          )}
+        </section>
+      )}
+
       {can && (
         <div className="ev-savebar">
-          <span>{dirty ? "You have unsaved changes to holder access or alerts." : "People changes save straight away."}</span>
-          <button className="ev-btn gold" disabled={!dirty || busy === "settings"} onClick={() => void saveSettings()}>
+          <span>{dirty || financeDirty ? "You have unsaved changes to holder access, alerts or finance copies." : "People changes save straight away."}</span>
+          <button className="ev-btn gold" disabled={!(dirty || financeDirty) || busy === "settings"} onClick={() => void saveSettings()}>
             {busy === "settings" ? "Saving…" : "Save settings"}
           </button>
         </div>

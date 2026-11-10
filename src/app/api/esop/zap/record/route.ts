@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { record } from "@/lib/esop/zap";
+import { sendPaymentEmail } from "@/lib/esop/payment";
 
 /**
  * POST /api/esop/zap/record — Zapier writes back to the ESOP dashboard.
@@ -8,9 +9,13 @@ import { record } from "@/lib/esop/zap";
  * `Authorization: Bearer <company key>` and JSON, one of:
  *   { "company": "hitpay", "action": "approved", "ref": "B99-T1", "invoice_no": "INV-0042", "approved_by": "<Slack member ID>" }
  *   { "company": "hitpay", "action": "certificate", "holder_id": "…", "tranche": 1, "url": "https://docs.google.com/…", "number": "HITPAY-B99-T1-001" }
+ *   { "company": "hitpay", "action": "payment", "ref": "B99-T1", "url": "https://buy.stripe.com/…", "send_email": true }
  * "approved" stops the same Ref running twice (first_time is false the second
  * time: put a Filter on it). "certificate" puts the link in the holder's
- * Option certificates cell. Checked in the database (supabase/106).
+ * Option certificates cell. "payment" keeps the Stripe link on the vesting; with
+ * send_email: true the website also sends the payment email (0202,
+ * lib/esop/payment.ts), so the Zap's own email step can be turned off.
+ * Checked in the database (supabase/106).
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,7 +37,7 @@ export async function POST(req: NextRequest) {
   }
   const slug = String(body.company ?? "").toLowerCase();
   if (!/^[a-z0-9-]{2,40}$/.test(slug)) return NextResponse.json({ error: "Give \"company\"." }, { status: 400 });
-  const { company: _ignored, ...payload } = body;
+  const { company: _ignored, send_email: sendMail, ...payload } = body;
   void _ignored;
 
   const { data, error } = await record(key, slug, payload);
@@ -42,6 +47,12 @@ export async function POST(req: NextRequest) {
     if (/bad payload/.test(m)) return NextResponse.json({ error: "Bad payload." }, { status: 400 });
     console.error("[esop record] failed:", m);
     return NextResponse.json({ error: "Could not save." }, { status: 500 });
+  }
+  /* 0202: the payment email, from the website, once the Stripe link is saved */
+  if (payload.action === "payment" && (sendMail === true || sendMail === "true")) {
+    const out = await sendPaymentEmail(key, slug, String(payload.ref ?? "").toUpperCase(), String(payload.url ?? ""));
+    if (out.status === "failed") console.error("[esop record] payment email failed for", payload.ref);
+    return NextResponse.json({ ...(data ?? { ok: true }), payment_email: out.status, payment_email_to: out.to ?? null, finance_copies: out.copies ?? 0 });
   }
   return NextResponse.json(data ?? { ok: true });
 }
