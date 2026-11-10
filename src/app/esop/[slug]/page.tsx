@@ -149,11 +149,15 @@ export default async function EsopPage({
   const option_pool = poolRes.error ? null : ((poolRes.data as { option_pool?: number | null } | null)?.option_pool ?? null);
   /* FD Sign badge (admins): this company's certificates still waiting for a signature */
   let signPending = 0;
+  /* 0199: each certificate request's state, so Needs attention can say "waiting for a signature" once sent */
+  let signStatus: Array<{ holder: string; tranche: number; status: string }> = [];
   if (admin && isAdminClientConfigured()) {
     const ids = ((holdersRes.data ?? []) as EsopHolder[]).map((h) => h.id);
     if (ids.length) {
-      const r = await supabaseAdmin().from("sign_envelopes").select("id", { count: "exact", head: true }).eq("status", "sent").in("esop_holder_id", ids);
-      signPending = r.error ? 0 : (r.count ?? 0);
+      const r = await supabaseAdmin().from("sign_envelopes").select("esop_holder_id, esop_tranche, status").in("esop_holder_id", ids).in("status", ["sent", "completed"]);
+      const list = (r.error ? [] : (r.data ?? [])) as Array<{ esop_holder_id: string; esop_tranche: number | null; status: string }>;
+      signPending = list.filter((x) => x.status === "sent").length;
+      signStatus = list.filter((x) => x.esop_tranche).map((x) => ({ holder: x.esop_holder_id, tranche: x.esop_tranche as number, status: x.status }));
     }
   }
   /* Approvals (107). Before 107 is run this simply returns nothing. */
@@ -181,6 +185,7 @@ export default async function EsopPage({
     <EsopSheet
       company={{ ...company, option_pool }}
       signPending={signPending}
+      signStatus={signStatus}
       settings={settings}
       access={access}
       batches={(batchesRes.data ?? []) as EsopBatch[]}

@@ -79,6 +79,8 @@ interface Props {
   focusRef: string | null;
   /** FD Sign: certificates waiting for a signature (admins), for the sidebar badge */
   signPending?: number;
+  /** 0199: FD Sign certificate requests (admins): holder, tranche, sent | completed */
+  signStatus?: Array<{ holder: string; tranche: number; status: string }>;
   /** what the client can change (123): approvers, access, holder access, alerts */
   settings?: EsopSettings;
   /** this person: may they change holders (not View only), and the settings (Admin)? */
@@ -638,8 +640,23 @@ export default function EsopSheet(props: Props) {
         gold: true,
         go: () => setPanel({ kind: "vesting", ref: nxRef }),
       });
-    else if (fdSignEsop)
-      tasks.push({ title: `Send ${nx.certificates} certificates for signing`, sub: `${nxRef} approved · vests ${fmtDay(nx.date)}`, action: "Open", gold: true, go: () => undefined, href: `/admin/sign?ref=${encodeURIComponent(nxRef)}` });
+    else if (fdSignEsop) {
+      /* 0199: once sent, say who is still to sign instead of asking to send again */
+      const ids = new Set(nxPeople.map((r) => r.h.id));
+      const mine = (props.signStatus ?? []).filter((x) => x.tranche === nx.tranche && ids.has(x.holder));
+      const waiting = mine.filter((x) => x.status === "sent").length;
+      const signed = mine.filter((x) => x.status === "completed").length;
+      if (waiting)
+        tasks.push({
+          title: `${waiting} ${waiting === 1 ? "certificate" : "certificates"} waiting for a signature`,
+          sub: `${nxRef}${signed ? ` · ${signed} signed` : ""} · vests ${fmtDay(nx.date)}`,
+          action: "Track",
+          go: () => undefined,
+          href: "/admin/sign?tab=sent",
+        });
+      else if (signed < nx.certificates)
+        tasks.push({ title: `Send ${nx.certificates - signed} ${nx.certificates - signed === 1 ? "certificate" : "certificates"} for signing`, sub: `${nxRef} approved · vests ${fmtDay(nx.date)}`, action: "Open", gold: true, go: () => undefined, href: `/admin/sign?ref=${encodeURIComponent(nxRef)}` });
+    }
   }
   const behindN = activeR.filter((r) => r.behind).length;
   if (behindN) tasks.push({ title: "Update vested figures", sub: `${behindN} people are behind their schedule`, action: "Review", go: () => goActive("behind") });

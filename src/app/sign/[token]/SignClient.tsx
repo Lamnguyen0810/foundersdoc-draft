@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { SignView } from "@/lib/sign/service";
 
-/* The signing screen: the document(s) on the left with this signer's
-   "Sign here" boxes on the signature lines (a live preview of the signature
-   appears in them), the signature on the right. Draw (mouse, finger or pen)
-   or type; tick the consent box; Sign. */
+/* The signing screen: the document(s) with this signer's "Sign here" boxes on
+   the signature lines. As on DocuSign (Rachel, 6 Nov: "I signed directly on the
+   box"), the signer taps a box: the first tap opens "Adopt your signature"
+   (draw with finger, mouse or pen, or type, and agree to sign electronically),
+   and every later tap puts it on that box. A bar at the bottom (on phones) and
+   the card on the right count the places left, jump to the next one and Finish. */
 
 const PdfPages = dynamic(() => import("../PdfPages"), { ssr: false, loading: () => <div className="fs-pages-wait">Loading the document…</div> });
 const today = () => new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Singapore" });
@@ -110,6 +112,13 @@ export default function SignClient({
   /* text boxes and checkboxes on my lines (FD Sign, SQL 120): field id -> what I typed, or "yes" */
   const [vals, setVals] = useState<Record<string, string>>({});
   const setVal = (id: string, v: string) => setVals((m) => ({ ...m, [id]: v }));
+  /* 0199: the adopted signature (from the "Adopt your signature" sheet) and the boxes it is on */
+  const [adopted, setAdopted] = useState(false);
+  const [sheet, setSheet] = useState(false);
+  const [sheetErr, setSheetErr] = useState("");
+  const [applied, setApplied] = useState<Set<string>>(() => new Set());
+  const pending = useRef<string | null>(null);
+  const [jump, setJump] = useState<string | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const last = useRef<{ x: number; y: number } | null>(null);
@@ -135,7 +144,7 @@ export default function SignClient({
       ctx.lineJoin = "round";
       ctx.strokeStyle = "#0d1a59";
     }
-  }, [mode, view.state, ok]);
+  }, [mode, view.state, ok, sheet]);
 
   function pos(e: React.PointerEvent<HTMLCanvasElement>) {
     const r = e.currentTarget.getBoundingClientRect();
@@ -160,7 +169,6 @@ export default function SignClient({
     if (!drawn) setDrawn(true);
   }
   function up() {
-    if (drawing.current && canvas.current) setPng(trimmed(canvas.current));
     drawing.current = false;
     last.current = null;
   }
@@ -168,7 +176,6 @@ export default function SignClient({
     const c = canvas.current;
     c?.getContext("2d")?.clearRect(0, 0, c.width, c.height);
     setDrawn(false);
-    setPng("");
   }
   const ready = view.state === "ready";
   const mine = ready ? (d?.fields ?? []) : [];
@@ -181,18 +188,84 @@ export default function SignClient({
     .map((w) => w[0]!.toUpperCase())
     .join("")
     .slice(0, 4);
-  function gotoBox() {
-    document.querySelector(".fs-here")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  /* every place I sign or initial, on every document of this link, in order */
+  const key = (di: number, fi: number) => `${di}:${fi}`;
+  const signSpots = ready
+    ? view.documents.flatMap((x, di) => x.fields.map((f, fi) => ({ f, di, k: key(di, fi) })).filter((o) => o.f.kind === "signature" || o.f.kind === "initials"))
+    : [];
+  const askLeft = (f: { id?: string; required?: boolean }) => !!f.id && f.required !== false && !(vals[f.id] ?? "").trim();
+  const askSpots = ready
+    ? view.documents.flatMap((x, di) => x.fields.map((f, fi) => ({ f, di, k: key(di, fi) })).filter((o) => (o.f.kind === "text" || o.f.kind === "checkbox") && askLeft(o.f)))
+    : [];
+  const signLeft = signSpots.filter((o) => !applied.has(o.k));
+  const todo = [...signLeft, ...askSpots].sort((a, b) => a.di - b.di || Number(a.k.split(":")[1]) - Number(b.k.split(":")[1]));
+
+  /* scroll to a box once its document is showing (pages draw a moment after a tab change) */
+  useEffect(() => {
+    if (!jump) return;
+    let tries = 0;
+    const t = setInterval(() => {
+      const el = document.querySelector(`[data-key="${jump}"]`);
+      if (el || ++tries > 25) {
+        clearInterval(t);
+        el?.scrollIntoView({ behavior: "smooth", block: "center" });
+        setJump(null);
+      }
+    }, 120);
+    return () => clearInterval(t);
+  }, [jump, doc]);
+  function goTo(k: string) {
+    const di = Number(k.split(":")[0]);
+    if (di !== doc) setDoc(di);
+    setJump(k);
   }
-  function gotoPad() {
-    document.querySelector(".fs-side .fs-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  function gotoBox() {
+    const next = todo[0] ?? signSpots[0];
+    if (next) goTo(next.k);
+  }
+  function openSheet(target: string | null) {
+    pending.current = target;
+    setSheetErr("");
+    setDrawn(false); /* a fresh pad each time; the adopted signature stays until a new one is adopted */
+    setSheet(true);
+  }
+  /* "Adopt and sign": keep the signature, put it on the box that was tapped */
+  function adopt() {
+    setSheetErr("");
+    if (mode === "draw" && !drawn && !png) return setSheetErr("Please draw your signature in the box.");
+    if (mode === "type" && typed.trim().length < 2) return setSheetErr("Please type your full name.");
+    if (!consent) return setSheetErr("Please tick the box to agree to sign electronically.");
+    if (mode === "draw" && drawn && canvas.current) setPng(trimmed(canvas.current));
+    setAdopted(true);
+    setSheet(false);
+    const k = pending.current;
+    pending.current = null;
+    if (k) setApplied((a) => new Set(a).add(k));
+    const after = todo.filter((o) => o.k !== k);
+    if (after[0]) setTimeout(() => goTo(after[0].k), 250);
+  }
+  /* tap on a signature or initials box */
+  function tapSign(k: string) {
+    if (!adopted) return openSheet(k);
+    if (applied.has(k)) return openSheet(null); /* tap a signed box again: change the signature */
+    setApplied((a) => new Set(a).add(k));
+    const after = todo.filter((o) => o.k !== k);
+    if (after[0]) setTimeout(() => goTo(after[0].k), 250);
+  }
+  /* the bottom bar / card button: next place, or Finish when nothing is left */
+  function nextOrFinish() {
+    if (!adopted) return openSheet(signLeft[0]?.k ?? null);
+    if (todo[0]) return goTo(todo[0].k);
+    void sign();
   }
 
   async function sign() {
     setErr("");
-    if (!consent) return setErr("Please tick the box to agree to sign electronically.");
-    if (mode === "draw" && !drawn) return setErr("Please draw your signature in the box.");
-    if (mode === "type" && typed.trim().length < 2) return setErr("Please type your full name.");
+    if (!adopted || !consent) return openSheet(signLeft[0]?.k ?? null);
+    if (signLeft.length) {
+      goTo(signLeft[0].k);
+      return setErr(`Tap the remaining ${signLeft.length === 1 ? "place" : `${signLeft.length} places`} to sign.`);
+    }
     const missing = asks.find((f) => f.required !== false && !(vals[f.id!] ?? "").trim());
     if (missing) {
       document.querySelector(`[data-field="${missing.id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -207,7 +280,7 @@ export default function SignClient({
           token,
           consent,
           kind: mode,
-          png: mode === "draw" ? png || (canvas.current ? trimmed(canvas.current) : undefined) : undefined,
+          png: mode === "draw" ? png || undefined : undefined,
           typed: mode === "type" ? typed : undefined,
           ...(asks.length ? { values: vals } : {}),
         }),
@@ -271,7 +344,7 @@ export default function SignClient({
             <div className="fs-goto">
               <span>
                 {places
-                  ? `You sign in ${places === 1 ? "1 place" : `${places} places`} in this document${n > 1 ? "" : ""}.`
+                  ? `You sign in ${places === 1 ? "1 place" : `${places} places`} in this document. Tap each yellow box to sign.`
                   : "There is no signature line marked for you here: your signature is added on the record page at the end."}
               </span>
               {places > 0 && (
@@ -287,19 +360,26 @@ export default function SignClient({
               src={fileUrl(doc, view.state === "signed")}
               overlay={(page) =>
                 mine
-                  .filter((f) => f.page === page)
-                  .map((f, i) => {
+                  .map((f, fi) => ({ f, k: key(doc, fi) }))
+                  .filter(({ f }) => f.page === page)
+                  .map(({ f, k }, i) => {
                     const v = f.id ? (vals[f.id] ?? "") : "";
+                    const tapToSign = f.kind === "signature" || f.kind === "initials";
+                    const on = applied.has(k);
                     const filled =
-                      f.kind === "text" ? !!v.trim() || f.required === false : f.kind === "checkbox" ? v === "yes" || f.required === false : f.kind !== "signature" || (mode === "draw" ? !!png : typed.trim().length > 1);
+                      f.kind === "text" ? !!v.trim() || f.required === false : f.kind === "checkbox" ? v === "yes" || f.required === false : !tapToSign || on;
                     return (
                       <div
                         key={i}
                         data-field={f.id}
-                        className={`fs-here ${filled ? "filled" : ""} ${f.kind === "text" || f.kind === "checkbox" ? "ask" : ""}`}
+                        data-key={k}
+                        role={tapToSign ? "button" : undefined}
+                        tabIndex={tapToSign ? 0 : undefined}
+                        onKeyDown={tapToSign ? (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), tapSign(k)) : undefined}
+                        className={`fs-here ${filled ? "filled" : ""} ${on ? "signed" : ""} ${f.kind === "text" || f.kind === "checkbox" ? "ask" : ""} ${todo[0]?.k === k ? "next" : ""}`}
                         style={{ left: `${f.x * 100}%`, top: `${f.y * 100}%`, width: `${f.w * 100}%`, height: `${f.h * 100}%` }}
-                        onClick={f.kind === "checkbox" ? () => f.id && setVal(f.id, v === "yes" ? "" : "yes") : f.kind === "text" ? undefined : gotoPad}
-                        title={f.kind === "text" || f.kind === "checkbox" ? (f.label ?? "") : "Your signature goes here"}
+                        onClick={f.kind === "checkbox" ? () => f.id && setVal(f.id, v === "yes" ? "" : "yes") : f.kind === "text" ? undefined : tapToSign ? () => tapSign(k) : undefined}
+                        title={f.kind === "text" || f.kind === "checkbox" ? (f.label ?? "") : tapToSign ? (on ? "Tap to change your signature" : "Tap to sign here") : ""}
                       >
                         {f.kind === "text" && (
                           <>
@@ -309,9 +389,11 @@ export default function SignClient({
                         )}
                         {f.kind === "checkbox" && <span className="fs-here-cb" role="checkbox" aria-checked={v === "yes"} aria-label={f.label || "Tick"}>{v === "yes" ? "✓" : ""}</span>}
                         {f.kind === "checkbox" && v !== "yes" && f.required !== false && <span className="fs-here-l">Tick</span>}
-                        {f.kind === "initials" && <span className="fs-here-t" style={{ ["--n" as string]: 4 }}>{initials}</span>}
-                        {f.kind === "signature" && !filled && <span className="fs-here-l">Sign here</span>}
-                        {f.kind === "signature" && filled && (mode === "draw" ? /* eslint-disable-next-line @next/next/no-img-element -- a data: URL of the signature being drawn */
+                        {f.kind === "initials" && !on && <span className="fs-here-l">Initial here</span>}
+                        {f.kind === "initials" && on && <span className="fs-here-t" style={{ ["--n" as string]: 4 }}>{initials}</span>}
+                        {f.kind === "signature" && !on && <span className="fs-here-l">{adopted ? "Tap to sign" : "Sign here"}</span>}
+                        {f.kind === "signature" && !on && <span className="fs-here-tap" aria-hidden="true">✍</span>}
+                        {f.kind === "signature" && on && (mode === "draw" ? /* eslint-disable-next-line @next/next/no-img-element -- a data: URL of the signature being drawn */
                           <img src={png} alt="Your signature" /> : <span className="fs-here-t" style={{ ["--n" as string]: Math.max(typed.trim().length, 4) }}>{typed}</span>)}
                         {f.kind === "date" && <span className="fs-here-d">{today()}</span>}
                         {f.kind === "name" && <span className="fs-here-d">{view.signerName}</span>}
@@ -414,44 +496,38 @@ export default function SignClient({
             </div>
           )}
           {view.state === "ready" && ok && (
-            <div className="fs-card">
+            <div className="fs-card fs-sigcard">
               <h2>Your signature</h2>
               {code.required && <p className="fs-verified">✓ Email confirmed</p>}
-              <div className="fs-seg">
-                <button className={mode === "draw" ? "on" : ""} onClick={() => {
-                    setMode("draw");
-                    setDrawn(false);
-                    setPng("");
-                  }}>
-                  Draw
+              {adopted ? (
+                <button className="fs-adopted" onClick={() => openSheet(null)} aria-label="Change your signature">
+                  {mode === "draw" && png ? (
+                    /* eslint-disable-next-line @next/next/no-img-element -- a data: URL of the signature just drawn */
+                    <img src={png} alt="Your signature" />
+                  ) : (
+                    <span className="fs-typed-sig">{typed}</span>
+                  )}
+                  <small>Change</small>
                 </button>
-                <button className={mode === "type" ? "on" : ""} onClick={() => setMode("type")}>
-                  Type
-                </button>
-              </div>
-              {mode === "draw" ? (
-                <div className="fs-pad">
-                  <canvas ref={canvas} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} aria-label="Draw your signature here" />
-                  <span className="fs-pad-hint">{drawn ? "" : "Sign here with your mouse or finger"}</span>
-                  <button className="fs-clear" onClick={clear}>
-                    Clear
-                  </button>
-                </div>
               ) : (
-                <div className="fs-typed">
-                  <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Type your full name" maxLength={80} />
-                  <div className="fs-typed-preview">{typed || " "}</div>
-                </div>
+                <p className="fs-small fs-tight">Tap a yellow <b>Sign here</b> box on the document, or start here.</p>
               )}
-              <label className="fs-consent">
-                <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+              <div className="fs-progress" aria-live="polite">
                 <span>
-                  I agree to sign {n > 1 ? `these ${n} documents` : "this document"} electronically, and that my electronic signature has the same effect as my handwritten signature.
+                  {signSpots.length
+                    ? `${signSpots.length - signLeft.length} of ${signSpots.length} ${signSpots.length === 1 ? "place" : "places"} signed`
+                    : "Your signature goes on the record page at the end."}
+                  {askSpots.length ? ` · ${askSpots.length} to fill in` : ""}
                 </span>
-              </label>
+                {signSpots.length > 0 && (
+                  <i>
+                    <b style={{ width: `${Math.round(((signSpots.length - signLeft.length) / signSpots.length) * 100)}%` }} />
+                  </i>
+                )}
+              </div>
               {err && <p className="fs-err">{err}</p>}
-              <button className="fs-btn primary" disabled={busy} onClick={() => void sign()}>
-                {busy ? "Signing…" : n > 1 ? `Sign all ${n} documents` : "Sign"}
+              <button className="fs-btn primary" disabled={busy} onClick={nextOrFinish}>
+                {busy ? "Signing…" : !adopted ? "Start signing" : todo.length ? `Next: ${todo[0].f.kind === "text" || todo[0].f.kind === "checkbox" ? "fill in" : "sign here"} ↓` : n > 1 ? `Finish: sign all ${n} documents` : "Finish"}
               </button>
               <p className="fs-small">
                 Signing as <b>{view.signerName}</b> ({view.signerEmail}). We record the time, your IP address and browser in the audit trail.
@@ -485,6 +561,67 @@ export default function SignClient({
           <p className="fs-legal">Electronic signatures are recognised in Singapore under the Electronic Transactions Act 2010.</p>
         </aside>
       </div>
+
+      {view.state === "ready" && ok && (
+        <div className="fs-mbar">
+          <span>{!adopted ? "Tap Start, or a yellow box" : todo.length ? `${todo.length} left` : "All done"}</span>
+          <button className="fs-btn primary" disabled={busy} onClick={nextOrFinish}>
+            {busy ? "Signing…" : !adopted ? "Start signing" : todo.length ? "Next ↓" : "Finish"}
+          </button>
+        </div>
+      )}
+
+      {sheet && (
+        <div className="fs-sheet-bg" onClick={() => setSheet(false)}>
+          <div className="fs-sheet" role="dialog" aria-modal="true" aria-label="Adopt your signature" onClick={(e) => e.stopPropagation()}>
+            <div className="fs-sheet-top">
+              <h2>Adopt your signature</h2>
+              <button className="fs-icon" onClick={() => setSheet(false)} aria-label="Close">
+                ✕
+              </button>
+            </div>
+            <div className="fs-seg">
+              <button
+                className={mode === "draw" ? "on" : ""}
+                onClick={() => {
+                  setMode("draw");
+                  setDrawn(false);
+                }}
+              >
+                Draw
+              </button>
+              <button className={mode === "type" ? "on" : ""} onClick={() => setMode("type")}>
+                Type
+              </button>
+            </div>
+            {mode === "draw" ? (
+              <div className="fs-pad">
+                <canvas ref={canvas} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} aria-label="Draw your signature here" />
+                <span className="fs-pad-hint">{drawn ? "" : png && adopted ? "Draw a new one, or press Adopt to keep yours" : "Sign here with your finger or mouse"}</span>
+                <button className="fs-clear" onClick={clear}>
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <div className="fs-typed">
+                <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Type your full name" maxLength={80} />
+                <div className="fs-typed-preview">{typed || " "}</div>
+              </div>
+            )}
+            <label className="fs-consent">
+              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+              <span>
+                I agree to sign {n > 1 ? `these ${n} documents` : "this document"} electronically, and that my electronic signature has the same effect as my handwritten signature.
+              </span>
+            </label>
+            {sheetErr && <p className="fs-err">{sheetErr}</p>}
+            <button className="fs-btn primary" onClick={adopt}>
+              Adopt and sign
+            </button>
+            <p className="fs-small">You can still check everything before you press Finish.</p>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

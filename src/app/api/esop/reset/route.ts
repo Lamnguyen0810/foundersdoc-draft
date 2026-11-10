@@ -79,6 +79,7 @@ export async function POST(req: NextRequest) {
       (out.certificate_numbers.length ? ` · certificate numbers ${range(out.certificate_numbers)} freed, next No. ${out.next_certificate_no}` : ""),
     ref,
     out.slack_ts,
+    true,
   );
   return NextResponse.json({ ok: true, ...out, paths: undefined, slack_ts: undefined });
 }

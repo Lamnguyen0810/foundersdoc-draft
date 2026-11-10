@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { alertText, confirmText, loadDue, newApprovalLink, optionsOf } from "@/lib/esop/zap";
 import { sendApprovalEmail } from "@/lib/esop/approval";
+import { testModeFields } from "@/lib/esop/test-mode";
 
 /**
  * GET /api/esop/zap/due?company=hitpay&days=7      who vests in 7 days
@@ -22,6 +23,12 @@ import { sendApprovalEmail } from "@/lib/esop/approval";
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** The simulation inbox of an item (esop_item puts it in contact_email while simulation is on). */
+function simTo(it: unknown): string | null {
+  const o = it as { simulation?: boolean; contact_email?: string };
+  return o.simulation ? o.contact_email || "simulation" : null;
+}
 
 export async function GET(req: NextRequest) {
   if (!isSupabaseConfigured()) return NextResponse.json({ error: "Not configured." }, { status: 503 });
@@ -61,6 +68,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     found: Boolean(first),
     approval_email: approvalEmail,
+    /* 0199: Slack channel + email copies, switched to the tester's own while simulation is on */
+    ...testModeFields(first ? simTo(first) : null),
     count: items.length,
     company,
     today: data?.today,

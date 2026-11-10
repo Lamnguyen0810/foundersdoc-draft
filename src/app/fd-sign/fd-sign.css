@@ -350,3 +350,7 @@ textarea.fds-inp { height: auto; min-height: 84px; padding: 10px 12px; line-heig
   .fds-wfoot .hint { display: none; }
   .fds-stats { gap: 10px; }
 }
+
+/* 0199: sender name on Review and send */
+.fds-namehint { display: block; margin-top: 6px; font-size: 12.5px; color: var(--grey-5); }
+.fds-namehint.warn { color: #b4541b; }

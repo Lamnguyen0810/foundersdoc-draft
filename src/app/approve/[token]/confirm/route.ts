@@ -48,6 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tok
       `⚠️ Approved from the email by ${String(item.approved_by ?? "the client")}, but the hand-over to Zapier failed, so no payment link or vesting emails went out. Open the ESOP dashboard and press *Send again*.`,
       ref,
       typeof item.slack_ts === "string" ? item.slack_ts : null,
+      Boolean(item.simulation),
     );
   }
   return back("?done=1");
