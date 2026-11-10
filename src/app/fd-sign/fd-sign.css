@@ -274,13 +274,29 @@ textarea.fds-inp { height: auto; min-height: 84px; padding: 10px 12px; line-heig
 .fds-set .r { margin-left: auto; font-size: 12px; color: var(--fds-tx3); white-space: nowrap; }
 .fds-mailp { background: var(--fds-bg); border: 1px solid var(--fds-line); border-radius: 16px; padding: 14px; align-self: start; position: sticky; top: calc(var(--fds-top) + 80px); }
 .fds-mailp .lab { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fds-tx3); font-weight: 700; margin: 0 0 10px 4px; }
-.fds-em { background: #fff; color: #1b1b1e; border-radius: 12px; overflow: hidden; border: 1px solid #e6e6ea; }
-.fds-em .hd { padding: 12px 16px; border-bottom: 1px solid #e6e6ea; font-size: 12px; color: #55555b; line-height: 1.6; word-break: break-word; }
-.fds-em .hd b { color: #1b1b1e; }
+.fds-mailp .sub { margin: -4px 0 12px 4px; font-size: 12.5px; color: var(--fds-tx3); line-height: 1.5; }
+.fds-mailp .sub + .fds-em + .sub, .fds-em + .sub { margin: 12px 0 0 4px; }
+.fds-mailp .sub.warn { color: var(--fds-gold-tx); }
+.fds-mailp .sub b { color: var(--fds-tx); font-weight: 600; overflow-wrap: anywhere; }
+.fds-mailp .tok { display: inline-block; background: #fbeec9; color: #6b4e00; border-radius: 4px; padding: 0 5px; font-weight: 500; line-height: 1.45; }
+/* 0205: looks like an email open in an inbox */
+.fds-em { background: #fff; color: #1b1b1e; border-radius: 12px; overflow: hidden; border: 1px solid #e6e6ea; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06); }
+.fds-em .win { display: flex; align-items: center; gap: 6px; padding: 9px 14px; background: #f4f4f5; border-bottom: 1px solid #e6e6ea; }
+.fds-em .win i { width: 9px; height: 9px; border-radius: 50%; background: #d4d4d8; }
+.fds-em .win span { margin-left: 8px; font-size: 11.5px; font-weight: 600; color: #86868c; }
+.fds-em .subj { padding: 16px 18px 4px; font-family: var(--display, inherit); font-size: 17px; font-weight: 500; line-height: 1.35; overflow-wrap: anywhere; }
+.fds-em .who { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 18px 14px; border-bottom: 1px solid #e6e6ea; }
+.fds-em .av { width: 36px; height: 36px; border-radius: 50%; background: #f3bf4b; color: #141416; display: grid; place-items: center; font-weight: 700; font-size: 14px; }
+.fds-em .nm { font-size: 13px; overflow-wrap: anywhere; }
+.fds-em .nm span { color: #86868c; }
+.fds-em .to { font-size: 12px; color: #86868c; margin-top: 1px; }
+.fds-em .tok { font-size: 0.92em; vertical-align: 0.04em; }
+.fds-em .when { font-size: 11.5px; color: #86868c; white-space: nowrap; }
 .fds-em .bd { padding: 22px 24px; }
 .fds-em .pillk { display: inline-block; background: #161616; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: 2px; padding: 4px 9px; }
 .fds-em h4 { font-size: 19px; margin: 14px 0 10px; letter-spacing: -0.01em; }
-.fds-em .doc { background: #f4f4f4; border-radius: 8px; padding: 11px 13px; font-weight: 700; }
+.fds-em .doc { display: flex; align-items: center; gap: 8px; background: #f4f4f4; border-radius: 8px; padding: 11px 13px; font-weight: 700; overflow-wrap: anywhere; }
+.fds-em .doc svg { flex-shrink: 0; color: #55555b; }
 .fds-em .msg { margin: 12px 0 0; color: #55555b; white-space: pre-line; line-height: 1.5; }
 .fds-em .btn { display: inline-block; background: #161616; color: #fff; font-weight: 700; border-radius: 8px; padding: 11px 20px; margin-top: 16px; }
 .fds-em .ft { font-size: 11.5px; color: #9a9a96; padding: 0 24px 18px; line-height: 1.5; }
