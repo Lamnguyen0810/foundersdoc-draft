@@ -158,7 +158,15 @@ body:has(.fds) { height: auto; }
 .fds-wtop .x { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--fds-line); display: grid; place-items: center; }
 .fds-steps { display: flex; align-items: center; gap: 8px; }
 .fds-stp { display: flex; align-items: center; gap: 8px; color: var(--fds-tx3); font-weight: 500; border: 0; background: none; cursor: pointer; padding: 0; white-space: nowrap; }
-.fds-stp:disabled { cursor: default; }
+.fds-stp:disabled { cursor: default; opacity: 0.55; }
+/* 0205: steps already opened are links back (and forward again) */
+.fds-stp .short { display: none; }
+.fds-stp:not(:disabled):not(.on) { border-radius: 8px; padding: 4px 8px 4px 4px; margin: -4px -8px -4px -4px; transition: background 0.15s, color 0.15s; }
+.fds-stp:not(:disabled):not(.on):hover { background: var(--fds-bg); color: var(--fds-tx); }
+.fds-stp:not(:disabled):not(.on):hover span { text-decoration: underline; text-underline-offset: 3px; }
+.fds-stp:focus-visible { outline: 2px solid var(--fds-gold); outline-offset: 2px; border-radius: 8px; }
+.fds-stp.seen { color: var(--fds-tx2); }
+.fds-stp.seen i { border-color: var(--fds-tx3); }
 .fds-stp i { font-style: normal; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--fds-line2); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
 .fds-stp.on { color: var(--fds-tx); font-weight: 600; }
 .fds-stp.on i { background: var(--fds-ink); border-color: var(--fds-ink); color: var(--fds-on-ink); }
@@ -334,9 +342,12 @@ textarea.fds-inp { height: auto; min-height: 84px; padding: 10px 12px; line-heig
   .fds-dn b { max-width: 100%; white-space: normal; }
   .fds-wtop { grid-template-columns: 1fr auto; padding: 10px 16px; }
   .fds-wtop .fds-steps { grid-column: 1 / -1; grid-row: 2; justify-content: space-between; overflow-x: auto; }
-  .fds-stp span { display: none; }
-  .fds-stp.on span { display: inline; }
-  .fds-sl { width: 14px; }
+  /* every step keeps its name on phones (under the number), so each one is easy to tap */
+  .fds-stp { flex-direction: column; gap: 3px; font-size: 11px; min-width: 52px; }
+  .fds-stp:not(:disabled):not(.on) { padding: 4px; margin: -4px; }
+  .fds-stp .full { display: none; }
+  .fds-stp .short { display: inline; }
+  .fds-sl { flex: 1; width: auto; min-width: 8px; margin-bottom: 16px; }
   .fds-wbody, .fds-rv { grid-template-columns: 1fr; padding: 20px 16px 120px; }
   .fds-aside, .fds-mailp { position: static; }
   .fds-f2 { grid-template-columns: 1fr; }

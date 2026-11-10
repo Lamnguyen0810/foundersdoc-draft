@@ -17,6 +17,8 @@ import { Ic, useList } from "./ui";
 const MAX = 10 * 1024 * 1024;
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const STEPS = ["Document", "People", "Fields", "Review and send"];
+/* phones show every step's name under its number, so a shorter last one */
+const SHORT = ["Document", "People", "Fields", "Review"];
 const KIND_TEXT: Record<BoxKind, string> = { signature: "Signature", date: "Date signed", name: "Full name", initials: "Initials", text: "Text box", checkbox: "Checkbox" };
 const KIND_ICON: Record<BoxKind, string> = { signature: "pen", date: "cal", name: "user", initials: "type", text: "textbox", checkbox: "box" };
 const KIND_HINT: Partial<Record<BoxKind, string>> = { initials: "from their name", text: "they type it", checkbox: "they tick it" };
@@ -40,6 +42,9 @@ export default function Wizard() {
   const [draftBusy, setDraftBusy] = useState("");
   const { data, reload } = useList();
   const [step, setStep] = useState(1);
+  /* 0205: the furthest step reached, so the bar can jump back and forward again
+     to any step already opened (each jump still checks the steps before it) */
+  const [reached, setReached] = useState(1);
   const [file, setFile] = useState<File | null>(null);
   const [info, setInfo] = useState<PdfInfo | null>(null);
   const [fileErr, setFileErr] = useState("");
@@ -253,6 +258,7 @@ export default function Wizard() {
     setErr("");
     if (step === 2 && n > 2) setPeople((l) => (l.some(isFilled) ? l.filter(isFilled) : l));
     setStep(n);
+    setReached((r) => Math.max(r, n));
     window.scrollTo({ top: 0 });
   }
 
@@ -320,17 +326,30 @@ export default function Wizard() {
           </Link>
           New signing request
         </div>
-        <div className="fds-steps">
-          {STEPS.map((t, i) => (
-            <span key={t} style={{ display: "contents" }}>
-              <button className={`fds-stp ${i + 1 < step ? "ok" : i + 1 === step ? "on" : ""}`} onClick={() => go(i + 1)} disabled={i + 1 > step + 1}>
-                <i>{i + 1 < step ? "✓" : i + 1}</i>
-                <span>{t}</span>
-              </button>
-              {i < 3 && <span className={`fds-sl ${i + 1 < step ? "ok" : ""}`} />}
-            </span>
-          ))}
-        </div>
+        <nav className="fds-steps" aria-label="Steps">
+          {STEPS.map((t, i) => {
+            const n = i + 1;
+            const open = n <= Math.max(reached, step + 1);
+            const done = n < reached && n !== step && !problems[n];
+            return (
+              <span key={t} style={{ display: "contents" }}>
+                <button
+                  type="button"
+                  className={`fds-stp ${n === step ? "on" : done ? "ok" : n <= reached ? "seen" : ""}`}
+                  onClick={() => n !== step && go(n)}
+                  disabled={!open}
+                  aria-current={n === step ? "step" : undefined}
+                  title={n === step ? t : open ? `Go to ${t}` : `${t}: finish the steps before it first`}
+                >
+                  <i>{done ? "✓" : n}</i>
+                  <span className="full">{t}</span>
+                  <span className="short">{SHORT[i]}</span>
+                </button>
+                {i < 3 && <span className={`fds-sl ${n < reached ? "ok" : ""}`} />}
+              </span>
+            );
+          })}
+        </nav>
         <span />
       </div>
 
