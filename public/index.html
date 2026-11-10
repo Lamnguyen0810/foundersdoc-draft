@@ -674,19 +674,181 @@
         contain-intrinsic-size: auto 560px;
       }
 
-      /* tools: check, sign, run (0200) */
-      .tools-sec { background: var(--grey-1); }
-      .tools-sec .way-visual { background: var(--white); }
-      .way.tool { color: inherit; text-decoration: none; }
-      .way.tool h3 { margin-top: 8px; }
-      .t-k { display: block; margin-top: 18px; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-deep); }
-      .t-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
-      .t-dot.r { background: #c8574a; }
-      .t-dot.o { background: #d9822b; }
-      .t-dot.g { background: #3d8b5f; }
-      .t-sig { margin-top: 8px; border: 2px solid var(--gold); border-radius: 6px; height: 34px; display: flex; align-items: center; padding: 0 10px; background: color-mix(in srgb, var(--gold) 14%, transparent); }
-      .t-sig span { font-size: 11px; font-weight: 700; background: var(--gold); color: var(--black); padding: 2px 8px; border-radius: 4px; }
-      .tools .mock { height: auto; min-height: 208px; }
+      /* tools: Check it. Sign it. Run it. (0200; v2 0203: an auto-playing showcase, one feature at a time) */
+      .sc { --sc-serif: Georgia, "Times New Roman", serif; --sc-red: #a63a2e; --sc-redbg: #f8e7e4; --sc-green: #2f7a52; }
+      .sc .head { margin-bottom: clamp(32px, 4vw, 52px); }
+      .sc-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(24px, 3.5vw, 56px); align-items: stretch; text-align: left; }
+      .sc-tabs { display: flex; flex-direction: column; gap: 4px; }
+      .sc-tab { position: relative; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 14px; text-align: left; font: inherit; color: inherit; background: transparent; border: 0; border-radius: 14px; padding: 16px 18px 18px; cursor: pointer; overflow: hidden; transition: background 0.3s; }
+      .sc-tab:hover { background: var(--grey-1); }
+      .sc-tab.on { background: var(--white); box-shadow: 0 0 0 1px var(--grey-2), 0 18px 40px -30px rgba(15, 15, 15, 0.35); }
+      .sc-tab:focus-visible { outline: 2px solid var(--gold-deep); outline-offset: 2px; }
+      .sc-n { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--grey-3); color: var(--grey-5); font-size: 11px; font-weight: 700; display: grid; place-items: center; font-variant-numeric: tabular-nums; transition: all 0.3s; }
+      .sc-tab.on .sc-n { background: var(--gold); border-color: var(--gold); color: var(--black); }
+      .sc-body { display: grid; gap: 4px; min-width: 0; }
+      .sc-k { font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-deep); }
+      .sc-k em { font-style: normal; margin-left: 6px; font-size: 10px; letter-spacing: 0.04em; color: var(--black); background: var(--gold); padding: 1px 6px; border-radius: 4px; }
+      .sc-h { font-size: 18px; font-weight: 600; color: var(--grey-5); line-height: 1.3; letter-spacing: -0.01em; transition: color 0.3s; }
+      .sc-tab.on .sc-h { color: var(--black); }
+      .sc-d { display: block; max-height: 0; overflow: hidden; opacity: 0; color: var(--grey-5); font-size: 14px; line-height: 1.6; transition: max-height 0.5s ease, opacity 0.4s ease, margin 0.4s; }
+      .sc-tab.on .sc-d { max-height: 130px; opacity: 1; margin-top: 4px; }
+      .sc-prog { position: absolute; left: 18px; right: 18px; bottom: 8px; height: 2px; background: var(--grey-2); border-radius: 2px; opacity: 0; }
+      .sc-tab.on .sc-prog { opacity: 1; }
+      .sc-prog::after { content: ""; position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); background: var(--gold); border-radius: 2px; }
+      .sc-prog.run::after { animation: sc-prog 6s linear forwards; }
+      .sc.paused .sc-prog::after { animation-play-state: paused; }
+      /* the stage: one feature at a time, turning like a page */
+      .sc-stage { position: relative; background: var(--grey-1); border: 1px solid var(--grey-2); border-radius: 20px; min-height: 460px; overflow: hidden; perspective: 1400px; }
+      .sc-stage::before { content: ""; position: absolute; inset: 0; background: radial-gradient(70% 60% at 70% 10%, color-mix(in srgb, var(--gold) 14%, transparent), transparent 70%); pointer-events: none; }
+      .sc-pane { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 34px 34px 64px; transform-origin: left center; }
+      .sc-pane.on { animation: sc-turn 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+      .sc-pane[hidden] { display: none; }
+      .sc-go { position: absolute; left: 34px; bottom: 24px; }
+      /* shared document look */
+      .sc-sheet { background: var(--white); border: 1px solid var(--grey-2); border-radius: 4px; box-shadow: 0 1px 0 var(--grey-2), 0 30px 60px -36px rgba(15, 15, 15, 0.45); padding: 20px 22px 16px; font-family: var(--sc-serif); color: #2a2a2a; position: relative; overflow: hidden; }
+      .sc-sheet p, .sc-screen p, .sc-reg p { margin: 0; }
+      .sc-hdr { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-family: Inter, system-ui, sans-serif; font-size: 9.5px; font-weight: 600; color: var(--grey-5); letter-spacing: 0.08em; text-transform: uppercase; padding-bottom: 8px; margin-bottom: 10px !important; border-bottom: 1px solid var(--grey-2); white-space: nowrap; }
+      .sc-hdr em { font-style: normal; color: var(--sc-red); letter-spacing: 0.1em; border: 1px solid transparent; padding: 1px 5px; border-radius: 3px; }
+      .sc-hdr em.g { color: var(--black); background: var(--gold); letter-spacing: 0.02em; text-transform: none; font-size: 10px; }
+      .sc-p { font-size: 11.5px; line-height: 1.65; color: #3a3a3a; margin-bottom: 8px !important; }
+      .sc-c { font-size: 11px; font-weight: 700; color: var(--black); font-variant: small-caps; letter-spacing: 0.05em; margin: 10px 0 3px !important; }
+      /* 01 review */
+      .sc-review { position: relative; width: min(520px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) 170px; gap: 18px; align-items: center; }
+      .sc-review mark { background: transparent; color: inherit; border-radius: 2px; padding: 0 1px; transition: background 0.4s, box-shadow 0.4s; }
+      .sc-notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+      .sc-notes li { font-size: 12px; line-height: 1.4; color: var(--ink); background: var(--white); border: 1px solid var(--grey-2); border-left: 3px solid var(--sc-red); border-radius: 6px; padding: 8px 10px; box-shadow: 0 12px 30px -20px rgba(15, 15, 15, 0.4); opacity: 0; transform: translateX(10px); }
+      .sc-notes li b { display: block; font-family: ui-monospace, Menlo, monospace; font-size: 9.5px; font-weight: 600; color: var(--grey-5); margin-bottom: 2px; }
+      .sc-notes li.o { border-left-color: var(--gold-deep); }
+      .sc-scan { position: absolute; left: 0; right: 0; top: -30%; height: 30%; background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--gold) 22%, transparent), transparent); pointer-events: none; opacity: 0; }
+      .sc-pane.on .sc-scan { animation: sc-scan 1.4s ease-in-out 0.5s 1 both; }
+      .sc-pane.on .sc-notes .n0 { animation: sc-note 0.4s ease 1.5s both; }
+      .sc-pane.on .sc-notes .n1 { animation: sc-note 0.4s ease 2s both; }
+      .sc-pane.on .sc-notes .n2 { animation: sc-note 0.4s ease 2.5s both; }
+      .sc-pane.on .sc-hdr em:not(.g) { animation: sc-flag 0.4s ease 1.5s both; }
+      .sc-pane.on mark.m1 { animation: sc-mark-r 0.4s ease 2s both; }
+      .sc-pane.on mark.m2 { animation: sc-mark-o 0.4s ease 2.5s both; }
+      .sc-strip { margin: 22px 0 0 !important; width: min(520px, 100%); display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--grey-5); background: var(--white); border: 1px solid var(--grey-2); border-left: 3px solid var(--sc-red); border-radius: 8px; padding: 10px 14px; opacity: 0; }
+      .sc-strip b { color: var(--sc-red); }
+      .sc-strip .d { width: 8px; height: 8px; border-radius: 50%; background: var(--sc-red); flex: none; }
+      .sc-pane.on .sc-strip { animation: sc-note 0.4s ease 3s both; }
+      /* 02 signing */
+      .sc-signrow { display: grid; grid-template-columns: auto minmax(0, 220px); gap: 32px; align-items: center; }
+      .sc-device { width: 210px; height: 340px; border-radius: 34px; background: #1c1c1e; padding: 8px; box-shadow: 0 0 0 1px #3a3a3c inset, 0 34px 60px -30px rgba(15, 15, 15, 0.6); }
+      .sc-screen { height: 100%; border-radius: 27px; background: var(--white); padding: 18px 14px 14px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; font-family: var(--sc-serif); }
+      .sc-bar { display: flex; justify-content: space-between; font-family: Inter, system-ui, sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0.16em; color: var(--black); padding-bottom: 8px; border-bottom: 1px solid var(--grey-2); }
+      .sc-bar em { font-style: normal; font-weight: 500; letter-spacing: 0; color: var(--grey-5); }
+      .sc-screen .sc-p { font-size: 10.5px; margin-top: 4px !important; }
+      .sc-block { margin-top: auto; }
+      .sc-lbl { font-size: 10px; color: #3a3a3a; }
+      .sc-lbl b { color: var(--black); }
+      .sc-line { position: relative; height: 58px; margin: 6px 0 5px; border-bottom: 1px solid #2a2a2a; background: color-mix(in srgb, var(--gold) 10%, transparent); border-radius: 3px 3px 0 0; }
+      .sc-line .sc-here { position: absolute; left: -14px; top: 50%; transform: translateY(-50%); font-family: Inter, system-ui, sans-serif; font-size: 9px; font-weight: 700; color: var(--black); background: var(--gold); padding: 4px 7px 4px 6px; border-radius: 0 4px 4px 0; display: block; }
+      .sc-line svg { position: absolute; left: 40px; right: 4px; bottom: 3px; height: 50px; width: calc(100% - 44px); }
+      .sc-line path { fill: none; stroke: #0d1a59; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 360; stroke-dashoffset: 360; }
+      .sc-pane.on .sc-line path { animation: sc-sign 1.8s ease-in-out 0.9s both; }
+      .sc-pane.on .sc-line { animation: sc-line 0.4s ease 2.8s both; }
+      .sc-pane.on .sc-line .sc-here { animation: sc-hide 0.3s ease 2.8s both; }
+      .sc-ok { font-family: Inter, system-ui, sans-serif; font-size: 10px; font-weight: 600; color: var(--sc-green); opacity: 0; margin-top: 4px !important; }
+      .sc-pane.on .sc-ok { animation: sc-note 0.4s ease 2.9s both; }
+      .sc-people { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; position: relative; }
+      .sc-people li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--grey-2); font-size: 12px; color: var(--grey-5); }
+      .sc-people li:first-child { border-top: 0; }
+      .sc-people i { width: 30px; height: 30px; border-radius: 50%; background: var(--white); border: 1px solid var(--grey-3); display: grid; place-items: center; font-style: normal; font-size: 10px; font-weight: 700; color: var(--grey-5); }
+      .sc-people b { display: block; color: var(--ink); font-size: 13px; }
+      .sc-people .done i { background: #e6f4ea; border-color: transparent; color: var(--sc-green); }
+      .sc-people .now i { background: var(--gold); border-color: var(--gold); color: var(--black); }
+      .sc-pane.on .sc-people .now i { animation: sc-done 0.4s ease 2.9s both; }
+      .sc-st.b { font-size: 0; }
+      .sc-pane.on .sc-st.a { animation: sc-st-out 0.01s linear 2.9s both; }
+      .sc-pane.on .sc-st.b { animation: sc-st-in 0.01s linear 2.9s both; }
+      @keyframes sc-st-out { to { font-size: 0; } }
+      @keyframes sc-st-in { to { font-size: 12px; } }
+      .sc-people .trail { grid-template-columns: 1fr; padding-top: 14px; font-size: 11.5px; }
+      .sc-people .trail b { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-deep); }
+      /* 03 register */
+      .sc-reg { width: min(540px, 100%); background: var(--white); border: 1px solid var(--grey-2); border-radius: 12px; box-shadow: 0 30px 60px -36px rgba(15, 15, 15, 0.45); padding: 18px 20px 12px; }
+      .sc-reg table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+      .sc-reg th { text-align: left; font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--grey-4); padding: 0 0 8px; }
+      .sc-reg td { padding: 10px 0; border-top: 1px solid var(--grey-2); color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .sc-reg td:nth-child(2) { padding-right: 12px; }
+      .sc-reg td i { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--grey-1); border: 1px solid var(--grey-2); font-style: normal; font-size: 8.5px; font-weight: 700; color: var(--grey-5); margin-right: 8px; vertical-align: middle; }
+      .sc-reg tr.lv td { color: var(--grey-4); }
+      .sc-reg .st { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--gold-soft); color: #7a5410; }
+      .sc-reg .st.x { background: var(--grey-1); color: var(--grey-5); }
+      .sc-pane.on tbody tr:nth-child(1) .st { animation: sc-filed 0.5s ease 0.9s both; }
+      .sc-pane.on tbody tr:nth-child(2) .st { animation: sc-filed 0.5s ease 1.8s both; }
+      .sc-pane.on tbody tr:nth-child(3) .st { animation: sc-filed 0.5s ease 2.7s both; }
+      .sc-foot { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--grey-5); border-top: 1px solid var(--grey-3); padding-top: 10px; margin-top: 2px !important; }
+      .sc-foot b { color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+      /* 04 templates */
+      .sc-tpl { list-style: none; margin: 0; padding: 0; width: min(500px, 100%); display: grid; gap: 10px; }
+      .sc-tpl li { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 14px; align-items: center; background: var(--white); border: 1px solid var(--grey-2); border-radius: 12px; padding: 12px 14px; font-size: 12px; color: var(--grey-5); box-shadow: 0 12px 30px -24px rgba(15, 15, 15, 0.4); opacity: 0; transform: translateY(8px); }
+      .sc-tpl li b { display: block; color: var(--ink); font-size: 14px; }
+      .sc-tpl .ic { height: 44px; border-radius: 8px; background: var(--grey-1); border: 1px solid var(--grey-2); display: grid; place-items: center; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--gold-deep); }
+      .sc-tpl em { font-style: normal; font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--grey-5); }
+      .sc-pane.on .sc-tpl li { animation: sc-note 0.45s ease both; }
+      .sc-pane.on .sc-tpl li:nth-child(2) { animation-delay: 0.15s; }
+      .sc-pane.on .sc-tpl li:nth-child(3) { animation-delay: 0.3s; }
+      .sc-pane.on .sc-tpl li:nth-child(4) { animation-delay: 0.45s; }
+      .sc-pane.on .sc-tpl li:nth-child(5) { animation-delay: 0.6s; }
+      .sc-pane.on .sc-tpl li:nth-child(1) { animation: sc-note 0.45s ease both, sc-pick 0.6s ease 1.6s both; }
+      @keyframes sc-prog { to { transform: scaleX(1); } }
+      @keyframes sc-turn { from { opacity: 0; transform: translateX(40px) rotateY(-10deg); } to { opacity: 1; transform: none; } }
+      @keyframes sc-scan { 0% { top: -30%; opacity: 1; } 99% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+      @keyframes sc-note { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      @keyframes sc-flag { to { border-color: var(--sc-red); background: var(--sc-redbg); } }
+      @keyframes sc-mark-r { to { background: var(--sc-redbg); box-shadow: inset 0 -1.5px 0 var(--sc-red); } }
+      @keyframes sc-mark-o { to { background: var(--gold-soft); box-shadow: inset 0 -1.5px 0 var(--gold-deep); } }
+      @keyframes sc-sign { to { stroke-dashoffset: 0; } }
+      @keyframes sc-line { to { background: transparent; } }
+      @keyframes sc-hide { to { opacity: 0; } }
+      @keyframes sc-done { to { background: #e6f4ea; border-color: transparent; color: var(--sc-green); } }
+      @keyframes sc-filed { 0% { transform: scale(0.9); } 60% { transform: scale(1.06); } 100% { transform: none; background: #e6f4ea; color: var(--sc-green); } }
+      @keyframes sc-pick { to { border-color: var(--gold); box-shadow: 0 0 0 3px color-mix(in srgb, var(--gold) 25%, transparent), 0 18px 40px -24px rgba(15, 15, 15, 0.45); } }
+      @media (prefers-reduced-motion: reduce) {
+        .sc-pane.on, .sc-pane.on * { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+        .sc-d { transition: none; }
+      }
+      @media (max-width: 960px) {
+        .sc-grid { grid-template-columns: 1fr; }
+        .sc-tabs { flex-direction: row; overflow-x: auto; gap: 8px; scrollbar-width: none; }
+        .sc-tab { flex: 0 0 auto; grid-template-columns: auto; padding: 10px 14px 14px; border: 1px solid var(--grey-2); }
+        .sc-tab .sc-n, .sc-tab .sc-d, .sc-tab .sc-h { display: none; }
+        .sc-k { color: var(--grey-5); }
+        .sc-tab.on .sc-k { color: var(--black); }
+        .sc-prog { left: 14px; right: 14px; bottom: 6px; }
+        .sc-stage { min-height: 440px; }
+      }
+      @media (max-width: 640px) {
+        .sc-stage { min-height: 470px; border-radius: 16px; }
+        .sc-pane { padding: 22px 16px 60px; }
+        .sc-go { left: 18px; bottom: 20px; }
+        .sc-review { grid-template-columns: 1fr; gap: 10px; }
+        .sc-notes { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+        .sc-notes li { font-size: 10px; padding: 6px 7px; }
+        .sc-notes li b { font-size: 8px; }
+        .sc-sheet { padding: 14px 14px 10px; }
+        .sc-p { font-size: 10.5px; }
+        .sc-strip { display: block; font-size: 11px; line-height: 1.5; margin-top: 12px !important; }
+        .sc-strip .d { display: inline-block; margin-right: 6px; vertical-align: 1px; }
+        .sc-signrow { grid-template-columns: 1fr; justify-items: center; gap: 16px; }
+        .sc-people { display: none; }
+        .sc-device { width: 200px; height: 320px; }
+        .sc-reg { padding: 14px 12px 10px; }
+        .sc-reg .sc-hdr { white-space: normal; font-size: 8.5px; }
+        .sc-reg .sc-hdr em { white-space: nowrap; }
+        .sc-reg table { font-size: 11px; }
+        .sc-reg th:nth-child(3), .sc-reg td:nth-child(3) { display: none; }
+        .sc-tpl li { grid-template-columns: 38px minmax(0, 1fr); }
+        .sc-tpl em { display: none; }
+        .sc-tpl .ic { height: 38px; }
+      }
+      .sc-cap { display: none; }
+      @media (max-width: 960px) {
+        .sc-cap { display: block; align-self: flex-start; margin: 0 0 14px; font-size: 17px; font-weight: 600; color: var(--black); letter-spacing: -0.01em; }
+        .sc-pane { justify-content: flex-start; padding-top: 22px; }
+      }
+
 
       /* two ways */
       .ways-sec {
@@ -2843,75 +3005,182 @@
         </div>
       </section>
 
-      <!-- tools: everything after the draft (0200) -->
-      <section class="ways-sec tools-sec" id="tools">
+      <!-- tools: Check it. Sign it. Run it. An auto-playing showcase (0200, v2 0203) -->
+      <section class="ways-sec sc" id="tools" aria-labelledby="sc-h">
         <div class="wrap">
           <div class="head" data-rv>
-            <h2>Check it. Sign it. Run it.</h2>
+            <h2 id="sc-h">Check it. Sign it. Run it.</h2>
             <p class="sub">The draft is only the start. FD AI now takes your documents all the way: checked before anyone signs, signed online, and filed where your team can find them.</p>
           </div>
-          <div class="ways tools">
-            <a class="way tool" href="/fd-sign/check" data-rv>
-              <div class="way-visual" aria-hidden="true">
-                <div class="mock">
-                  <div class="m-head"><b>Signing-ready check</b><span class="m-badge">New</span></div>
-                  <div class="m-row"><span><i class="t-dot r"></i>[Party name] not filled in</span><span class="m-writing">p. 1</span></div>
-                  <div class="m-row"><span><i class="t-dot r"></i>Schedule 2 is missing</span><span class="m-writing">p. 4</span></div>
-                  <div class="m-row"><span><i class="t-dot o"></i>“DRAFT” in the header</span><span class="m-writing">p. 1</span></div>
-                  <div class="m-row"><span><i class="t-dot g"></i>Signature blocks ready</span><span class="m-tick">✓</span></div>
+
+          <div class="sc-grid" data-rv>
+            <div class="sc-tabs" role="tablist" aria-label="What FD AI does after the draft">
+              <button class="sc-tab on" role="tab" aria-selected="true" aria-controls="sc-p0" id="sc-t0" data-i="0">
+                <span class="sc-n">01</span>
+                <span class="sc-body">
+                  <span class="sc-k">Signing-ready check <em>New · AI</em></span>
+                  <span class="sc-h">Check a contract before you send it.</span>
+                  <span class="sc-d">Upload a PDF or Word file. Our AI and a lawyer's checklist flag blanks, [placeholders], tracked changes, notes to draft, missing schedules and wet-ink wording.</span>
+                </span>
+                <i class="sc-prog" aria-hidden="true"></i>
+              </button>
+              <button class="sc-tab" role="tab" aria-selected="false" aria-controls="sc-p1" id="sc-t1" data-i="1" tabindex="-1">
+                <span class="sc-n">02</span>
+                <span class="sc-body">
+                  <span class="sc-k">FD Sign</span>
+                  <span class="sc-h">Send it for e-signature.</span>
+                  <span class="sc-d">Send a PDF, a Word file or your FD AI draft. Signers confirm a code from their email and sign right on the box, on any phone. Every signed copy carries an audit trail.</span>
+                </span>
+                <i class="sc-prog" aria-hidden="true"></i>
+              </button>
+              <button class="sc-tab" role="tab" aria-selected="false" aria-controls="sc-p2" id="sc-t2" data-i="2" tabindex="-1">
+                <span class="sc-n">03</span>
+                <span class="sc-body">
+                  <span class="sc-k">ESOP dashboard</span>
+                  <span class="sc-h">Run your share option plan.</span>
+                  <span class="sc-d">One register for every holder and vesting. Approvals by email, Option Certificates made from each Letter of Grant and signed online, and a page for each holder.</span>
+                </span>
+                <i class="sc-prog" aria-hidden="true"></i>
+              </button>
+              <button class="sc-tab" role="tab" aria-selected="false" aria-controls="sc-p3" id="sc-t3" data-i="3" tabindex="-1">
+                <span class="sc-n">04</span>
+                <span class="sc-body">
+                  <span class="sc-k">Templates</span>
+                  <span class="sc-h">Start from a lawyer's template.</span>
+                  <span class="sc-d">Plain-English guides and templates for the documents founders and businesses need most, by country. Open one in FD AI and it is drafted for you in minutes.</span>
+                </span>
+                <i class="sc-prog" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <div class="sc-stage">
+              <!-- 01 the check: a page with a reviewer's notes -->
+              <div class="sc-pane on" role="tabpanel" id="sc-p0" aria-labelledby="sc-t0">
+                <p class="sc-cap">Check a contract before you send it.</p>
+                <div class="sc-review" aria-hidden="true">
+                  <div class="sc-sheet">
+                    <p class="sc-hdr"><span>Services Agreement · page 1</span><em>DRAFT v0.4</em></p>
+                    <p class="sc-p">This Agreement is made on 1 December 2026 between <mark class="m1">[Party name]</mark> and Acme Pte. Ltd.</p>
+                    <p class="sc-c">1. Services</p>
+                    <p class="sc-p">The Supplier shall provide the services set out in <mark class="m2">Schedule 2</mark> with reasonable skill and care.</p>
+                    <p class="sc-c">2. Fees</p>
+                    <p class="sc-p">The Client shall pay the fees within 30 days of each invoice.</p>
+                    <i class="sc-scan"></i>
+                  </div>
+                  <ul class="sc-notes">
+                    <li class="n0"><b>AN-006 · Must fix</b>Marked &ldquo;Draft&rdquo; in the header</li>
+                    <li class="n1"><b>PH-001 · Must fix</b>A party is not filled in</li>
+                    <li class="n2 o"><b>ST-001 · Review</b>Schedule 2 is not attached</li>
+                  </ul>
                 </div>
+                <p class="sc-strip" aria-hidden="true"><span class="d"></span>Execution readiness report &middot; <b>Not ready</b> &middot; 2 must fix &middot; 1 to review</p>
+                <a class="more sc-go" href="/fd-sign/check">Check a document<span class="arr" aria-hidden="true">→</span></a>
               </div>
-              <small class="t-k">New · AI</small>
-              <h3>Check a contract before you send it.</h3>
-              <p>Upload a PDF or Word file. Our AI and a lawyer's checklist flag blanks, [placeholders], tracked changes, notes to draft, missing schedules and wet-ink-only wording, so nobody signs the wrong version.</p>
-              <span class="more">Check a document<span class="arr" aria-hidden="true">→</span></span>
-            </a>
-            <a class="way tool" href="/e-signature" data-rv>
-              <div class="way-visual" aria-hidden="true">
-                <div class="mock">
-                  <div class="m-head"><b>Services agreement</b><span class="m-badge">2 of 3 signed</span></div>
-                  <div class="m-row">1. Jane T. · Director <span class="m-tick">✓</span></div>
-                  <div class="m-row">2. Alex T. · Client <span class="m-tick">✓</span></div>
-                  <div class="m-row">3. Sam L. · Witness <span class="m-writing">Signing</span></div>
-                  <div class="t-sig"><span>Sign here</span></div>
+
+              <!-- 02 signing on a phone -->
+              <div class="sc-pane" role="tabpanel" id="sc-p1" aria-labelledby="sc-t1" hidden>
+                <p class="sc-cap">Send it for e-signature.</p>
+                <div class="sc-signrow" aria-hidden="true">
+                  <div class="sc-device">
+                    <div class="sc-screen">
+                      <p class="sc-bar"><span>FD SIGN</span><em>Page 6 of 6</em></p>
+                      <p class="sc-p">IN WITNESS WHEREOF the Parties have signed this Agreement.</p>
+                      <div class="sc-block">
+                        <p class="sc-lbl">Signed by <b>Jane Tan</b>, Director</p>
+                        <div class="sc-line"><span class="sc-here">Sign here</span><svg viewBox="0 0 180 48"><path d="M6 34c10-18 20-26 26-20s-4 22 6 22 14-24 22-22-2 20 8 20 12-16 20-16 6 12 14 12 10-8 18-10 14 2 20-2" /></svg></div>
+                        <p class="sc-lbl">for and on behalf of <b>Acme Pte. Ltd.</b></p>
+                      </div>
+                      <p class="sc-ok">✓ Signed · email code verified</p>
+                    </div>
+                  </div>
+                  <ol class="sc-people">
+                    <li class="done"><i>AT</i><span><b>Alex Tan</b>Client · signed</span></li>
+                    <li class="now"><i>JT</i><span><b>Jane Tan</b>Director · <span class="sc-st a">signing</span><span class="sc-st b">signed</span></span></li>
+                    <li><i>SL</i><span><b>Sam Lee</b>Witness · next</span></li>
+                    <li class="trail"><span><b>Audit trail</b>Who, when, IP, code check, fingerprint</span></li>
+                  </ol>
                 </div>
+                <a class="more sc-go" href="/e-signature">Try FD Sign free<span class="arr" aria-hidden="true">→</span></a>
               </div>
-              <small class="t-k">FD Sign</small>
-              <h3>Send it for e-signature.</h3>
-              <p>Send a PDF, a Word file or your FD AI draft. Signers confirm with an email code and sign right on the box, on any phone. Every signed copy carries an audit trail.</p>
-              <span class="more">Try FD Sign free<span class="arr" aria-hidden="true">→</span></span>
-            </a>
-            <a class="way tool" href="/esop-software" data-rv>
-              <div class="way-visual" aria-hidden="true">
-                <div class="mock">
-                  <div class="m-head"><b>Option holders</b><span class="m-badge">Vests 1 Dec</span></div>
-                  <div class="m-row">Certificates to approve <b>3</b></div>
-                  <div class="m-row">Approve from the email <span class="m-tick">✓</span></div>
-                  <div class="m-row">Signed and filed <span class="m-writing">Automatic</span></div>
-                  <div class="m-row">Holders see their own options <span class="m-tick">✓</span></div>
+
+              <!-- 03 the option register -->
+              <div class="sc-pane" role="tabpanel" id="sc-p2" aria-labelledby="sc-t2" hidden>
+                <p class="sc-cap">Run your share option plan.</p>
+                <div class="sc-reg" aria-hidden="true">
+                  <p class="sc-hdr"><span>Option register · Batch 8 · Tranche 2</span><em class="g">Vests 1 Dec</em></p>
+                  <table>
+                    <thead><tr><th>Holder</th><th>Options</th><th>Certificate</th><th>Status</th></tr></thead>
+                    <tbody>
+                      <tr><td><i>AL</i>A. Lim</td><td>12,500</td><td>No. 48</td><td><span class="st">Approved</span></td></tr>
+                      <tr><td><i>RK</i>R. Kumar</td><td>8,000</td><td>No. 49</td><td><span class="st">Approved</span></td></tr>
+                      <tr><td><i>SN</i>S. Ng</td><td>6,250</td><td>No. 50</td><td><span class="st">Approved</span></td></tr>
+                      <tr class="lv"><td><i>JW</i>J. Wong</td><td>—</td><td>—</td><td><span class="st x">Leaver</span></td></tr>
+                    </tbody>
+                  </table>
+                  <p class="sc-foot"><span>Approved by email · certificates signed and filed</span><b><span class="sc-cnt">0</span> of 3 filed</b></p>
                 </div>
+                <a class="more sc-go" href="/esop-software">See the ESOP dashboard<span class="arr" aria-hidden="true">→</span></a>
               </div>
-              <small class="t-k">ESOP dashboard</small>
-              <h3>Run your share option plan.</h3>
-              <p>One register for every holder and vesting. Approvals by email, Option Certificates made from each Letter of Grant and signed online, and a page where each holder sees their own options.</p>
-              <span class="more">See the ESOP dashboard<span class="arr" aria-hidden="true">→</span></span>
-            </a>
-            <a class="way tool" href="/templates" data-rv>
-              <div class="way-visual" aria-hidden="true">
-                <div class="mock">
-                  <div class="m-head"><b>Free templates</b><span class="m-badge">Free</span></div>
-                  <div class="m-row">NDA · mutual and one-way <span class="m-writing">SG · UK · US</span></div>
-                  <div class="m-row">Employment contract <span class="m-writing">Singapore</span></div>
-                  <div class="m-row">Shareholders' agreement <span class="m-tick">✓</span></div>
-                  <div class="m-row">Services agreement <span class="m-tick">✓</span></div>
-                </div>
+
+              <!-- 04 templates -->
+              <div class="sc-pane" role="tabpanel" id="sc-p3" aria-labelledby="sc-t3" hidden>
+                <p class="sc-cap">Start from a lawyer's template.</p>
+                <ul class="sc-tpl" aria-hidden="true">
+                  <li><span class="ic">NDA</span><span><b>Non-disclosure agreement</b>Mutual and one-way</span><em>SG · UK · US</em></li>
+                  <li><span class="ic">EMP</span><span><b>Employment contract</b>With Singapore guide</span><em>Singapore</em></li>
+                  <li><span class="ic">SHA</span><span><b>Shareholders' agreement</b>For start-ups and SMEs</span><em>Free</em></li>
+                  <li><span class="ic">SVC</span><span><b>Services agreement</b>Supplier and client</span><em>Free</em></li>
+                </ul>
+                <a class="more sc-go" href="/templates">Browse templates<span class="arr" aria-hidden="true">→</span></a>
               </div>
-              <small class="t-k">Templates</small>
-              <h3>Start from a lawyer's template.</h3>
-              <p>Plain-English guides and templates for the documents founders and businesses need most, by country. Open one in FD AI and it is drafted for you in minutes.</p>
-              <span class="more">Browse templates<span class="arr" aria-hidden="true">→</span></span>
-            </a>
+            </div>
           </div>
+          <script>
+            (function () {
+              var sec = document.getElementById("tools");
+              if (!sec) return;
+              var tabs = [].slice.call(sec.querySelectorAll(".sc-tab")), panes = [].slice.call(sec.querySelectorAll(".sc-pane"));
+              var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+              var DUR = 6000, cur = 0, timer = null, paused = false, seen = false;
+              function show(i, user) {
+                cur = (i + tabs.length) % tabs.length;
+                tabs.forEach(function (t, k) { var on = k === cur; t.classList.toggle("on", on); t.setAttribute("aria-selected", on ? "true" : "false"); t.tabIndex = on ? 0 : -1; });
+                panes.forEach(function (p, k) {
+                  if (k === cur) { p.hidden = false; p.classList.remove("on"); void p.offsetWidth; p.classList.add("on"); }
+                  else { p.classList.remove("on"); p.hidden = true; }
+                });
+                var bar = tabs[cur].querySelector(".sc-prog"); bar.classList.remove("run"); void bar.offsetWidth; if (!reduce && !paused) bar.classList.add("run");
+                var list = tabs[cur].parentNode; if (list.scrollWidth > list.clientWidth) list.scrollTo({ left: tabs[cur].offsetLeft - list.offsetLeft - 8, behavior: reduce ? "auto" : "smooth" });
+                if (cur === 2) countUp();
+                schedule(user);
+              }
+              function schedule(user) {
+                clearTimeout(timer);
+                if (reduce || !seen) return;
+                if (user) { paused = true; sec.classList.add("paused"); return; } /* a click stops the tour */
+                if (!paused) timer = setTimeout(function () { show(cur + 1); }, DUR);
+              }
+              function countUp() {
+                var c = sec.querySelector(".sc-cnt"); if (!c) return; var n = 0; c.textContent = "0";
+                (function tick() { if (n < 3) setTimeout(function () { c.textContent = String(++n); tick(); }, reduce ? 0 : 900); })();
+              }
+              tabs.forEach(function (t, k) {
+                t.addEventListener("click", function () { show(k, true); });
+                t.addEventListener("keydown", function (e) {
+                  if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); show(cur + 1, true); tabs[cur].focus(); }
+                  if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); show(cur - 1, true); tabs[cur].focus(); }
+                });
+              });
+              /* hovering the showcase holds the current step; leaving resumes, unless someone clicked */
+              var grid = sec.querySelector(".sc-grid"), clicked = false;
+              tabs.forEach(function (t) { t.addEventListener("click", function () { clicked = true; }); });
+              grid.addEventListener("mouseenter", function () { if (reduce) return; clearTimeout(timer); sec.classList.add("paused"); });
+              grid.addEventListener("mouseleave", function () { if (reduce || clicked) return; paused = false; sec.classList.remove("paused"); show(cur); });
+              function start() { seen = true; show(0); }
+              if ("IntersectionObserver" in window) new IntersectionObserver(function (es, o) { es.forEach(function (e) { if (e.isIntersecting) { start(); o.disconnect(); } }); }, { rootMargin: "0px 0px -25% 0px" }).observe(grid);
+              else start();
+            })();
+          </script>
         </div>
       </section>
 
