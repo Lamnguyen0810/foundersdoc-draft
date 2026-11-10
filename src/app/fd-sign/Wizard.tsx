@@ -832,9 +832,6 @@ export default function Wizard() {
                 {message.trim() && <p className="msg">{message.trim()}</p>}
                 <span className="btn">Review &amp; sign →</span>
               </div>
-              <div className="ft">
-                Questions? Just reply to this email to reach {fromTok}. Sent with FD Sign by Founders Doc on behalf of {fromTok}.
-              </div>
             </div>
           </div>
         </div>
