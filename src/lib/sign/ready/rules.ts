@@ -38,6 +38,18 @@ export interface Issue {
   order: number;
   action: string;
   source: "rules" | "ai";
+  /** the exact words that triggered it, to mark them on the page (0204) */
+  hit?: string;
+  /** where to draw the mark on the preview: page (1-based) and a box in fractions of the page, from the top-left (0204) */
+  mark?: Mark;
+}
+
+export interface Mark {
+  page: number;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
 }
 
 export interface Line {
@@ -46,6 +58,10 @@ export interface Line {
   page: number | null;
   /** Word paragraph (1-based), or line number in a PDF page */
   para: number;
+  /** PDF only: the line's box on its page, in fractions from the top-left (0204) */
+  rect?: { x: number; y: number; w: number; h: number };
+  /** PDF only: where each text run starts in `text` and on the page (fractions), to mark single words (0204) */
+  segs?: Array<{ at: number; n: number; x: number; w: number }>;
 }
 
 export interface ReadDoc {
@@ -322,10 +338,10 @@ export function detect(doc: ReadDoc): Report {
   for (const m of margins) {
     const d = /\bDRAFT\b|\bDraft\b(?!ed|ing|s?man)/.exec(m.text);
     if (d)
-      push({ code: "AN-006", category: "annotation", severity: "blocker", where: m.where, order: -0.5, source: "rules", evidence: snippet(m.text, d.index, d[0].length, 40), title: '"Draft" in the header or footer', action: "Remove it once this is the final version." });
+      push({ code: "AN-006", category: "annotation", severity: "blocker", where: m.where, order: -0.5, source: "rules", evidence: snippet(m.text, d.index, d[0].length, 40), hit: d[0], title: '"Draft" in the header or footer', action: "Remove it once this is the final version." });
     const v = /\b(v\d+(?:\.\d+)+|Draft\s+\d+|Version\s+\d+(?:\.\d+)?|Rev(?:ision)?\.?\s*\d+)\b/i.exec(m.text);
     if (v)
-      push({ code: "AN-007", category: "annotation", severity: "warning", where: m.where, order: -0.4, source: "rules", evidence: snippet(m.text, v.index, v[0].length, 40), title: `Version mark "${v[0]}" in the header or footer`, action: "Check this is the latest version, then remove the version mark if you like." });
+      push({ code: "AN-007", category: "annotation", severity: "warning", where: m.where, order: -0.4, source: "rules", evidence: snippet(m.text, v.index, v[0].length, 40), hit: v[0], title: `Version mark "${v[0]}" in the header or footer`, action: "Check this is the latest version, then remove the version mark if you like." });
   }
 
   /* A, B, E: line by line, with zones */
@@ -367,14 +383,14 @@ export function detect(doc: ReadDoc): Report {
         expectedBlanks++;
         continue;
       }
-      push({ code: "PH-001", category: "placeholder", severity: "blocker", where: where(line), order: order(line, i), source: "rules", evidence: snippet(t, m.index ?? 0, m[0].length), title: `Placeholder not filled in: ${m[0].length > 40 ? `${m[0].slice(0, 40)}…]` : m[0]}`, action: "Fill in the details, or delete the brackets if the text is final." });
+      push({ code: "PH-001", category: "placeholder", severity: "blocker", where: where(line), order: order(line, i), source: "rules", evidence: snippet(t, m.index ?? 0, m[0].length), hit: m[0], title: `Placeholder not filled in: ${m[0].length > 40 ? `${m[0].slice(0, 40)}…]` : m[0]}`, action: "Fill in the details, or delete the brackets if the text is final." });
     }
 
     /* PH-002 blanks: a signing field in a signature block, a gap anywhere else */
     const blank = /_{4,}|\.{8,}|…{3,}/.exec(t);
     if (blank && !TOC_LINE.test(t)) {
       if (sig || FIELD_LABEL.test(t) || DATE_BLANK.test(t)) expectedBlanks++;
-      else push({ code: "PH-002", category: "placeholder", severity: "blocker", where: where(line), order: order(line, i), source: "rules", evidence: snippet(t, blank.index, blank[0].length), title: "Blank left to fill in", action: "Fill in the blank. If it is meant for a handwritten entry, add a Text box for it in FD Sign instead." });
+      else push({ code: "PH-002", category: "placeholder", severity: "blocker", where: where(line), order: order(line, i), source: "rules", evidence: snippet(t, blank.index, blank[0].length), hit: blank[0], title: "Blank left to fill in", action: "Fill in the blank. If it is meant for a handwritten entry, add a Text box for it in FD Sign instead." });
     }
 
     for (const r of RULES) {
@@ -392,6 +408,7 @@ export function detect(doc: ReadDoc): Report {
           order: order(line, i),
           source: "rules",
           evidence: snippet(t, m.index, m[0].length),
+          hit: m[0],
           title: mention ? `Mentions ${m[0]}: check whether it applies to this document` : r.title(m),
           action: r.action,
         });
@@ -403,10 +420,10 @@ export function detect(doc: ReadDoc): Report {
   /* C: structure */
   for (const [k, ref] of scheduleRefs)
     if (!scheduleHeads.has(k) && scheduleHeads.size + scheduleRefs.size > 0 && doc.meta.hasText)
-      push({ code: "ST-001", category: "structure", severity: "blocker", where: where(ref.line), order: order(ref.line, ref.i), source: "rules", evidence: snippet(ref.line.text, ref.line.text.indexOf(ref.label), ref.label.length), title: `${ref.label} is mentioned but not in the document`, action: `Attach ${ref.label}, or correct the reference.` });
+      push({ code: "ST-001", category: "structure", severity: "blocker", where: where(ref.line), order: order(ref.line, ref.i), source: "rules", evidence: snippet(ref.line.text, ref.line.text.indexOf(ref.label), ref.label.length), hit: ref.label, title: `${ref.label} is mentioned but not in the document`, action: `Attach ${ref.label}, or correct the reference.` });
   if (clauseMax >= 3)
     for (const c of clauseRefs.filter((c) => c.n > clauseMax).slice(0, 3))
-      push({ code: "ST-006", category: "structure", severity: "warning", where: where(c.line), order: order(c.line, c.i), source: "rules", evidence: snippet(c.line.text, c.line.text.indexOf(c.m), c.m.length), title: `"${c.m}" points to a clause that doesn't exist (the last is ${clauseMax})`, action: "Fix the cross-reference." });
+      push({ code: "ST-006", category: "structure", severity: "warning", where: where(c.line), order: order(c.line, c.i), source: "rules", evidence: snippet(c.line.text, c.line.text.indexOf(c.m), c.m.length), hit: c.m, title: `"${c.m}" points to a clause that doesn't exist (the last is ${clauseMax})`, action: "Fix the cross-reference." });
   if (doc.meta.hasText && !sawSigBlock && doc.lines.length > 15)
     push({ ...fileWide, code: "ST-003", category: "structure", severity: "warning", title: "No signature block found", action: "Add a signature block for each party, or FD Sign will put the signatures on its record page at the end." });
   if (doc.meta.hasText && !sawGoverningLaw && doc.lines.length > 30)
