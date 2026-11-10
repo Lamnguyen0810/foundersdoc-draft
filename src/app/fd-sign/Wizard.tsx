@@ -487,7 +487,13 @@ export default function Wizard() {
             </ol>
             <div className="fds-note">
               <Ic n="help" s={16} />
-              <span>Not for wills, or documents the law says must be signed on paper. If unsure, ask us before sending.</span>
+              <span>
+                Not for wills, or documents the law says must be signed on paper. If unsure,{" "}
+                <a href="/fd-consult" target="_blank" rel="noopener noreferrer">
+                  book an FD Consult session
+                </a>{" "}
+                before sending.
+              </span>
             </div>
           </aside>
         </div>
@@ -830,10 +836,6 @@ export default function Wizard() {
                 Questions? Just reply to this email to reach {fromTok}. Sent with FD Sign by Founders Doc on behalf of {fromTok}.
               </div>
             </div>
-            <p className={`sub ${nameLooksLikeEmail ? "warn" : ""}`}>
-              <span className="tok">Your name</span> will show as <b>{senderName}</b>
-              {nameLooksLikeEmail ? ". Add your real name under “Your name” so people know who it is from." : "."}
-            </p>
           </div>
         </div>
       )}
