@@ -289,7 +289,16 @@ function supabaseStore(): SignStore {
     },
     async insertFields(envelopeId, fields) {
       if (!fields.length) return;
-      must(await db.from("sign_fields").insert(fields.map((f) => ({ ...f, envelope_id: envelopeId }))));
+      /* 0209: every row gets label + required. A batch insert sends the columns of all rows, and a
+         row without them was given NULL, so a signature box next to a text box broke the
+         "required not null" rule (SQL 120) and the whole send failed. Old boxes stay as before. */
+      const v2 = fields.some((f) => f.label !== undefined || f.required !== undefined);
+      const rows = fields.map(({ label, required, ...f }) => ({
+        ...f,
+        envelope_id: envelopeId,
+        ...(v2 ? { label: label ?? null, required: required ?? true } : {}),
+      }));
+      must(await db.from("sign_fields").insert(rows));
     },
     async fields(envelopeId) {
       let r: { data: unknown[] | null; error: { message: string } | null } = await db
