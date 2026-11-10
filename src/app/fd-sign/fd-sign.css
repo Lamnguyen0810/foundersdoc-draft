@@ -221,6 +221,8 @@ textarea.fds-inp { height: auto; min-height: 84px; padding: 10px 12px; line-heig
 .fds-how li b { color: var(--fds-tx); display: block; font-weight: 600; }
 .fds-how li::before { content: counter(h); position: absolute; left: 0; top: 0; width: 22px; height: 22px; border-radius: 50%; background: var(--fds-gold-soft); color: var(--fds-gold-tx); font-size: 11px; font-weight: 700; display: grid; place-items: center; }
 .fds-note { background: var(--fds-bg); border-radius: 12px; padding: 12px; color: var(--fds-tx2); font-size: 12.5px; line-height: 1.5; display: flex; gap: 9px; margin-top: 6px; }
+.fds-note a { color: var(--fds-tx); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.fds-note a:hover { color: var(--fds-gold-tx); }
 .fds-pc { display: grid; grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 0.9fr) auto; gap: 10px; align-items: center; background: var(--fds-card); border: 1px solid var(--fds-line); border-left: 4px solid var(--c); border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
 .fds-pc .n { width: 26px; height: 26px; border-radius: 50%; background: var(--c); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: 12px; }
 .fds-pc .fds-inp { height: 38px; font-size: 13.5px; }
@@ -275,9 +277,6 @@ textarea.fds-inp { height: auto; min-height: 84px; padding: 10px 12px; line-heig
 .fds-mailp { background: var(--fds-bg); border: 1px solid var(--fds-line); border-radius: 16px; padding: 14px; align-self: start; position: sticky; top: calc(var(--fds-top) + 80px); }
 .fds-mailp .lab { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--fds-tx3); font-weight: 700; margin: 0 0 10px 4px; }
 .fds-mailp .sub { margin: -4px 0 12px 4px; font-size: 12.5px; color: var(--fds-tx3); line-height: 1.5; }
-.fds-mailp .sub + .fds-em + .sub, .fds-em + .sub { margin: 12px 0 0 4px; }
-.fds-mailp .sub.warn { color: var(--fds-gold-tx); }
-.fds-mailp .sub b { color: var(--fds-tx); font-weight: 600; overflow-wrap: anywhere; }
 .fds-mailp .tok { display: inline-block; background: #fbeec9; color: #6b4e00; border-radius: 4px; padding: 0 5px; font-weight: 500; line-height: 1.45; }
 /* 0205: looks like an email open in an inbox */
 .fds-em { background: #fff; color: #1b1b1e; border-radius: 12px; overflow: hidden; border: 1px solid #e6e6ea; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06); }
