@@ -50,33 +50,70 @@ async function readPdf(bytes: Uint8Array): Promise<ReadDoc> {
   for (let p = 1; p <= Math.min(pages, 300); p++) {
     const page = await pdf.getPage(p);
     const tc = await page.getTextContent();
-    let cur = "";
+    // 0204: keep each line's box so the report can mark findings on the page
+    const vb = (page as unknown as { view?: number[] }).view ?? [0, 0, 612, 792];
+    const [x0, y0, x1, y1] = vb;
+    const W = Math.max(1, x1 - x0);
+    const H = Math.max(1, y1 - y0);
+    type Acc = { text: string; minX: number; maxX: number; top: number; bottom: number; runs: Array<{ s: string; x: number; w: number }> };
+    const blank = (): Acc => ({ text: "", minX: Infinity, maxX: -Infinity, top: Infinity, bottom: -Infinity, runs: [] });
+    let cur = blank();
     let lastY: number | null = null;
-    const pageLines: string[] = [];
-    for (const it of tc.items as Array<{ str?: string; hasEOL?: boolean; transform?: number[] }>) {
+    const pageLines: Acc[] = [];
+    for (const it of tc.items as Array<{ str?: string; hasEOL?: boolean; transform?: number[]; width?: number; height?: number }>) {
       if (typeof it.str !== "string") continue;
       const y = it.transform?.[5] ?? null;
-      if (lastY !== null && y !== null && Math.abs(y - lastY) > 2 && cur.trim()) {
+      if (lastY !== null && y !== null && Math.abs(y - lastY) > 2 && cur.text.trim()) {
         pageLines.push(cur);
-        cur = "";
+        cur = blank();
       }
-      cur += it.str;
+      cur.text += it.str;
+      if (it.str.trim() && it.transform) {
+        const ex = it.transform[4];
+        const fy = it.transform[5];
+        const hh = Math.abs(it.height || it.transform[3] || 10);
+        cur.runs.push({ s: it.str, x: ex, w: it.width ?? 0 });
+        cur.minX = Math.min(cur.minX, ex);
+        cur.maxX = Math.max(cur.maxX, ex + (it.width ?? 0));
+        cur.top = Math.min(cur.top, y1 - fy - hh * 0.85);
+        cur.bottom = Math.max(cur.bottom, y1 - fy + hh * 0.25);
+      }
       if (y !== null) lastY = y;
       if (it.hasEOL) {
         pageLines.push(cur);
-        cur = "";
+        cur = blank();
         lastY = null;
       }
     }
-    if (cur.trim()) pageLines.push(cur);
-    const kept = pageLines.map((s) => s.replace(/\s+/g, " ").trim()).filter(Boolean);
-    kept.forEach((text, i) => {
+    if (cur.text.trim()) pageLines.push(cur);
+    const clamp = (n: number) => Math.max(0, Math.min(1, n));
+    /* the line's text as the rules see it (spaces collapsed, trimmed), with where each run starts in it */
+    const shape = (a: Acc) => {
+      let t = "";
+      const segs: NonNullable<Line["segs"]> = [];
+      for (const r of a.runs) {
+        let piece = r.s.replace(/\s+/g, " ");
+        if (t.endsWith(" ") && piece.startsWith(" ")) piece = piece.slice(1);
+        segs.push({ at: t.length, n: piece.length, x: clamp((r.x - x0) / W), w: clamp(r.w / W) });
+        t += piece;
+      }
+      const lead = t.length - t.trimStart().length;
+      return segs.map((g) => ({ ...g, at: Math.max(0, g.at - lead) }));
+    };
+    const kept = pageLines
+      .map((a) => ({
+        text: a.text.replace(/\s+/g, " ").trim(),
+        rect: Number.isFinite(a.minX) && Number.isFinite(a.top) ? { x: clamp((a.minX - x0) / W), y: clamp(a.top / H), w: clamp((a.maxX - a.minX) / W), h: clamp((a.bottom - a.top) / H) } : undefined,
+        segs: shape(a),
+      }))
+      .filter((a) => a.text);
+    kept.forEach(({ text, rect, segs }, i) => {
       chars += text.length;
-      lines.push({ text, page: p, para: i + 1 });
+      lines.push({ text, page: p, para: i + 1, rect, segs: segs.length ? segs : undefined });
     });
     if (kept.length) {
-      margins.push({ text: kept[0], where: `Page ${p}` });
-      if (kept.length > 1) margins.push({ text: kept[kept.length - 1], where: `Page ${p}` });
+      margins.push({ text: kept[0].text, where: `Page ${p}` });
+      if (kept.length > 1) margins.push({ text: kept[kept.length - 1].text, where: `Page ${p}` });
     }
     try {
       for (const a of (await page.getAnnotations()) as Array<{ subtype?: string }>) {

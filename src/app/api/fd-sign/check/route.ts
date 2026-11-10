@@ -5,6 +5,11 @@ import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { readFile, ReadError } from "@/lib/sign/ready/read";
 import { detect, finish } from "@/lib/sign/ready/rules";
 import { aiIssues } from "@/lib/sign/ready/ai";
+import { locate } from "@/lib/sign/ready/locate";
+import { wordToBlocks } from "@/lib/sign/word";
+import { blocksPdf } from "@/lib/sign/draft-pdf";
+import { signFonts } from "@/lib/sign/certificate";
+import type { Line } from "@/lib/sign/ready/rules";
 
 /**
  * POST /api/fd-sign/check   (multipart: file = PDF or .docx, up to 10 MB)
@@ -14,6 +19,11 @@ import { aiIssues } from "@/lib/sign/ready/ai";
  * runs first, then the AI reads for what has no pattern. Answers the verdict and
  * the issues in reading order. The file is read in memory and never stored; the
  * log (SQL 125) keeps only codes, levels and places, never the document's words.
+ *
+ * 0204: each finding also carries a mark (page + box) so the report shows the whole
+ * document with the problems marked on it. A Word file is set as a PDF the same way
+ * FD Sign converts it for signing, and that PDF is returned as the preview (base64);
+ * a PDF is previewed from the user's own copy in the browser.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +64,23 @@ export async function POST(req: NextRequest) {
   const stop = rules.verdict === "cannot_process";
   const ai = stop ? { issues: [], used: false as boolean, model: undefined as string | undefined } : await aiIssues(doc, rules.issues);
   const report = finish([...rules.issues, ...ai.issues], rules.expectedBlanks);
+
+  /* 0204: where each finding sits on the page */
+  let preview: { pdf: string; pages: number } | null = null;
+  let placed: Line[] = doc.lines;
+  if (doc.kind === "docx" && !stop) {
+    try {
+      const { blocks } = await wordToBlocks(bytes);
+      const fonts = await signFonts(req.nextUrl.origin).catch(() => null);
+      const out = await blocksPdf({ title: file.name.replace(/\.docx$/i, "").slice(0, 200) || "Document", blocks, fonts });
+      placed = (await readFile(out.pdf)).lines;
+      preview = { pdf: Buffer.from(out.pdf).toString("base64"), pages: out.pages };
+    } catch (e) {
+      console.error("[fd-sign check] Word preview failed; list only:", e instanceof Error ? e.message : e);
+      placed = [];
+    }
+  }
+  const issues = locate(report.issues, placed);
   const hash = createHash("sha256").update(bytes).digest("hex");
 
   let checkId: string | null = null;
@@ -85,7 +112,8 @@ export async function POST(req: NextRequest) {
     file: { name: file.name, kind: doc.kind, pages: doc.pages, size: file.size, hash },
     verdict: report.verdict,
     counts: report.counts,
-    issues: report.issues,
+    issues,
+    preview,
     ai: { used: ai.used },
     detector: report.detector,
   });

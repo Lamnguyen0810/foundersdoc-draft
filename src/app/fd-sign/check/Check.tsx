@@ -1,17 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Head, Ic } from "../ui";
 import { setHandoff } from "../handoff";
 import { VERDICT_TEXT, type Issue, type Verdict } from "@/lib/sign/ready/rules";
 
+/* the page viewer is pdf.js in the browser: load it only when a report opens */
+const PdfPages = dynamic(() => import("../../sign/PdfPages"), { ssr: false, loading: () => <div className="fs-pages-wait">Loading the document…</div> });
+
 /* FD Sign: Signing-ready check (0201). Rachel, 6 Nov 2026: "people upload
    documents which are not execution ready yet … upload it first to check what
    issues, as a separate tab, then do the signing." Upload → the checklist from the
-   Execution-Readiness Playbook + an AI read → a report in reading order → fix and
-   check again, or go on to New request with the same file. */
+   Execution-Readiness Playbook + an AI read → a report → fix and check again, or go
+   on to New request with the same file.
+   0204: the report shows the whole document with each finding marked where it is,
+   and the findings in a panel on the right (the ESOP dashboard's drawer style:
+   black header, stat boxes, numbered rows, gold note). Site fonts throughout. */
 
 interface Result {
   checkId: string | null;
@@ -19,17 +26,19 @@ interface Result {
   verdict: Verdict;
   counts: { blocker: number; warning: number; advisory: number; expected: number };
   issues: Issue[];
+  preview: { pdf: string; pages: number } | null;
   ai: { used: boolean };
 }
 
 const MAX = 10 * 1024 * 1024;
 const TONE: Record<Verdict, "ok" | "warn" | "bad"> = { ready: "ok", ready_with_ack: "warn", not_ready: "bad", not_signable_here: "bad", cannot_process: "bad" };
-const CAT: Record<string, string> = { placeholder: "Blanks and placeholders", annotation: "Drafting mark-up", structure: "Structure and cross-references", file: "File", signability: "Signing formalities", ai: "AI review" };
+const SEV: Record<Issue["severity"], string> = { blocker: "Must fix", warning: "To review", advisory: "For information", expected: "Signature field" };
+const SRC: Record<string, string> = { rules: "Checklist", ai: "AI review" };
 
-/* plain line icons (no emoji): the status mark in the report header */
+/* plain line icons (no emoji): the status mark */
 function StatusIcon({ tone }: { tone: "ok" | "warn" | "bad" }) {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       {tone === "ok" ? (
         <>
           <circle cx="12" cy="12" r="9" />
@@ -50,42 +59,24 @@ function StatusIcon({ tone }: { tone: "ok" | "warn" | "bad" }) {
   );
 }
 
-function Item({ i, n, tick, onTick }: { i: Issue; n: number; tick?: boolean; onTick?: (v: boolean) => void }) {
-  return (
-    <li className={`fck-item ${i.severity}`}>
-      <span className="fck-n">{String(n).padStart(2, "0")}</span>
-      <div className="fck-body">
-        <p className="fck-title">{i.title}</p>
-        {i.evidence && <blockquote className="fck-q">{i.evidence}</blockquote>}
-        <p className="fck-do">{i.action}</p>
-        {onTick && (
-          <label className="fck-tick">
-            <input type="checkbox" checked={!!tick} onChange={(e) => onTick(e.target.checked)} />
-            Reviewed: fine to sign as it is
-          </label>
-        )}
-      </div>
-      <div className="fck-loc">
-        <span>{i.where}</span>
-        <code>
-          {i.code}
-          {i.source === "ai" ? " · AI" : ""}
-        </code>
-      </div>
-    </li>
-  );
+/* bring a mark or a row into view inside its own scrolling box (the page list or the
+   panel), so the window itself doesn't jump; on a phone the boxes don't scroll, so the
+   window does */
+function reveal(el: HTMLElement | null) {
+  if (!el) return;
+  let box = el.parentElement;
+  while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
+  if (!box || box === document.scrollingElement || box === document.body) return el.scrollIntoView({ behavior: "smooth", block: "center" });
+  const b = box.getBoundingClientRect();
+  const r = el.getBoundingClientRect();
+  box.scrollTo({ top: box.scrollTop + (r.top - b.top) - b.height / 2 + r.height / 2, behavior: "smooth" });
 }
 
-function Section({ title, sub, children }: { title: string; sub: string; children: ReactNode }) {
-  return (
-    <section className="fck-sec">
-      <header>
-        <h2>{title}</h2>
-        <span>{sub}</span>
-      </header>
-      {children}
-    </section>
-  );
+function fromBase64(b64: string): Blob {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return new Blob([out], { type: "application/pdf" });
 }
 
 export default function Check() {
@@ -100,6 +91,8 @@ export default function Check() {
   const [anyway, setAnyway] = useState(false);
   const [reason, setReason] = useState("");
   const [going, setGoing] = useState(false);
+  const [sel, setSel] = useState<number | null>(null);
+  const [filter, setFilter] = useState<"all" | Issue["severity"]>("all");
 
   async function run(f: File | null | undefined) {
     setErr("");
@@ -108,6 +101,8 @@ export default function Check() {
     if (!/\.(pdf|docx)$/i.test(f.name)) return setErr(/\.doc$/i.test(f.name) ? "This is the old Word format (.doc). Save it as .docx or PDF, then upload that." : "Please upload a PDF or a Word file (.docx).");
     setFile(f);
     setRes(null);
+    setSel(null);
+    setFilter("all");
     setTicks({});
     setAnyway(false);
     setReason("");
@@ -143,27 +138,46 @@ export default function Check() {
     router.push("/fd-sign/new?from=check");
   }
 
-  const issues = res?.issues ?? [];
-  const blockers = issues.filter((i) => i.severity === "blocker");
-  const warnings = issues.map((i, k) => ({ i, k })).filter((x) => x.i.severity === "warning");
-  const advisories = issues.filter((i) => i.severity === "advisory");
+  const issues = useMemo(() => res?.issues ?? [], [res]);
+  /* one numbering for the marks and the panel: must fix, then review, then information */
+  const rows = useMemo(() => {
+    const rank: Record<string, number> = { blocker: 0, warning: 1, advisory: 2, expected: 3 };
+    return issues
+      .map((i, k) => ({ i, k }))
+      .sort((a, b) => rank[a.i.severity] - rank[b.i.severity] || a.i.order - b.i.order)
+      .map((r, n) => ({ ...r, n: n + 1 }));
+  }, [issues]);
+  const warnings = rows.filter((r) => r.i.severity === "warning");
   const allTicked = warnings.every((w) => ticks[w.k]);
-  const groups = [...new Set(warnings.map((w) => w.i.category))];
+  const marked = rows.filter((r) => r.i.mark).length;
+
+  const src = useMemo<Blob | null>(() => {
+    if (!res || res.verdict === "cannot_process") return null;
+    if (res.preview?.pdf) return fromBase64(res.preview.pdf);
+    return res.file.kind === "pdf" && file ? file : null;
+  }, [res, file]);
 
   const tone = res ? TONE[res.verdict] : "ok";
   const when = new Date().toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
-  let n = 0;
+
+  function pick(k: number, from: "doc" | "panel") {
+    setSel((cur) => (cur === k && from === "panel" ? null : k));
+    requestAnimationFrame(() => reveal(document.getElementById(from === "panel" ? `fck-m-${k}` : `fck-r-${k}`)));
+  }
+
+  const shown = rows.filter((r) => filter === "all" || r.i.severity === filter);
+  const groups = (["blocker", "warning", "advisory"] as const).filter((g) => shown.some((r) => r.i.severity === g));
 
   return (
     <div className="fds">
       <Head tab="check" />
-      <main className="fds-main fck">
+      <main className={`fds-main fck ${res ? "wide" : ""}`}>
         {!res && (
           <>
             <header className="fck-intro">
               <span className="fck-label">FD Sign · Signing-ready check</span>
               <h1>Check a document before it is signed</h1>
-              <p>Upload the version you intend to send. We review it as a lawyer reviews an execution version, then our AI reads it for inconsistencies a checklist cannot see. You receive a report of anything to resolve before signing.</p>
+              <p>Upload the version you intend to send. We review it as a lawyer reviews an execution version, then our AI reads it for inconsistencies a checklist cannot see. You see the whole document with each issue marked where it is, and a list of what to resolve before signing.</p>
             </header>
             <div className="fck-upload">
               <label
@@ -211,135 +225,201 @@ export default function Check() {
         )}
 
         {res && (
-          <section className="fck-report">
-            <div className="fck-rh">
-              <div>
+          <div className="fck-review">
+            {/* left: the whole document, findings marked on the page */}
+            <section className="fck-doc" aria-label="Document preview">
+              <header className="fck-dbar">
+                <div>
+                  <b>Document preview</b>
+                  <span>
+                    {res.file.pages ?? res.preview?.pages ?? "–"} {(res.file.pages ?? res.preview?.pages) === 1 ? "page" : "pages"} · {marked} {marked === 1 ? "issue" : "issues"} marked
+                    {res.file.kind === "docx" ? " · Word file shown as it will be signed" : ""}
+                  </span>
+                </div>
+                <ul className="fck-legend" aria-label="Key">
+                  <li className="blocker">Must fix</li>
+                  <li className="warning">To review</li>
+                  <li className="advisory">Information</li>
+                </ul>
+              </header>
+              <div className="fck-pages">
+                {src ? (
+                  <PdfPages
+                    src={src}
+                    overlay={(page) =>
+                      rows
+                        .filter((r) => r.i.mark?.page === page && (filter === "all" || r.i.severity === filter))
+                        .map(({ i, k, n }) => (
+                          <button
+                            key={k}
+                            id={`fck-m-${k}`}
+                            type="button"
+                            className={`fck-mark ${i.severity} ${sel === k ? "on" : ""}`}
+                            style={{ left: `${i.mark!.x * 100}%`, top: `${i.mark!.y * 100}%`, width: `${i.mark!.w * 100}%`, height: `${i.mark!.h * 100}%` }}
+                            title={`${n}. ${i.title}`}
+                            aria-label={`Issue ${n}: ${i.title}`}
+                            onClick={() => pick(k, "doc")}
+                          >
+                            <span>{n}</span>
+                          </button>
+                        ))
+                    }
+                  />
+                ) : (
+                  <div className="fck-nopv">
+                    <Ic n="doc" s={22} w={1.5} />
+                    <b>{res.verdict === "cannot_process" ? "This file could not be opened for a preview" : "Preview not available for this file"}</b>
+                    <span>The findings are listed in the panel.</span>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* right: the report panel (ESOP drawer style) */}
+            <aside className="fck-panel" aria-label="Execution readiness report">
+              <header className="fck-ph">
                 <span className="fck-label">Execution readiness report</span>
                 <h1>{res.file.name}</h1>
-                <p className="fck-meta">
-                  {res.file.pages ? `${res.file.pages} ${res.file.pages === 1 ? "page" : "pages"} · ` : ""}
-                  {res.file.kind === "docx" ? "Word document" : "PDF"} · Reviewed {when} · {res.ai.used ? "Checklist and AI review" : "Checklist (AI review unavailable)"}
-                </p>
-              </div>
-            </div>
-            <div className={`fck-status ${tone}`} aria-live="polite">
-              <StatusIcon tone={tone} />
-              <div>
-                <b>{VERDICT_TEXT[res.verdict].title}</b>
-                <span>{VERDICT_TEXT[res.verdict].text}</span>
-              </div>
-            </div>
-            <dl className="fck-stats">
-              <div className={res.counts.blocker ? "bad" : ""}>
-                <dt>Must fix</dt>
-                <dd>{res.counts.blocker}</dd>
-              </div>
-              <div className={res.counts.warning ? "warn" : ""}>
-                <dt>To review</dt>
-                <dd>{res.counts.warning}</dd>
-              </div>
-              <div>
-                <dt>For information</dt>
-                <dd>{res.counts.advisory}</dd>
-              </div>
-              <div>
-                <dt>Signature fields</dt>
-                <dd>{res.counts.expected}</dd>
-              </div>
-            </dl>
-            <div className="fck-actions">
-              {(res.verdict === "ready" || res.verdict === "ready_with_ack") && (
-                <button className="fds-btn ink lg" disabled={going || (res.verdict === "ready_with_ack" && !allTicked)} onClick={() => void goSend(res.verdict === "ready_with_ack" ? "acknowledged" : null)}>
-                  {going ? "Opening…" : "Continue to signing"} <Ic n="chev" s={16} />
-                </button>
-              )}
-              {(res.verdict === "not_ready" || res.verdict === "cannot_process") && (
-                <button className="fds-btn ink lg" onClick={() => input.current?.click()}>
-                  <Ic n="up" s={16} /> Upload revised version
-                </button>
-              )}
-              {res.verdict === "not_signable_here" && (
-                <Link className="fds-btn ink lg" href="/contact">
-                  Consult a Founders Doc lawyer
-                </Link>
-              )}
-              <button className="fds-btn lg" onClick={() => input.current?.click()}>
-                Review another document
-              </button>
-              {(res.verdict === "not_ready" || res.verdict === "not_signable_here") && !anyway && (
-                <button className="fck-link" onClick={() => setAnyway(true)}>
-                  Proceed without changes
-                </button>
-              )}
-              {res.verdict === "ready_with_ack" && !allTicked && <span className="fck-hint">Mark each review item as reviewed to continue.</span>}
-            </div>
-            {anyway && (
-              <div className="fck-anyway">
-                <label>
-                  <b>Reason for proceeding without changes</b>
-                  <small>Recorded with this report.</small>
-                  <textarea className="fds-inp" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. The blanks will be completed by hand at signing" />
-                </label>
-                <div>
-                  <button className="fds-btn ink" disabled={going || reason.trim().length < 5} onClick={() => void goSend("sent_anyway")}>
-                    {going ? "Opening…" : "Record reason and continue"}
-                  </button>
-                  <button className="fck-link" onClick={() => setAnyway(false)}>
-                    Cancel
-                  </button>
+                <span className="fck-meta">
+                  {res.file.kind === "docx" ? "Word document" : "PDF"} · {when} · {res.ai.used ? "Checklist and AI review" : "Checklist (AI review unavailable)"}
+                </span>
+                <div className={`fck-verdict ${tone}`} aria-live="polite">
+                  <StatusIcon tone={tone} />
+                  <b>{VERDICT_TEXT[res.verdict].title}</b>
+                </div>
+              </header>
+
+              <div className="fck-pb">
+                <p className="fck-vtext">{VERDICT_TEXT[res.verdict].text}</p>
+                <div className="fck-stats" role="group" aria-label="Filter the findings">
+                  {(
+                    [
+                      ["blocker", "Must fix", res.counts.blocker],
+                      ["warning", "To review", res.counts.warning],
+                      ["advisory", "Information", res.counts.advisory],
+                    ] as const
+                  ).map(([key, label, count]) => (
+                    <button key={key} type="button" className={`${key} ${count ? "has" : ""} ${filter === key ? "on" : ""}`} aria-pressed={filter === key} onClick={() => setFilter((f) => (f === key ? "all" : key))}>
+                      <span>{label}</span>
+                      <b>{count}</b>
+                    </button>
+                  ))}
+                  <div className="fck-sigs">
+                    <span>Signature fields</span>
+                    <b>{res.counts.expected}</b>
+                  </div>
+                </div>
+
+                <div className="fck-actions">
+                  {(res.verdict === "ready" || res.verdict === "ready_with_ack") && (
+                    <button className="fds-btn ink lg" disabled={going || (res.verdict === "ready_with_ack" && !allTicked)} onClick={() => void goSend(res.verdict === "ready_with_ack" ? "acknowledged" : null)}>
+                      {going ? "Opening…" : "Continue to signing"} <Ic n="chev" s={16} />
+                    </button>
+                  )}
+                  {(res.verdict === "not_ready" || res.verdict === "cannot_process") && (
+                    <button className="fds-btn ink lg" onClick={() => input.current?.click()} disabled={busy}>
+                      <Ic n="up" s={16} /> {busy ? "Reviewing…" : "Upload revised version"}
+                    </button>
+                  )}
+                  {res.verdict === "not_signable_here" && (
+                    <Link className="fds-btn ink lg" href="/contact">
+                      Consult a Founders Doc lawyer
+                    </Link>
+                  )}
+                  <div className="fck-alt">
+                    <button className="fck-link" onClick={() => input.current?.click()} disabled={busy}>
+                      Review another document
+                    </button>
+                    {(res.verdict === "not_ready" || res.verdict === "not_signable_here") && !anyway && (
+                      <button className="fck-link" onClick={() => setAnyway(true)}>
+                        Proceed without changes
+                      </button>
+                    )}
+                  </div>
+                  {res.verdict === "ready_with_ack" && !allTicked && <span className="fck-hint">Mark each item under To review as reviewed to continue.</span>}
+                </div>
+                {anyway && (
+                  <div className="fck-anyway">
+                    <label>
+                      <b>Reason for proceeding without changes</b>
+                      <small>Recorded with this report.</small>
+                      <textarea className="fds-inp" rows={2} maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. The blanks will be completed by hand at signing" />
+                    </label>
+                    <div>
+                      <button className="fds-btn ink" disabled={going || reason.trim().length < 5} onClick={() => void goSend("sent_anyway")}>
+                        {going ? "Opening…" : "Record reason and continue"}
+                      </button>
+                      <button className="fck-link" onClick={() => setAnyway(false)}>
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {err && <div className="fds-err">{err}</div>}
+
+                <div className="fck-findings">
+                  <div className="fck-fh">
+                    <h2>Findings</h2>
+                    <span>{filter === "all" ? `${rows.length} in total` : `${SEV[filter]} only · `}{filter !== "all" && <button className="fck-link" onClick={() => setFilter("all")}>show all</button>}</span>
+                  </div>
+                  {!rows.length && <p className="fck-hint">Nothing to resolve. The checklist and the AI review found no issues.</p>}
+                  {groups.map((g) => (
+                    <div key={g} className="fck-group">
+                      <h3>{SEV[g]}</h3>
+                      <ol className="fck-rows">
+                        {shown
+                          .filter((r) => r.i.severity === g)
+                          .map(({ i, k, n }) => (
+                            <li key={k} id={`fck-r-${k}`} className={`fck-row ${i.severity} ${sel === k ? "on" : ""}`}>
+                              <button type="button" className="fck-rbtn" onClick={() => pick(k, "panel")} aria-expanded={sel === k}>
+                                <span className="fck-tn">{n}</span>
+                                <span className="fck-rt">
+                                  <b>{i.title}</b>
+                                  <small>
+                                    {i.mark ? i.where : `${i.where} · not marked on the page`} · {SRC[i.source]}
+                                  </small>
+                                </span>
+                                <Ic n="chev" s={14} />
+                              </button>
+                              {sel === k && (
+                                <div className="fck-rd">
+                                  {i.evidence && (
+                                    <p className="fck-q">
+                                      <span>In the document</span>
+                                      {i.evidence}
+                                    </p>
+                                  )}
+                                  <div className="fck-note">
+                                    <b>What to do</b>
+                                    <span>{i.action}</span>
+                                  </div>
+                                  <p className="fck-code">Reference {i.code}</p>
+                                </div>
+                              )}
+                              {res.verdict === "ready_with_ack" && i.severity === "warning" && (
+                                <label className="fck-tick">
+                                  <input type="checkbox" checked={!!ticks[k]} onChange={(e) => setTicks((t) => ({ ...t, [k]: e.target.checked }))} />
+                                  Reviewed: fine to sign as it is
+                                </label>
+                              )}
+                            </li>
+                          ))}
+                      </ol>
+                    </div>
+                  ))}
+                  {res.counts.expected > 0 && (
+                    <p className="fck-hint">
+                      {res.counts.expected} blank {res.counts.expected === 1 ? "line" : "lines"} in signature blocks (signature, name or date) are treated as signature fields, not omissions.
+                    </p>
+                  )}
                 </div>
               </div>
-            )}
-          </section>
+            </aside>
+          </div>
         )}
 
-        <input ref={input} type="file" hidden accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => void run(e.target.files?.[0])} />
-        {err && <div className="fds-err">{err}</div>}
-        {res && busy && <p className="fck-hint">Reviewing the new file…</p>}
-
-        {res && blockers.length > 0 && (
-          <Section title="Must fix before signing" sub={`${blockers.length} ${blockers.length === 1 ? "item" : "items"}, in reading order`}>
-            <ol className="fck-list">
-              {blockers.map((i, k) => (
-                <Item key={k} i={i} n={++n} />
-              ))}
-            </ol>
-          </Section>
-        )}
-        {res && warnings.length > 0 && (
-          <Section title="To review" sub={`${warnings.length} ${warnings.length === 1 ? "item" : "items"}`}>
-            {groups.map((g) => (
-              <div key={g} className="fck-group">
-                <h3>{CAT[g] ?? g}</h3>
-                <ol className="fck-list">
-                  {warnings
-                    .filter((w) => w.i.category === g)
-                    .map((w) => (
-                      <Item key={w.k} i={w.i} n={++n} tick={ticks[w.k]} onTick={res.verdict === "ready_with_ack" ? (v) => setTicks((t) => ({ ...t, [w.k]: v })) : undefined} />
-                    ))}
-                </ol>
-              </div>
-            ))}
-          </Section>
-        )}
-        {res && advisories.length > 0 && (
-          <details className="fck-sec fck-more">
-            <summary>
-              <h2>For information</h2>
-              <span>{advisories.length} {advisories.length === 1 ? "item" : "items"} · show</span>
-            </summary>
-            <ol className="fck-list">
-              {advisories.map((i, k) => (
-                <Item key={k} i={i} n={++n} />
-              ))}
-            </ol>
-          </details>
-        )}
-        {res && res.counts.expected > 0 && (
-          <p className="fck-note">
-            {res.counts.expected} blank {res.counts.expected === 1 ? "line" : "lines"} in signature blocks (signature, name or date) are treated as signature fields, not omissions.
-          </p>
-        )}
+        <input ref={input} type="file" hidden accept="application/pdf,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => (void run(e.target.files?.[0]), (e.target.value = ""))} />
+        {!res && err && <div className="fds-err">{err}</div>}
 
         <footer className="fck-legal">
           <p>
