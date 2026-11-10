@@ -316,6 +316,8 @@ export default function Wizard() {
   const senderName = (fromName ?? me?.name ?? "").trim() || "You";
   /* an account with no name set shows its email's first part (e.g. "nguyenhoanglam.first"): ask for a proper name */
   const nameLooksLikeEmail = !fromName && !!me && !/\s/.test(me.name) && me.email.startsWith(me.name.toLowerCase());
+  /* the preview is general: names appear as placeholders, filled in for each email */
+  const fromTok = <span className="tok">Your name</span>;
 
   return (
     <div className="fds wiz">
@@ -786,23 +788,52 @@ export default function Wizard() {
               </div>
             </div>
           </div>
+          {/* 0205: an inbox-style preview of the invitation, the same for every person (names shown as placeholders) */}
           <div className="fds-mailp">
-            <div className="lab">What {signers[0]?.name.split(/\s+/)[0] || "they"} will receive</div>
+            <div className="lab">Email preview</div>
+            <p className="sub">Each person gets their own copy of this email, one at a time if they sign in order.</p>
             <div className="fds-em">
-              <div className="hd">
-                <b>From:</b> {senderName} via FD Sign
-                <br />
-                <b>Subject:</b> {senderName} sent you a document to sign: {title}
+              <div className="win" aria-hidden>
+                <i />
+                <i />
+                <i />
+                <span>Inbox</span>
+              </div>
+              <div className="subj">
+                {fromTok} sent you a document to sign: {title.trim() || "Document name"}
+              </div>
+              <div className="who">
+                <span className="av" aria-hidden>
+                  <Ic n="user" s={16} />
+                </span>
+                <div>
+                  <div className="nm">
+                    <b>{fromTok}</b> <span>via FD Sign</span>
+                  </div>
+                  <div className="to">
+                    to <span className="tok">Signer&rsquo;s name</span>
+                  </div>
+                </div>
+                <span className="when">just now</span>
               </div>
               <div className="bd">
                 <span className="pillk">FD SIGN</span>
-                <h4>{senderName} sent you a document to sign</h4>
-                <div className="doc">{title}</div>
+                <h4>{fromTok} sent you a document to sign</h4>
+                <div className="doc">
+                  <Ic n="doc" s={16} />
+                  {title.trim() || "Document name"}
+                </div>
                 {message.trim() && <p className="msg">{message.trim()}</p>}
                 <span className="btn">Review &amp; sign →</span>
               </div>
-              <div className="ft">Questions? Just reply to this email to reach {senderName}. Sent with FD Sign by Founders Doc on behalf of {senderName}.</div>
+              <div className="ft">
+                Questions? Just reply to this email to reach {fromTok}. Sent with FD Sign by Founders Doc on behalf of {fromTok}.
+              </div>
             </div>
+            <p className={`sub ${nameLooksLikeEmail ? "warn" : ""}`}>
+              <span className="tok">Your name</span> will show as <b>{senderName}</b>
+              {nameLooksLikeEmail ? ". Add your real name under “Your name” so people know who it is from." : "."}
+            </p>
           </div>
         </div>
       )}
