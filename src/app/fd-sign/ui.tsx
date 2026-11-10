@@ -152,12 +152,21 @@ export async function signNow(signerId: string): Promise<{ text: string; ok: boo
   return { ok: false, text: j.error || "Could not open it. Please use the link in your email." };
 }
 
-export function Head({ q, onQ }: { q?: string; onQ?: (v: string) => void }) {
+export function Head({ q, onQ, tab = "docs" }: { q?: string; onQ?: (v: string) => void; tab?: "docs" | "check" }) {
   return (
     <div className="fds-head">
       <Link href="/fd-sign" className="fds-brand">
         <i>FD</i>FD Sign <span className="fds-beta">Beta</span>
       </Link>
+      {/* 0201: the signing-ready check is its own tab (Rachel, 6 Nov) */}
+      <nav className="fds-tabs2" aria-label="FD Sign">
+        <Link href="/fd-sign" className={tab === "docs" ? "on" : ""} aria-current={tab === "docs" ? "page" : undefined}>
+          My documents
+        </Link>
+        <Link href="/fd-sign/check" className={tab === "check" ? "on" : ""} aria-current={tab === "check" ? "page" : undefined}>
+          Signing-ready check <em>New</em>
+        </Link>
+      </nav>
       {onQ ? (
         <label className="fds-search">
           <Ic n="search" s={16} />
