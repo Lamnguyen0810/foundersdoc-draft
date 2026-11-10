@@ -1,6 +1,7 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { sendEmail } from "@/lib/sign/notify";
+import { testModeFields } from "./test-mode";
 
 /**
  * Approve from the email (SQL 117). Rachel (4 Nov): "the email itself says all
@@ -213,6 +214,8 @@ export async function handOver(item: Record<string, unknown> & { holders?: Array
     options_total: holders.reduce((s, h) => s + (Number(h.options_number ?? String(h.options ?? "").replace(/,/g, "")) || 0), 0),
     holder_names: holders.map((h) => h.name).join(", "),
     dashboard_url: `${origin}/esop/${slug}?ref=${ref}`,
+    /* 0199: Slack channel + email copies follow the simulation */
+    ...testModeFields(item.simulation ? String(item.contact_email || "simulation") : null),
     holders: holders.map((h) => ({ ...h, ref, tranche: item.tranche, batch: item.batch, vest_date_text: item.vest_date_text })),
   };
   delete (payload as Record<string, unknown>).company_id;

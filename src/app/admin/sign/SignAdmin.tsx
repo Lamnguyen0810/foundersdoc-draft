@@ -178,6 +178,8 @@ export default function SignAdmin({
     setRows((r) => [...r, ...made]);
     setMode(made.length > 1 ? "batch" : "each");
     setSimulation(p.simulation);
+    /* 0199: in a simulation the signed copy goes to the simulation inbox, not to Rachel */
+    if (p.simulation) setCc(p.simulation);
     if (!message.trim()) setMessage(`Option Certificate${made.length > 1 ? "s" : ""} for ${p.label}.`);
     setSource("upload");
     say(`${plural(made.length, "certificate")} added`);

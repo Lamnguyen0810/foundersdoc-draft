@@ -45,6 +45,7 @@ export const PRODUCTS: Record<"sign" | "esop", Product> = {
     second: { href: "/templates", label: "Or draft one first with FD AI ›" },
     small: "Free to start with an FD AI account · signers need no account",
     features: [
+      { label: "Signing-ready check (new)", text: "Before you send, FD Sign's AI check flags blanks, [placeholders], tracked changes, notes to draft, missing schedules and wording that needs wet ink, so nobody signs an unfinished version." },
       { label: "PDF or Word", text: "Upload a PDF or a Word file up to 10 MB, or send a draft you made with FD AI straight to signing." },
       { label: "Signers need no account", text: "Each person gets a private link by email and confirms a 6-digit code before signing, so you know it is really them." },
       { label: "Order and copies", text: "Choose who signs first and who just gets a copy. The next person is emailed as soon as the one before has signed." },
@@ -68,6 +69,7 @@ export const PRODUCTS: Record<"sign" | "esop", Product> = {
       { q: "Is an e-signature legally binding in Singapore?", a: "For most business contracts, yes: Singapore's Electronic Transactions Act 2010 generally recognises electronic signatures. A few documents, such as wills, still need a traditional signature." },
       { q: "Do the people signing need an account?", a: "No. They get a private link by email, confirm a code sent to the same email, and sign. Only the sender uses an FD AI account." },
       { q: "What can I send for signing?", a: "A PDF or a Word file up to 10 MB, or a document you drafted with FD AI. Word files are converted to PDF first, so check the layout before you send." },
+      { q: "Can FD Sign check a contract before I send it?", a: "Yes. The signing-ready check reads your PDF or Word file and lists anything that should be fixed first, such as blanks, placeholders, tracked changes, notes to draft or missing schedules. It is a checklist, not legal advice." },
       { q: "How do I prove who signed?", a: "Download the signed PDF with its audit trail: it records each signer's email, the time, IP address and browser, and a fingerprint of the document." },
       { q: "Is FD Sign free?", a: "You can start free with an FD AI account. Founders Doc clients also use it for documents such as ESOP option certificates." },
     ],

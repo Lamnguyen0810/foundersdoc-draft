@@ -89,8 +89,8 @@ export async function POST(req: NextRequest) {
     const sim = cs.map((c) => c.email_override?.trim()).find(Boolean);
     if (sim) for (const d of docs) {
       d.signers = d.signers.map((s) => ({ ...s, email: sim }));
-      /* copies: Founders Doc addresses stay (e.g. Rachel's), anyone else goes to the simulation address */
-      if (d.cc?.length) d.cc = [...new Set(d.cc.map((e) => (/@foundersdoc\.com$/i.test(e) ? e : sim)))];
+      /* 0199: every copy goes to the simulation inbox too, so a test never reaches Rachel or admin */
+      if (d.cc?.length) d.cc = [sim];
     }
   }
 

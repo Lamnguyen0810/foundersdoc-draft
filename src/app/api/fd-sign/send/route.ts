@@ -83,6 +83,9 @@ export async function POST(req: NextRequest) {
 
   const title = String(meta.title ?? "").trim().slice(0, 200) || file.name.replace(/\.pdf$/i, "").slice(0, 200) || "Document";
   const message = typeof meta.message === "string" && meta.message.trim() ? meta.message.trim().slice(0, 2000) : null;
+  /* 0199: the sender's name as typed on the last step (signers see "<name> sent you a document"); else the account name */
+  const typedName = typeof meta.senderName === "string" ? meta.senderName.replace(/[\u0000-\u001f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 80) : "";
+  const senderName = typedName.length >= 2 ? typedName : me.name;
   try {
     const res = await createSend(store, {
       docs: [{ title, fileName: file.name.slice(0, 200) || "document.pdf", bytes, esopHolderId: null, esopTranche: null, signers, cc, fields }],
@@ -91,7 +94,7 @@ export async function POST(req: NextRequest) {
       createdBy: me.email,
       origin: req.nextUrl.origin,
       who: who(req),
-      owner: { id: me.id, email: me.email, name: me.name, folderId },
+      owner: { id: me.id, email: me.email, name: senderName, folderId },
     });
     const first = res.links[0];
     return NextResponse.json({

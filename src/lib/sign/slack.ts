@@ -2,6 +2,7 @@ import "server-only";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import type { Envelope, SignStore } from "./store";
+import { slackChannel } from "@/lib/esop/test-mode";
 
 /**
  * FD Sign progress in Slack, so everyone at Founders Doc sees what went out
@@ -15,7 +16,7 @@ export function isSlackConfigured(): boolean {
 }
 
 /** The ESOP vesting a certificate belongs to (e.g. B8-T2) and its Slack thread, if any. */
-async function vesting(env: Envelope): Promise<{ ref: string | null; thread_ts: string | null }> {
+async function vesting(env: Envelope): Promise<{ ref: string | null; thread_ts: string | null; simulation?: boolean }> {
   if (!env.esop_holder_id || !env.esop_tranche || !isSupabaseConfigured() || !isAdminClientConfigured()) return { ref: null, thread_ts: null };
   try {
     const db = supabaseAdmin();
@@ -23,14 +24,15 @@ async function vesting(env: Envelope): Promise<{ ref: string | null; thread_ts: 
     if (!h) return { ref: null, thread_ts: null };
     const ref = `B${h.batch}-T${env.esop_tranche}`;
     const a = (await db.from("esop_alerts").select("slack_ts").eq("company_id", h.company_id).eq("ref", ref).maybeSingle()).data as { slack_ts: string } | null;
-    return { ref, thread_ts: a?.slack_ts ?? null };
+    const c = (await db.from("esop_companies").select("email_override").eq("id", h.company_id).maybeSingle()).data as { email_override: string | null } | null;
+    return { ref, thread_ts: a?.slack_ts ?? null, simulation: Boolean(c?.email_override?.trim()) };
   } catch {
     return { ref: null, thread_ts: null };
   }
 }
 
-/** Post straight to #hitpay-esop (in a vesting's thread when given). */
-export async function postToSlack(text: string, ref: string | null, threadTs: string | null): Promise<void> {
+/** Post straight to #hitpay-esop (in a vesting's thread when given); simulation = the tester's own channel (0199). */
+export async function postToSlack(text: string, ref: string | null, threadTs: string | null, simulation = false): Promise<void> {
   if (process.env.SIGN_SLACK_PREVIEW === "1" && !isSupabaseConfigured()) return void console.log("[slack]", text);
   const hook = process.env.SIGN_SLACK_HOOK_URL?.trim();
   if (!hook || !isSlackConfigured() || !text) return;
@@ -38,7 +40,7 @@ export async function postToSlack(text: string, ref: string | null, threadTs: st
     await fetch(hook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: ref ? `*${ref}* · ${text}` : text, ref: ref ?? "", thread_ts: threadTs ?? "" }),
+      body: JSON.stringify({ text: ref ? `*${ref}* · ${text}` : text, ref: ref ?? "", thread_ts: threadTs ?? "", slack_channel: slackChannel(simulation), test_mode: simulation }),
       signal: AbortSignal.timeout(8000),
     });
   } catch (e) {
@@ -59,7 +61,7 @@ export async function slack(store: SignStore, envelopeIds: string[], text: strin
     await fetch(hook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: v.ref ? `*${v.ref}* · ${text}` : text, ref: v.ref ?? "", thread_ts: v.thread_ts ?? "" }),
+      body: JSON.stringify({ text: v.ref ? `*${v.ref}* · ${text}` : text, ref: v.ref ?? "", thread_ts: v.thread_ts ?? "", slack_channel: slackChannel(Boolean(v.simulation)), test_mode: Boolean(v.simulation) }),
       signal: AbortSignal.timeout(8000),
     });
   } catch (e) {

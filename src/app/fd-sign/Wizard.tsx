@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { clearHandoff, peekHandoff } from "./handoff";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import BoxEditor from "../admin/sign/BoxEditor";
@@ -51,6 +52,8 @@ export default function Wizard() {
   const [people, setPeople] = useState<Person[]>([blank()]);
   const [cc, setCc] = useState("");
   const [message, setMessage] = useState("");
+  /* 0199: the name signers see ("Rachel Wong sent you a document"); starts as the account name */
+  const [fromName, setFromName] = useState<string | null>(null);
   const [boxes, setBoxes] = useState<Box[]>([]);
   const [active, setActive] = useState(1);
   const [armed, setArmed] = useState<BoxKind | null>(null);
@@ -220,6 +223,17 @@ export default function Wizard() {
     if (!r.ok) return setFileErr(j.error || "Could not load your drafts.");
     setDrafts(j.drafts ?? []);
   }
+  /* 0201: the file just checked on the Signing-ready check tab */
+  const [handoff] = useState(() => (params.get("from") === "check" ? peekHandoff() : null));
+  const checked = handoff?.verdict ?? null;
+  const fromCheck = useRef(false);
+  useEffect(() => {
+    if (fromCheck.current || !handoff) return;
+    fromCheck.current = true;
+    clearHandoff();
+    void pick(handoff.file);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the checked file
+  }, [handoff]);
   const wanted = params.get("draft");
   const asked = useRef(false);
   useEffect(() => {
@@ -258,6 +272,7 @@ export default function Wizard() {
         JSON.stringify({
           title: title.trim(),
           message: message.trim() || null,
+          senderName: senderName === "You" ? null : senderName,
           folderId: folderId || null,
           signers: signers.map((s) => ({ name: s.name.trim(), email: s.email.trim().toLowerCase(), role: s.role.trim() })),
           cc: ccList,
@@ -292,7 +307,9 @@ export default function Wizard() {
   const names = signers.map((s) => s.name.trim() || "Signer");
   const fieldCount = (pos: number) => boxes.filter((b) => b.position === pos).length;
   const folder = data?.folders.find((f) => f.id === folderId);
-  const senderName = me?.name ?? "You";
+  const senderName = (fromName ?? me?.name ?? "").trim() || "You";
+  /* an account with no name set shows its email's first part (e.g. "nguyenhoanglam.first"): ask for a proper name */
+  const nameLooksLikeEmail = !fromName && !!me && !/\s/.test(me.name) && me.email.startsWith(me.name.toLowerCase());
 
   return (
     <div className="fds wiz">
@@ -324,6 +341,17 @@ export default function Wizard() {
               <h2>What needs signing?</h2>
               <p>Upload the final version. People sign exactly what you upload.</p>
             </div>
+            {checked ? (
+              <p className={`fds-checked ${checked === "ready" || checked === "ready_with_ack" ? "ok" : "warn"}`}>
+                <Ic n="shield" s={16} />
+                {checked === "ready" ? "Checked: ready to sign." : checked === "ready_with_ack" ? "Checked: ready, points accepted." : "Checked: sent anyway, with your reason recorded."}
+              </p>
+            ) : (
+              <Link className="fds-checked link" href="/fd-sign/check">
+                <Ic n="shield" s={16} />
+                Not sure it&rsquo;s the final version? Run the signing-ready check first ›
+              </Link>
+            )}
             <label
               className={`fds-drop ${over ? "over" : ""}`}
               onDragOver={(e) => (e.preventDefault(), setOver(true))}
@@ -679,6 +707,23 @@ export default function Wizard() {
                   </span>
                 </div>
               ))}
+            </div>
+            <div className="fds-sec">
+              <h3>
+                <Ic n="user" s={16} />
+                Your name
+              </h3>
+              <input
+                className="fds-inp"
+                maxLength={80}
+                value={fromName ?? me?.name ?? ""}
+                onChange={(e) => setFromName(e.target.value)}
+                placeholder="e.g. Rachel Wong"
+                aria-label="Your name, as signers see it"
+              />
+              <small className={`fds-namehint ${nameLooksLikeEmail ? "warn" : ""}`}>
+                {nameLooksLikeEmail ? "This looks like part of your email. Type your full name so people know who sent it." : `Signers see “${senderName} sent you a document to sign”.`}
+              </small>
             </div>
             <div className="fds-sec">
               <h3>

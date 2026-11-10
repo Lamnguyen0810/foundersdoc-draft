@@ -674,6 +674,20 @@
         contain-intrinsic-size: auto 560px;
       }
 
+      /* tools: check, sign, run (0200) */
+      .tools-sec { background: var(--grey-1); }
+      .tools-sec .way-visual { background: var(--white); }
+      .way.tool { color: inherit; text-decoration: none; }
+      .way.tool h3 { margin-top: 8px; }
+      .t-k { display: block; margin-top: 18px; font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold-deep); }
+      .t-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 8px; vertical-align: 1px; }
+      .t-dot.r { background: #c8574a; }
+      .t-dot.o { background: #d9822b; }
+      .t-dot.g { background: #3d8b5f; }
+      .t-sig { margin-top: 8px; border: 2px solid var(--gold); border-radius: 6px; height: 34px; display: flex; align-items: center; padding: 0 10px; background: color-mix(in srgb, var(--gold) 14%, transparent); }
+      .t-sig span { font-size: 11px; font-weight: 700; background: var(--gold); color: var(--black); padding: 2px 8px; border-radius: 4px; }
+      .tools .mock { height: auto; min-height: 208px; }
+
       /* two ways */
       .ways-sec {
         padding: clamp(56px, 7vw, 96px) 0;
@@ -2671,7 +2685,7 @@
         <div class="wrap">
           <h1><span class="line"><span>AI-drafted.</span></span><span class="line"><span>Lawyer-backed.</span></span></h1>
           <span class="sig" aria-hidden="true"></span>
-          <p class="sub">Draft, review and sign your legal documents with AI built by lawyers. A real lawyer is one click away.</p>
+          <p class="sub">Draft, check, sign and manage your legal documents with AI built by lawyers. A real lawyer is one click away.</p>
           <div class="ctas">
             <a class="btn btn-gold" href="/draft">Start drafting</a>
             <a class="btn btn-white" href="/contact">Talk to a lawyer</a>
@@ -2829,6 +2843,78 @@
         </div>
       </section>
 
+      <!-- tools: everything after the draft (0200) -->
+      <section class="ways-sec tools-sec" id="tools">
+        <div class="wrap">
+          <div class="head" data-rv>
+            <h2>Check it. Sign it. Run it.</h2>
+            <p class="sub">The draft is only the start. FD AI now takes your documents all the way: checked before anyone signs, signed online, and filed where your team can find them.</p>
+          </div>
+          <div class="ways tools">
+            <a class="way tool" href="/fd-sign/check" data-rv>
+              <div class="way-visual" aria-hidden="true">
+                <div class="mock">
+                  <div class="m-head"><b>Signing-ready check</b><span class="m-badge">New</span></div>
+                  <div class="m-row"><span><i class="t-dot r"></i>[Party name] not filled in</span><span class="m-writing">p. 1</span></div>
+                  <div class="m-row"><span><i class="t-dot r"></i>Schedule 2 is missing</span><span class="m-writing">p. 4</span></div>
+                  <div class="m-row"><span><i class="t-dot o"></i>“DRAFT” in the header</span><span class="m-writing">p. 1</span></div>
+                  <div class="m-row"><span><i class="t-dot g"></i>Signature blocks ready</span><span class="m-tick">✓</span></div>
+                </div>
+              </div>
+              <small class="t-k">New · AI</small>
+              <h3>Check a contract before you send it.</h3>
+              <p>Upload a PDF or Word file. Our AI and a lawyer's checklist flag blanks, [placeholders], tracked changes, notes to draft, missing schedules and wet-ink-only wording, so nobody signs the wrong version.</p>
+              <span class="more">Check a document<span class="arr" aria-hidden="true">→</span></span>
+            </a>
+            <a class="way tool" href="/e-signature" data-rv>
+              <div class="way-visual" aria-hidden="true">
+                <div class="mock">
+                  <div class="m-head"><b>Services agreement</b><span class="m-badge">2 of 3 signed</span></div>
+                  <div class="m-row">1. Jane T. · Director <span class="m-tick">✓</span></div>
+                  <div class="m-row">2. Alex T. · Client <span class="m-tick">✓</span></div>
+                  <div class="m-row">3. Sam L. · Witness <span class="m-writing">Signing</span></div>
+                  <div class="t-sig"><span>Sign here</span></div>
+                </div>
+              </div>
+              <small class="t-k">FD Sign</small>
+              <h3>Send it for e-signature.</h3>
+              <p>Send a PDF, a Word file or your FD AI draft. Signers confirm with an email code and sign right on the box, on any phone. Every signed copy carries an audit trail.</p>
+              <span class="more">Try FD Sign free<span class="arr" aria-hidden="true">→</span></span>
+            </a>
+            <a class="way tool" href="/esop-software" data-rv>
+              <div class="way-visual" aria-hidden="true">
+                <div class="mock">
+                  <div class="m-head"><b>Option holders</b><span class="m-badge">Vests 1 Dec</span></div>
+                  <div class="m-row">Certificates to approve <b>3</b></div>
+                  <div class="m-row">Approve from the email <span class="m-tick">✓</span></div>
+                  <div class="m-row">Signed and filed <span class="m-writing">Automatic</span></div>
+                  <div class="m-row">Holders see their own options <span class="m-tick">✓</span></div>
+                </div>
+              </div>
+              <small class="t-k">ESOP dashboard</small>
+              <h3>Run your share option plan.</h3>
+              <p>One register for every holder and vesting. Approvals by email, Option Certificates made from each Letter of Grant and signed online, and a page where each holder sees their own options.</p>
+              <span class="more">See the ESOP dashboard<span class="arr" aria-hidden="true">→</span></span>
+            </a>
+            <a class="way tool" href="/templates" data-rv>
+              <div class="way-visual" aria-hidden="true">
+                <div class="mock">
+                  <div class="m-head"><b>Free templates</b><span class="m-badge">Free</span></div>
+                  <div class="m-row">NDA · mutual and one-way <span class="m-writing">SG · UK · US</span></div>
+                  <div class="m-row">Employment contract <span class="m-writing">Singapore</span></div>
+                  <div class="m-row">Shareholders' agreement <span class="m-tick">✓</span></div>
+                  <div class="m-row">Services agreement <span class="m-tick">✓</span></div>
+                </div>
+              </div>
+              <small class="t-k">Templates</small>
+              <h3>Start from a lawyer's template.</h3>
+              <p>Plain-English guides and templates for the documents founders and businesses need most, by country. Open one in FD AI and it is drafted for you in minutes.</p>
+              <span class="more">Browse templates<span class="arr" aria-hidden="true">→</span></span>
+            </a>
+          </div>
+        </div>
+      </section>
+
       <!-- services -->
       <section class="svc" id="services">
         <div class="wrap">
@@ -2858,7 +2944,7 @@
             <div class="svc-item" data-rv>
               <small>Draft</small>
               <h3>Employee share option plan.</h3>
-              <a class="more" href="/coming-soon?f=Human%20resource">Find out more<span class="arr" aria-hidden="true">→</span></a>
+              <a class="more" href="/esop-software">See the ESOP dashboard<span class="arr" aria-hidden="true">→</span></a>
             </div>
             <div class="svc-item" data-rv>
               <small>Draft</small>
