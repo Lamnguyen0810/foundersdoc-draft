@@ -29,6 +29,8 @@ export interface EsopSettings {
   /** days before a vesting to email the alert people, e.g. [14, 7, 0]; empty = no emails from FD AI */
   alert_days: number[];
   alert_emails: string[];
+  /** 0202, SQL 126: who gets a copy of every payment email */
+  finance_emails?: string[];
   plan: "free" | "premium";
   /** false until supabase/123 is run */
   ready: boolean;

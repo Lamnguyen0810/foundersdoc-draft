@@ -73,7 +73,7 @@ export default async function EsopPage({
         focusRef={focusRef}
         supabaseUrl={null}
         supabaseKey={null}
-        settings={{ self_serve: false, holder_access: true, alert_days: [], alert_emails: ["hr@example.com"], plan: "premium", ready: true }}
+        settings={{ self_serve: false, holder_access: true, alert_days: [], alert_emails: ["hr@example.com"], finance_emails: ["finance@example.com"], plan: "premium", ready: true }}
         access={{ role: "ceo", canEdit: true, canManage: true }}
       />
     );
@@ -137,6 +137,9 @@ export default async function EsopPage({
     plan: company.plan === "premium" ? "premium" : "free",
     ready: !!sr,
   };
+  /* 0202: finance copies of the payment email (SQL 126; before it, none) */
+  const finRes = await supabase.from("esop_companies").select("finance_emails").eq("id", company.id).maybeSingle();
+  settings.finance_emails = finRes.error ? [] : ((finRes.data as { finance_emails?: string[] | null } | null)?.finance_emails ?? []);
   const me = await supabase.from("esop_members").select("role").eq("company_id", company.id).eq("email", (user.email ?? "").toLowerCase()).maybeSingle();
   const myRole = ((me.data as { role?: MemberRole } | null)?.role ?? null) as MemberRole | null;
   const access = {
