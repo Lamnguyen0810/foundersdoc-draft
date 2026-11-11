@@ -9,6 +9,7 @@ import { openPdf, readPdf, type PdfInfo } from "../sign/PdfPages";
 import { autoPlace, boxId, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
 import type { DraftBlock } from "@/lib/sign/draft-pdf";
 import { Ic, useList } from "./ui";
+import PageTrim from "./PageTrim";
 
 /* New signing request, in 4 steps: Document → People → Fields → Review and send.
    Signers sign in the order listed; each gets an email when it's their turn and
@@ -47,6 +48,9 @@ export default function Wizard() {
   const [reached, setReached] = useState(1);
   const [file, setFile] = useState<File | null>(null);
   const [info, setInfo] = useState<PdfInfo | null>(null);
+  /* 0213: remove pages before sending; the file as first uploaded, to restore it */
+  const [trimming, setTrimming] = useState(false);
+  const [untrimmed, setUntrimmed] = useState<{ file: File; info: PdfInfo; removed: number[] } | null>(null);
   const [fileErr, setFileErr] = useState("");
   /* a Word file we turned into a PDF: its name and what was not kept */
   const [converted, setConverted] = useState<{ name: string; warnings: string[] } | null>(null);
@@ -119,7 +123,40 @@ export default function Wizard() {
     setFile(f);
     setBoxes([]);
     setPlaced(false);
+    setUntrimmed(null);
+    setTrimming(false);
     if (!title) setTitle(f.name.replace(/\.pdf$/i, "").replace(/[_]+/g, " ").slice(0, 200));
+  }
+
+  /* 0213: the pages left after "Remove pages" (or all of them again) */
+  async function applyTrimmed(f: File, removed: number[]) {
+    try {
+      const doc = await openPdf(f);
+      const i = await readPdf(doc);
+      void doc.destroy();
+      if (!untrimmed && file && info) setUntrimmed({ file, info, removed });
+      else if (untrimmed) setUntrimmed({ ...untrimmed, removed: [...untrimmed.removed, ...removed].sort((a, b) => a - b) });
+      /* an FD AI draft's signature blocks move up with the pages; a block on a removed page is dropped */
+      if (fromDraft) {
+        const shift = (pg: number) => (removed.includes(pg) ? 0 : pg - removed.filter((r) => r < pg).length);
+        setFromDraft({ ...fromDraft, blocks: fromDraft.blocks.map((b) => ({ ...b, boxes: b.boxes.filter((x) => shift(x.page) > 0).map((x) => ({ ...x, page: shift(x.page) })) })).filter((b) => b.boxes.length) });
+      }
+      setInfo(i);
+      setFile(f);
+      setBoxes([]);
+      setPlaced(false);
+      setTrimming(false);
+    } catch {
+      setFileErr("The new PDF could not be opened. Please try again.");
+    }
+  }
+  function restorePages() {
+    if (!untrimmed) return;
+    setFile(untrimmed.file);
+    setInfo(untrimmed.info);
+    setUntrimmed(null);
+    setBoxes([]);
+    setPlaced(false);
   }
 
   /* people */
@@ -444,12 +481,26 @@ export default function Wizard() {
                   <small>
                     {info?.pages.length ?? "?"} {info?.pages.length === 1 ? "page" : "pages"} · {Math.max(1, Math.round(file.size / 1024))} KB · <span className="fds-ok">✓ Ready</span>
                   </small>
+                  {untrimmed && (
+                    <small className="fds-trimmed">
+                      {untrimmed.removed.length === 1 ? `Page ${untrimmed.removed[0]} removed` : `Pages ${untrimmed.removed.join(", ")} removed`} (of {untrimmed.info.pages.length}) ·{" "}
+                      <button className="fds-linkbtn" onClick={restorePages}>
+                        Restore all pages
+                      </button>
+                    </small>
+                  )}
                 </div>
+                {(info?.pages.length ?? 0) > 1 && !trimming && (
+                  <button className="fds-btn sm" onClick={() => setTrimming(true)}>
+                    Remove pages
+                  </button>
+                )}
                 <button className="fds-btn sm" onClick={() => input.current?.click()}>
                   Replace
                 </button>
               </div>
             )}
+            {file && trimming && <PageTrim file={file} onDone={(f, removed) => void applyTrimmed(f, removed)} onClose={() => setTrimming(false)} />}
             <div className="fds-f2">
               <div className="fds-fld">
                 <label htmlFor="fds-title">Document name (people see this)</label>
