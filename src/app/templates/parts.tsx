@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { SITE, ORGANIZATION, ldJson } from "@/lib/seo";
 import { TRIAL } from "@/lib/billing/plans";
-import { TEMPLATES, type Faq } from "@/lib/templates/data";
+import { TEMPLATES, type Faq, type TemplateDoc } from "@/lib/templates/data";
 import TemplateCta from "./TemplateCta";
 
 /** Shared pieces of the template pages (/templates, /templates/<doc>, /templates/<doc>/<country>). */
@@ -114,8 +114,25 @@ export function Disclaimer() {
   return (
     <p className="tpl-note">
       This page is general information, not legal advice. Every deal is different — for advice on your situation,{" "}
-      <a href="/contact">talk to a Founders Doc lawyer</a>.
+      <a href="/fd-consult">talk to a Founders Doc lawyer</a>.
     </p>
+  );
+}
+
+/** The documents that come before or after this one, each with a line on why (SEO checks 9–11 Nov). */
+export function RelatedTemplates({ items }: { items: TemplateDoc["related"] }) {
+  if (!items?.length) return null;
+  return (
+    <section className="tpl-section" aria-labelledby="tpl-related">
+      <h2 id="tpl-related">Related templates</h2>
+      <ul className="tpl-reading tpl-related">
+        {items.map((r) => (
+          <li key={r.href}>
+            <Link href={r.href}>{r.title}</Link> — {r.text}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 

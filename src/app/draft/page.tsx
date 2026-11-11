@@ -53,7 +53,7 @@ const inSentence = (label: string) => label.replace(/\b[A-Z][a-z]+\b/g, (w) => w
 const SEARCH_META: Record<string, { title: string; description: string }> = {
   term: {
     title: "Term Sheet Generator — Draft One Online Free | FD AI",
-    description: "Draft a term sheet online for an investment, loan, sale or partnership: answer a few questions, get a lawyer-backed Word draft in minutes. Start free.",
+    description: "Draft a term sheet online for a Singapore start-up round, loan, sale or partnership, under Singapore or any law. Lawyer-backed Word draft in minutes. Free.",
   },
   ssa: {
     title: "Share Subscription Agreement — Draft Online Free | FD AI",
