@@ -100,31 +100,41 @@ export async function createSend(
   const batchId = input.batch && input.docs.length > 1 ? crypto.randomUUID() : null;
   const firsts: Array<{ row: Signer; title: string }> = [];
   const envelopeIds: string[] = [];
-  for (const d of input.docs) {
-    const pages = await pageCount(d.bytes);
-    const id = await store.insertEnvelope({
-      title: d.title,
-      file_name: d.fileName,
-      original: d.bytes,
-      original_sha256: sha256(d.bytes),
-      page_count: pages,
-      message: input.message,
-      batch_id: batchId,
-      esop_holder_id: d.esopHolderId,
-      esop_tranche: d.esopTranche,
-      created_by: input.createdBy,
-      ...(input.owner ? { owner_id: input.owner.id, owner_email: input.owner.email, owner_name: input.owner.name, folder_id: input.owner.folderId } : {}),
-    });
-    envelopeIds.push(id);
-    await store.addEvent({ envelope_id: id, signer_id: null, event: "created", ip: input.who.ip, user_agent: input.who.ua, detail: input.createdBy });
-    for (let i = 0; i < d.signers.length; i++) {
-      const s = d.signers[i];
-      await store.insertSigner({ envelope_id: id, position: i + 1, name: s.name, email: s.email.toLowerCase(), role: s.role });
+  try {
+    for (const d of input.docs) {
+      const pages = await pageCount(d.bytes);
+      const id = await store.insertEnvelope({
+        title: d.title,
+        file_name: d.fileName,
+        original: d.bytes,
+        original_sha256: sha256(d.bytes),
+        page_count: pages,
+        message: input.message,
+        batch_id: batchId,
+        esop_holder_id: d.esopHolderId,
+        esop_tranche: d.esopTranche,
+        created_by: input.createdBy,
+        ...(input.owner ? { owner_id: input.owner.id, owner_email: input.owner.email, owner_name: input.owner.name, folder_id: input.owner.folderId } : {}),
+      });
+      envelopeIds.push(id);
+      await store.addEvent({ envelope_id: id, signer_id: null, event: "created", ip: input.who.ip, user_agent: input.who.ua, detail: input.createdBy });
+      for (let i = 0; i < d.signers.length; i++) {
+        const s = d.signers[i];
+        await store.insertSigner({ envelope_id: id, position: i + 1, name: s.name, email: s.email.toLowerCase(), role: s.role });
+      }
+      if (d.cc?.length) await store.addViewers(id, d.cc);
+      await store.insertFields(id, d.fields.filter((f) => f.position >= 1 && f.position <= d.signers.length && f.page >= 1 && f.page <= pages));
+      const rows = await store.signers(id);
+      firsts.push({ row: rows[0], title: d.title });
     }
-    if (d.cc?.length) await store.addViewers(id, d.cc);
-    await store.insertFields(id, d.fields.filter((f) => f.position >= 1 && f.position <= d.signers.length && f.page >= 1 && f.page <= pages));
-    const rows = await store.signers(id);
-    firsts.push({ row: rows[0], title: d.title });
+  } catch (e) {
+    /* 0210: a save that fails half way (nothing emailed yet) must not leave a request that looks
+       sent: mark what was created as cancelled, so "My documents" and the ESOP dashboard stay right */
+    for (const id of envelopeIds) {
+      await store.updateEnvelope(id, { status: "voided" }).catch(() => undefined);
+      await store.addEvent({ envelope_id: id, signer_id: null, event: "voided", ip: input.who.ip, user_agent: input.who.ua, detail: "send failed, nothing was emailed" }).catch(() => undefined);
+    }
+    throw e;
   }
   /* First signers: one link per person (a batch groups the same email). */
   const groups = new Map<string, typeof firsts>();
