@@ -9,13 +9,22 @@ import { openPdf, readPdf, type PdfInfo } from "../sign/PdfPages";
 import { autoPlace, boxId, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
 import type { DraftBlock } from "@/lib/sign/draft-pdf";
 import { Ic, useList } from "./ui";
-import PageTrim from "./PageTrim";
+import PageEditor, { type EditSummary } from "./PageEditor";
 
 /* New signing request, in 4 steps: Document → People → Fields → Review and send.
    Signers sign in the order listed; each gets an email when it's their turn and
    confirms a 6-digit email code before signing. */
 
 const MAX = 10 * 1024 * 1024;
+/* "2 text boxes, 1 white-out, 1 page removed" */
+function editLine(e: EditSummary): string {
+  const n = (k: number, one: string, many: string) => (k ? `${k} ${k === 1 ? one : many}` : "");
+  return (
+    [n(e.texts, "text box", "text boxes"), n(e.whiteouts, "white-out", "white-outs"), n(e.removed, "page removed", "pages removed"), n(e.added, "page added", "pages added"), n(e.rotated, "page rotated", "pages rotated"), e.moved ? "pages reordered" : ""]
+      .filter(Boolean)
+      .join(", ") || "no changes"
+  );
+}
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const STEPS = ["Document", "People", "Fields", "Review and send"];
 /* phones show every step's name under its number, so a shorter last one */
@@ -50,7 +59,7 @@ export default function Wizard() {
   const [info, setInfo] = useState<PdfInfo | null>(null);
   /* 0213: remove pages before sending; the file as first uploaded, to restore it */
   const [trimming, setTrimming] = useState(false);
-  const [untrimmed, setUntrimmed] = useState<{ file: File; info: PdfInfo; removed: number[] } | null>(null);
+  const [untrimmed, setUntrimmed] = useState<{ file: File; info: PdfInfo; edits: EditSummary } | null>(null);
   const [fileErr, setFileErr] = useState("");
   /* a Word file we turned into a PDF: its name and what was not kept */
   const [converted, setConverted] = useState<{ name: string; warnings: string[] } | null>(null);
@@ -129,25 +138,24 @@ export default function Wizard() {
   }
 
   /* 0213: the pages left after "Remove pages" (or all of them again) */
-  async function applyTrimmed(f: File, removed: number[]) {
+  /* 0214: the edited copy from "Edit document" (the first upload is kept to restore) */
+  async function applyTrimmed(f: File, edits: EditSummary) {
     try {
       const doc = await openPdf(f);
       const i = await readPdf(doc);
       void doc.destroy();
-      if (!untrimmed && file && info) setUntrimmed({ file, info, removed });
-      else if (untrimmed) setUntrimmed({ ...untrimmed, removed: [...untrimmed.removed, ...removed].sort((a, b) => a - b) });
-      /* an FD AI draft's signature blocks move up with the pages; a block on a removed page is dropped */
-      if (fromDraft) {
-        const shift = (pg: number) => (removed.includes(pg) ? 0 : pg - removed.filter((r) => r < pg).length);
-        setFromDraft({ ...fromDraft, blocks: fromDraft.blocks.map((b) => ({ ...b, boxes: b.boxes.filter((x) => shift(x.page) > 0).map((x) => ({ ...x, page: shift(x.page) })) })).filter((b) => b.boxes.length) });
-      }
+      const add = (a: EditSummary, b: EditSummary): EditSummary => ({ texts: a.texts + b.texts, whiteouts: a.whiteouts + b.whiteouts, removed: a.removed + b.removed, added: a.added + b.added, rotated: a.rotated + b.rotated, moved: a.moved || b.moved });
+      if (!untrimmed && file && info) setUntrimmed({ file, info, edits });
+      else if (untrimmed) setUntrimmed({ ...untrimmed, edits: add(untrimmed.edits, edits) });
+      /* an FD AI draft's signature blocks point at pages that may have moved: place boxes on the signature lines instead */
+      if (fromDraft && (edits.removed || edits.added || edits.moved || edits.rotated)) setFromDraft({ ...fromDraft, blocks: [] });
       setInfo(i);
       setFile(f);
       setBoxes([]);
       setPlaced(false);
       setTrimming(false);
     } catch {
-      setFileErr("The new PDF could not be opened. Please try again.");
+      setFileErr("The edited PDF could not be opened. Please try again.");
     }
   }
   function restorePages() {
@@ -483,16 +491,16 @@ export default function Wizard() {
                   </small>
                   {untrimmed && (
                     <small className="fds-trimmed">
-                      {untrimmed.removed.length === 1 ? `Page ${untrimmed.removed[0]} removed` : `Pages ${untrimmed.removed.join(", ")} removed`} (of {untrimmed.info.pages.length}) ·{" "}
+                      Edited: {editLine(untrimmed.edits)} ·{" "}
                       <button className="fds-linkbtn" onClick={restorePages}>
-                        Restore all pages
+                        Restore original
                       </button>
                     </small>
                   )}
                 </div>
-                {(info?.pages.length ?? 0) > 1 && !trimming && (
+                {!trimming && (
                   <button className="fds-btn sm" onClick={() => setTrimming(true)}>
-                    Remove pages
+                    <Ic n="pen" s={14} /> Edit document
                   </button>
                 )}
                 <button className="fds-btn sm" onClick={() => input.current?.click()}>
@@ -500,7 +508,7 @@ export default function Wizard() {
                 </button>
               </div>
             )}
-            {file && trimming && <PageTrim file={file} onDone={(f, removed) => void applyTrimmed(f, removed)} onClose={() => setTrimming(false)} />}
+            {file && trimming && <PageEditor file={file} onDone={(f, edits) => void applyTrimmed(f, edits)} onClose={() => setTrimming(false)} />}
             <div className="fds-f2">
               <div className="fds-fld">
                 <label htmlFor="fds-title">Document name (people see this)</label>
