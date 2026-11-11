@@ -1,5 +1,8 @@
 import type { SignField } from "./store";
 
+/** The most a signer can type in a text box (sign_fields.value allows 500, SQL 120). */
+export const TEXT_MAX = 500;
+
 /** Signature boxes from a send form (fractions of the page, from the top-left). Shared by the admin and the FD Sign send. */
 const KINDS = new Set(["signature", "date", "name", "initials", "text", "checkbox"]);
 const frac = (v: unknown) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= 1;

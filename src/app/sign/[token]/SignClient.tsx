@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { SignView } from "@/lib/sign/service";
+import { TEXT_MAX } from "@/lib/sign/fields";
 
 /* The signing screen: the document(s) with this signer's "Sign here" boxes on
    the signature lines. As on DocuSign (Rachel, 6 Nov: "I signed directly on the
@@ -11,6 +12,49 @@ import type { SignView } from "@/lib/sign/service";
    (draw with finger, mouse or pen, or type, and agree to sign electronically),
    and every later tap puts it on that box. A bar at the bottom (on phones) and
    the card on the right count the places left, jump to the next one and Finish. */
+
+/**
+ * A text box the signer types in (Rachel, 11 Nov: "the text I want to fill is longer than the box").
+ * It wraps onto more lines and shrinks to fit the box as they type, the same way the signed PDF
+ * shows it (lib/sign/pdf.ts, down to a very small size); it never spills over the document's own words.
+ */
+function FitText({ value, label, onChange }: { value: string; label: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const [tiny, setTiny] = useState(false);
+  const fit = () => {
+    const el = ref.current;
+    if (!el || !el.clientHeight) return;
+    let size = Math.min(12, el.clientHeight * 0.7);
+    el.style.fontSize = `${size}px`;
+    while (size > 4 && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)) el.style.fontSize = `${(size -= 0.5)}px`;
+    setTiny(!!value.trim() && size < 7);
+  };
+  useLayoutEffect(fit);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => fit());
+    ro.observe(el);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fit reads the latest value from the box itself
+  }, []);
+  return (
+    <>
+      <textarea
+        ref={ref}
+        className="fs-here-in fs-here-ta"
+        value={value}
+        rows={1}
+        maxLength={TEXT_MAX}
+        aria-label={label}
+        spellCheck
+        onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
+        onChange={(e) => onChange(e.target.value.replace(/\s*\n\s*/g, " "))}
+      />
+      {tiny && <span className="fs-here-warn">Small text: shorten it if you can</span>}
+    </>
+  );
+}
 
 const PdfPages = dynamic(() => import("../PdfPages"), { ssr: false, loading: () => <div className="fs-pages-wait">Loading the document…</div> });
 const today = () => new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Singapore" });
@@ -384,7 +428,7 @@ export default function SignClient({
                         {f.kind === "text" && (
                           <>
                             {!v && <span className="fs-here-l">{f.label || "Type here"}{f.required === false ? " (optional)" : ""}</span>}
-                            <input className="fs-here-in" value={v} maxLength={200} aria-label={f.label || "Text"} onChange={(e) => f.id && setVal(f.id, e.target.value)} />
+                            <FitText value={v} label={f.label || "Text"} onChange={(nv) => f.id && setVal(f.id, nv)} />
                           </>
                         )}
                         {f.kind === "checkbox" && <span className="fs-here-cb" role="checkbox" aria-checked={v === "yes"} aria-label={f.label || "Tick"}>{v === "yes" ? "✓" : ""}</span>}

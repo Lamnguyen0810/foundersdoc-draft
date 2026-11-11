@@ -152,6 +152,28 @@ export async function buildSignedPdf(input: {
     p.drawText(t, { x, y: y + (h - size) / 2 + size * 0.2, size, font, color: ink });
   };
 
+  /* What the signer typed in a text box (Rachel, 11 Nov: "the text is longer than the box"). It wraps onto
+     as many lines as the box holds and shrinks to fit, down to 4pt. It never spills outside the box, so it
+     can't cover any of the document's own words. The signing page shows the same, as they type. */
+  const drawBoxText = (p: PDFPage, text: string, x: number, y: number, w: number, h: number) => {
+    const pad = Math.min(2, w * 0.05);
+    const width = Math.max(4, w - pad * 2);
+    const fits = (size: number) => {
+      const lines = wrap(text, font, size, width, T);
+      return { lines, ok: lines.length * size * 1.15 <= h && lines.every((l) => font.widthOfTextAtSize(l, size) <= width + 0.01) };
+    };
+    let size = Math.min(h * 0.6, 11);
+    let r = fits(size);
+    while (!r.ok && size > 4) r = fits((size = Math.max(4, size - 0.25)));
+    if (r.lines.length === 1) {
+      p.drawText(r.lines[0], { x: x + pad, y: y + (h - size) / 2 + size * 0.2, size, font, color: ink });
+      return;
+    }
+    const lead = size * 1.15;
+    const top = y + h - (h - r.lines.length * lead) / 2; // the block centred in the box
+    r.lines.forEach((l, i) => p.drawText(l, { x: x + pad, y: top - (i + 1) * lead + size * 0.25, size, font, color: ink }));
+  };
+
   /* ── stamp each signed box on its page ──────────────────────────────── */
   const placed = new Set<number>();
   for (const f of fields) {
@@ -180,7 +202,7 @@ export async function buildSignedPdf(input: {
       while (size > 6 && script.widthOfTextAtSize(ini, size) > w) size -= 0.5;
       p.drawText(ini, { x: x + (w - script.widthOfTextAtSize(ini, size)) / 2, y: y + (h - size) / 2 + size * 0.22, size, font: script, color: blue });
     } else if (f.kind === "text") {
-      if (f.value) drawLineText(p, f.value, x, y, w, h);
+      if (f.value) drawBoxText(p, f.value, x, y, w, h);
     } else if (f.kind === "checkbox") {
       const sq = Math.min(w, h);
       const bx = x + (w - sq) / 2, by = y + (h - sq) / 2;

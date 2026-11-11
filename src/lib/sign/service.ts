@@ -6,6 +6,7 @@ import { signFonts } from "./certificate";
 import { notify } from "./notify";
 import { slack, what } from "./slack";
 import type { Envelope, SignField, SignStore, Signer } from "./store";
+import { TEXT_MAX } from "./fields";
 
 /**
  * FD Sign rules, in one place:
@@ -277,7 +278,7 @@ export async function submitSignature(
     const rows: Array<{ id: string; value: string }> = [];
     for (const f of asks) {
       const raw = String(input.values?.[f.id!] ?? "");
-      const value = f.kind === "checkbox" ? (raw === "yes" ? "yes" : "") : raw.replace(/\s+/g, " ").trim().slice(0, 200);
+      const value = f.kind === "checkbox" ? (raw === "yes" ? "yes" : "") : raw.replace(/\s+/g, " ").trim().slice(0, TEXT_MAX);
       if (f.required !== false && !value)
         throw new SignError(f.kind === "checkbox" ? `Please tick “${f.label || "the box"}” before signing.` : `Please fill in “${f.label || "the text box"}” before signing.`, 400);
       rows.push({ id: f.id!, value });

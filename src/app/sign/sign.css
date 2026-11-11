@@ -334,3 +334,7 @@ body:has(.fdsign:not(.fs-adm)) .strip-warn {
 .fs-env-people { grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); }
 .fs-person > :nth-child(2) { min-width: 0; }
 .fs-person b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* text boxes wrap and shrink to fit as the signer types (11 Nov) */
+.fs-here-ta { resize: none; overflow: hidden; display: block; padding: 1px 3px; line-height: 1.15; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fs-here-warn { position: absolute; left: -2px; top: 100%; margin-top: 3px; font-size: 10.5px; font-weight: 600; white-space: nowrap; background: #fff3cd; color: #6b4e00; border: 1px solid #f0dfb0; padding: 1px 6px; border-radius: 4px; z-index: 2; pointer-events: none; }
