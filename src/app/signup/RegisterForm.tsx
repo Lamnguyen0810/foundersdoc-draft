@@ -115,6 +115,11 @@ export default function RegisterForm({
 
     try {
       const supabase = createBrowserClient(supabaseUrl, supabaseKey);
+      /* 0215: the country for the "Came from" line, from the server (IP country only); never blocks sign-up */
+      const country = await fetch("/api/geo", { cache: "no-store" })
+        .then((r) => r.json() as Promise<{ country?: string | null }>)
+        .then((j) => j.country ?? undefined)
+        .catch(() => undefined);
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -125,7 +130,7 @@ export default function RegisterForm({
         options: {
           /* signup_source: the first page of this visit (lib/signup-source.ts),
              which 091 turns into the "Came from:" line in Slack. */
-          data: { full_name: name.trim(), signup_source: readSignupSource() },
+          data: { full_name: name.trim(), signup_source: { ...readSignupSource(), ...(country ? { country } : {}) } },
           captchaToken: captcha ?? undefined,
           /* With "Confirm email" on, the link in the email comes back here and
              the person lands in the workspace, signed in. */

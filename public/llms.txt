@@ -17,6 +17,9 @@
 - [Shareholders' agreement template](https://foundersdoc.com/templates/shareholders-agreement): How the company is run, and what happens when shareholders join, sell or leave
 - [Contractor agreement template](https://foundersdoc.com/templates/contractor-agreement): Engage a freelancer or consultant: scope, fees, IP and how it ends
 - [Services agreement template](https://foundersdoc.com/templates/services-agreement): Sell or buy a software subscription or professional services
+- [Term sheet template](https://foundersdoc.com/templates/term-sheet): Agree the main terms of an investment, loan, sale or partnership before the full documents. Also: Term sheet for Singapore (https://foundersdoc.com/templates/term-sheet/singapore)
+- [Share subscription agreement template](https://foundersdoc.com/templates/share-subscription-agreement): Bring an investor into your Singapore company: shares, completion and warranties
+- [Convertible loan agreement template](https://foundersdoc.com/templates/convertible-loan-agreement): Raise money now that turns into shares at the next round
 
 ## Other Founders Doc tools
 
@@ -38,4 +41,4 @@
 - [Is a term sheet legally binding?](https://foundersdoc.com/resources/is-a-term-sheet-legally-binding)
 - [Term sheet checklist](https://foundersdoc.com/resources/term-sheet-checklist)
 - [Common term sheet mistakes](https://foundersdoc.com/resources/term-sheet-mistakes)
-- [All articles](https://foundersdoc.com/resources/all)
+- [All articles](https://foundersdoc.com/resources/all/)

@@ -131,7 +131,10 @@ export async function GET(req: NextRequest) {
   if (user && isNew && !user.user_metadata?.signup_source) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const { error: srcError } = await supabase.auth.updateUser({ data: { signup_source: handshake.src ?? {} } });
+        /* 0215: plus the country Vercel sees for this request (2 letters) */
+        const country = req.headers.get("x-vercel-ip-country")?.toUpperCase();
+        const source = { ...(handshake.src ?? {}), ...(country && /^[A-Z]{2}$/.test(country) ? { country } : {}) };
+        const { error: srcError } = await supabase.auth.updateUser({ data: { signup_source: source } });
         if (!srcError) break;
         console.error("[auth/google] could not save the sign-up source:", srcError.message);
       } catch (e) {

@@ -47,6 +47,9 @@ export interface CountryPage {
   lawChoice: string;
   /** Local points, in plain English. */
   lawPoints: { label: string; text: string }[];
+  /** Optional: the deal terms people search for (e.g. a term sheet's key terms), as their own section. */
+  keyTermsTitle?: string;
+  keyTerms?: { label: string; text: string }[];
   faqs: Faq[];
 }
 
@@ -77,6 +80,8 @@ export interface TemplateDoc {
   faqs: Faq[];
   /** Blog articles about this document. */
   reading: { title: string; href: string }[];
+  /** Optional: the documents that usually come before or after this one, linked with a line on why. */
+  related?: { title: string; href: string; text: string }[];
   countries: CountryPage[];
 }
 
@@ -443,6 +448,10 @@ export const TEMPLATES: TemplateDoc[] = [
       { q: "Can I edit the agreement after FD AI drafts it?", a: "Yes. Change any wording before you download it as a Word document, and ask FD AI to explain any clause." },
     ],
     reading: [],
+    related: [
+      { title: "Convertible loan agreement template", href: "/templates/convertible-loan-agreement", text: "Lending to a start-up and want the loan to turn into shares at the next round? Use a convertible loan instead." },
+      { title: "Term sheet template", href: "/templates/term-sheet", text: "Agree the amount, interest and repayment in a short term sheet before the full agreement." },
+    ],
     countries: [],
   },
   {
@@ -452,7 +461,7 @@ export const TEMPLATES: TemplateDoc[] = [
     docSlug: "sha",
     short: "Shareholders' agreement",
     name: "Shareholders' Agreement",
-    h1: "Shareholders' agreement template — draft one in minutes",
+    h1: "Shareholders' agreement template Singapore — draft one in minutes",
     beta: true,
     law: "Drafted for a Singapore company, under Singapore law.",
     title: "Shareholders' Agreement Template Singapore | FD AI",
@@ -481,6 +490,11 @@ export const TEMPLATES: TemplateDoc[] = [
       { q: "Can I edit the agreement after FD AI drafts it?", a: "Yes. Change any wording before you download it as a Word document, and ask FD AI to explain any clause." },
     ],
     reading: [],
+    related: [
+      { title: "Term sheet template for Singapore start-ups", href: "/templates/term-sheet/singapore", text: "Agree valuation, board seats and investor rights in a term sheet before the shareholders' agreement is drafted." },
+      { title: "Share subscription agreement template", href: "/templates/share-subscription-agreement", text: "The investor's new shares are issued under a share subscription agreement, usually signed with the shareholders' agreement." },
+      { title: "Convertible loan agreement template", href: "/templates/convertible-loan-agreement", text: "Raising before a priced round? A convertible loan turns into shares later, when the shareholders' agreement is updated." },
+    ],
     countries: [],
   },
   {
@@ -493,9 +507,9 @@ export const TEMPLATES: TemplateDoc[] = [
     h1: "Contractor agreement template — draft one in minutes",
     beta: true,
     law: "Engage a freelancer or consultant in any country; choose the law and the courts in the questions.",
-    title: "Contractor Agreement Template — Draft One Free | FD AI",
+    title: "Contractor Agreement Template Singapore — Draft Free | FD AI",
     description:
-      "Draft a freelance or contractor agreement online: scope, fees, expenses, IP, confidentiality and ending it. Any country, Word in minutes. Free to start.",
+      "Draft a contractor or freelance agreement online for Singapore, the UK, Hong Kong or the US: scope, fees, IP, confidentiality, ending it. Start free.",
     lead: "A contractor agreement sets out the work a freelancer or consultant will do and on what terms. FD AI drafts one in a Basic, Standard or Complex version, from Founders Doc's own lawyer-written wording.",
     covers: [
       { label: "Who the contractor is", text: "An individual or a company." },
@@ -559,6 +573,197 @@ export const TEMPLATES: TemplateDoc[] = [
     reading: [],
     countries: [],
   },
+  /* 0215 (SEO checks 9–11 Nov): the term sheet, share subscription and convertible loan pages.
+     Facts describe what FD AI drafts (lib/termsheet, lib/ssa, lib/cln) or general Singapore points
+     (Companies Act ss 63, 161; Securities and Futures Act ss 272A, 272B, 275), worded cautiously.
+     A Founders Doc lawyer checks them before they go live. */
+  {
+    slug: "term-sheet",
+    icon: "📝",
+    summary: "Agree the main terms of an investment, loan, sale or partnership before the full documents.",
+    docSlug: "term",
+    short: "Term sheet",
+    name: "Term Sheet",
+    h1: "Term sheet template — draft one in minutes",
+    beta: true,
+    law: "Singapore law, or another country's: you choose, usually where the company or the business being sold is based.",
+    title: "Term Sheet Template — Draft a Term Sheet Free | FD AI",
+    description:
+      "Draft a term sheet online for a Singapore start-up round, loan, sale or partnership: key terms, what is binding and exclusivity. Lawyer-backed. Start free.",
+    lead: "A term sheet sets out the main terms of a deal before anyone pays for the full legal documents. FD AI asks plain-English questions and drafts one in about 10 minutes; skip anything not agreed yet.",
+    covers: [
+      { label: "What the deal is", text: "An investment, a loan, buying or selling a business, or a partnership, described in one sentence." },
+      { label: "Your side", text: "Tell FD AI which side you are on, and the usual answers lean your way." },
+      { label: "The key commercial terms", text: "Valuation, interest, price or revenue share, depending on the deal, plus any other terms you have agreed." },
+      { label: "Conditions and dates", text: "What must happen before the deal can close, and when you aim to sign and complete." },
+      { label: "What is binding", text: "Most of a term sheet is not binding. Exclusivity, confidentiality, costs, expiry and governing law usually are, and the term sheet says so clearly." },
+      { label: "Law and disputes", text: "The country's law you choose, with disputes going to the courts or to arbitration." },
+    ],
+    whenNeeded: [
+      "When an investor is ready to put money in and you want the main terms agreed first",
+      "Before buying or selling a business, or a stake in one",
+      "When you borrow from, or lend to, a business partner",
+      "When two companies agree to work together on a project",
+    ],
+    faqs: [
+      { q: "Is a term sheet legally binding?", a: "Mostly not. The deal terms are usually only what the parties intend to agree. A few clauses, such as confidentiality, exclusivity and costs, are normally binding, and the term sheet should say which ones." },
+      { q: "What comes after the term sheet?", a: "The full agreements, such as a share subscription agreement and a shareholders' agreement for an investment. Some terms can still change while they are drafted." },
+      { q: "How long should exclusivity last?", a: "Long enough to finish due diligence and the documents, often 30 to 90 days. A long exclusivity period stops you talking to anyone else, so agree only what you need." },
+      { q: "Can I edit the term sheet after FD AI drafts it?", a: "Yes. Change any wording before you download it as a Word document, and ask FD AI to explain any clause." },
+    ],
+    reading: [
+      { title: "What Is a Term Sheet?", href: "/resources/what-is-a-term-sheet" },
+      { title: "Is a Term Sheet Legally Binding?", href: "/resources/is-a-term-sheet-legally-binding" },
+      { title: "Term Sheet Checklist", href: "/resources/term-sheet-checklist" },
+      { title: "12 Common Term Sheet Mistakes", href: "/resources/term-sheet-mistakes" },
+      { title: "FD Consult: talk to a Founders Doc lawyer about your round", href: "/fd-consult" },
+    ],
+    related: [
+      { title: "Share subscription agreement template", href: "/templates/share-subscription-agreement", text: "After an equity term sheet, the investor's new shares are issued under a share subscription agreement." },
+      { title: "Shareholders' agreement template", href: "/templates/shareholders-agreement", text: "Board seats, reserved matters, vesting and transfer rights from the term sheet go into the shareholders' agreement." },
+      { title: "Convertible loan agreement template", href: "/templates/convertible-loan-agreement", text: "Not ready to agree a valuation? A convertible loan turns into shares at the next round." },
+    ],
+    countries: [
+      {
+        slug: "singapore",
+        name: "Singapore",
+        short: "Singapore",
+        flag: "🇸🇬",
+        searchPhrase: "term sheet template Singapore",
+        h1: "Term sheet template for Singapore start-ups",
+        title: "Term Sheet Template Singapore — Draft Free | FD AI",
+        description:
+          "Draft a Singapore start-up term sheet online: valuation, share type, board seats, investor rights and what is binding. Lawyer-backed. Start free.",
+        lead: "Raising your first round in Singapore? FD AI asks plain-English questions and drafts a term sheet from Founders Doc's own master, a Singapore law practice for founders.",
+        lawChoice: "Choose Singapore as the law that applies.",
+        pointsTitle: "Singapore points to know",
+        lawPoints: [
+          { label: "Shareholders approve new shares", text: "Directors need the shareholders' prior approval in general meeting before issuing shares, whatever the constitution says. Shares issued without it are void." },
+          { label: "Filing with ACRA", text: "When a private company issues new shares it lodges a return of allotment with ACRA. The new shares take effect only once ACRA updates the electronic register of members." },
+          { label: "Offering shares to investors", text: "Most start-up rounds rely on an exemption from the prospectus rules, such as small offers (up to S$5 million in 12 months), private placements (up to 50 people in 12 months) or offers to accredited investors." },
+          { label: "Stamp duty", text: "New shares issued by the company are not charged stamp duty in the way that transfers of existing shares are." },
+          { label: "After the term sheet", text: "The deal is then set out in a share subscription agreement, often with a shareholders' agreement, board and shareholder resolutions and the ACRA filing." },
+        ],
+        keyTermsTitle: "Key terms in a Singapore start-up term sheet",
+        keyTerms: [
+          { label: "Valuation and amount", text: "The pre-money valuation, how much is being raised and the price per share, which together set each investor's percentage." },
+          { label: "Type of share", text: "Ordinary shares, or preference shares with extra rights. Preference share rights must be written into the constitution." },
+          { label: "Liquidation preference", text: "On a sale or winding up, preference shareholders are paid back first. A 1x non-participating preference is common in early rounds; higher multiples or participation favour the investor." },
+          { label: "Anti-dilution", text: "Protection if a later round is at a lower price. Broad-based weighted average is the usual start-up position; full ratchet is much tougher on founders." },
+          { label: "Board seats", text: "Whether the lead investor appoints a director or an observer, and how many seats the founders keep." },
+          { label: "Reserved matters", text: "Decisions that need investor consent, such as issuing new shares, changing the constitution, borrowing above a limit or selling the business." },
+          { label: "Founder vesting", text: "Founders earn their shares over time, often four years with a one-year cliff, so a founder who leaves early does not keep them all." },
+          { label: "Pre-emption and transfers", text: "Rights to take up new shares first, and first refusal, tag-along and drag-along when shares are sold." },
+        ],
+        faqs: [
+          { q: "Is a term sheet binding in Singapore?", a: "Mostly not. The deal terms are usually subject to contract, but clauses such as confidentiality and exclusivity are normally binding. The term sheet should say clearly which is which." },
+          { q: "SAFE, convertible loan or priced round?", a: "A SAFE or convertible loan puts off agreeing a valuation and suits small early rounds. A priced round fixes the valuation now and suits larger rounds with a lead investor." },
+          { q: "Do I need a prospectus to raise money?", a: "Usually not for a start-up round, because most rely on an exemption such as small offers, private placements or offers to accredited investors. Check which applies before you approach investors." },
+          { q: "How is a term sheet different from the investment agreement?", a: "The term sheet is a short summary of what the parties intend to agree, and most of it is not binding. The investment agreement, usually a share subscription agreement with a shareholders' agreement, is the full binding contract, with warranties, conditions and completion steps." },
+          { q: "What liquidation preference is usual?", a: "In early Singapore rounds a 1x non-participating preference is common: investors take back what they put in, or share with everyone else if that pays more. Higher multiples or a participating preference favour the investor and are worth negotiating." },
+        ],
+      },
+    ],
+  },
+  {
+    slug: "share-subscription-agreement",
+    icon: "📈",
+    summary: "Bring an investor into your Singapore company: shares, completion and warranties.",
+    docSlug: "ssa",
+    short: "Share subscription agreement",
+    name: "Share Subscription Agreement",
+    h1: "Share subscription agreement template Singapore",
+    beta: true,
+    law: "Written for a Singapore company and a simple investment (up to about S$750k, company under three years old).",
+    title: "Share Subscription Agreement Template Singapore | FD AI",
+    description:
+      "Draft a Singapore share subscription agreement online: shares, price, conditions, warranties and completion, plus the Companies Act steps. Start free.",
+    lead: "A share subscription agreement sets out the terms on which an investor buys new shares in your company. FD AI drafts one in about 10 minutes, in a Basic, Standard or Complex version.",
+    covers: [
+      { label: "Basic, Standard or Complex", text: "Basic covers subscription, completion, confidentiality and governing law. Standard adds resolutions and warranties. Complex adds conditions, liability caps, undertakings and up to five investors." },
+      { label: "The parties", text: "The company, its founders and each investor, with each investor's shares and amount in a schedule." },
+      { label: "The shares", text: "New ordinary or preference shares, and how many each investor takes." },
+      { label: "Conditions", text: "Optional conditions before completion, such as board approval, a new shareholders' agreement, a new constitution, an ESOP or an IP assignment." },
+      { label: "Completion", text: "The investor pays, and the company delivers the signed resolutions and other documents." },
+      { label: "Warranties and limits", text: "Who gives the warranties, which ones, and caps on how much and for how long a claim can be made." },
+      { label: "Undertakings", text: "Optional promises by the investor, the company and the founders, such as material updates to investors." },
+    ],
+    whenNeeded: [
+      "When an angel or seed investor buys new shares in your company",
+      "When a SAFE or convertible loan converts into shares",
+      "When a co-founder or early employee buys into the company",
+      "Whenever new shares are issued for money and the terms should be in writing",
+    ],
+    faqs: [
+      { q: "Is a share subscription agreement the same as a share purchase agreement?", a: "No. In a subscription the company issues new shares and the money goes to the company. In a purchase an existing shareholder sells shares they already own and the money goes to them." },
+      { q: "Do our shareholders need to approve the new shares?", a: "Yes. In Singapore directors need the shareholders' prior approval in general meeting before issuing shares, whatever the constitution says, and shares issued without it are void." },
+      { q: "What do we file with ACRA?", a: "A return of allotment. The new shares take effect only once ACRA updates the electronic register of members." },
+      { q: "Can I issue preference shares?", a: "Yes, but their rights must be written into the constitution, which usually means amending it. FD AI flags this; speak to a Founders Doc lawyer about the change." },
+      { q: "Do we need a prospectus to issue shares to investors?", a: "Usually not. Most private rounds rely on an exemption under the Securities and Futures Act, such as small offers (up to S$5 million in 12 months), private placements (up to 50 people in 12 months) or offers to accredited investors. Conditions apply, including limits on advertising the offer." },
+      { q: "Is stamp duty payable on new shares?", a: "Generally no. Singapore stamp duty applies to transfers of existing shares, not to new shares issued by the company. If existing shares also change hands in the same deal, that transfer may need to be stamped." },
+      { q: "Do existing shareholders get the new shares first?", a: "Only if the constitution or a shareholders' agreement gives them pre-emption rights. Check both: if the rights apply, the shares must be offered to existing shareholders first, or they must waive the right in writing before completion." },
+    ],
+    reading: [
+      { title: "What Is a Term Sheet?", href: "/resources/what-is-a-term-sheet" },
+      { title: "Term Sheet Checklist", href: "/resources/term-sheet-checklist" },
+    ],
+    related: [
+      { title: "Share purchase agreement", href: draftHref("spa"), text: "Buying existing shares from a shareholder rather than new shares from the company? Draft a share purchase agreement instead." },
+      { title: "Term sheet template for Singapore start-ups", href: "/templates/term-sheet/singapore", text: "Agree the valuation and main terms in a term sheet first; the subscription agreement then follows it." },
+      { title: "Shareholders' agreement template", href: "/templates/shareholders-agreement", text: "Usually signed with the subscription agreement, to set the board, investor rights and transfers." },
+      { title: "Convertible loan agreement template", href: "/templates/convertible-loan-agreement", text: "Not ready to fix a valuation? Raise on a convertible loan that turns into shares later." },
+    ],
+    countries: [],
+  },
+  {
+    slug: "convertible-loan-agreement",
+    icon: "🔄",
+    summary: "Raise money now that turns into shares at the next round.",
+    docSlug: "cln",
+    short: "Convertible loan agreement",
+    name: "Convertible Loan Agreement",
+    h1: "Convertible loan agreement template Singapore",
+    beta: true,
+    law: "Choose Singapore, England and Wales, Hong Kong, Delaware, New York or another law.",
+    title: "Convertible Loan Agreement Template Singapore | FD AI",
+    description:
+      "Draft a Singapore convertible loan agreement online: amount, interest, maturity, discount, valuation cap and conversion. Lawyer-backed. Start free.",
+    lead: "A convertible loan is money lent to your company now that turns into shares at the next funding round. FD AI drafts one from Founders Doc's own master in about 7 minutes, from the company's or the investor's side.",
+    covers: [
+      { label: "Your side", text: "The company raising the money or the investor lending it; the usual answers lean your way." },
+      { label: "Amount and currency", text: "Singapore or US dollars, pounds, Hong Kong dollars or euros, and what the money is for." },
+      { label: "Interest and maturity", text: "Simple, compounded or interest-free, and a maturity date of one, two or three years or another period." },
+      { label: "Valuation cap and discount", text: "A pre- or post-money cap, and any discount on the round price, such as 10%, 15% or 20%." },
+      { label: "When it converts", text: "At a qualifying round, a sale or a listing, or at maturity, with an option-pool carve-out." },
+      { label: "Investor's choice", text: "Whether the loan converts automatically or only if the investor chooses, and how long they have to decide." },
+      { label: "Disputes", text: "Arbitration or the courts of the governing law." },
+    ],
+    whenNeeded: [
+      "When an early investor wants to back you before a priced round",
+      "When you need bridge funding between rounds",
+      "When you and the investor would rather not agree a valuation yet",
+      "When an existing shareholder lends money that may turn into shares",
+    ],
+    faqs: [
+      { q: "Is a convertible loan the same as a SAFE?", a: "No. A convertible loan is a debt: it usually earns interest and has a date by which it must convert or be repaid. A SAFE is not a loan, has no interest or repayment date, and simply turns into shares at the next round." },
+      { q: "Do our shareholders need to approve the conversion shares?", a: "Yes. Converting means the company issues new shares, and in Singapore directors need the shareholders' prior approval to do that. Many companies get the approval when the loan is signed, so conversion is not held up later." },
+      { q: "What if we have not raised a round by the maturity date?", a: "It depends on the agreement. Usual options are repaying with interest, extending the date or converting at an agreed valuation, often the cap. Decide this before you sign." },
+      { q: "How does the conversion work? A worked example", a: "Say an investor lends S$100,000 with a 20% discount, and the next round prices shares at S$1.00. The conversion price is S$0.80, so the loan turns into 125,000 shares, before any interest. With a valuation cap, the investor gets whichever price is lower: the discounted price or the cap price." },
+      { q: "Can we raise a convertible loan from the public?", a: "Not freely. An offer of convertible loans is an offer of securities, so a prospectus is needed unless an exemption applies, such as small offers, private placements or offers to accredited investors. Most start-ups raise from a few known investors under one of these." },
+      { q: "Do the moneylending rules apply?", a: "A company borrowing from its investors is not usually a moneylending business, but the position depends on the facts. Speak to a Founders Doc lawyer if the lender lends to others as a business." },
+    ],
+    reading: [
+      { title: "What Is a Term Sheet?", href: "/resources/what-is-a-term-sheet" },
+      { title: "12 Common Term Sheet Mistakes", href: "/resources/term-sheet-mistakes" },
+    ],
+    related: [
+      { title: "Term sheet template for Singapore start-ups", href: "/templates/term-sheet/singapore", text: "Agree the amount, discount, cap and maturity in a short term sheet before the loan agreement." },
+      { title: "Share subscription agreement template", href: "/templates/share-subscription-agreement", text: "Prefer a priced round? Investors buy new shares now under a share subscription agreement." },
+      { title: "Loan agreement template", href: "/templates/loan-agreement", text: "A plain loan that is repaid, not turned into shares." },
+      { title: "Shareholders' agreement template", href: "/templates/shareholders-agreement", text: "When the loan converts, the investor usually signs up to the shareholders' agreement." },
+    ],
+    countries: [],
+  },
 ];
 
 /** How a sub-page is named in links: "NDA for Singapore", "Mutual NDA". */
@@ -580,7 +785,7 @@ export const draftLink = (t: TemplateDoc) => draftHref(t.docSlug);
 export const inSentence = (t: TemplateDoc) => (/^[A-Z]{2}/.test(t.short) ? t.short : t.short.charAt(0).toLowerCase() + t.short.slice(1));
 
 /** When the template pages last changed (the sitemap tells search engines, so they read them again). */
-export const TEMPLATES_UPDATED = "2026-11-06";
+export const TEMPLATES_UPDATED = "2026-11-11";
 
 /** Every template address, for the sitemap. */
 export function templatePaths(): string[] {

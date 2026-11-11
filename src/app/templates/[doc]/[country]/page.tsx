@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { SITE } from "@/lib/seo";
 import { TRIAL } from "@/lib/billing/plans";
 import { TEMPLATES, countryPage, draftLink, inSentence, pageLabel } from "@/lib/templates/data";
-import { Breadcrumbs, CtaBand, Disclaimer, Faqs, MoreTemplates, Steps, TemplateLd } from "../../parts";
+import { Breadcrumbs, CtaBand, Disclaimer, Faqs, MoreTemplates, RelatedTemplates, Steps, TemplateLd } from "../../parts";
 import TemplateCta from "../../TemplateCta";
 import "../../templates.css";
 
@@ -99,6 +99,20 @@ export default async function TemplateCountryPage({ params }: { params: Params }
           </dl>
         </section>
 
+        {page.keyTerms?.length ? (
+          <section className="tpl-section" aria-labelledby="tpl-terms">
+            <h2 id="tpl-terms">{page.keyTermsTitle ?? "Key terms"}</h2>
+            <dl className="tpl-points">
+              {page.keyTerms.map((c) => (
+                <div key={c.label}>
+                  <dt>{c.label}</dt>
+                  <dd>{c.text}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
+
         <Steps docShort={inSentence(t)} />
         <Faqs items={faqs} />
 
@@ -131,6 +145,7 @@ export default async function TemplateCountryPage({ params }: { params: Params }
           </section>
         )}
 
+        <RelatedTemplates items={t.related} />
         <MoreTemplates current={t.slug} />
 
         <CtaBand

@@ -28,6 +28,9 @@ const PUBLIC_PATHS = [
   "/api/team-device",
   // Joining the waitlist happens before anyone has an account, by definition.
   "/api/waitlist",
+  // The visitor's country for the sign-up "Came from" line (0215): asked on the
+  // sign-up page, before the account exists. Returns 2 letters, stores nothing.
+  "/api/geo",
   // Subscribing to the newsletter, from the forms on the public website.
   // Nearly everyone using it is not signed in. Without this the form was sent
   // to /login, which answers 200 with a page — so it looked like it worked.

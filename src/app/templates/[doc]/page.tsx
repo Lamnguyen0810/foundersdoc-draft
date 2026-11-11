@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { SITE } from "@/lib/seo";
 import { TRIAL } from "@/lib/billing/plans";
 import { TEMPLATES, draftLink, inSentence, pageLabel, templateBySlug } from "@/lib/templates/data";
-import { Breadcrumbs, CtaBand, Disclaimer, Faqs, MoreTemplates, Steps, TemplateLd } from "../parts";
+import { Breadcrumbs, CtaBand, Disclaimer, Faqs, MoreTemplates, RelatedTemplates, Steps, TemplateLd } from "../parts";
 import TemplateCta from "../TemplateCta";
 import "../templates.css";
 
@@ -140,6 +140,7 @@ export default async function TemplateDocPage({ params }: { params: Promise<{ do
 
         <Steps docShort={inSentence(t)} />
         <Faqs items={t.faqs} />
+        <RelatedTemplates items={t.related} />
         <Reading items={t.reading} />
         <MoreTemplates current={t.slug} />
         <CtaBand href={href} label={label} source={`${source}:end`} title={`Ready to draft your ${inSentence(t)}?`} />

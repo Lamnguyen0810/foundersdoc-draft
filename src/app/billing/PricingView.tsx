@@ -169,7 +169,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
           </div>
           <div className="banner">
             <div>
-              <strong>Your first {TRIAL.credits} credits are free.</strong>
+              <strong>Your first {TRIAL.credits} documents are free.</strong>
               <span>Use them over {TRIAL.days} days, then continue with flexible credits or a membership if FD AI suits your workflow.</span>
             </div>
             <div className="badge">No card required</div>
@@ -177,7 +177,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
           <div className="card-grid three-up">
             <article className="card">
               <div className="tag gold">Included</div>
-              <div className="plan-title">{TRIAL.credits} credits</div>
+              <div className="plan-title">{TRIAL.credits} free documents</div>
               <div className="plan-rate">Use them to try FD AI before paying.</div>
               <div className="divider" />
               <div className="points">
@@ -189,7 +189,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
             <article className="card">
               <div className="tag">Access period</div>
               <div className="plan-title">{TRIAL.days} days</div>
-              <div className="plan-rate">Trial credits expire after {TRIAL.days} days.</div>
+              <div className="plan-rate">Free trial documents expire after {TRIAL.days} days.</div>
               <div className="divider" />
               <div className="points">
                 <div><b>✓</b><span>Enough time to explore the workflow</span></div>
@@ -337,7 +337,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
             <article className="compare-card"><small>Heavy</small><h3>Unlimited</h3><p>Best if you use FD AI heavily and prefer one predictable monthly price.</p><a href="#memberships">View Unlimited →</a></article>
           </div>
           <div className="footer-note">
-            <span>Trial credits expire {TRIAL.days} days after activation. Purchased pay-as-you-go credits do not expire.</span>
+            <span>Free trial documents expire {TRIAL.days} days after activation. Purchased pay-as-you-go credits do not expire.</span>
             <span>All prices shown in SGD. Unlimited usage is subject to FD AI fair-use terms.</span>
           </div>
         </div>
@@ -384,7 +384,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
           <div className="cta-box">
             <div className="section-kicker">Still unsure?</div>
             <h2>Start free and choose later.</h2>
-            <p>If you are not ready to commit, begin with {TRIAL.credits} free credits. You can explore FD AI first and decide what fits your workflow afterwards.</p>
+            <p>If you are not ready to commit, begin with {TRIAL.credits} free documents. You can explore FD AI first and decide what fits your workflow afterwards.</p>
             <div className="hero-actions">
               <a className="btn btn-black" href={guest ? "/signup?from=pricing" : "#trial"}>Start free</a>
               <a className="btn btn-white" href="#compare">Compare options</a>

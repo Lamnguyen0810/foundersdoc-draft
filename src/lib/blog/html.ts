@@ -28,6 +28,11 @@ export interface BlogLink {
 export const LINK_TARGETS: { href: string; label: string }[] = [
   { href: "/draft?type=nondisclosureagreement", label: "NDA generator" },
   { href: "/draft?type=termsheet", label: "Term sheet generator" },
+  { href: "/templates/term-sheet/singapore", label: "Term sheet template (Singapore)" },
+  { href: "/templates/share-subscription-agreement", label: "Share subscription agreement template" },
+  { href: "/templates/convertible-loan-agreement", label: "Convertible loan agreement template" },
+  { href: "/templates/shareholders-agreement", label: "Shareholders' agreement template" },
+  { href: "/templates", label: "All templates" },
   { href: "/draft", label: "Choose a document (FD AI)" },
   { href: "/contact", label: "Book a consultation" },
   { href: "/fd-consult", label: "FD Consult" },
@@ -413,6 +418,9 @@ export function suggestLinks(html: string): BlogLink[] {
     { phrase: "term sheet", href: "/draft?type=termsheet" },
     { phrase: "heads of terms", href: "/draft?type=termsheet" },
     { phrase: "letter of intent", href: "/draft?type=termsheet" },
+    { phrase: "share subscription agreement", href: "/templates/share-subscription-agreement" },
+    { phrase: "convertible loan", href: "/templates/convertible-loan-agreement" },
+    { phrase: "shareholders' agreement", href: "/templates/shareholders-agreement" },
     { phrase: "FD AI", href: "/draft" },
     { phrase: "consultation", href: "/contact" },
   ];

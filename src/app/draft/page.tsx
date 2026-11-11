@@ -48,8 +48,26 @@ const CATALOGUE_META = {
 const inSentence = (label: string) => label.replace(/\b[A-Z][a-z]+\b/g, (w) => w.toLowerCase());
 
 /** Title, description and canonical link of /draft or of one document's link. */
+/* 0215 (SEO checks 9–11 Nov): searchable titles and descriptions for these drafters (title ≤ 60,
+   description ≤ 155). "Template" stays with the /templates pages so the two don't compete. */
+const SEARCH_META: Record<string, { title: string; description: string }> = {
+  term: {
+    title: "Term Sheet Generator — Draft One Online Free | FD AI",
+    description: "Draft a term sheet online for a Singapore start-up round, loan, sale or partnership, under Singapore or any law. Lawyer-backed Word draft in minutes. Free.",
+  },
+  ssa: {
+    title: "Share Subscription Agreement — Draft Online Free | FD AI",
+    description: "Draft a share subscription agreement for a Singapore company: shares, completion, warranties and undertakings. Lawyer-backed, Word in minutes. Start free.",
+  },
+  cln: {
+    title: "Convertible Loan Agreement — Draft Online Free | FD AI",
+    description: "Draft a convertible loan agreement online: amount, interest, maturity, valuation cap, discount and conversion. Lawyer-backed, Word in minutes. Start free.",
+  },
+};
+
 function pageMeta(slug: string | undefined, docTypes: { slug: string; label: string }[]) {
   const d = slug && slug !== "nda" ? docTypes.find((x) => x.slug === slug) : undefined;
+  if (d && SEARCH_META[d.slug]) return { ...SEARCH_META[d.slug], url: `https://foundersdoc.com${draftHref(d.slug)}` };
   if (!d) return slug === "nda" ? { ...NDA_META, url: `https://foundersdoc.com${draftHref("nda")}` } : { ...CATALOGUE_META, url: "https://foundersdoc.com/draft" };
   const article = /^[aeiou]/i.test(d.label) ? "an" : "a";
   return {

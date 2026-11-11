@@ -35,6 +35,8 @@ export type SignupSource = {
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
+  /** 0215: the visitor's country (2 letters), from the server's view of their IP; never asked. */
+  country?: string;
 };
 
 const KEY = "fd_src";
@@ -60,6 +62,7 @@ export function cleanSignupSource(v: unknown): SignupSource | null {
     utm_source: clip(o.utm_source, 60),
     utm_medium: clip(o.utm_medium, 60),
     utm_campaign: clip(o.utm_campaign, 80),
+    country: /^[A-Z]{2}$/.test(String(o.country ?? "")) ? String(o.country) : undefined,
   };
   for (const k of Object.keys(out) as (keyof SignupSource)[]) if (out[k] === undefined) delete out[k];
   return out;
