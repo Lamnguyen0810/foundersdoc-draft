@@ -338,3 +338,7 @@ body:has(.fdsign:not(.fs-adm)) .strip-warn {
 /* text boxes wrap and shrink to fit as the signer types (11 Nov) */
 .fs-here-ta { resize: none; overflow: hidden; display: block; padding: 1px 3px; line-height: 1.15; white-space: pre-wrap; overflow-wrap: anywhere; }
 .fs-here-warn { position: absolute; left: -2px; top: 100%; margin-top: 3px; font-size: 10.5px; font-weight: 600; white-space: nowrap; background: #fff3cd; color: #6b4e00; border: 1px solid #f0dfb0; padding: 1px 6px; border-radius: 4px; z-index: 2; pointer-events: none; }
+.fs-here-grip { position: absolute; right: -7px; bottom: -7px; width: 14px; height: 14px; border-radius: 3px; background: var(--gold); border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); cursor: nwse-resize; touch-action: none; z-index: 3; }
+.fs-here-grip::after { content: ""; position: absolute; inset: -10px; } /* a bigger target for fingers */
+.fs-asks .fs-ask textarea { width: 100%; min-height: 56px; border: 1px solid var(--line, #e6e6ea); border-radius: 9px; padding: 8px 10px; font: inherit; font-size: 14px; line-height: 1.4; background: var(--card, #fff); color: inherit; resize: vertical; }
+.fs-asks .fs-ask textarea:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--fs-ring); }

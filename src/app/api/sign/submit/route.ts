@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   if (store === "no-secret-key") return NextResponse.json({ error: "Signing is not available right now." }, { status: 503 });
   const raw = await req.text();
   if (raw.length > 700_000) return NextResponse.json({ error: "That signature is too large." }, { status: 413 });
-  let b: { token?: unknown; consent?: unknown; kind?: unknown; png?: unknown; typed?: unknown; values?: unknown };
+  let b: { token?: unknown; consent?: unknown; kind?: unknown; png?: unknown; typed?: unknown; values?: unknown; sizes?: unknown };
   try {
     b = JSON.parse(raw);
   } catch {
@@ -41,11 +41,18 @@ export async function POST(req: NextRequest) {
   if (b.values && typeof b.values === "object" && !Array.isArray(b.values))
     for (const [k, v] of Object.entries(b.values as Record<string, unknown>).slice(0, 100))
       if (/^[0-9a-f-]{36}$/i.test(k) && typeof v === "string") values[k] = v.slice(0, 500);
+  /* text boxes the signer resized: { "<field id>": { w, h } } as fractions of the page (checked again in the service) */
+  const sizes: Record<string, { w: number; h: number }> = {};
+  if (b.sizes && typeof b.sizes === "object" && !Array.isArray(b.sizes))
+    for (const [k, v] of Object.entries(b.sizes as Record<string, unknown>).slice(0, 100)) {
+      const s = v as { w?: unknown; h?: unknown } | null;
+      if (/^[0-9a-f-]{36}$/i.test(k) && s && typeof s.w === "number" && typeof s.h === "number") sizes[k] = { w: s.w, h: s.h };
+    }
   const token = String(b.token ?? "");
   if (codeRequired(store) && !(await isVerified(store, token, req.cookies.get(CODE_COOKIE)?.value)))
     return NextResponse.json({ error: "Please confirm the code we emailed you first.", needCode: true }, { status: 401 });
   try {
-    const res = await submitSignature(store, { token, kind, png, typed, values, origin: req.nextUrl.origin, who: who(req) });
+    const res = await submitSignature(store, { token, kind, png, typed, values, sizes, origin: req.nextUrl.origin, who: who(req) });
     return NextResponse.json({ ok: true, completed: res.completed.length > 0 });
   } catch (e) {
     if (e instanceof SignError) return NextResponse.json({ error: e.message }, { status: e.status });
