@@ -298,7 +298,6 @@ textarea.fds-inp { height: auto; min-height: 84px; padding: 10px 12px; line-heig
 .fds-em .doc svg { flex-shrink: 0; color: #55555b; }
 .fds-em .msg { margin: 12px 0 0; color: #55555b; white-space: pre-line; line-height: 1.5; }
 .fds-em .btn { display: inline-block; background: #161616; color: #fff; font-weight: 700; border-radius: 8px; padding: 11px 20px; margin-top: 16px; }
-.fds-em .ft { font-size: 11.5px; color: #9a9a96; padding: 0 24px 18px; line-height: 1.5; }
 
 /* one request */
 .fds-crumb { color: var(--fds-tx3); display: flex; gap: 6px; align-items: center; font-size: 12.5px; margin-bottom: 10px; }
