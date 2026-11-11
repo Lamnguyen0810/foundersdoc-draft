@@ -28,7 +28,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   });
   const fromFiles = new Set(STATIC_ARTICLES.map((a) => a.slug));
   return [
-    ...PUBLIC_PAGES.map((p) => page(p ? `/${p}` : "", p ? 0.6 : 1)),
+    /* the article list's canonical address ends in "/" (0215) */
+    ...PUBLIC_PAGES.map((p) => page(p ? `/${p}${p === "resources/all" ? "/" : ""}` : "", p ? 0.6 : 1)),
     page("/draft", 0.9),
     ...docs.map((d) => page(draftHref(d.slug), d.slug === "nda" ? 0.9 : 0.8)),
     ...templatePaths().map((p) => page(p, p.split("/").length > 3 ? 0.8 : 0.7, TEMPLATES_UPDATED)),
