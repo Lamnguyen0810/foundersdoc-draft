@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
   const prep = body.ref ? await src.prepare(body.ref) : null;
   if (!prep) return NextResponse.json({ error: "That vesting was not found." }, { status: 404 });
   if (!prep.approved) return NextResponse.json({ error: `Approve ${prep.ref} on the ESOP dashboard first: approval gives each holder their certificate number.` }, { status: 409 });
+  /* 0217: certificates go out for signing only once paid (Mark as paid on the dashboard, or the Stripe Zap) */
+  if (prep.paid === false)
+    return NextResponse.json({ error: `${prep.ref} isn't paid yet. Mark it as paid on the ESOP dashboard once the payment is in, then make the certificates.` }, { status: 409 });
   const rows = Array.isArray(body.rows) ? body.rows.slice(0, 50) : [];
   if (!rows.length) return NextResponse.json({ error: "Pick at least one holder." }, { status: 400 });
 

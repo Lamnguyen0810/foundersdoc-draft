@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EsopCompany, EsopMember, EsopSettings, MemberRole } from "@/lib/esop/vesting";
 import { Ic } from "./icons";
+import { esopPremiumPrice } from "@/lib/billing/plans";
 
 /**
  * Settings (Rachel, 6 Nov 2026), on every ESOP dashboard. The client's Admins change
@@ -69,6 +70,8 @@ export default function SettingsPage(p: {
   const [busy, setBusy] = useState("");
   const [dirty, setDirty] = useState(false);
   const premium = p.settings.plan === "premium" || p.isAdmin;
+  /* 0217: Premium's price (lib/billing/plans.ts); hidden from clients while it's a placeholder */
+  const price = esopPremiumPrice(p.isAdmin);
 
   useEffect(() => {
     if (!client) return;
@@ -284,6 +287,7 @@ export default function SettingsPage(p: {
             Holder access <span className="ev-goldp ev-tagp">Premium</span>
           </h2>
           <span>Let each option holder sign in and see their own options, vesting dates and documents, and nobody else&rsquo;s.</span>
+          {price && <span className="ev-sub">Premium: {price}</span>}
         </div>
         <button
           role="switch"
@@ -300,7 +304,7 @@ export default function SettingsPage(p: {
             <span />
           </span>
         </button>
-        {!premium && <div className="ev-sub">Part of Premium. <a href="mailto:legal@foundersdoc.com?subject=ESOP%20Premium">Ask Founders Doc</a> to switch it on.</div>}
+        {!premium && <div className="ev-sub">Part of Premium{price ? ` (${price})` : ""}. <a href="mailto:legal@foundersdoc.com?subject=ESOP%20Premium">Ask Founders Doc</a> to switch it on.</div>}
         {premium && p.settings.holder_access && (
           <div className="ev-setadd">
             <button className="ev-btn" disabled={!can || busy === "links"} onClick={() => void sendAll()}>

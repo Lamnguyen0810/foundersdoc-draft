@@ -34,6 +34,8 @@ interface Prep {
   tranche: number;
   vestDate: string | null;
   approved: boolean;
+  /** 0217: paid ✓ (null before SQL 129) */
+  paid?: boolean | null;
   simulation: string | null;
   company: { name: string; director: string; shareClass: string; contactEmail: string | null; sendTo: string | null };
   holders: Holder[];
@@ -206,6 +208,11 @@ export default function EsopPrepare({
               <b>Simulation on:</b> every email goes to <b>{prep.simulation}</b> instead of HitPay and the holders. Real addresses are shown greyed out.
             </p>
           )}
+          {prep.paid === false && (
+            <p className="fs-err">
+              <b>Not paid yet.</b> Certificates go out for signing only once {prep.ref} is paid: mark it as paid on the ESOP dashboard when the payment is in.
+            </p>
+          )}
           <div className="fs-esop-head">
             <span>
               <b>{prep.holders.length}</b> active holder{prep.holders.length === 1 ? "" : "s"} · {prep.company.name}
@@ -275,7 +282,7 @@ export default function EsopPrepare({
           {err && <p className="fs-err">{err}</p>}
           <div className="fs-sendbar">
             <span className="fs-hint">Director: {prep.company.director || "not set on the dashboard"} · each holder signs their own certificate</span>
-            <button className="btn btn-black" disabled={!!busy || !n || !prep.approved} onClick={() => void create()}>
+            <button className="btn btn-black" disabled={!!busy || !n || !prep.approved || prep.paid === false} onClick={() => void create()}>
               {busy === "create" ? "Creating…" : `Create ${n} certificate${n === 1 ? "" : "s"}`}
             </button>
           </div>

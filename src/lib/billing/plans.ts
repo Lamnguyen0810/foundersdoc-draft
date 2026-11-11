@@ -216,3 +216,26 @@ export function perCredit(pack: CreditPack): string {
    account actually receives (billing_config), so these two must be kept in
    step — the migration sets the same numbers, and the setup script checks. */
 export const TRIAL = { credits: 3, days: 14 } as const;
+
+/* ── ESOP dashboard (0217) ─────────────────────────────────────────────────
+   Free: the dashboard, the register, vesting alerts and approvals.
+   Premium: holders' own page (My share options) and certificates signed in FD Sign.
+   ⚠️ PLACEHOLDER PRICE, not agreed yet. Change amountCents (and per) here only;
+   while placeholder is true the price shows to Founders Doc admins only, never to
+   clients. Set placeholder: false once Rachel has agreed the price. Nothing is
+   charged from this number (no Stripe product yet). */
+export const ESOP_PREMIUM = {
+  label: "ESOP Premium",
+  amountCents: 4900,
+  currency: SGD,
+  per: "month" as "month" | "year",
+  placeholder: true,
+} as const;
+
+/** "S$49 a month per company", or null while the price is a placeholder and the viewer isn't Founders Doc. */
+export function esopPremiumPrice(viewerIsAdmin: boolean): string | null {
+  if (ESOP_PREMIUM.placeholder && !viewerIsAdmin) return null;
+  const whole = ESOP_PREMIUM.amountCents % 100 === 0;
+  const amount = whole ? `S$${ESOP_PREMIUM.amountCents / 100}` : money(ESOP_PREMIUM.amountCents, ESOP_PREMIUM.currency);
+  return `${amount} a ${ESOP_PREMIUM.per} per company${ESOP_PREMIUM.placeholder ? " (placeholder, only Founders Doc sees this)" : ""}`;
+}

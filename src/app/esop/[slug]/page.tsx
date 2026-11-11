@@ -37,6 +37,15 @@ export default async function EsopPage({
   const focusRef = (sp.ref ?? "").toUpperCase().match(/^B\d{1,3}-T\d{1,2}$/)?.[0] ?? null;
 
   if (!isSupabaseConfigured()) {
+    /* 0217 preview (?demo=lockin): a Modify from the Director, one vesting waiting for payment, one paid and locked */
+    const now = new Date().toISOString();
+    const DEMO_LOCKIN: { runs: EsopRun[]; requests: Record<string, NonNullable<EsopRun["request"]>> } = {
+      runs: [
+        { ref: "B5-T3", approved_by: "director@example.com (email)", approved_at: now, sent_at: now, payment_link: null, paid_at: null },
+        { ref: "B99-T1", approved_by: "director@example.com (email)", approved_at: now, sent_at: now, payment_link: null, paid_at: now, paid_by: "Stripe (Zap)", locked: true },
+      ],
+      requests: { "B8-T2": { kind: "modify", note: "Specimen Holder Two should have 2,400 options, not 2,200.", by_email: "director@example.com", created_at: now } },
+    };
     /* preview of a company that signed up by itself: empty, the client is its Admin */
     if (sp.demo === "new")
       return (
@@ -52,7 +61,7 @@ export default async function EsopPage({
           focusRef={null}
           supabaseUrl={null}
           supabaseKey={null}
-          settings={{ self_serve: true, holder_access: false, alert_days: [7, 0], alert_emails: [], plan: "free", ready: true }}
+          settings={{ self_serve: true, holder_access: false, alert_days: [14, 7, 0], alert_emails: [], plan: "free", ready: true }}
           access={{ role: "ceo", canEdit: true, canManage: true }}
         />
       );
@@ -65,7 +74,8 @@ export default async function EsopPage({
         signPending={3}
         role="admin"
         viewer="Preview"
-        runs={[]}
+        runs={sp.demo === "lockin" ? DEMO_LOCKIN.runs : []}
+        requests={sp.demo === "lockin" ? DEMO_LOCKIN.requests : undefined}
         canApprove
         simulation="administrator@foundersdoc.com"
         reset={{ to: "administrator@foundersdoc.com", refs: [] }}
@@ -171,6 +181,24 @@ export default async function EsopPage({
   const sim = admin ? await supabase.from("esop_companies").select("email_override").eq("id", company.id).maybeSingle() : null;
   const simulation = ((sim?.data as { email_override?: string | null } | null)?.email_override ?? null) || null;
   const runs = runRows.filter((r) => r.ref) as EsopRun[];
+  /* 0217 (SQL 129): Paid ✓ and the lock, and the Director's open Modify / Cancel. Before 129: none. */
+  const paidRes = await supabase.from("esop_tranche_runs").select("ref, paid_at, paid_by").eq("company_id", company.id);
+  if (!paidRes.error) {
+    for (const p of (paidRes.data ?? []) as Array<{ ref: string; paid_at: string | null; paid_by: string | null }>) {
+      const r = runs.find((x) => x.ref === p.ref);
+      if (!r) continue;
+      r.paid_at = p.paid_at;
+      r.paid_by = p.paid_by;
+      if (p.paid_at) {
+        const lk = await supabase.rpc("esop_batch_locked", { p_company: company.id, p_batch: Number(/^B(\d+)/.exec(p.ref)?.[1] ?? 0) });
+        r.locked = !lk.error && lk.data === p.ref;
+      }
+    }
+  }
+  const requests: Record<string, NonNullable<EsopRun["request"]>> = {};
+  const reqRes = await supabase.from("esop_run_requests").select("ref, kind, note, by_email, created_at").eq("company_id", company.id).is("resolved_at", null).order("created_at", { ascending: false });
+  if (!reqRes.error)
+    for (const q of (reqRes.data ?? []) as Array<{ ref: string } & NonNullable<EsopRun["request"]>>) if (!requests[q.ref]) requests[q.ref] = { kind: q.kind, note: q.note, by_email: q.by_email, created_at: q.created_at };
   /* "Reset simulation" (116, 118): Rachel + Lam only, only on approvals made in simulation; also after
      simulation is switched off, so a rehearsal can never block the real vesting */
   let reset: { to: string | null; refs: string[] } | null = null;
@@ -197,6 +225,7 @@ export default async function EsopPage({
       role={admin ? "admin" : "ceo"}
       viewer={user.email ?? ""}
       runs={runs}
+      requests={requests}
       canApprove={canApprove}
       simulation={simulation}
       reset={reset}

@@ -359,4 +359,11 @@ export interface EsopRun {
   approved_at: string | null;
   sent_at: string | null;
   payment_link: string | null;
+  /** 0217 (SQL 129): Paid ✓, by whom (a Founders Doc admin, or the Stripe Zap) */
+  paid_at?: string | null;
+  paid_by?: string | null;
+  /** 0217: the Director's open Modify / Cancel from the approval email */
+  request?: { kind: "modify" | "cancel"; note: string | null; by_email: string | null; created_at: string } | null;
+  /** 0217: the batch is locked (paid, certificates being signed) */
+  locked?: boolean;
 }

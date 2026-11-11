@@ -13,7 +13,11 @@ import "../approve.css";
 export const metadata: Metadata = { title: "Approve Option Certificates · Founders Doc", robots: { index: false, follow: false }, referrer: "no-referrer" };
 export const dynamic = "force-dynamic";
 
-type View = ApprovalItem & { status: "ok" | "approved" | "expired" | "invalid" };
+type View = ApprovalItem & {
+  status: "ok" | "approved" | "expired" | "invalid" | "responded";
+  /** 0217 (SQL 129): the Director's Modify / Cancel on this link */
+  response?: { kind: "modify" | "cancel"; note: string | null; at: string } | null;
+};
 
 const PREVIEW: View = {
   status: "ok",
@@ -51,12 +55,17 @@ const fmt = (n: number) => n.toLocaleString("en-GB");
 const when = (iso?: string | null) =>
   iso ? new Date(iso).toLocaleString("en-GB", { timeZone: "Asia/Singapore", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
 
-export default async function ApprovePage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ done?: string; e?: string }> }) {
+export default async function ApprovePage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ done?: string; e?: string; do?: string }> }) {
   const { token } = await params;
   const sp = await searchParams;
   const v = await load(token);
-  const previewDone = !isSupabaseConfigured() && sp.done === "1";
-  const status = previewDone ? "approved" : v.status;
+  const preview = !isSupabaseConfigured();
+  const previewDone = preview && sp.done === "1";
+  const previewAnswer = preview && (sp.done === "modify" || sp.done === "cancel") ? sp.done : null;
+  const status = previewDone ? "approved" : previewAnswer ? "responded" : v.status;
+  const answer = previewAnswer ? { kind: previewAnswer, note: null } : (v.response ?? null);
+  /* Modify / Cancel (0217): ?do= opens the form on the same page; only the form's POST records it */
+  const asking = status === "ok" && (sp.do === "modify" || sp.do === "cancel") ? sp.do : null;
   const s = approvalSummary(v);
   const company = (v.company ?? "").replace(/\s*\(test\)\s*/i, "").trim();
 
@@ -85,6 +94,23 @@ export default async function ApprovePage({ params, searchParams }: { params: Pr
           </section>
         )}
 
+        {status === "responded" && (
+          <section className="apv-body">
+            <p className="apv-ok">{answer?.kind === "cancel" ? "✖️" : "✏️"}</p>
+            <h1>{answer?.kind === "cancel" ? "Issuance cancelled" : "Thank you, we've got your change"}</h1>
+            {answer?.kind === "cancel" ? (
+              <p>
+                Nothing will be issued or charged for the vesting on <b>{s.vest}</b>. If you change your mind, reply to the email and we&apos;ll send a fresh approval.
+              </p>
+            ) : (
+              <p>
+                Nothing goes out until it&apos;s fixed. Once the change is made you&apos;ll get a fresh approval email for the vesting on <b>{s.vest}</b>.
+              </p>
+            )}
+            {answer?.note && <p className="apv-note">“{answer.note}”</p>}
+          </section>
+        )}
+
         {status === "approved" && (
           <section className="apv-body">
             <p className="apv-ok">✅</p>
@@ -99,7 +125,40 @@ export default async function ApprovePage({ params, searchParams }: { params: Pr
           </section>
         )}
 
-        {status === "ok" && (
+        {asking && (
+          <section className="apv-body">
+            <p className="apv-eyebrow">FD x {company || "Company"} · ESOP</p>
+            <h1>{asking === "modify" ? "Ask for a change" : "Cancel this issuance?"}</h1>
+            <p>
+              {s.certificates} Option Certificate{s.certificates === 1 ? "" : "s"} vesting on <b>{s.vest}</b> ({s.names}).
+            </p>
+            {sp.e && <p className="apv-err">{sp.e === "note" ? "Please write what should change." : "Something went wrong. Please try again, or reply to the email."}</p>}
+            <form method="post" action={`/approve/${token}/respond`}>
+              <input type="hidden" name="kind" value={asking} />
+              <label className="apv-label" htmlFor="apv-note">
+                {asking === "modify" ? "What should change?" : "Reason (optional)"}
+              </label>
+              <textarea
+                id="apv-note"
+                name="note"
+                className="apv-text"
+                rows={4}
+                maxLength={2000}
+                required={asking === "modify"}
+                placeholder={asking === "modify" ? "e.g. one holder's options, someone who has left, the vesting date" : "e.g. the vesting is on hold"}
+              />
+              <button type="submit" className={asking === "modify" ? "apv-btn" : "apv-btn apv-btn-stop"}>
+                {asking === "modify" ? "✏️ Send the change" : "✖️ Cancel the issuance"}
+              </button>
+            </form>
+            <p className="apv-small">
+              {asking === "modify" ? "Nothing is issued until the change is made and you approve again." : "Nothing is issued or charged. You can still go ahead later."}{" "}
+              <a href={`/approve/${token}`}>Back to approve</a>
+            </p>
+          </section>
+        )}
+
+        {status === "ok" && !asking && (
           <section className="apv-body">
             <p className="apv-eyebrow">FD x {company || "Company"} · ESOP</p>
             <h1>Approve issuance of Option Certificates</h1>
@@ -131,9 +190,17 @@ export default async function ApprovePage({ params, searchParams }: { params: Pr
                 ✅ Confirm: {s.button.replace(/^Approve/, "approve")}
               </button>
             </form>
+            <div className="apv-alt">
+              <a className="apv-alt-btn" href={`/approve/${token}?do=modify`}>
+                ✏️ Modify
+              </a>
+              <a className="apv-alt-btn" href={`/approve/${token}?do=cancel`}>
+                ✖️ Cancel
+              </a>
+            </div>
             <p className="apv-small">
               By confirming, you approve Founders Doc issuing these certificates. Next, we&apos;ll send the payment link, and then the certificates for your signature.
-              Something not right? Don&apos;t confirm: just reply to the email.
+              Something not right? Choose Modify and tell us what to change.
             </p>
           </section>
         )}

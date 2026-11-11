@@ -69,6 +69,8 @@ interface Props {
   supabaseUrl: string | null;
   supabaseKey: string | null;
   runs: EsopRun[];
+  /** 0217 (SQL 129): the Director's open Modify / Cancel, by Ref (also before approval) */
+  requests?: Record<string, NonNullable<EsopRun["request"]>>;
   canApprove: boolean;
   /** simulation address (esop_companies.email_override) when on, admins only */
   simulation?: string | null;
@@ -94,6 +96,11 @@ const SELECT_HOLDER = "*";
 const DOC_COLS = "*";
 const PAGE = 25;
 const ACCENT = "#F3BF4B";
+/** 0217 (SQL 129): a paid tranche locks its batch until every certificate is signed */
+const lockedText = (m: string) => {
+  const ref = /locked (B\d+-T\d+)/.exec(m)?.[1];
+  return ref ? `Locked: ${ref} is paid and its certificates are being signed, so names, options and status can't change. Ask Founders Doc to correct it.` : null;
+};
 
 const LEAVER: Record<LeaverType | "Active", [string, string]> = {
   Active: ["Active", "good"],
@@ -116,6 +123,16 @@ export default function EsopSheet(props: Props) {
   const [batches, setBatches] = useState<EsopBatch[]>(props.batches);
   const [docs, setDocs] = useState<EsopDocument[]>(props.documents);
   const [runs, setRuns] = useState<EsopRun[]>(props.runs);
+  const [paying, setPaying] = useState("");
+  const [requests, setRequests] = useState<Record<string, NonNullable<EsopRun["request"]>>>(props.requests ?? {});
+  /** a fresh approval email, or an approval, closes the Director's Modify / Cancel (SQL 129) */
+  const closeRequest = (ref: string) =>
+    setRequests((m) => {
+      if (!m[ref]) return m;
+      const next = { ...m };
+      delete next[ref];
+      return next;
+    });
   const [pool, setPool] = useState<number | null>(company.option_pool ?? null);
   const [approving, setApproving] = useState("");
   const [resetting, setResetting] = useState("");
@@ -188,7 +205,7 @@ export default function EsopSheet(props: Props) {
     const { data, error } = await client.from("esop_holders").update(patch).eq("id", h.id).select("updated_at, updated_by").single();
     if (error) {
       setHolders((list) => list.map((x) => (x.id === h.id ? h : x)));
-      say(/topup_|legal_name|vested_override/.test(error.message) ? "Not saved: run supabase/121_esop_overview_v23.sql first." : `Not saved: ${error.message}`);
+      say(lockedText(error.message) ?? (/topup_|legal_name|vested_override/.test(error.message) ? "Not saved: run supabase/121_esop_overview_v23.sql first." : `Not saved: ${error.message}`));
       return false;
     }
     setHolders((list) => list.map((x) => (x.id === h.id ? { ...x, ...data } : x)));
@@ -209,7 +226,7 @@ export default function EsopSheet(props: Props) {
       return say("New holder added: fill in their details" + local);
     }
     const { data, error } = await client.from("esop_holders").insert({ ...draft, company_id: company.id }).select(SELECT_HOLDER).single<EsopHolder>();
-    if (error || !data) return say(`Could not add a holder: ${error?.message ?? "unknown error"}`);
+    if (error || !data) return say(lockedText(error?.message ?? "") ?? `Could not add a holder: ${error?.message ?? "unknown error"}`);
     setHolders((l) => [...l, data]);
     setPanel({ kind: "holder", id: data.id, edit: true });
     say("New holder added: fill in their details");
@@ -274,6 +291,7 @@ export default function EsopSheet(props: Props) {
       const res = await fetch("/api/esop/approve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company: company.slug, ref }) });
       const out = (await res.json().catch(() => ({}))) as { ok?: boolean; approved?: boolean; sent?: boolean; error?: string; approved_by?: string };
       if (out.ok || out.approved) {
+        closeRequest(ref);
         setRuns((l) => [
           ...l.filter((r) => r.ref !== ref),
           { ref, approved_by: out.approved_by ?? props.viewer, approved_at: new Date().toISOString(), sent_at: out.sent ? new Date().toISOString() : null, payment_link: null },
@@ -341,6 +359,7 @@ export default function EsopSheet(props: Props) {
       const res = await fetch("/api/esop/approval-email", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company: company.slug, ref }) });
       const out = (await res.json().catch(() => ({}))) as { ok?: boolean; sent?: boolean; to?: string; link?: string; error?: string };
       if (!out.ok) return say(out.error ?? "Could not send.");
+      closeRequest(ref);
       if (out.sent) return say(`Approval email for ${ref} sent to ${out.to}`);
       if (out.link) {
         await navigator.clipboard?.writeText(out.link).catch(() => undefined);
@@ -352,9 +371,40 @@ export default function EsopSheet(props: Props) {
     }
   }
 
+  /* 0217: Paid ✓ (Founders Doc admins). Locks the batch until every certificate is signed. */
+  async function markPaid(ref: string, paid: boolean) {
+    if (paid && !window.confirm(`Mark ${ref} as paid?\n\nThe certificates can then go out for signing, and this batch's holders are locked (names, options, status) until every certificate is signed.`)) return;
+    if (!paid && !window.confirm(`Undo "paid" for ${ref}? The batch unlocks and the certificates can't be sent until it's paid again.`)) return;
+    setPaying(ref);
+    try {
+      const res = await fetch("/api/esop/paid", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company: company.slug, ref, paid }) });
+      const out = (await res.json().catch(() => ({}))) as { ok?: boolean; paid_at?: string | null; paid_by?: string | null; error?: string };
+      if (!out.ok) return say(out.error ?? "Could not save.");
+      setRuns((l) => l.map((r) => (r.ref === ref ? { ...r, paid_at: out.paid_at ?? null, paid_by: out.paid_by ?? null, locked: !!out.paid_at } : r)));
+      say(paid ? `${ref} marked as paid: holders locked until signed` : `${ref} is no longer marked as paid`);
+    } finally {
+      setPaying("");
+    }
+  }
+
+  /** The Director's Modify / Cancel from the approval email (0217), shown on the vesting. */
+  function requestTag(ref: string) {
+    const q = requests[ref];
+    if (!q) return null;
+    const note = q.note ? (q.note.length > 90 ? `${q.note.slice(0, 90)}…` : q.note) : "";
+    return (
+      <span className={q.kind === "cancel" ? "ev-req stop" : "ev-req"} title={q.note ?? ""}>
+        {q.kind === "cancel" ? "✖️ Cancelled by the Director" : "✏️ Change requested"}
+        {note ? `: “${note}”` : ""}
+      </span>
+    );
+  }
+
   /** What can be done with one vesting: approve, send again, email for approval, reset, send for signing. */
   function approvalActions(ref: string, daysLeft: number, certificates: number, leavers: number) {
     const r = runs.find((x) => x.ref === ref);
+    const managed = !props.settings?.self_serve;
+    const req = r?.sent_at ? null : requestTag(ref);
     const resetBtn =
       props.reset && (resettable.includes(ref) || !client) ? (
         <button type="button" className="ev-link" disabled={resetting === ref} onClick={() => void resetSim(ref)} title="Put this vesting back to not approved, to try the simulation again">
@@ -374,7 +424,24 @@ export default function EsopSheet(props: Props) {
             ✓ Approved{r.approved_by ? ` · ${r.approved_by.split("@")[0]}` : ""}
             {r.approved_at ? ` · ${fmtDay(r.approved_at.slice(0, 10))}` : ""}
           </span>
-          {fdSignEsop && certificates > 0 && (
+          {/* 0217: managed clients pay first; the certificates go out once Paid ✓ */}
+          {managed && r.paid_at && (
+            <span className="ev-ok" title={`Paid${r.paid_by ? ` · ${r.paid_by}` : ""} · ${new Date(r.paid_at).toLocaleString("en-GB")}`}>
+              ✓ Paid · {fmtDay(r.paid_at.slice(0, 10))}
+            </span>
+          )}
+          {managed && r.paid_at && r.locked && (
+            <span className="ev-lock" title="Names, options and status of this batch can't change until every certificate is signed">
+              🔒 Locked until signed
+            </span>
+          )}
+          {managed && !r.paid_at && <span className="ev-muted">Waiting for payment</span>}
+          {managed && role === "admin" && (
+            <button type="button" className={r.paid_at ? "ev-link" : "ev-btn sm"} disabled={paying === ref} onClick={() => void markPaid(ref, !r.paid_at)}>
+              {paying === ref ? "Saving…" : r.paid_at ? "Undo paid" : "Mark as paid"}
+            </button>
+          )}
+          {fdSignEsop && certificates > 0 && (!managed || r.paid_at) && (
             <a className="ev-btn sm" href={`/admin/sign?ref=${encodeURIComponent(ref)}`} title="Make the certificates and send them for signing in FD Sign">
               Send for signing
               <Ic n="chev" s={12} w={2.2} />
@@ -386,6 +453,7 @@ export default function EsopSheet(props: Props) {
     if (r && props.canApprove)
       return (
         <span className="ev-acts">
+          {req}
           <button className="ev-btn sm gold" disabled={approving === ref} onClick={() => void approve(ref, certificates, leavers, true)}>
             Send again
           </button>
@@ -399,12 +467,13 @@ export default function EsopSheet(props: Props) {
     if (!props.canApprove)
       return (
         <span className="ev-acts">
-          <span className="ev-muted">Waiting for approval</span>
+          {req ?? <span className="ev-muted">Waiting for approval</span>}
           {emailBtn}
         </span>
       );
     return (
       <span className="ev-acts">
+        {req}
         <button className="ev-btn sm gold" disabled={approving === ref} onClick={() => void approve(ref, certificates, leavers, false)}>
           {approving === ref ? "Approving…" : early ? "Approve (simulation)" : "Approve"}
         </button>
@@ -601,7 +670,7 @@ export default function EsopSheet(props: Props) {
       return say(`${rows.length} added${local}`);
     }
     const { data, error } = await client.from("esop_holders").insert(rows.map((r) => ({ ...r, company_id: company.id }))).select(SELECT_HOLDER);
-    if (error) return say(`Import failed, nothing added: ${error.message}`);
+    if (error) return say(lockedText(error.message) ?? `Import failed, nothing added: ${error.message}`);
     setHolders((l) => [...l, ...((data ?? []) as EsopHolder[])]);
     const missing = [...new Set(rows.map((r) => r.batch))].filter((b) => !batchMap.has(b));
     say(`${data?.length ?? 0} added${missing.length ? `: add batch ${missing.join(", ")} in the Vesting panel` : ""}`);
@@ -632,7 +701,7 @@ export default function EsopSheet(props: Props) {
   const tasks: Array<{ title: string; sub: string; action: string; gold?: boolean; go: () => void; href?: string }> = [];
   if (nx && nxRef && nx.daysLeft <= 30 && nx.certificates > 0) {
     const run = runs.find((r) => r.ref === nxRef);
-    if (!run?.sent_at)
+    if (!run?.sent_at && !requests[nxRef])
       tasks.push({
         title: `Prepare ${nx.certificates} vesting ${nx.certificates === 1 ? "certificate" : "certificates"}`,
         sub: `${useBatches ? `Batch ${nx.batch}` : shortNames(nxPeople.map((r) => r.known ?? r.display))} · vests ${fmtDay(nx.date)}`,
@@ -640,7 +709,17 @@ export default function EsopSheet(props: Props) {
         gold: true,
         go: () => setPanel({ kind: "vesting", ref: nxRef }),
       });
-    else if (fdSignEsop) {
+    else if (!run?.sent_at) {
+      /* a Modify / Cancel is open: its own task (above) says what to do */
+    } else if (!props.settings?.self_serve && !run.paid_at) {
+      /* 0217: managed clients pay before the certificates go out */
+      tasks.push({
+        title: `Waiting for payment · ${nxRef}`,
+        sub: role === "admin" ? "Mark as paid once the payment is in; the certificates can then go out for signing" : "The certificates go out for signing once paid",
+        action: "Open",
+        go: () => setPanel({ kind: "vesting", ref: nxRef }),
+      });
+    } else if (fdSignEsop) {
       /* 0199: once sent, say who is still to sign instead of asking to send again */
       const ids = new Set(nxPeople.map((r) => r.h.id));
       const mine = (props.signStatus ?? []).filter((x) => x.tranche === nx.tranche && ids.has(x.holder));
@@ -658,6 +737,15 @@ export default function EsopSheet(props: Props) {
         tasks.push({ title: `Send ${nx.certificates - signed} ${nx.certificates - signed === 1 ? "certificate" : "certificates"} for signing`, sub: `${nxRef} approved · vests ${fmtDay(nx.date)}`, action: "Open", gold: true, go: () => undefined, href: `/admin/sign?ref=${encodeURIComponent(nxRef)}` });
     }
   }
+  /* 0217: the Director's Modify / Cancel from the approval email comes first */
+  for (const [ref, q] of Object.entries(requests))
+    tasks.unshift({
+      title: q.kind === "cancel" ? `${ref}: the Director cancelled the issuance` : `${ref}: the Director asked for a change`,
+      sub: q.note ? (q.note.length > 80 ? `${q.note.slice(0, 80)}…` : q.note) : `${q.by_email ?? "Director"} · ${fmtDay(q.created_at.slice(0, 10))}`,
+      action: "Review",
+      gold: q.kind === "modify",
+      go: () => setPanel({ kind: "vesting", ref }),
+    });
   const behindN = activeR.filter((r) => r.behind).length;
   if (behindN) tasks.push({ title: "Update vested figures", sub: `${behindN} people are behind their schedule`, action: "Review", go: () => goActive("behind") });
   if (topMissing.length)
@@ -1542,7 +1630,11 @@ export default function EsopSheet(props: Props) {
                                   {s.leavers ? <span className="ev-muted"> · {s.leavers} {s.leavers === 1 ? "leaver" : "leavers"}</span> : ""}
                                 </td>
                                 <td>
-                                  {runs.find((x) => x.ref === ref)?.sent_at ? <span className="ev-ok">✓ Approved</span> : st === "Upcoming" || st === "Vested" ? <span className="ev-muted">{st}</span> : <span className="ev-tag">{st}</span>}
+                                  {runs.find((x) => x.ref === ref)?.sent_at ? (
+                                    <span className="ev-ok">{runs.find((x) => x.ref === ref)?.paid_at ? "✓ Approved · Paid" : "✓ Approved"}</span>
+                                  ) : requests[ref] ? (
+                                    <span className="ev-tag">{requests[ref].kind === "cancel" ? "Cancelled" : "Change requested"}</span>
+                                  ) : st === "Upcoming" || st === "Vested" ? <span className="ev-muted">{st}</span> : <span className="ev-tag">{st}</span>}
                                 </td>
                               </tr>
                             );
