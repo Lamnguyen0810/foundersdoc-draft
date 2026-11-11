@@ -72,6 +72,43 @@ function reveal(el: HTMLElement | null) {
   box.scrollTo({ top: box.scrollTop + (r.top - b.top) - b.height / 2 + r.height / 2, behavior: "smooth" });
 }
 
+/* 0212: the same finding in two versions = same code + same words (or title when there are no words) */
+const keyOf = (i: Issue) => `${i.code}|${(i.hit || i.title).replace(/\s+/g, " ").trim().toLowerCase()}`;
+
+interface Compared {
+  version: number;
+  name: string;
+  fixed: Issue[];
+  /** keys of this report's issues that were in the last version too */
+  still: Set<string>;
+  added: number;
+}
+
+function compare(before: Issue[], after: Issue[], version: number, name: string): Compared {
+  const left = new Map<string, number>();
+  for (const i of before) left.set(keyOf(i), (left.get(keyOf(i)) ?? 0) + 1);
+  const still = new Set<string>();
+  let added = 0;
+  for (const i of after) {
+    const k = keyOf(i);
+    const n = left.get(k) ?? 0;
+    if (n > 0) {
+      left.set(k, n - 1);
+      still.add(k);
+    } else added++;
+  }
+  const fixed: Issue[] = [];
+  for (const i of before) {
+    const k = keyOf(i);
+    const n = left.get(k) ?? 0;
+    if (n > 0) {
+      fixed.push(i);
+      left.set(k, n - 1);
+    }
+  }
+  return { version, name, fixed, still, added };
+}
+
 function fromBase64(b64: string): Blob {
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
@@ -93,12 +130,18 @@ export default function Check() {
   const [going, setGoing] = useState(false);
   const [sel, setSel] = useState<number | null>(null);
   const [filter, setFilter] = useState<"all" | Issue["severity"]>("all");
+  /* 0212: "Upload revised version" compares the new report with the last one */
+  const revising = useRef(false);
+  const [cmp, setCmp] = useState<Compared | null>(null);
+  const [version, setVersion] = useState(1);
 
   async function run(f: File | null | undefined) {
     setErr("");
     if (!f) return;
     if (f.size > MAX) return setErr("This file is over 10 MB. Please make it smaller and try again.");
     if (!/\.(pdf|docx)$/i.test(f.name)) return setErr(/\.doc$/i.test(f.name) ? "This is the old Word format (.doc). Save it as .docx or PDF, then upload that." : "Please upload a PDF or a Word file (.docx).");
+    const last = revising.current && res ? res : null;
+    revising.current = false;
     setFile(f);
     setRes(null);
     setSel(null);
@@ -113,7 +156,15 @@ export default function Check() {
       const r = await fetch("/api/fd-sign/check", { method: "POST", body: fd });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || "Could not check this file.");
-      setRes(j as Result);
+      const next = j as Result;
+      setRes(next);
+      if (last) {
+        setCmp(compare(last.issues, next.issues, version, last.file.name));
+        setVersion((v) => v + 1);
+      } else {
+        setCmp(null);
+        setVersion(1);
+      }
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not check this file.");
@@ -291,6 +342,33 @@ export default function Check() {
 
               <div className="fck-pb">
                 <p className="fck-vtext">{VERDICT_TEXT[res.verdict].text}</p>
+                {cmp && (
+                  <div className="fck-cmp" aria-live="polite">
+                    <span className="lab">
+                      Version {cmp.version + 1} · compared with version {cmp.version}
+                      {cmp.name !== res.file.name ? ` (${cmp.name})` : ""}
+                    </span>
+                    <div className="chips">
+                      <span className="c-fixed">
+                        <Ic n="check" s={13} /> {cmp.fixed.length} fixed
+                      </span>
+                      <span className="c-still">{rows.filter((r) => cmp.still.has(keyOf(r.i))).length} still open</span>
+                      <span className="c-new">{cmp.added} new</span>
+                    </div>
+                    {cmp.fixed.length > 0 && (
+                      <details>
+                        <summary>Show what was fixed</summary>
+                        <ul>
+                          {cmp.fixed.map((i, n) => (
+                            <li key={n}>
+                              <s>{i.title}</s> <small>{i.where}</small>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
+                  </div>
+                )}
                 <div className="fck-stats" role="group" aria-label="Filter the findings">
                   {(
                     [
@@ -317,7 +395,7 @@ export default function Check() {
                     </button>
                   )}
                   {(res.verdict === "not_ready" || res.verdict === "cannot_process") && (
-                    <button className="fds-btn ink lg" onClick={() => input.current?.click()} disabled={busy}>
+                    <button className="fds-btn ink lg" onClick={() => ((revising.current = true), input.current?.click())} disabled={busy}>
                       <Ic n="up" s={16} /> {busy ? "Reviewing…" : "Upload revised version"}
                     </button>
                   )}
@@ -374,7 +452,10 @@ export default function Check() {
                               <button type="button" className="fck-rbtn" onClick={() => pick(k, "panel")} aria-expanded={sel === k}>
                                 <span className="fck-tn">{n}</span>
                                 <span className="fck-rt">
-                                  <b>{i.title}</b>
+                                  <b>
+                                    {i.title}
+                                    {cmp && <em className={`fck-tag ${cmp.still.has(keyOf(i)) ? "still" : "new"}`}>{cmp.still.has(keyOf(i)) ? "Still open" : "New"}</em>}
+                                  </b>
                                   <small>
                                     {i.mark ? i.where : `${i.where} · not marked on the page`} · {SRC[i.source]}
                                   </small>

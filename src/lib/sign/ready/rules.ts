@@ -148,7 +148,7 @@ function bracketIsPlaceholder(inner: string): boolean {
   const s = inner.trim();
   if (!s) return true;
   if (/^[●•■□*…·.\-_x]+$/i.test(s)) return true; /* [●] [***] [...] [___] [xxx] */
-  if (/\b(insert|enter|name of|date of|amount|address|number|tbc|tbd|tba|details|company name|party name|to be (?:confirmed|agreed|inserted|completed))\b/i.test(s)) return true;
+  if (/\b(insert|enter|name of|date of|amount|address|number|tbc|tbd|tba|details|company name|party name|to be (?:confirmed|agreed|inserted|completed|attached|provided|advised|determined|updated|finali[sz]ed|added|signed))\b/i.test(s)) return true;
   if (/^[A-Z][A-Z0-9 &/'’.,-]{2,40}$/.test(s) && /[A-Z]{3,}/.test(s) && !/^(SGD|USD|GBP|EUR|NRIC|UEN|ACRA|IRAS|MOM|ETA|SIAC|ICC|LCIA)$/.test(s)) return true; /* [PARTY NAME] [DATE] */
   if (/^(option|alternative)\s*[a-z0-9]\b/i.test(s)) return true;
   if (/^(name|date|amount|address|price|fee|sum|number|figure|percentage|term|period)$/i.test(s)) return true;
@@ -208,7 +208,7 @@ const RULES: Rule[] = [
     code: "PH-008",
     category: "placeholder",
     severity: "blocker",
-    re: /\[\s*Option\s+[A-Z0-9]\s*\]|\bdelete (?:as|whichever is) (?:applicable|appropriate|not applicable)\b|\*\s*delete\b|\[\s*(?:select|choose)[^\]\n]{0,40}\]/gi,
+    re: /\[\s*[A-Za-z0-9][A-Za-z0-9 .,%$-]{0,24}\s*\/\s*[A-Za-z0-9][A-Za-z0-9 .,%$-]{0,24}(?:\s*\/\s*[A-Za-z0-9][A-Za-z0-9 .,%$-]{0,24}){0,3}\s*\]|\[\s*Option\s+[A-Z0-9]\s*\]|\bdelete (?:as|whichever is) (?:applicable|appropriate|not applicable)\b|\*\s*delete\b|\[\s*(?:select|choose)[^\]\n]{0,40}\]/gi,
     title: () => "Optional wording not chosen yet",
     action: "Keep the option that applies and delete the rest.",
   },
@@ -399,6 +399,8 @@ export function detect(doc: ReadDoc): Report {
       let m: RegExpExecArray | null;
       while ((m = r.re.exec(t))) {
         if (r.skip?.(m, t)) continue;
+        /* 0212: "TBC" inside "[TBC]" is already reported as that placeholder */
+        if (r.code === "PH-003" && t[m.index - 1] === "[" && t[m.index + m[0].length] === "]") continue;
         const mention = r.titleBlocker && i > 8;
         push({
           code: r.code,

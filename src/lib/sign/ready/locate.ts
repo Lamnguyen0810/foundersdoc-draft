@@ -35,13 +35,16 @@ function glyph(c: string): number {
 const span = (t: string) => [...t].reduce((n, c) => n + glyph(c), 0);
 
 /** x on the page (fraction) of a character position in the line */
-function xAt(line: Line, at: number): number {
+function xAt(line: Line, at: number, from?: number): number {
   const r = line.rect!;
   const t = line.text;
   const segs = line.segs;
   if (segs?.length) {
+    /* the end of a word is measured in the run where the word starts (a table row's next cell
+       is a separate run further right, 0212) */
+    const key = from ?? at;
     let g = segs[0];
-    for (const s of segs) if (s.at <= at) g = s;
+    for (const s of segs) if (s.at <= key) g = s;
     const into = Math.min(Math.max(0, at - g.at), g.n);
     const whole = span(t.slice(g.at, g.at + g.n));
     return g.x + g.w * (whole ? span(t.slice(g.at, g.at + into)) / whole : 0);
@@ -55,7 +58,7 @@ function box(line: Line, at: number, len: number): Mark | undefined {
   const r = line.rect;
   if (at < 0) return { page: line.page, x: r.x, y: r.y, w: r.w, h: r.h };
   const x = xAt(line, at);
-  const end = xAt(line, at + len);
+  const end = xAt(line, at + len, at);
   const w = Math.max(end - x, 0.02);
   return { page: line.page, x: Math.max(0, x - 0.002), y: r.y, w: Math.min(w + 0.004, 1 - x), h: r.h };
 }
@@ -69,16 +72,41 @@ export function locate(issues: Issue[], lines: Line[]): Issue[] {
     const ctx = norm(i.evidence.replace(/^…|…$/g, ""));
     const cw = words(ctx);
     const hit = i.hit ? norm(i.hit) : "";
-    let best: { l: Line; score: number; at: number } | null = null;
-    for (const c of index) {
-      const at = hit ? c.t.indexOf(hit) : -1;
-      if (hit && at < 0) continue;
-      let score = overlap(cw, c.w);
-      if (!hit && c.t.length > 8 && ctx.includes(c.t.slice(0, Math.min(40, c.t.length)))) score += 50;
-      if (!best || score > best.score) best = { l: c.l, score, at };
+    const find = (h: string) => {
+      let best: { l: Line; score: number; at: number } | null = null;
+      for (const c of index) {
+        const at = h ? c.t.indexOf(h) : -1;
+        if (h && at < 0) continue;
+        let score = overlap(cw, c.w);
+        if (!h && c.t.length > 8 && ctx.includes(c.t.slice(0, Math.min(40, c.t.length)))) score += 50;
+        if (!best || score > best.score) best = { l: c.l, score, at };
+      }
+      return best;
+    };
+    /* the exact words first; if they aren't on the page (a Word file's [●] is drawn as a blank
+       in the preview), the line that shares most words with the quote (0212) */
+    let best = hit ? find(hit) : null;
+    let exact = !!best;
+    let len = hit.length;
+    /* a Word placeholder like S$[●] is drawn as S$______ in the preview: look for that blank */
+    if (!best && /\[[^\]]*\]/.test(hit)) {
+      const before = hit.slice(0, hit.indexOf("["));
+      const re = new RegExp(`${before.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}_{2,}`);
+      for (const c of index) {
+        const m = re.exec(c.t);
+        if (m && (!best || overlap(cw, c.w) > best.score)) {
+          best = { l: c.l, score: overlap(cw, c.w), at: m.index };
+          len = m[0].length;
+        }
+      }
+      exact = !!best;
     }
-    if (!best || (!hit && best.score < 3)) return i;
-    const mark = box(best.l, best.at, hit ? hit.length : 0);
+    if (!best) {
+      best = find("");
+      exact = false;
+    }
+    if (!best || (!exact && best.score < 3)) return i;
+    const mark = box(best.l, exact ? best.at : -1, exact ? len : 0);
     return mark ? { ...i, mark } : i;
   });
 }
