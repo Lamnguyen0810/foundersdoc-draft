@@ -166,7 +166,8 @@ export interface SignStore {
   /** Is SQL 120 run (initials, text, checkbox, labels, values)? */
   fieldsV2Ready(): Promise<boolean>;
   /** Save what a signer typed or ticked in their text / checkbox boxes. */
-  setFieldValues(envelopeId: string, rows: Array<{ id: string; value: string }>): Promise<void>;
+  /** what the signer typed or ticked; w / h when they resized a text box (fractions of the page) */
+  setFieldValues(envelopeId: string, rows: Array<{ id: string; value: string; w?: number; h?: number }>): Promise<void>;
   getCode(tokenHash: string): Promise<SignCode | null>;
   putCode(row: SignCode): Promise<void>;
   /** Is public.sign_codes there (SQL 114 run)? */
@@ -323,7 +324,8 @@ function supabaseStore(): SignStore {
       return !r.error;
     },
     async setFieldValues(envelopeId, rows) {
-      for (const row of rows) must(await db.from("sign_fields").update({ value: row.value }).eq("envelope_id", envelopeId).eq("id", row.id));
+      for (const row of rows)
+        must(await db.from("sign_fields").update({ value: row.value, ...(row.w && row.h ? { w: row.w, h: row.h } : {}) }).eq("envelope_id", envelopeId).eq("id", row.id));
     },
     async getCode(tokenHash) {
       return (must(await db.from("sign_codes").select("*").eq("token_hash", tokenHash).maybeSingle()) as SignCode | null) ?? null;
@@ -550,7 +552,10 @@ function memoryStore(): SignStore {
     async setFieldValues(envelopeId, rows) {
       for (const f of m.fld.get(envelopeId) ?? []) {
         const r = rows.find((x) => x.id === f.id);
-        if (r) f.value = r.value;
+        if (r) {
+          f.value = r.value;
+          if (r.w && r.h) Object.assign(f, { w: r.w, h: r.h });
+        }
       }
     },
     async getCode(tokenHash) {

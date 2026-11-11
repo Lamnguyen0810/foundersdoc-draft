@@ -65,7 +65,8 @@ const EVENT_TEXT: Record<string, string> = {
 
 function wrap(text: string, font: PDFFont, size: number, width: number, t: (s: string) => string = pdfText): string[] {
   const out: string[] = [];
-  for (const para of t(text).split("\n")) {
+  /* split before cleaning: the standard-font clean-up turns a line break into "?" */
+  for (const para of text.split("\n").map(t)) {
     let line = "";
     for (const word of para.split(/\s+/)) {
       const next = line ? `${line} ${word}` : word;

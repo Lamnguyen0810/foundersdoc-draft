@@ -6,7 +6,7 @@ import { signFonts } from "./certificate";
 import { notify } from "./notify";
 import { slack, what } from "./slack";
 import type { Envelope, SignField, SignStore, Signer } from "./store";
-import { TEXT_MAX } from "./fields";
+import { cleanText, signerSize } from "./fields";
 
 /**
  * FD Sign rules, in one place:
@@ -251,6 +251,8 @@ export async function submitSignature(
     who: Who;
     /** text / checkbox boxes (SQL 120): field id -> what they typed, or "yes" for a tick */
     values?: Record<string, string>;
+    /** text boxes the signer resized on their side (11 Nov): field id -> { w, h }, fractions of the page */
+    sizes?: Record<string, { w: number; h: number }>;
   },
 ): Promise<{ completed: string[] }> {
   if (!isTokenShape(input.token)) throw new SignError("This signing link is not valid.", 404);
@@ -272,16 +274,20 @@ export async function submitSignature(
     if (all.some((s) => s.position < me.position && s.status !== "signed")) throw new SignError("It is not your turn yet: an earlier signer still has to sign.", 409);
   }
   /* what this signer typed or ticked in their own boxes; a required one left empty stops the signing */
-  const answers = new Map<string, Array<{ id: string; value: string }>>();
+  const answers = new Map<string, Array<{ id: string; value: string; w?: number; h?: number }>>();
+  let resized = 0;
   for (const me of open) {
     const asks = (await store.fields(me.envelope_id)).filter((f) => f.position === me.position && f.id && (f.kind === "text" || f.kind === "checkbox"));
-    const rows: Array<{ id: string; value: string }> = [];
+    const rows: Array<{ id: string; value: string; w?: number; h?: number }> = [];
     for (const f of asks) {
       const raw = String(input.values?.[f.id!] ?? "");
-      const value = f.kind === "checkbox" ? (raw === "yes" ? "yes" : "") : raw.replace(/\s+/g, " ").trim().slice(0, TEXT_MAX);
+      const value = f.kind === "checkbox" ? (raw === "yes" ? "yes" : "") : cleanText(raw);
       if (f.required !== false && !value)
         throw new SignError(f.kind === "checkbox" ? `Please tick “${f.label || "the box"}” before signing.` : `Please fill in “${f.label || "the text box"}” before signing.`, 400);
-      rows.push({ id: f.id!, value });
+      const size = f.kind === "text" ? signerSize(f, input.sizes?.[f.id!]?.w, input.sizes?.[f.id!]?.h) : null;
+      const changed = !!size && (Math.abs(size.w - f.w) > 0.001 || Math.abs(size.h - f.h) > 0.001);
+      if (changed) resized++;
+      rows.push({ id: f.id!, value, ...(changed && size ? size : {}) });
     }
     if (rows.length) answers.set(me.envelope_id, rows);
   }
@@ -302,7 +308,7 @@ export async function submitSignature(
       ip: input.who.ip,
       user_agent: input.who.ua,
     });
-    await store.addEvent({ envelope_id: me.envelope_id, signer_id: me.id, event: "signed", ip: input.who.ip, user_agent: input.who.ua, detail: input.kind === "draw" ? "drawn signature" : "typed signature" });
+    await store.addEvent({ envelope_id: me.envelope_id, signer_id: me.id, event: "signed", ip: input.who.ip, user_agent: input.who.ua, detail: `${input.kind === "draw" ? "drawn signature" : "typed signature"}${resized ? ` · resized ${resized} text box${resized === 1 ? "" : "es"}` : ""}` });
     const env = (await store.envelope(me.envelope_id))!;
     const all = await store.signers(env.id);
     const next = all.find((s) => s.position > me.position && s.status === "waiting");

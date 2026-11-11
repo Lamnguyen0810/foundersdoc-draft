@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { SignView } from "@/lib/sign/service";
-import { TEXT_MAX } from "@/lib/sign/fields";
+import { TEXT_MAX, signerSize } from "@/lib/sign/fields";
 
 /* The signing screen: the document(s) with this signer's "Sign here" boxes on
    the signature lines. As on DocuSign (Rachel, 6 Nov: "I signed directly on the
@@ -17,6 +17,7 @@ import { TEXT_MAX } from "@/lib/sign/fields";
  * A text box the signer types in (Rachel, 11 Nov: "the text I want to fill is longer than the box").
  * It wraps onto more lines and shrinks to fit the box as they type, the same way the signed PDF
  * shows it (lib/sign/pdf.ts, down to a very small size); it never spills over the document's own words.
+ * Enter / Shift+Enter start a new line, and the corner handle makes the box bigger or smaller.
  */
 function FitText({ value, label, onChange }: { value: string; label: string; onChange: (v: string) => void }) {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -48,10 +49,9 @@ function FitText({ value, label, onChange }: { value: string; label: string; onC
         maxLength={TEXT_MAX}
         aria-label={label}
         spellCheck
-        onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
-        onChange={(e) => onChange(e.target.value.replace(/\s*\n\s*/g, " "))}
+        onChange={(e) => onChange(e.target.value)}
       />
-      {tiny && <span className="fs-here-warn">Small text: shorten it if you can</span>}
+      {tiny && <span className="fs-here-warn">Small text: drag the corner to make the box bigger</span>}
     </>
   );
 }
@@ -155,6 +155,30 @@ export default function SignClient({
   const [err, setErr] = useState("");
   /* text boxes and checkboxes on my lines (FD Sign, SQL 120): field id -> what I typed, or "yes" */
   const [vals, setVals] = useState<Record<string, string>>({});
+  /* text boxes the signer resized (fractions of the page); sent with the signature, kept in the signed PDF */
+  const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
+  function grip(e: React.PointerEvent<HTMLSpanElement>, f: { id?: string; x: number; y: number; w: number; h: number }) {
+    const id = f.id;
+    const page = (e.currentTarget.parentElement?.offsetParent ?? null) as HTMLElement | null;
+    if (!id || !page) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const start = { x: e.clientX, y: e.clientY, ...(sizes[id] ?? { w: f.w, h: f.h }) };
+    const pw = page.clientWidth || 1;
+    const ph = page.clientHeight || 1;
+    const move = (ev: PointerEvent) => {
+      const s = signerSize(f, start.w + (ev.clientX - start.x) / pw, start.h + (ev.clientY - start.y) / ph);
+      if (s) setSizes((m) => ({ ...m, [id]: s }));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  }
   const setVal = (id: string, v: string) => setVals((m) => ({ ...m, [id]: v }));
   /* 0199: the adopted signature (from the "Adopt your signature" sheet) and the boxes it is on */
   const [adopted, setAdopted] = useState(false);
@@ -327,6 +351,7 @@ export default function SignClient({
           png: mode === "draw" ? png || undefined : undefined,
           typed: mode === "type" ? typed : undefined,
           ...(asks.length ? { values: vals } : {}),
+          ...(Object.keys(sizes).length ? { sizes } : {}),
         }),
       });
       const j = (await res.json().catch(() => ({}))) as { error?: string; needCode?: boolean };
@@ -421,7 +446,12 @@ export default function SignClient({
                         tabIndex={tapToSign ? 0 : undefined}
                         onKeyDown={tapToSign ? (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), tapSign(k)) : undefined}
                         className={`fs-here ${filled ? "filled" : ""} ${on ? "signed" : ""} ${f.kind === "text" || f.kind === "checkbox" ? "ask" : ""} ${todo[0]?.k === k ? "next" : ""}`}
-                        style={{ left: `${f.x * 100}%`, top: `${f.y * 100}%`, width: `${f.w * 100}%`, height: `${f.h * 100}%` }}
+                        style={{
+                          left: `${f.x * 100}%`,
+                          top: `${f.y * 100}%`,
+                          width: `${((f.id && sizes[f.id]?.w) || f.w) * 100}%`,
+                          height: `${((f.id && sizes[f.id]?.h) || f.h) * 100}%`,
+                        }}
                         onClick={f.kind === "checkbox" ? () => f.id && setVal(f.id, v === "yes" ? "" : "yes") : f.kind === "text" ? undefined : tapToSign ? () => tapSign(k) : undefined}
                         title={f.kind === "text" || f.kind === "checkbox" ? (f.label ?? "") : tapToSign ? (on ? "Tap to change your signature" : "Tap to sign here") : ""}
                       >
@@ -429,6 +459,7 @@ export default function SignClient({
                           <>
                             {!v && <span className="fs-here-l">{f.label || "Type here"}{f.required === false ? " (optional)" : ""}</span>}
                             <FitText value={v} label={f.label || "Text"} onChange={(nv) => f.id && setVal(f.id, nv)} />
+                            <span className="fs-here-grip" role="presentation" title="Drag to make the box bigger or smaller" onPointerDown={(e) => grip(e, f)} />
                           </>
                         )}
                         {f.kind === "checkbox" && <span className="fs-here-cb" role="checkbox" aria-checked={v === "yes"} aria-label={f.label || "Tick"}>{v === "yes" ? "✓" : ""}</span>}
@@ -533,7 +564,7 @@ export default function SignClient({
                       {f.label || "Text"}
                       {f.required === false ? " (optional)" : ""}
                     </span>
-                    <input value={vals[f.id!] ?? ""} maxLength={200} onChange={(e) => setVal(f.id!, e.target.value)} />
+                    <textarea value={vals[f.id!] ?? ""} rows={2} maxLength={TEXT_MAX} onChange={(e) => setVal(f.id!, e.target.value)} />
                   </label>
                 ),
               )}
