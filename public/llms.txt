@@ -24,9 +24,7 @@
 ## Other Founders Doc tools
 
 - [FD Sign](https://foundersdoc.com/e-signature): send PDF or Word documents for e-signature; signers need no account (private link + email code), with an audit trail
-- [FD Sign vs DocuSign](https://foundersdoc.com/e-signature/docusign-alternative): a free DocuSign alternative, with prices compared
-- [FD Sign vs HelloSign (Dropbox Sign)](https://foundersdoc.com/e-signature/hellosign-alternative): a free HelloSign alternative, with prices compared
-- [FD Sign vs PandaDoc](https://foundersdoc.com/e-signature/pandadoc-alternative): a free PandaDoc alternative for signing, with prices compared
+- [DocuSign alternatives compared](https://foundersdoc.com/e-signature/docusign-alternatives): DocuSign, Dropbox Sign (HelloSign), PandaDoc and FD Sign side by side: prices, sending limits and who each suits
 - [ESOP dashboard](https://foundersdoc.com/esop-software): track option holders, vesting dates and certificates, with approvals, vesting alerts and e-signing; any company can create one
 
 ## Talk to a lawyer

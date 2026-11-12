@@ -64,6 +64,10 @@ const STAND_INS = [
  */
 const OLD_SITE = [
   { source: "/about-us", destination: "/about" },
+  /* 0226: the three comparison pages became one */
+  { source: "/e-signature/docusign-alternative", destination: "/e-signature/docusign-alternatives" },
+  { source: "/e-signature/hellosign-alternative", destination: "/e-signature/docusign-alternatives#dropbox-sign" },
+  { source: "/e-signature/pandadoc-alternative", destination: "/e-signature/docusign-alternatives#pandadoc" },
   { source: "/contact-us", destination: "/contact" },
   { source: "/services", destination: "/fd-consult" },
   { source: "/services/:path*", destination: "/fd-consult" },

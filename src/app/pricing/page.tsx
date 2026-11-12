@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import PricingView from "../billing/PricingView";
 import { signPricingLive } from "@/lib/sign/allowance";
+import { phoneChannels } from "@/lib/sign/phone";
 import { pricedCatalogue } from "@/lib/billing/prices";
 import { MEMBERSHIPS, PACKS, TRIAL, money } from "@/lib/billing/plans";
 import { SITE, fdAiLd, ldJson } from "@/lib/seo";
@@ -39,7 +40,7 @@ export default async function PricingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: ldJson(fdAiLd({ url: `${SITE}/pricing`, description: DESCRIPTION, documents: [] })) }}
       />
-      <PricingView guest catalogue={catalogue} signLive={signPricingLive()} />
+      <PricingView guest catalogue={catalogue} signLive={signPricingLive()} codeChannels={phoneChannels()} />
     </>
   );
 }

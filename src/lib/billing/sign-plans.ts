@@ -108,6 +108,13 @@ export function requestsText(p: SignPlan): string {
 /** Every plan: the signer's code by email, WhatsApp or SMS. */
 export const CODE_TEXT = "Signing code by email, WhatsApp or SMS";
 
+/** 0227: the plan cards name only the code channels switched on (lib/sign/phone.ts phoneChannels()):
+ *  email alone until WhatsApp / SMS are set up, so the page never promises what isn't ready. */
+export function codeText(phone: string[] = []): string {
+  const names = ["email", ...(phone.includes("whatsapp") ? ["WhatsApp"] : []), ...(phone.includes("sms") ? ["SMS"] : [])];
+  return `Signing code by ${names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`}`;
+}
+
 const sgd = (c: number) => `S$${(c / 100).toFixed(2).replace(/\.00$/, "")}`;
 
 /** For the comparison pages (lib/products/compare.ts): what FD Sign costs, on or off. */

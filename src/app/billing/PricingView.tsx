@@ -7,7 +7,7 @@ import PricingMotion from "./PricingMotion";
 import "./pricing.css";
 /* Loaded after, deliberately: it overrides the generated stylesheet. */
 import "./pricing-brand.css";
-import { CODE_TEXT, SIGN_PLANS, requestsText, type SignTier } from "@/lib/billing/sign-plans";
+import { SIGN_PLANS, codeText, requestsText, type SignTier } from "@/lib/billing/sign-plans";
 
 /**
  * The pricing page itself, for two audiences:
@@ -33,6 +33,10 @@ export interface PricingViewProps {
   signLive?: boolean;
   /** 0225: the viewer's running FD Sign plan (sign_*), if any */
   signTier?: string | null;
+  /** 0227: phone code channels switched on (lib/sign/phone.ts); the cards name only these */
+  codeChannels?: string[];
+  /** 0227: an admin sees the FD Sign plans before FD_SIGN_PRICING=on, to test a real purchase */
+  signPreview?: boolean;
 }
 
 function when(iso: string): string {
@@ -65,7 +69,9 @@ function Buy({
   );
 }
 
-export default function PricingView({ guest, catalogue, tier = null, trialLive = false, signLive = false, signTier = null, notices = {}, invoices = [] }: PricingViewProps) {
+export default function PricingView({ guest, catalogue, tier = null, trialLive = false, signLive = false, signTier = null, codeChannels = [], signPreview = false, notices = {}, invoices = [] }: PricingViewProps) {
+  const CODE_TEXT = codeText(codeChannels);
+  const showSignPlans = signLive || signPreview;
   const { paid, cancelled, joined, resumed, changed, signplan } = notices;
   const anyNotice = joined || paid || cancelled || resumed || changed || signplan;
   const savings = (credits: number, cents: number) => money(credits * catalogue.packs[0].amountCents - cents);
@@ -81,7 +87,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
             <a className="tab-link active" href="#trial">Free trial</a>
             <a className="tab-link" href="#credits">Flexible credits</a>
             <a className="tab-link" href="#memberships">Memberships</a>
-            {signLive && <a className="tab-link" href="#fd-sign">FD Sign</a>}
+            {showSignPlans && <a className="tab-link" href="#fd-sign">FD Sign</a>}
             <a className="tab-link" href="#topups">Member top-ups</a>
             <a className="tab-link" href="#compare">Compare</a>
           </nav>
@@ -306,7 +312,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
       </section>
 
       {/* ── 0225: FD Sign plans, their own monthly subscription (FD_SIGN_PRICING=on) ── */}
-      {signLive && (
+      {showSignPlans && (
         <section className="section alt" id="fd-sign">
           <div className="wrap reveal">
             <div className="section-head">
@@ -314,6 +320,9 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
               <h2>FD Sign plans</h2>
               <p>E-signature on its own, at half DocuSign&rsquo;s price with more requests. FD AI memberships include FD Sign too; if you have both, the bigger allowance counts.</p>
             </div>
+            {!signLive && (
+              <div className="banner warn" style={{ marginBottom: 18 }}><div><strong>Admin preview.</strong><span>Only admins see these plans until FD_SIGN_PRICING=on. A purchase here is real: cancel it from &ldquo;Manage plan&rdquo; after testing.</span></div></div>
+            )}
             <div className="shell soft">
               <div className="card-grid three-up">
                 {catalogue.signPlans.map((p) => {

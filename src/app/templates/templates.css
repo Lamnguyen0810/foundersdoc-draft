@@ -373,3 +373,5 @@
 .cmp-table .cmp-us { font-weight: 600; background: color-mix(in srgb, var(--gold, #f2c14e) 10%, transparent); }
 .cmp-both { list-style: none; padding-left: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.cmp-table.cmp-wide { min-width: 760px; font-size: 14px; }
+.cmp-table.cmp-wide tbody th { width: 14%; }
