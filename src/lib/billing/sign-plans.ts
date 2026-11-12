@@ -47,7 +47,9 @@ export const SIGN_ONLY: SignTier[] = ["sign_personal", "sign_standard", "sign_bu
 
 /** FD_SIGN_PRICING=on: plans, limits and plan cards live. Read on the server (and at build for static pages). */
 export function signPricingOn(): boolean {
-  return (process.env.FD_SIGN_PRICING ?? "").trim().toLowerCase() === "on";
+  /* 0231: on by default, so going live needs only this merge, not a Vercel change.
+     FD_SIGN_PRICING=off in Vercel (and a redeploy) brings the free Beta back. */
+  return (process.env.FD_SIGN_PRICING ?? "").trim().toLowerCase() !== "off";
 }
 
 /** True for the FD Sign plans' tiers (sign_*), false for FD AI memberships and anything else. */
@@ -100,6 +102,9 @@ export function biggerPlan(a: SignTier, b: SignTier): SignTier {
 /** 0229: with no plan, an account's first FREE_SIGN signing requests are free (ever, not a month), the way
  *  FD AI's first documents are; then a plan (FD Sign or an FD AI membership). */
 export const FREE_SIGN = 3;
+
+/** 0231: the free requests count from launch day (Singapore time), so people who used the Beta get a fresh 3. */
+export const FREE_SIGN_SINCE = "2026-11-12T00:00:00+08:00";
 
 /** Unlimited's fair-use ceiling a month, so a script can't send thousands. */
 export const FAIR_USE = 300;

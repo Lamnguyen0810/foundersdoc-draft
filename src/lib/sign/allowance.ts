@@ -1,7 +1,7 @@
 import "server-only";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
-import { FAIR_USE, FREE_SIGN, SIGN_ONLY, SIGN_PLANS, biggerPlan, signPricingOn, type SignTier } from "@/lib/billing/sign-plans";
+import { FAIR_USE, FREE_SIGN, FREE_SIGN_SINCE, SIGN_ONLY, SIGN_PLANS, biggerPlan, signPricingOn, type SignTier } from "@/lib/billing/sign-plans";
 import { dailyLimit, startOfDaySgt, startOfMonthSgt, type SignAccount } from "./account";
 import type { SignStore } from "./store";
 
@@ -44,9 +44,9 @@ export async function allowance(me: SignAccount, store: SignStore): Promise<Allo
     return { live: false, tier: "none", label: "Beta", per: "day", used: await store.sentSince(me.id, startOfDaySgt()), limit: dailyLimit() };
   }
   const tier = await tierOf(me.id);
-  /* 0229: no plan yet = the first FREE_SIGN requests are free, counted over the whole account */
+  /* 0229: no plan yet = the first FREE_SIGN requests are free; 0231: counted from launch day (FREE_SIGN_SINCE) */
   if (tier === "none") {
-    return { live: true, tier, label: "Free", per: "free", used: await store.sentSince(me.id, new Date(0).toISOString()), limit: FREE_SIGN };
+    return { live: true, tier, label: "Free", per: "free", used: await store.sentSince(me.id, new Date(FREE_SIGN_SINCE).toISOString()), limit: FREE_SIGN };
   }
   const plan = SIGN_PLANS[tier];
   return { live: true, tier, label: plan.label, per: "month", used: await store.sentSince(me.id, startOfMonthSgt()), limit: plan.requests };

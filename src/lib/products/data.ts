@@ -1,8 +1,8 @@
 import type { Faq } from "@/lib/templates/data";
-import { FREE_SIGN } from "@/lib/billing/sign-plans";
+import { FREE_SIGN, signPricingOn } from "@/lib/billing/sign-plans";
 
 /** 0224: FD Sign is paid once FD_SIGN_PRICING=on (lib/billing/sign-plans.ts); until then it is free (Beta). */
-const SIGN_PAID = (process.env.FD_SIGN_PRICING ?? "").trim().toLowerCase() === "on";
+const SIGN_PAID = signPricingOn();
 
 /**
  * The public product pages (0197): FD Sign and the ESOP dashboard can only be
