@@ -76,6 +76,9 @@ export function approvalEmail(it: ApprovalItem, link: string) {
   const subject = `${sim}Please approve: issuance of Option Certificates for ${s.names} (vesting ${it.vest_date_text})`;
   const hitpay = (it.slug ?? "").toLowerCase() === "hitpay" || /hitpay/i.test(company);
   const url = esc(link);
+  /* 0217: Modify / Cancel open the same private page with the form (only its POST records anything) */
+  const modifyUrl = esc(`${link}?do=modify`);
+  const cancelUrl = esc(`${link}?do=cancel`);
   const td = (css: string, inner: string) => `<td style="font-family:${FONT};${css}">${inner}</td>`;
 
   const logos = `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
@@ -151,16 +154,20 @@ ${simNote}
 <tr><td class="px" style="padding:26px 32px 0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
 <td align="center" bgcolor="#f2c14e" style="background-color:#f2c14e;border-radius:10px;">
 <a href="${url}" style="display:block;padding:16px 18px;font-family:${FONT};font-size:16px;line-height:22px;font-weight:bold;color:#161616;text-decoration:none;">${esc(s.button)} &rarr;</a></td></tr></table>
-<p style="margin:10px 0 0 0;text-align:center;font-family:${FONT};font-size:13px;line-height:18px;color:#8a8a86;">&#128274; Opens a confirmation page &middot; No login needed</p></td></tr>
+<p style="margin:10px 0 0 0;text-align:center;font-family:${FONT};font-size:13px;line-height:18px;color:#8a8a86;">&#128274; Opens a confirmation page &middot; No login needed</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;"><tr>
+<td width="50%" align="center" style="width:50%;padding-right:5px;"><a href="${modifyUrl}" style="display:block;padding:11px 8px;border:1px solid #dcdcd8;border-radius:9px;font-family:${FONT};font-size:14px;line-height:20px;font-weight:bold;color:#161616;text-decoration:none;">&#9999;&#65039; Modify</a></td>
+<td width="50%" align="center" style="width:50%;padding-left:5px;"><a href="${cancelUrl}" style="display:block;padding:11px 8px;border:1px solid #dcdcd8;border-radius:9px;font-family:${FONT};font-size:14px;line-height:20px;font-weight:bold;color:#161616;text-decoration:none;">&#10006;&#65039; Cancel</a></td>
+</tr></table></td></tr>
 
 <tr><td class="px" style="padding:30px 32px 0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid #ecebe6;font-size:1px;line-height:1px;">&nbsp;</td></tr></table>
 <p style="margin:20px 0 0 0;font-family:${FONT};font-size:11px;line-height:16px;font-weight:bold;letter-spacing:1.6px;color:#8a8a86;">WHAT HAPPENS NEXT</p></td></tr>
-${step(1, "Approve", "Tap the button above, then Confirm. It takes a few seconds.", 16)}
+${step(1, "Approve", "Tap the button above, then Confirm. Something to change? Tap Modify; to stop this issuance, Cancel.", 16)}
 ${step(2, "Payment", "We'll email you the payment link for the certificates.", 20)}
 ${step(3, "Review &amp; sign", "Sign the certificates online through a secure link. No account needed.", 20)}
 
 <tr><td class="px" style="padding:30px 32px 0 32px;font-family:${FONT};font-size:15px;line-height:23px;color:#666666;">
-<p style="margin:0 0 18px 0;"><b style="color:#161616;">Something not right?</b> Just reply to this email and we'll fix it before anything is issued.</p>
+<p style="margin:0 0 18px 0;"><b style="color:#161616;">Something not right?</b> Tap Modify and tell us what to change. Nothing is issued until you approve.</p>
 <p style="margin:0;">Best,</p><p style="margin:0;font-weight:bold;color:#161616;">Founders Doc</p></td></tr>
 
 <tr><td class="px" style="padding:26px 32px 0 32px;"><a href="https://foundersdoc.com" style="text-decoration:none;"><img src="${ASSETS}/button.png" width="176" height="42" alt="foundersdoc.com" style="display:block;width:176px;height:42px;"></a></td></tr>
@@ -183,10 +190,12 @@ ${step(3, "Review &amp; sign", "Sign the certificates online through a secure li
     "",
     `${s.button}: ${link}`,
     "(Opens a confirmation page. No login needed.)",
+    `Modify (ask for a change): ${link}?do=modify`,
+    `Cancel this issuance: ${link}?do=cancel`,
     "",
     "What happens next: 1. Approve  2. Payment link  3. Review & sign online",
     "",
-    "Something not right? Just reply to this email and we'll fix it before anything is issued.",
+    "Something not right? Use Modify and tell us what to change. Nothing is issued until you approve.",
     "",
     "Best,",
     "Founders Doc",

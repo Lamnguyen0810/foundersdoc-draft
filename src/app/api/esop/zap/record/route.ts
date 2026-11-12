@@ -10,6 +10,7 @@ import { sendPaymentEmail } from "@/lib/esop/payment";
  *   { "company": "hitpay", "action": "approved", "ref": "B99-T1", "invoice_no": "INV-0042", "approved_by": "<Slack member ID>" }
  *   { "company": "hitpay", "action": "certificate", "holder_id": "…", "tranche": 1, "url": "https://docs.google.com/…", "number": "HITPAY-B99-T1-001" }
  *   { "company": "hitpay", "action": "payment", "ref": "B99-T1", "url": "https://buy.stripe.com/…", "send_email": true }
+ *   { "company": "hitpay", "action": "paid", "ref": "B99-T1" }   (0217: Stripe says it's paid → Paid ✓, the batch locks)
  * "approved" stops the same Ref running twice (first_time is false the second
  * time: put a Filter on it). "certificate" puts the link in the holder's
  * Option certificates cell. "payment" keeps the Stripe link on the vesting; with

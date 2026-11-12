@@ -67,6 +67,11 @@ export async function newApprovalLink(key: string, slug: string, ref: string) {
 }
 
 export async function record(key: string, slug: string, payload: Record<string, unknown>) {
+  /* 0217 (SQL 129): "paid", e.g. from a Stripe "payment succeeded" Zap */
+  if (payload.action === "paid") {
+    const { data, error } = await anon().rpc("esop_zap_paid", { p_key: key, p_slug: slug, p_ref: String(payload.ref ?? ""), p_by: String(payload.paid_by ?? "") || null });
+    return { data: data as Record<string, unknown> | null, error };
+  }
   const { data, error } = await anon().rpc("esop_record", { p_key: key, p_slug: slug, p_payload: payload });
   return { data: data as Record<string, unknown> | null, error };
 }

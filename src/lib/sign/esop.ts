@@ -41,6 +41,8 @@ export interface EsopPrep {
   tranche: number;
   vestDate: string | null;
   approved: boolean;
+  /** 0217 (SQL 129): paid ✓; certificates go out for signing only once paid. null = before 129 (not checked) */
+  paid: boolean | null;
   simulation: string | null; // the override address, when on
   company: { name: string; regNo: string; director: string; shareClass: string; contactName: string; contactEmail: string | null; sendTo: string | null };
   holders: EsopPrepHolder[];
@@ -126,6 +128,8 @@ function supabaseSource(): EsopSource {
       const tranche = Number(m[2]);
       const b = must(await db.from("esop_batches").select("vesting_start").eq("company_id", c.id).eq("batch", batch).maybeSingle()) as { vesting_start: string | null } | null;
       const run = must(await db.from("esop_tranche_runs").select("ref").eq("company_id", c.id).eq("ref", ref).maybeSingle());
+      const paidRes = await db.from("esop_tranche_runs").select("paid_at").eq("company_id", c.id).eq("ref", ref).maybeSingle();
+      const paid = paidRes.error ? null : !!(paidRes.data as { paid_at?: string | null } | null)?.paid_at;
       type Row = { id: string; name: string; legal_name: string | null; email: string | null; id_no: string | null; nationality: string | null; grant_date: string | null; options_per_tranche: number; status: string };
       const rows = (must(await db.from("esop_holders").select("id, name, legal_name, email, id_no, nationality, grant_date, options_per_tranche, status").eq("company_id", c.id).eq("batch", batch).order("name")) ?? []) as Row[];
       const certs = (must(await db.from("esop_certificates").select("holder_id, number").eq("company_id", c.id).eq("ref", ref)) ?? []) as Array<{ holder_id: string; number: number }>;
@@ -138,6 +142,7 @@ function supabaseSource(): EsopSource {
         tranche,
         vestDate: shortDate(vestOf(b?.vesting_start ?? null, tranche)),
         approved: !!run,
+        paid,
         simulation: sim,
         company: {
           name: c.legal_name?.trim() || c.name,
@@ -217,6 +222,7 @@ function memorySource(): EsopSource {
         tranche: 2,
         vestDate: "1 Dec 2026",
         approved: true,
+        paid: true,
         simulation: sim,
         company: { name: "Specimen Company Pte. Ltd.", regNo: "000000000X", director: "Specimen Director", shareClass: "Class B", contactName: "Specimen Director", contactEmail: "director@specimen.example", sendTo: sim },
         holders: holders.map((h) => ({ ...h })),

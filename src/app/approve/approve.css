@@ -22,3 +22,15 @@
 .apv-ok { font-size: 40px !important; margin: 0 !important; }
 .apv-next { padding: 12px 14px; background: #f4f4f2; border-radius: 8px; }
 .apv-err { padding: 10px 12px; background: #fdecea; border: 1px solid #f3c2bc; border-radius: 8px; color: #8a1f12 !important; font-size: 14px !important; }
+/* 0217: Modify / Cancel */
+.apv-alt { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 12px; }
+.apv-alt-btn { display: block; padding: 12px 10px; border: 1px solid #dcdcd8; border-radius: 9px; background: #fff; color: #161616; font-size: 15px; font-weight: 600; text-align: center; text-decoration: none; }
+.apv-alt-btn:hover { background: #fafaf7; border-color: #c9c9c4; }
+.apv-alt-btn:focus-visible { outline: 3px solid #161616; outline-offset: 2px; }
+.apv-label { display: block; margin: 14px 0 6px; font-size: 14px; font-weight: 600; color: #161616; }
+.apv-text { display: block; width: 100%; padding: 10px 12px; border: 1px solid #dcdcd8; border-radius: 8px; font: inherit; font-size: 15px; line-height: 1.5; resize: vertical; }
+.apv-text:focus { outline: 2px solid #f2c14e; border-color: #e0b13f; }
+.apv-btn-stop { background: #161616; color: #fff; }
+.apv-btn-stop:hover { background: #333; }
+.apv-note { padding: 12px 14px; background: #fafaf7; border: 1px solid #ecebe6; border-radius: 8px; color: #161616 !important; white-space: pre-wrap; }
+.apv-small a { color: #161616; }

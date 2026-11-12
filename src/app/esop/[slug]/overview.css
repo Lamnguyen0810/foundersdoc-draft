@@ -405,3 +405,8 @@ body:has(.esop.ev) { margin: 0; background: #f4f4f4; }
   .ev-fd { letter-spacing: .2em; padding: 0 10px; }
   .ev-stats b { font-size: 16px; }
 }
+
+/* 0217: Modify / Cancel from the approval email, Paid ✓ lock */
+.ev-req { display: inline-block; max-width: 100%; padding: 3px 9px; border-radius: 8px; background: #fbeec9; color: #6b4e00; font-size: 12.5px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+.ev-req.stop { background: #f3f3f1; color: #555; }
+.ev-lock { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #eef3f0; color: #2f6e4a; font-size: 12px; font-weight: 600; }
