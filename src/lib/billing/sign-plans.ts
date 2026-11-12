@@ -97,6 +97,10 @@ export function biggerPlan(a: SignTier, b: SignTier): SignTier {
   return rb > ra ? b : a;
 }
 
+/** 0229: with no plan, an account's first FREE_SIGN signing requests are free (ever, not a month), the way
+ *  FD AI's first documents are; then a plan (FD Sign or an FD AI membership). */
+export const FREE_SIGN = 3;
+
 /** Unlimited's fair-use ceiling a month, so a script can't send thousands. */
 export const FAIR_USE = 300;
 
@@ -122,7 +126,7 @@ export function signPriceRows(live: boolean): { free: string; entry: string; tea
   if (!live) return { free: "Yes", entry: "S$0", team: "S$0", limit: "Up to 20 requests a day while FD Sign is free" };
   const p = SIGN_PLANS.sign_personal, s = SIGN_PLANS.sign_standard, b = SIGN_PLANS.sign_business;
   return {
-    free: "No (paid plans from half DocuSign's price)",
+    free: `Your first ${FREE_SIGN} signing requests`,
     entry: `${sgd(p.amountCents!)} a month (${p.label}, ${p.requests} requests)`,
     team: `${sgd(s.amountCents!)}–${sgd(b.amountCents!)} a month per account (${s.label}, ${b.label})`,
     limit: `${p.requests} / ${s.requests} / ${b.requests} a month; FD AI memberships include 20, 60 or unlimited`,

@@ -9,7 +9,7 @@ import BoxEditor from "../admin/sign/BoxEditor";
 import { openPdf, readPdf, type PdfInfo } from "../sign/PdfPages";
 import { autoPlace, boxId, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
 import type { DraftBlock } from "@/lib/sign/draft-pdf";
-import { Ic, useList } from "./ui";
+import { Ic, SignCredits, signLeft, useList, type SignAllowanceView } from "./ui";
 import PageEditor, { type EditSummary } from "./PageEditor";
 
 /* New signing request, in 4 steps: Document → People → Fields → Review and send.
@@ -54,7 +54,7 @@ export default function Wizard({
   plan = null,
 }: {
   channels?: CodeChannel[];
-  plan?: { label: string; used: number; limit: number | null } | null;
+  plan?: SignAllowanceView | null;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -63,6 +63,19 @@ export default function Wizard({
   const [drafts, setDrafts] = useState<Array<{ id: string; title: string; updatedAt: string; gaps: number }> | null>(null);
   const [draftBusy, setDraftBusy] = useState("");
   const { data, reload } = useList();
+  /* 0229: the signing-requests counter. Starts from the server's figure, then follows My documents'
+     list, which reloads when the sender comes back to this tab (e.g. after buying a plan in another tab). */
+  const allow: SignAllowanceView | null = data?.plan?.live ? { label: data.plan.label, used: data.today, limit: data.limit, per: data.plan.per } : plan;
+  const noneLeft = !!allow && signLeft(allow) === 0;
+  useEffect(() => {
+    const back = () => document.visibilityState === "visible" && void reload();
+    window.addEventListener("focus", back);
+    document.addEventListener("visibilitychange", back);
+    return () => {
+      window.removeEventListener("focus", back);
+      document.removeEventListener("visibilitychange", back);
+    };
+  }, [reload]);
   const [step, setStep] = useState(1);
   /* 0221: tell Founders Doc when someone starts a request and, if they leave, at which step (no title or file is sent) */
   const progress = useRef({ started: false, sent: false, left: false, step: 1 });
@@ -452,6 +465,7 @@ export default function Wizard({
               <h2>What needs signing?</h2>
               <p>Upload the final version. People sign exactly what you upload.</p>
             </div>
+            {allow && <SignCredits a={allow} newTab />}
             {checked ? (
               <p className={`fds-checked ${checked === "ready" || checked === "ready_with_ack" ? "ok" : "warn"}`}>
                 <Ic n="shield" s={16} />
@@ -610,25 +624,7 @@ export default function Wizard({
               <h2>Who needs to sign?</h2>
               <p>In signing order. Each person is emailed when the one before has signed.</p>
             </div>
-            {plan && (
-              <p className="fds-plan">
-                {plan.limit === 0 ? (
-                  <>
-                    <b>FD Sign is part of the paid plans.</b> <a href="/billing#fd-sign">Choose a plan</a> to send this for signing.
-                  </>
-                ) : (
-                  <>
-                    <b>{plan.label}:</b> {plan.limit === null ? "unlimited signing requests" : `${Math.max(0, plan.limit - plan.used)} of ${plan.limit} signing requests left this month`}
-                    {plan.limit !== null && (
-                      <>
-                        {" · "}
-                        <a href="/billing#fd-sign">See plans</a>
-                      </>
-                    )}
-                  </>
-                )}
-              </p>
-            )}
+            {noneLeft && allow && <SignCredits a={allow} newTab />}
             {people.map((p, i) => (
               <div className="fds-pc" key={p.key} style={{ ["--c" as string]: colour(i + 1) }}>
                 <span className="n">{i + 1}</span>
@@ -840,6 +836,7 @@ export default function Wizard({
           <div>
             <div className="fds-wh">
               <h2>Check and send</h2>
+              {noneLeft && allow && <SignCredits a={allow} newTab />}
               <p style={{ marginBottom: 16 }}>
                 <b style={{ color: "var(--fds-tx)" }}>{title}</b> · {info?.pages.length} {info?.pages.length === 1 ? "page" : "pages"} · {folder ? `${folder.name} folder` : "no folder"} ·{" "}
                 <button className="fds-btn sm ghost" style={{ color: "var(--fds-gold-tx)", padding: 0, height: "auto" }} onClick={() => go(1)}>
