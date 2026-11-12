@@ -123,49 +123,42 @@ export function signLeft(a: SignAllowanceView): number | null {
 }
 
 /**
- * The signing-requests counter (0229): a small card on the send page and in My documents.
- *   free (no plan):     "3 free signing requests left · your first 3 are free"   See plans ›
- *   a plan / FD AI:     "45 signing requests left · FD AI Pro, this month"        Upgrade ›
- *   Unlimited:          "Unlimited signing requests · FD AI Unlimited"
+ * The signing-requests counter (0229): one small line, like FD AI's credits.
+ *   free (no plan):  ✎ 3 free signing requests left · See plans ›
+ *   a plan / FD AI:  ✎ 45 of 60 signing requests left · FD AI Pro · Upgrade ›
+ *   Unlimited:       ✎ Unlimited signing requests · FD AI Unlimited
  * newTab: the plans open in a new tab, so a request being made isn't lost.
  */
 export function SignCredits({ a, newTab = false, side = false }: { a: SignAllowanceView; newTab?: boolean; side?: boolean }) {
   const left = signLeft(a);
   const out = left === 0;
   const free = a.per === "free";
-  const title =
-    left === null ? "Unlimited signing requests" : out ? (free ? "Free requests used" : "No requests left this month") : `${free ? "free " : ""}signing request${left === 1 ? "" : "s"} left`;
-  const note =
-    left === null
-      ? a.label
-      : free
-        ? out
-          ? "Choose a plan to keep sending"
-          : `Your first ${a.limit} are free`
-        : out
-          ? `${a.label} · more on the 1st, or upgrade`
-          : `${a.label} · ${a.used} of ${a.limit} used this month`;
+  const s = (n: number) => (n === 1 ? "" : "s");
+  const text =
+    left === null ? (
+      <>Unlimited signing requests · {a.label}</>
+    ) : out ? (
+      free ? <>Free signing requests used</> : <>No signing requests left this month</>
+    ) : free ? (
+      <>
+        <b>{left}</b> free signing request{s(left)} left
+      </>
+    ) : (
+      <>
+        <b>{left}</b> of {a.limit} signing requests left · {a.label}
+      </>
+    );
   const link = left === null ? null : free ? (out ? "Choose a plan" : "See plans") : "Upgrade";
   return (
     <div className={`fds-cred${out ? " out" : ""}${side ? " side" : ""}`} role="status">
       <span className="fds-cred-ic" aria-hidden="true">
-        <Ic n="pen" s={15} w={1.9} />
+        <Ic n="pen" s={12} w={2} />
       </span>
-      {left !== null && <span className="fds-cred-n">{left}</span>}
-      <span className="fds-cred-t">
-        <b>{left === null || out ? title : title.charAt(0).toUpperCase() + title.slice(1)}</b>
-        <small>{note}</small>
-      </span>
+      <span className="fds-cred-t">{text}</span>
       {link && (
         <a className="fds-cred-a" href={a.label.startsWith("FD AI") ? "/billing#memberships" : "/billing#fd-sign"} {...(newTab ? { target: "_blank", rel: "noopener" } : {})}>
-          {link}
-          <span aria-hidden="true">›</span>
+          {link} ›
         </a>
-      )}
-      {side && a.limit !== null && a.limit > 0 && (
-        <span className="fds-bar" aria-hidden="true">
-          <i style={{ width: `${Math.min(100, (a.used / a.limit) * 100)}%` }} />
-        </span>
       )}
     </div>
   );
