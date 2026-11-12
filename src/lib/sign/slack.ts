@@ -4,6 +4,7 @@ import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import type { Envelope, SignStore } from "./store";
 import { slackChannel } from "@/lib/esop/test-mode";
 import { isQuietAccount } from "@/lib/quiet";
+import { signExitLabel, type SignExitReason } from "./exit";
 
 /**
  * FD Sign progress in Slack, so everyone at Founders Doc sees what went out
@@ -131,13 +132,46 @@ export async function signerStep(store: SignStore, envelopeId: string, position:
 }
 
 /** The sender's own steps in /fd-sign/new: started, left partway, sent. */
-export async function senderStep(name: string | null, email: string | null, step: "started" | "left" | "sent", detail: { step?: number; label?: string; signers?: number; pages?: number | null } = {}): Promise<void> {
+export async function senderStep(
+  name: string | null,
+  email: string | null,
+  step: "started" | "left" | "sent",
+  detail: { step?: number; label?: string; signers?: number; pages?: number | null; reason?: SignExitReason | null; rating?: number | null; comment?: string | null } = {},
+): Promise<void> {
   const who = WHO(name, email);
+  /* 0233: the "Before you go" answer, when they gave one (the same lines as drafting's) */
+  const said = step === "left" && (detail.reason || detail.rating || detail.comment);
+  const feedback = said
+    ? `\nReason: ${detail.reason ? signExitLabel(detail.reason) : "not given"} · Rating: ${detail.rating ? `${"★".repeat(detail.rating)}${"☆".repeat(5 - detail.rating)} (${detail.rating}/5)` : "not given"}` +
+      (detail.comment ? `\n"${detail.comment}"` : "")
+    : "";
   const text =
     step === "started"
       ? `🖊️ FD Sign · ${who} started a signing request (step 1 · Document)`
       : step === "left"
-        ? `⏸ FD Sign · ${who} left at step ${detail.step ?? "?"} · ${detail.label ?? "?"}, nothing sent yet`
+        ? `⏸ FD Sign · ${who} left at step ${detail.step ?? "?"} · ${detail.label ?? "?"}, nothing sent yet${feedback}`
         : `📤 FD Sign · ${who} sent a signing request to ${detail.signers ?? "?"} signer${detail.signers === 1 ? "" : "s"}${detail.pages ? ` (${detail.pages} pages)` : ""}`;
   await activity(text, email);
+}
+
+/* 0233: a download of a request's PDF, by the sender, a signer (their link) or someone sent a copy.
+   Own requests only (FD's own ESOP certificates have no owner); never the title, the file or names. */
+const downloads = new Map<string, number>();
+export async function downloadStep(store: SignStore, envelopeId: string, by: { kind: "sender" } | { kind: "signer"; position: number } | { kind: "copy" }, signed: boolean): Promise<void> {
+  const key = `${envelopeId}:${by.kind}:${by.kind === "signer" ? by.position : ""}`;
+  const now = Date.now();
+  if ((downloads.get(key) ?? 0) > now - 60_000) return; // one line a minute per person and document
+  downloads.set(key, now);
+  if (downloads.size > 5000) downloads.clear();
+  const o = await store.ownerOf(envelopeId).catch(() => null);
+  if (!o?.owner_email) return;
+  const what = signed ? "the signed copy" : "the document";
+  let text: string;
+  if (by.kind === "sender") text = `⬇️ FD Sign · ${WHO(o.owner_name, o.owner_email)} downloaded ${what} of their request`;
+  else {
+    const n = (await store.signers(envelopeId).catch(() => [])).length;
+    const whoDl = by.kind === "signer" ? (n > 1 ? `signer ${by.position} of ${n}` : "the signer") : "someone sent a copy";
+    text = `⬇️ FD Sign · ${WHO(o.owner_name, o.owner_email)}'s request · ${whoDl} downloaded ${what}`;
+  }
+  await activity(text, o.owner_email);
 }

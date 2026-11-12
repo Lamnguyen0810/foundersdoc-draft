@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { clearHandoff, peekHandoff } from "./handoff";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CHANNEL_TEXT, normalisePhone, type CodeChannel } from "@/lib/sign/phone-format";
 import BoxEditor from "../admin/sign/BoxEditor";
 import { openPdf, readPdf, type PdfInfo } from "../sign/PdfPages";
@@ -11,6 +11,7 @@ import { autoPlace, boxId, colour, type Box, type BoxKind } from "@/lib/sign/box
 import type { DraftBlock } from "@/lib/sign/draft-pdf";
 import { Ic, SignCredits, signLeft, useList, type SignAllowanceView } from "./ui";
 import PageEditor, { type EditSummary } from "./PageEditor";
+import ExitAsk, { type ExitAnswer } from "./ExitAsk";
 
 /* New signing request, in 4 steps: Document → People → Fields → Review and send.
    Signers sign in the order listed; each gets an email when it's their turn and
@@ -196,6 +197,15 @@ export default function Wizard({
     setBoxes([]);
     setPlaced(false);
   }
+
+  /* 0233: "Before you go", like drafting: their answer rides on the "left" line */
+  const askable = useCallback(() => progress.current.started && !progress.current.sent && !progress.current.left, []);
+  const leftWith = useCallback((a: ExitAnswer) => {
+    const p = progress.current;
+    if (!p.started || p.sent || p.left) return;
+    p.left = true;
+    void fetch("/api/fd-sign/progress", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "left", step: p.step, ...a }), keepalive: true }).catch(() => undefined);
+  }, []);
 
   /* 0221: started = a document is in; left = the page closes before sending */
   useEffect(() => {
@@ -424,6 +434,7 @@ export default function Wizard({
 
   return (
     <div className="fds wiz">
+      <ExitAsk canAsk={askable} step={step} onLeave={leftWith} />
       <div className="fds-wtop">
         <div className="l">
           <Link className="x" href="/fd-sign" aria-label="Close">

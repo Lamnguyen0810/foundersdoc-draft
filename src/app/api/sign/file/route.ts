@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { signStore } from "@/lib/sign/store";
-import { signedPdf, tokenCanSee } from "@/lib/sign/service";
+import { hashToken, signedPdf, tokenCanSee } from "@/lib/sign/service";
+import { downloadStep } from "@/lib/sign/slack";
 import { adminEmail } from "@/lib/sign/http";
 import { signAccount } from "@/lib/sign/account";
 import type { SignStore } from "@/lib/sign/store";
@@ -21,7 +22,8 @@ export async function GET(req: NextRequest) {
   const envelopeId = q.get("e") ?? "";
   const token = q.get("t") ?? "";
   /* a signer (their link), a Founders Doc admin, or the account that sent it (FD Sign for everyone, SQL 119) */
-  const allowed = token ? await tokenCanSee(store, token, envelopeId) : Boolean(await adminEmail()) || (await isOwner(store, envelopeId));
+  const owner = token ? false : await isOwner(store, envelopeId);
+  const allowed = token ? await tokenCanSee(store, token, envelopeId) : owner || Boolean(await adminEmail());
   if (!allowed) return NextResponse.json({ error: "Not found." }, { status: 404 });
   const env = await store.envelope(envelopeId);
   if (!env) return NextResponse.json({ error: "Not found." }, { status: 404 });
@@ -29,6 +31,17 @@ export async function GET(req: NextRequest) {
   const docOnly = wantSigned && q.get("doc") === "1";
   const bytes = wantSigned ? await signedPdf(store, envelopeId, { audit: !docOnly, origin: req.nextUrl.origin }) : await store.original(envelopeId);
   if (!bytes) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  /* 0233: a download (not a preview) tells #fdai-signing who took a copy; after the answer, so it never slows the file */
+  if (q.get("download") === "1" && (token || owner)) {
+    after(async () => {
+      let by: Parameters<typeof downloadStep>[2] = { kind: "sender" };
+      if (token) {
+        const mine = (await store.signersByToken(hashToken(token)).catch(() => [])).find((m) => m.envelope_id === envelopeId);
+        by = mine ? { kind: "signer", position: mine.position } : { kind: "copy" };
+      }
+      await downloadStep(store, envelopeId, by, wantSigned).catch(() => undefined);
+    });
+  }
   const name = `${wantSigned ? (env.status === "completed" ? "Signed - " : "In progress - ") : ""}${env.title}${docOnly ? "" : wantSigned ? " (with audit trail)" : ""}`.replace(/[^\w .()-]+/g, "_").slice(0, 120) + ".pdf";
   return new NextResponse(Buffer.from(bytes), {
     headers: {
