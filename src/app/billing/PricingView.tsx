@@ -320,9 +320,6 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
               <h2>FD Sign plans</h2>
               <p>E-signature on its own, at half DocuSign&rsquo;s price with more requests. FD AI memberships include FD Sign too; if you have both, the bigger allowance counts.</p>
             </div>
-            {!signLive && (
-              <div className="banner warn" style={{ marginBottom: 18 }}><div><strong>Admin preview.</strong><span>Only admins see these plans until FD_SIGN_PRICING=on. A purchase here is real: cancel it from &ldquo;Manage plan&rdquo; after testing.</span></div></div>
-            )}
             <div className="shell soft">
               <div className="card-grid three-up">
                 {catalogue.signPlans.map((p) => {
