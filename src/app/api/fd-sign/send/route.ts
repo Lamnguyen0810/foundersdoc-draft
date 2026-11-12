@@ -7,6 +7,7 @@ import { codeRequired } from "@/lib/sign/code";
 import { dailyLimit, startOfDaySgt } from "@/lib/sign/account";
 import { NEW_FIELD_KINDS } from "@/lib/sign/store";
 import { ctx, fail, UUID } from "../common";
+import { senderStep } from "@/lib/sign/slack";
 
 /**
  * POST /api/fd-sign/send — anyone with an FD AI account sends their own PDF for signing.
@@ -97,6 +98,8 @@ export async function POST(req: NextRequest) {
       owner: { id: me.id, email: me.email, name: senderName, folderId },
     });
     const first = res.links[0];
+    /* 0221: "📤 <name> sent a signing request to N signers" (no title or names) */
+    await senderStep(senderName, me.email, "sent", { signers: signers.length }).catch(() => undefined);
     return NextResponse.json({
       ok: true,
       id: res.envelopeIds[0],

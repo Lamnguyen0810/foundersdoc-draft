@@ -4,7 +4,7 @@ import { buildSignedPdf, pageCount, sha256 } from "./pdf";
 import { autoFields } from "./place";
 import { signFonts } from "./certificate";
 import { notify } from "./notify";
-import { slack, what } from "./slack";
+import { signerStep, slack, what } from "./slack";
 import type { Envelope, SignField, SignStore, Signer } from "./store";
 import { cleanText, signerSize } from "./fields";
 
@@ -208,6 +208,7 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
     if (who && !me.viewed_at && me.status !== "signed") {
       await store.updateSigner(me.id, { viewed_at: new Date().toISOString() });
       await store.addEvent({ envelope_id: env.id, signer_id: me.id, event: "viewed", ip: who.ip, user_agent: who.ua, detail: null });
+      await signerStep(store, env.id, me.position, "opened"); // 0221: own requests, no title or names
     }
   }
   const first = mine[0];
@@ -325,6 +326,7 @@ export async function submitSignature(
   const signedTitles: string[] = [];
   for (const m of open) signedTitles.push((await store.envelope(m.envelope_id))?.title ?? "Document");
   await slack(store, open.map((m) => m.envelope_id), `✅ *${open[0].name}* (${open[0].role}) signed ${what(signedTitles)}`);
+  for (const m of open) await signerStep(store, m.envelope_id, m.position, "signed"); // 0221
   /* finish the documents everyone has now signed (after the "signed" update, so Slack reads in order) */
   for (const id of toComplete) {
     await complete(store, id, input.origin, input.who, { token: input.token, ids: new Set(open.map((o) => o.id)) });
@@ -340,6 +342,7 @@ export async function submitSignature(
 async function complete(store: SignStore, envelopeId: string, origin: string, who: Who, current: { token: string; ids: Set<string> }) {
   const at = new Date().toISOString();
   await store.updateEnvelope(envelopeId, { status: "completed", completed_at: at });
+  await signerStep(store, envelopeId, 0, "completed"); // 0221
   await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "completed", ip: who.ip, user_agent: who.ua, detail: null });
   const env = (await store.envelope(envelopeId))!;
   if (env.esop_holder_id) {

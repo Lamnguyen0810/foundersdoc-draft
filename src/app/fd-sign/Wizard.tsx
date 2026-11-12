@@ -52,6 +52,11 @@ export default function Wizard() {
   const [draftBusy, setDraftBusy] = useState("");
   const { data, reload } = useList();
   const [step, setStep] = useState(1);
+  /* 0221: tell Founders Doc when someone starts a request and, if they leave, at which step (no title or file is sent) */
+  const progress = useRef({ started: false, sent: false, left: false, step: 1 });
+  useEffect(() => {
+    progress.current.step = step;
+  }, [step]);
   /* 0205: the furthest step reached, so the bar can jump back and forward again
      to any step already opened (each jump still checks the steps before it) */
   const [reached, setReached] = useState(1);
@@ -166,6 +171,27 @@ export default function Wizard() {
     setBoxes([]);
     setPlaced(false);
   }
+
+  /* 0221: started = a document is in; left = the page closes before sending */
+  useEffect(() => {
+    if (!file || progress.current.started) return;
+    progress.current.started = true;
+    void fetch("/api/fd-sign/progress", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "started", step: 1 }), keepalive: true }).catch(() => undefined);
+  }, [file]);
+  useEffect(() => {
+    const leave = () => {
+      const p = progress.current;
+      if (!p.started || p.sent || p.left) return;
+      p.left = true;
+      const body = new Blob([JSON.stringify({ kind: "left", step: p.step })], { type: "application/json" });
+      if (!navigator.sendBeacon?.("/api/fd-sign/progress", body)) void fetch("/api/fd-sign/progress", { method: "POST", body, keepalive: true }).catch(() => undefined);
+    };
+    window.addEventListener("pagehide", leave);
+    return () => {
+      window.removeEventListener("pagehide", leave);
+      leave(); // leaving for another page inside the app
+    };
+  }, []);
 
   /* people */
   const setP = (k: string, patch: Partial<Person>) => setPeople((l) => l.map((p) => (p.key === k ? { ...p, ...patch } : p)));
@@ -338,6 +364,7 @@ export default function Wizard() {
       } catch {
         /* preview only */
       }
+      progress.current.sent = true;
       router.push(`/fd-sign/d/${j.id}?sent=${encodeURIComponent(j.emailedTo || signers[0].name)}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not send.");

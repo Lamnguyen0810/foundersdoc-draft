@@ -3,6 +3,7 @@ import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto
 import { hashToken, isTokenShape, SignError, type Who } from "./service";
 import { isHookConfigured, notify } from "./notify";
 import type { SignCode, SignStore } from "./store";
+import { signerStep } from "./slack";
 
 /**
  * Email code before signing (SQL 114). The signer asks for a 6-digit code,
@@ -107,7 +108,10 @@ export async function verifyCode(store: SignStore, token: string, code: string, 
   }
   const secret = randomBytes(32).toString("base64url");
   await store.putCode({ ...row, code_hash: null, tries: 0, session_hash: sha(secret), verified_at: new Date().toISOString() });
-  for (const r of rows.filter((x) => x.status === "invited")) await store.addEvent({ envelope_id: r.envelope_id, signer_id: r.id, event: "code_verified", ip: who.ip, user_agent: who.ua, detail: maskEmail(r.email) });
+  for (const r of rows.filter((x) => x.status === "invited")) {
+    await store.addEvent({ envelope_id: r.envelope_id, signer_id: r.id, event: "code_verified", ip: who.ip, user_agent: who.ua, detail: maskEmail(r.email) });
+    await signerStep(store, r.envelope_id, r.position, "code"); // 0221
+  }
   return secret;
 }
 
