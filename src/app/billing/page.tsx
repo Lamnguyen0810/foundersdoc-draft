@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { getUser, createClient } from "@/lib/supabase/server";
+import { getUser, createClient, isAdmin } from "@/lib/supabase/server";
+import { phoneChannels } from "@/lib/sign/phone";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getWallet } from "@/lib/billing/credits";
 import { pricedCatalogue } from "@/lib/billing/prices";
@@ -94,6 +95,8 @@ export default async function BillingPage({
       trialLive={trialLive}
       signLive={signPricingLive()}
       signTier={signTier}
+      codeChannels={phoneChannels()}
+      signPreview={!signPricingLive() && (await isAdmin())}
       notices={{ paid, cancelled, joined, resumed, changed, signplan }}
       invoices={invoices}
     />

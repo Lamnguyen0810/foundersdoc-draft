@@ -41,7 +41,7 @@ export const PRODUCTS: Record<"sign" | "esop", Product> = {
     kicker: "FD Sign · e-signature",
     title: SIGN_PAID ? "E-Signature at Half DocuSign's Price | FD Sign" : "Free E-Signature for Singapore Businesses | FD Sign",
     description: SIGN_PAID
-      ? "Send PDF or Word files for e-signature at half DocuSign's price. Signers need no account: a private link, an email, WhatsApp or SMS code, an audit trail."
+      ? "Send PDF or Word files for e-signature at half DocuSign's price. Signers need no account: a private link, a one-time code, an audit trail."
       : "Send PDF or Word files for e-signature in minutes. Signers need no account: a private link, an email code and an audit trail. By Founders Doc. Start free.",
     h1: "Sign documents online with FD Sign",
     lead: "Upload a contract, add who signs and in what order, and send. Each person signs on their phone or computer, and everyone gets the signed copy, with a full audit trail.",
