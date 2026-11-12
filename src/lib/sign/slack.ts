@@ -78,12 +78,17 @@ export const what = (titles: string[]) => (titles.length === 1 ? titles[0] : `${
    People's own requests stay private (SQL 119): these lines never carry the document title,
    the file, or the signers' names or emails: only the sender's account name and the step.
    They go to their own channel, FD_SIGN_SLACK_CHANNEL (a Slack channel ID, through the same
-   Zap as SIGN_SLACK_HOOK_URL). Not set = nothing is posted. The team's test accounts are skipped. */
+   Zap as SIGN_SLACK_HOOK_URL); 0232: #fdai-signing unless set, "off" = nothing is posted. The team's test accounts are skipped. */
 
 export type SignStep = "started" | "left" | "sent" | "opened" | "code" | "signed" | "completed" | "stalled";
 
+/** 0232: #fdai-signing by default (a channel ID, not a secret); FD_SIGN_SLACK_CHANNEL in Vercel overrides it, "off" stops the lines. */
+const DEFAULT_ACTIVITY_CHANNEL = "C0BGDGZLTFG";
+
 export function activityChannel(): string {
-  return process.env.FD_SIGN_SLACK_CHANNEL?.trim() ?? "";
+  const v = process.env.FD_SIGN_SLACK_CHANNEL?.trim() ?? "";
+  if (v.toLowerCase() === "off") return "";
+  return v || DEFAULT_ACTIVITY_CHANNEL;
 }
 
 export async function activity(text: string, senderEmail?: string | null): Promise<void> {
