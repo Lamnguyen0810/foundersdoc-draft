@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
-import { Av, counts, day, Head, Ic, Pill, Side, signNow, useList, when, type View } from "./ui";
+import { Av, counts, day, Head, Ic, Pill, Side, SignCredits, signNow, useList, when, type View } from "./ui";
 
 /* My documents: every request I sent, sorted by status and folder, plus other
    people's requests waiting for my signature. */
@@ -68,6 +68,12 @@ export default function Home() {
       <div className="fds-shell">
         <Side data={data} view={view} onView={setView} onFolders={reload} />
         <main className="fds-main">
+          {/* 0229: on a phone the sidebar's counter is hidden, so it shows here */}
+          {data?.plan?.live && (
+            <div className="fds-cred-mob">
+              <SignCredits a={{ label: data.plan.label, used: data.today, limit: data.limit, per: data.plan.per }} />
+            </div>
+          )}
           {err && <div className="fds-err">{err}</div>}
           {msg && (
             <div className="fds-err" style={msgOk ? { background: "var(--fds-green-soft)", color: "var(--fds-green-tx)" } : undefined}>

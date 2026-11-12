@@ -1,7 +1,7 @@
 import "server-only";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
-import { FAIR_USE, SIGN_ONLY, SIGN_PLANS, biggerPlan, signPricingOn, type SignTier } from "@/lib/billing/sign-plans";
+import { FAIR_USE, FREE_SIGN, SIGN_ONLY, SIGN_PLANS, biggerPlan, signPricingOn, type SignTier } from "@/lib/billing/sign-plans";
 import { dailyLimit, startOfDaySgt, startOfMonthSgt, type SignAccount } from "./account";
 import type { SignStore } from "./store";
 
@@ -17,8 +17,8 @@ export interface Allowance {
   live: boolean;
   tier: SignTier;
   label: string;
-  /** "day" (Beta) or "month" (plans) */
-  per: "day" | "month";
+  /** "day" (Beta), "month" (a plan: FD Sign or FD AI membership) or "free" (no plan: the first FREE_SIGN, ever) */
+  per: "day" | "month" | "free";
   used: number;
   /** null = no limit (Unlimited: FAIR_USE behind the scenes); 0 = no plan */
   limit: number | null;
@@ -44,6 +44,10 @@ export async function allowance(me: SignAccount, store: SignStore): Promise<Allo
     return { live: false, tier: "none", label: "Beta", per: "day", used: await store.sentSince(me.id, startOfDaySgt()), limit: dailyLimit() };
   }
   const tier = await tierOf(me.id);
+  /* 0229: no plan yet = the first FREE_SIGN requests are free, counted over the whole account */
+  if (tier === "none") {
+    return { live: true, tier, label: "Free", per: "free", used: await store.sentSince(me.id, new Date(0).toISOString()), limit: FREE_SIGN };
+  }
   const plan = SIGN_PLANS[tier];
   return { live: true, tier, label: plan.label, per: "month", used: await store.sentSince(me.id, startOfMonthSgt()), limit: plan.requests };
 }
@@ -51,6 +55,7 @@ export async function allowance(me: SignAccount, store: SignStore): Promise<Allo
 /** null = may send; otherwise the message to show. The signing code (email, WhatsApp or SMS) is part of the request. */
 export function blockReason(a: Allowance): string | null {
   if (a.live && a.limit === 0) return "FD Sign is part of the paid plans. Choose a plan to send documents for signing.";
+  if (a.per === "free" && a.used >= (a.limit ?? 0)) return `You've used your ${a.limit} free signing requests. Choose a plan to keep sending.`;
   const cap = a.limit ?? FAIR_USE;
   if (a.used < cap) return null;
   if (!a.live) return `You've sent ${a.limit} requests today, the most for now while FD Sign is free. Please try again tomorrow.`;

@@ -7,7 +7,7 @@ import PricingMotion from "./PricingMotion";
 import "./pricing.css";
 /* Loaded after, deliberately: it overrides the generated stylesheet. */
 import "./pricing-brand.css";
-import { SIGN_PLANS, codeText, requestsText, type SignTier } from "@/lib/billing/sign-plans";
+import { FREE_SIGN, SIGN_PLANS, codeText, requestsText, type SignTier } from "@/lib/billing/sign-plans";
 
 /**
  * The pricing page itself, for two audiences:
@@ -126,7 +126,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
             <div className="banner ok"><div><strong>Welcome to FD AI.</strong><span>Your membership is active. This month&rsquo;s documents land on your account within a few seconds — reload if the number above has not moved yet.</span></div></div>
           )}
           {signplan && (
-            <div className="banner ok"><div><strong>Your FD Sign plan is active.</strong><span>Your monthly signing requests are ready. If the send page still shows the old limit, reload in a moment.</span></div></div>
+            <div className="banner ok"><div><strong>Your FD Sign plan is active.</strong><span>Your monthly signing requests are ready. If you were sending a document, go back to that tab: it updates by itself. <a href="/fd-sign/new">Start a new request ›</a></span></div></div>
           )}
           {paid && (
             <div className="banner ok"><div><strong>Payment received.</strong><span>Your documents are on your account. If the number above has not moved yet, reload in a moment.</span></div></div>
@@ -318,11 +318,8 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
             <div className="section-head">
               <div className="section-kicker">FD Sign</div>
               <h2>FD Sign plans</h2>
-              <p>E-signature on its own, at half DocuSign&rsquo;s price with more requests. FD AI memberships include FD Sign too; if you have both, the bigger allowance counts.</p>
+              <p>Your first {FREE_SIGN} signing requests are free. Then e-signature on its own, at half DocuSign&rsquo;s price with more requests. FD AI memberships include FD Sign too; if you have both, the bigger allowance counts.</p>
             </div>
-            {!signLive && (
-              <div className="banner warn" style={{ marginBottom: 18 }}><div><strong>Admin preview.</strong><span>Only admins see these plans until FD_SIGN_PRICING=on. A purchase here is real: cancel it from &ldquo;Manage plan&rdquo; after testing.</span></div></div>
-            )}
             <div className="shell soft">
               <div className="card-grid three-up">
                 {catalogue.signPlans.map((p) => {

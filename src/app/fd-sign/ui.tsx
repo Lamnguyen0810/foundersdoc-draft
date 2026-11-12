@@ -106,7 +106,62 @@ export interface ListData {
   /** null = no limit (Unlimited plan) */
   limit: number | null;
   /** 0223: the FD Sign plan (lib/billing/sign-plans.ts); live = false while FD Sign is free (Beta) */
-  plan?: { live: boolean; label: string; per: "day" | "month" };
+  plan?: { live: boolean; label: string; per: "day" | "month" | "free" };
+}
+
+/** 0229: what a sender may still send, the way FD AI shows credits. live plans only (FD_SIGN_PRICING=on). */
+export interface SignAllowanceView {
+  label: string;
+  used: number;
+  /** null = no limit (Unlimited) */
+  limit: number | null;
+  per: "day" | "month" | "free";
+}
+
+export function signLeft(a: SignAllowanceView): number | null {
+  return a.limit === null ? null : Math.max(0, a.limit - a.used);
+}
+
+/**
+ * The signing-requests counter (0229): one small line, like FD AI's credits.
+ *   free (no plan):  ✎ 3 free signing requests left · See plans ›
+ *   a plan / FD AI:  ✎ 45 of 60 signing requests left · FD AI Pro · Upgrade ›
+ *   Unlimited:       ✎ Unlimited signing requests · FD AI Unlimited
+ * newTab: the plans open in a new tab, so a request being made isn't lost.
+ */
+export function SignCredits({ a, newTab = false, side = false }: { a: SignAllowanceView; newTab?: boolean; side?: boolean }) {
+  const left = signLeft(a);
+  const out = left === 0;
+  const free = a.per === "free";
+  const s = (n: number) => (n === 1 ? "" : "s");
+  const text =
+    left === null ? (
+      <>Unlimited signing requests · {a.label}</>
+    ) : out ? (
+      free ? <>Free signing requests used</> : <>No signing requests left this month</>
+    ) : free ? (
+      <>
+        <b>{left}</b> free signing request{s(left)} left
+      </>
+    ) : (
+      <>
+        <b>{left}</b> of {a.limit} signing requests left · {a.label}
+      </>
+    );
+  const link = left === null ? null : free ? (out ? "Choose a plan" : "See plans") : "Upgrade";
+  return (
+    <div className={`fds-cred${out ? " out" : ""}${side ? " side" : ""}`} role="status">
+      <span className="fds-cred-ic" aria-hidden="true">
+        <Ic n="pen" s={12} w={2} />
+      </span>
+      <span className="fds-cred-t">{text}</span>
+      {link && (
+        <a className="fds-cred-a" href={a.label.startsWith("FD AI") ? "/billing#memberships" : "/billing#fd-sign"} {...(newTab ? { target: "_blank", rel: "noopener" } : {})}>
+          {link} ›
+        </a>
+      )}
+    </div>
+  );
 }
 
 export function useList() {
@@ -159,7 +214,7 @@ export function Head({ q, onQ, tab = "docs" }: { q?: string; onQ?: (v: string) =
   return (
     <div className="fds-head">
       <Link href="/fd-sign" className="fds-brand">
-        <i>FD</i>FD Sign <span className="fds-beta">Beta</span>
+        <i>FD</i>FD Sign
       </Link>
       {/* 0201: the signing-ready check is its own tab (Rachel, 6 Nov) */}
       <nav className="fds-tabs2" aria-label="FD Sign">
@@ -243,6 +298,9 @@ export function Side({ data, view, onView, onFolders }: { data: ListData | null;
         </button>
       )}
       {err && <div className="fds-err">{err}</div>}
+      {plan?.live ? (
+        <SignCredits side a={{ label: plan.label, used: data?.today ?? 0, limit, per: plan.per }} />
+      ) : (
       <div className="fds-quota">
         <b>{plan?.live ? (limit === 0 ? "No FD Sign plan yet" : plan.label) : "Free during Beta"}</b>
         <small>
@@ -264,6 +322,7 @@ export function Side({ data, view, onView, onFolders }: { data: ListData | null;
           </a>
         )}
       </div>
+      )}
     </aside>
   );
 }

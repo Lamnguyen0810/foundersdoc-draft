@@ -20,7 +20,7 @@ export default async function NewRequestPage() {
     <Suspense>
       <Wizard
         channels={channels}
-        plan={a?.live ? { label: a.label, used: a.used, limit: a.limit } : null}
+        plan={a?.live ? { label: a.label, used: a.used, limit: a.limit, per: a.per } : null}
       />
     </Suspense>
   );

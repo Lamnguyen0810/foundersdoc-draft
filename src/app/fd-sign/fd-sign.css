@@ -641,3 +641,18 @@ html[data-theme="dark"] .fck-note b { color: #f3bf4b; }
 .fds-up { display: inline-block; margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--fds-gold-deep, #8a6410); text-decoration: underline; text-underline-offset: 3px; }
 .fds-plan { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--fds-line); border-radius: 10px; background: var(--fds-card); font-size: 13px; }
 .fds-plan a { font-weight: 600; color: inherit; }
+
+/* 0229: the signing-requests counter: one small line, like FD AI's credits */
+.fds-cred { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; margin: 0 0 14px; padding: 4px 12px 4px 4px; border: 1px solid var(--fds-line); border-radius: 999px; background: var(--fds-card); font-size: 12.5px; line-height: 1.35; color: var(--fds-tx2, inherit); }
+.fds-cred-ic { width: 22px; height: 22px; flex: none; display: grid; place-items: center; border-radius: 50%; color: var(--fds-gold-deep, #8a6410); background: color-mix(in srgb, var(--fds-gold) 22%, transparent); }
+.fds-cred-t b { font-weight: 700; color: var(--fds-tx, inherit); font-variant-numeric: tabular-nums; }
+.fds-cred-a { flex: none; font-weight: 600; color: var(--fds-gold-deep, #8a6410); text-decoration: none; white-space: nowrap; }
+.fds-cred-a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.fds-cred.out { border-color: color-mix(in srgb, var(--fds-gold) 60%, var(--fds-line)); background: color-mix(in srgb, var(--fds-gold) 8%, var(--fds-card)); }
+/* My documents sidebar: under the folders, one short block that wraps like text */
+.fds-cred.side { display: block; margin: 14px 0 0; padding: 9px 12px; border-radius: 12px; background: var(--fds-bg); }
+.fds-cred.side .fds-cred-ic { display: none; }
+.fds-cred.side .fds-cred-a { margin-left: 6px; }
+@media (max-width: 760px) { .fds-cred.side { display: none; } }
+.fds-cred-mob { display: none; }
+@media (max-width: 760px) { .fds-cred-mob { display: block; } }

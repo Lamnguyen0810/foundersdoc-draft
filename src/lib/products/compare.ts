@@ -1,6 +1,6 @@
 import type { Faq } from "@/lib/templates/data";
 import { draftHref } from "@/lib/doc-links";
-import { SIGN_PLANS, signPriceRows, signPricingOn } from "@/lib/billing/sign-plans";
+import { FREE_SIGN, SIGN_PLANS, signPriceRows, signPricingOn } from "@/lib/billing/sign-plans";
 
 /**
  * ⭐ ONE COMPARISON PAGE (0226, replaces 0220's three): /e-signature/docusign-alternatives.
@@ -166,7 +166,7 @@ export const CHOOSE: { label: string; text: string }[] = [
 ];
 
 const PRICE_ANSWER = LIVE
-  ? `FD Sign plans start at S$${(SIGN_PLANS.sign_personal.amountCents! / 100).toFixed(2)} a month: half of DocuSign's price, with more requests. FD AI memberships include it too.`
+  ? `Your first ${FREE_SIGN} signing requests are free. After that, FD Sign plans start at S$${(SIGN_PLANS.sign_personal.amountCents! / 100).toFixed(2)} a month: half of DocuSign's price, with more requests. FD AI memberships include it too.`
   : "FD Sign is free with an FD AI account while it is in its launch phase, up to 20 signing requests a day.";
 
 export const FAQS: Faq[] = [
