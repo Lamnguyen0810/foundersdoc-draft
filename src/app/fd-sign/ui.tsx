@@ -106,7 +106,7 @@ export interface ListData {
   /** null = no limit (Unlimited plan) */
   limit: number | null;
   /** 0223: the FD Sign plan (lib/billing/sign-plans.ts); live = false while FD Sign is free (Beta) */
-  plan?: { live: boolean; label: string; per: "day" | "month"; phoneUsed: number; phoneLimit: number | null };
+  plan?: { live: boolean; label: string; per: "day" | "month" };
 }
 
 export function useList() {
@@ -244,19 +244,23 @@ export function Side({ data, view, onView, onFolders }: { data: ListData | null;
       )}
       {err && <div className="fds-err">{err}</div>}
       <div className="fds-quota">
-        <b>{plan?.live ? `${plan.label} plan` : "Free during Beta"}</b>
+        <b>{plan?.live ? (limit === 0 ? "No FD Sign plan yet" : plan.label) : "Free during Beta"}</b>
         <small>
-          {limit === null ? `${data?.today ?? 0} requests sent this month` : `${data?.today ?? 0} of ${limit} requests ${plan?.per === "month" ? "this month" : "sent today"}`}
-          {plan?.live && plan.phoneLimit ? ` · ${plan.phoneUsed} of ${plan.phoneLimit} WhatsApp / SMS codes` : ""} · PDF files up to 10 MB
+          {plan?.live && limit === 0
+            ? "FD Sign is part of the paid plans"
+            : limit === null
+              ? `${data?.today ?? 0} requests sent this month`
+              : `${data?.today ?? 0} of ${limit} requests ${plan?.per === "month" ? "this month" : "sent today"}`}
+          {" · PDF files up to 10 MB"}
         </small>
-        {limit !== null && (
+        {limit !== null && limit > 0 && (
           <div className="fds-bar">
             <i style={{ width: `${Math.min(100, ((data?.today ?? 0) / limit) * 100)}%` }} />
           </div>
         )}
-        {plan?.live && plan.label !== "Unlimited" && (
+        {plan?.live && limit !== null && (
           <a className="fds-up" href="/pricing">
-            {plan.label === "Free" ? "Get more with FD AI plans ›" : "Upgrade ›"}
+            {limit === 0 ? "Choose a plan ›" : "Upgrade ›"}
           </a>
         )}
       </div>

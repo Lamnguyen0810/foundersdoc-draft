@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SITE } from "@/lib/seo";
-import { BOTH, FD_SIGN_EXTRAS, PRICES_CHECKED, RIVALS, rivalBySlug } from "@/lib/products/compare";
+import { BOTH, FD_SIGN_EXTRAS, PRICES_CHECKED, RIVALS, SIGN_LIVE, rivalBySlug } from "@/lib/products/compare";
 import { Breadcrumbs, Disclaimer, Faqs, TemplateLd } from "../../templates/parts";
 import TemplateCta from "../../templates/TemplateCta";
 import "../../templates/templates.css";
@@ -51,12 +51,12 @@ export default async function AlternativePage({ params }: { params: Params }) {
           <h1>{r.h1}</h1>
           <p className="tpl-lead">{r.lead}</p>
           <div className="tpl-hero-actions">
-            <TemplateCta href="/fd-sign/new" label="Try FD Sign free" source={`compare:${r.slug}`} />
+            <TemplateCta href="/fd-sign/new" label={SIGN_LIVE ? "Try FD Sign" : "Try FD Sign free"} source={`compare:${r.slug}`} />
             <Link className="tpl-link" href="/e-signature">
               How FD Sign works ›
             </Link>
           </div>
-          <span className="tpl-small">Free with an FD AI account · signers need no account</span>
+          <span className="tpl-small">{SIGN_LIVE ? "Half DocuSign's price · signers need no account" : "Free with an FD AI account · signers need no account"}</span>
         </header>
 
         <section className="tpl-section" aria-labelledby="cmp-price">
@@ -144,11 +144,11 @@ export default async function AlternativePage({ params }: { params: Params }) {
           </ul>
         </section>
 
-        <section className="tpl-band" aria-label="Try FD Sign free">
+        <section className="tpl-band" aria-label={SIGN_LIVE ? "Try FD Sign" : "Try FD Sign free"}>
           <h2>Send your next contract with FD Sign</h2>
-          <p>Free with an FD AI account. A Founders Doc lawyer is one click away if you want the document checked first.</p>
+          <p>{SIGN_LIVE ? "Half DocuSign's price, per account." : "Free with an FD AI account."} A Founders Doc lawyer is one click away if you want the document checked first.</p>
           <div className="tpl-band-actions">
-            <TemplateCta href="/fd-sign/new" label="Try FD Sign free" source={`compare:${r.slug}:end`} />
+            <TemplateCta href="/fd-sign/new" label={SIGN_LIVE ? "Try FD Sign" : "Try FD Sign free"} source={`compare:${r.slug}:end`} />
             <Link className="tpl-link" href="/fd-consult">
               Talk to a lawyer ›
             </Link>

@@ -7,7 +7,7 @@ import PricingMotion from "./PricingMotion";
 import "./pricing.css";
 /* Loaded after, deliberately: it overrides the generated stylesheet. */
 import "./pricing-brand.css";
-import { SIGN_PLANS, phoneText, requestsText, type SignTier } from "@/lib/billing/sign-plans";
+import { CODE_TEXT, SIGN_PLANS, requestsText, type SignTier } from "@/lib/billing/sign-plans";
 
 /**
  * The pricing page itself, for two audiences:
@@ -284,7 +284,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
                       {signLive && m.tier in SIGN_PLANS && (
                         <>
                           <div><b>✓</b><span>FD Sign: {requestsText(SIGN_PLANS[m.tier as SignTier])}</span></div>
-                          <div><b>✓</b><span>{phoneText(SIGN_PLANS[m.tier as SignTier])}</span></div>
+                          <div><b>✓</b><span>{CODE_TEXT}</span></div>
                         </>
                       )}
                     </div>

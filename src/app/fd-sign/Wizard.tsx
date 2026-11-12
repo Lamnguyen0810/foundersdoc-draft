@@ -54,7 +54,7 @@ export default function Wizard({
   plan = null,
 }: {
   channels?: CodeChannel[];
-  plan?: { label: string; used: number; limit: number | null; phoneLeft: number | null; phoneOffered: boolean } | null;
+  plan?: { label: string; used: number; limit: number | null } | null;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -612,13 +612,19 @@ export default function Wizard({
             </div>
             {plan && (
               <p className="fds-plan">
-                <b>{plan.label} plan:</b>{" "}
-                {plan.limit === null ? "unlimited signing requests" : `${Math.max(0, plan.limit - plan.used)} of ${plan.limit} signing requests left this month`}
-                {plan.phoneOffered ? (plan.phoneLeft ? ` · ${plan.phoneLeft} WhatsApp / SMS codes left` : " · WhatsApp / SMS codes come with FD AI memberships") : ""}
-                {plan.label !== "Unlimited" && (
+                {plan.limit === 0 ? (
                   <>
-                    {" · "}
-                    <a href="/pricing">See plans</a>
+                    <b>FD Sign is part of the paid plans.</b> <a href="/pricing">Choose a plan</a> to send this for signing.
+                  </>
+                ) : (
+                  <>
+                    <b>{plan.label}:</b> {plan.limit === null ? "unlimited signing requests" : `${Math.max(0, plan.limit - plan.used)} of ${plan.limit} signing requests left this month`}
+                    {plan.limit !== null && (
+                      <>
+                        {" · "}
+                        <a href="/pricing">See plans</a>
+                      </>
+                    )}
                   </>
                 )}
               </p>

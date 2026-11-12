@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   if (byPhone.some((s) => !offered.includes(s.channel))) return NextResponse.json({ error: "Codes by WhatsApp or SMS aren't switched on right now. Choose email for the code." }, { status: 400 });
   const noPhone = byPhone.find((s) => !s.phone);
   if (noPhone) return NextResponse.json({ error: `${noPhone.name}: add a mobile number with the country code (e.g. +65 9123 4567) for the ${CHANNEL_TEXT[noPhone.channel]} code.` }, { status: 400 });
-  const blocked = blockReason(allow, byPhone.length);
+  const blocked = blockReason(allow);
   if (blocked) return NextResponse.json({ error: blocked, upgrade: allow.live }, { status: 429 });
   if (byPhone.length && !(await store.phoneReady())) return NextResponse.json({ error: "Phone codes are being set up (run supabase/130_fd_sign_phone_codes.sql). Choose email for now." }, { status: 503 });
 

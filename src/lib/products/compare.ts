@@ -4,8 +4,10 @@ import { SIGN_PLANS, signPriceRows } from "@/lib/billing/sign-plans";
 /** 0223: FD Sign's own column follows lib/billing/sign-plans.ts (FD_SIGN_PRICING=on at build time). */
 const LIVE = (process.env.FD_SIGN_PRICING ?? "").trim().toLowerCase() === "on";
 const US = signPriceRows(LIVE);
+/** 0224: paid plans only once FD_SIGN_PRICING=on (exported for the page's buttons) */
+export const SIGN_LIVE = LIVE;
 const FREE_ANSWER = LIVE
-  ? `Yes: every FD AI account can send ${SIGN_PLANS.free.requests} signing requests a month free. FD AI memberships include more (${SIGN_PLANS.basic.requests}, ${SIGN_PLANS.pro.requests} or unlimited), plus WhatsApp / SMS signing codes.`
+  ? `FD Sign plans start at S$${(SIGN_PLANS.sign_personal.amountCents! / 100).toFixed(2)} a month: exactly half of DocuSign's price, with more requests. FD AI memberships include it too.`
   : "Yes, with a free FD AI account. While FD Sign is in its launch phase you can send up to 20 signing requests a day.";
 
 /**
@@ -66,10 +68,12 @@ export const RIVALS: Rival[] = [
     slug: "docusign-alternative",
     name: "DocuSign",
     fullName: "DocuSign",
-    title: "DocuSign Alternative for Singapore — Free | FD Sign",
-    description: "A free DocuSign alternative for Singapore businesses: send PDF or Word files for e-signature. Signers need no account; full audit trail.",
-    h1: "A free DocuSign alternative for small teams",
-    lead: "DocuSign is the best-known name in e-signatures, and it is built for large companies. If you send a few contracts a month and want them signed properly without per-envelope limits to watch, FD Sign does the job for free.",
+    title: LIVE ? "DocuSign Alternative at Half the Price | FD Sign" : "DocuSign Alternative for Singapore — Free | FD Sign",
+    description: LIVE
+      ? "A DocuSign alternative at half the price for Singapore businesses: PDF or Word e-signature, more requests, signers need no account, full audit trail."
+      : "A free DocuSign alternative for Singapore businesses: send PDF or Word files for e-signature. Signers need no account; full audit trail.",
+    h1: LIVE ? "A DocuSign alternative at half the price" : "A free DocuSign alternative for small teams",
+    lead: `DocuSign is the best-known name in e-signatures, and it is built for large companies. If you send a few contracts a month and want them signed properly without per-envelope limits to watch, FD Sign does the job ${LIVE ? "at half the price, with more requests" : "for free"}.`,
     pricingUrl: "https://ecom.docusign.com/plans-and-pricing/esignature",
     prices: [
       ["Free plan", US.free, "No (free trial only)"],
@@ -83,7 +87,7 @@ export const RIVALS: Rival[] = [
       { label: "More than you need", text: "Small teams often only need to upload, place boxes, send and get a signed copy with an audit trail." },
     ],
     faqs: [
-      { q: "Is FD Sign really free?", a: FREE_ANSWER },
+      { q: LIVE ? "How much does FD Sign cost?" : "Is FD Sign really free?", a: FREE_ANSWER },
       { q: "Is an FD Sign e-signature as valid as a DocuSign one?", a: "For most business contracts in Singapore, the Electronic Transactions Act 2010 recognises electronic signatures whichever tool you use. What matters is showing who signed and that they meant to, which FD Sign's email code and audit trail record. A few documents, such as wills, still need a traditional signature." },
       { q: "Can I move my existing contracts over?", a: "There is nothing to move: upload the PDF or Word file you want signed and send it. Keep your DocuSign records where they are." },
       { q: "Do my signers need an account?", a: "No. They get a private link by email, confirm a code and sign on their phone or computer." },
@@ -93,10 +97,12 @@ export const RIVALS: Rival[] = [
     slug: "hellosign-alternative",
     name: "HelloSign",
     fullName: "Dropbox Sign (formerly HelloSign)",
-    title: "HelloSign Alternative (Dropbox Sign) — Free | FD Sign",
-    description: "A free HelloSign (Dropbox Sign) alternative: send PDF or Word files for e-signature. Signers need no account; signed PDF with audit trail.",
-    h1: "A free HelloSign alternative",
-    lead: "HelloSign is now Dropbox Sign. It is simple and well liked, and its paid plans are charged per user. FD Sign covers the same everyday signing for free, with a check that the document is ready before anyone signs.",
+    title: LIVE ? "HelloSign Alternative (Dropbox Sign) | FD Sign" : "HelloSign Alternative (Dropbox Sign) — Free | FD Sign",
+    description: LIVE
+      ? "A HelloSign (Dropbox Sign) alternative priced per account, not per user: PDF or Word e-signature, signed PDF with audit trail."
+      : "A free HelloSign (Dropbox Sign) alternative: send PDF or Word files for e-signature. Signers need no account; signed PDF with audit trail.",
+    h1: LIVE ? "A HelloSign alternative, priced per account" : "A free HelloSign alternative",
+    lead: `HelloSign is now Dropbox Sign. It is simple and well liked, and its paid plans are charged per user. FD Sign covers the same everyday signing ${LIVE ? "with one price per account" : "for free"}, with a check that the document is ready before anyone signs.`,
     pricingUrl: "https://sign.dropbox.com/products/dropbox-sign/pricing",
     prices: [
       ["Free plan", US.free, "Yes (limits on their site)"],
@@ -111,7 +117,7 @@ export const RIVALS: Rival[] = [
     ],
     faqs: [
       { q: "Is HelloSign the same as Dropbox Sign?", a: "Yes. HelloSign was renamed Dropbox Sign after Dropbox bought it." },
-      { q: "Is FD Sign really free?", a: FREE_ANSWER },
+      { q: LIVE ? "How much does FD Sign cost?" : "Is FD Sign really free?", a: FREE_ANSWER },
       { q: "Is an FD Sign e-signature legally valid in Singapore?", a: "For most business contracts, yes: the Electronic Transactions Act 2010 generally recognises electronic signatures. A few documents, such as wills, still need a traditional signature." },
       { q: "Do my signers need an account?", a: "No. They get a private link by email, confirm a code and sign on their phone or computer." },
     ],
@@ -120,10 +126,12 @@ export const RIVALS: Rival[] = [
     slug: "pandadoc-alternative",
     name: "PandaDoc",
     fullName: "PandaDoc",
-    title: "PandaDoc Alternative for E-Signature — Free | FD Sign",
-    description: "A free PandaDoc alternative for signing contracts: upload a PDF or Word file and get a signed PDF with an audit trail. No seats to buy.",
-    h1: "A free PandaDoc alternative for signing",
-    lead: "PandaDoc is a full proposals and documents platform for sales teams. If what you need is to get contracts signed, without seats or a sales workflow, FD Sign does that for free.",
+    title: LIVE ? "PandaDoc Alternative for E-Signature | FD Sign" : "PandaDoc Alternative for E-Signature — Free | FD Sign",
+    description: LIVE
+      ? "A PandaDoc alternative for signing contracts: upload a PDF or Word file, get a signed PDF with an audit trail. One price per account, no seats."
+      : "A free PandaDoc alternative for signing contracts: upload a PDF or Word file and get a signed PDF with an audit trail. No seats to buy.",
+    h1: LIVE ? "A PandaDoc alternative for signing" : "A free PandaDoc alternative for signing",
+    lead: `PandaDoc is a full proposals and documents platform for sales teams. If what you need is to get contracts signed, without seats or a sales workflow, FD Sign does that${LIVE ? ", priced per account" : " for free"}.`,
     pricingUrl: "https://www.pandadoc.com/pricing/",
     prices: [
       ["Free plan", US.free, "Yes, 5 documents a month"],
@@ -137,7 +145,7 @@ export const RIVALS: Rival[] = [
       { label: "Legal documents", text: "FD Sign sits next to FD AI, which drafts NDAs, term sheets and other agreements from Founders Doc's lawyer-written wording." },
     ],
     faqs: [
-      { q: "Is FD Sign really free?", a: FREE_ANSWER },
+      { q: LIVE ? "How much does FD Sign cost?" : "Is FD Sign really free?", a: FREE_ANSWER },
       { q: "Can I make the document in FD Sign?", a: "Draft it with FD AI (NDA, term sheet, employment contract and more), or upload your own PDF or Word file, then send it for signing." },
       { q: "Is an FD Sign e-signature legally valid in Singapore?", a: "For most business contracts, yes: the Electronic Transactions Act 2010 generally recognises electronic signatures. A few documents, such as wills, still need a traditional signature." },
       { q: "Do my signers need an account?", a: "No. They get a private link by email, confirm a code and sign on their phone or computer." },

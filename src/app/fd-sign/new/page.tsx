@@ -15,13 +15,12 @@ export default async function NewRequestPage() {
   /* 0223: this month's plan (FD_SIGN_PRICING=on); off = Beta, nothing shown */
   const store = signStore();
   const a = store === "no-secret-key" ? null : await allowance(me, store).catch(() => null);
-  const phoneLeft = a?.live && a.phoneLimit !== null ? Math.max(0, a.phoneLimit - a.phoneUsed) : null;
   const channels = phoneChannels();
   return (
     <Suspense>
       <Wizard
-        channels={phoneLeft === 0 ? [] : channels}
-        plan={a?.live ? { label: a.label, used: a.used, limit: a.limit, phoneLeft, phoneOffered: channels.length > 0 } : null}
+        channels={channels}
+        plan={a?.live ? { label: a.label, used: a.used, limit: a.limit } : null}
       />
     </Suspense>
   );
