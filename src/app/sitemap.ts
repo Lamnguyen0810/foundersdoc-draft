@@ -4,6 +4,7 @@ import { STATIC_ARTICLES } from "@/lib/blog/html";
 import { publishedCards } from "@/lib/blog/store";
 import { loadDocTypes } from "@/lib/doctypes.server";
 import { PUBLIC_PAGES, SITE } from "@/lib/seo";
+import { RIVALS } from "@/lib/products/compare";
 import { TEMPLATES_UPDATED, templatePaths } from "@/lib/templates/data";
 
 /**
@@ -31,6 +32,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     /* the article list's canonical address ends in "/" (0215) */
     ...PUBLIC_PAGES.map((p) => page(p ? `/${p}${p === "resources/all" ? "/" : ""}` : "", p ? 0.6 : 1)),
     page("/draft", 0.9),
+    /* 0220: FD Sign compared with DocuSign, HelloSign, PandaDoc */
+    ...RIVALS.map((r) => page(`/e-signature/${r.slug}`, 0.6)),
     ...docs.map((d) => page(draftHref(d.slug), d.slug === "nda" ? 0.9 : 0.8)),
     ...templatePaths().map((p) => page(p, p.split("/").length > 3 ? 0.8 : 0.7, TEMPLATES_UPDATED)),
     ...STATIC_ARTICLES.map((a) => page(`/resources/${a.slug}`, 0.7)),

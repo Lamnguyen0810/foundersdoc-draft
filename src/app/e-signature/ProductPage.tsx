@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { SITE, ORGANIZATION, ldJson } from "@/lib/seo";
 import type { Product } from "@/lib/products/data";
+import { RIVALS } from "@/lib/products/compare";
 import { Breadcrumbs, Disclaimer, Faqs, MoreTemplates, TemplateLd } from "../templates/parts";
 import TemplateCta from "../templates/TemplateCta";
 import "../templates/templates.css";
@@ -94,6 +95,19 @@ export default function ProductPage({ p }: { p: Product }) {
         </section>
 
         <Faqs items={p.faqs} />
+
+        {p.slug === "e-signature" && (
+          <section className="tpl-section" aria-labelledby="pp-compare">
+            <h2 id="pp-compare">Compare FD Sign</h2>
+            <ul className="tpl-chips">
+              {RIVALS.map((r) => (
+                <li key={r.slug}>
+                  <Link href={`/e-signature/${r.slug}`}>FD Sign vs {r.name}</Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="tpl-section" aria-labelledby="pp-related">
           <h2 id="pp-related">Also from Founders Doc</h2>
