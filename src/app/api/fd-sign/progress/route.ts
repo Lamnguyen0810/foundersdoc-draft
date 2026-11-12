@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { senderStep } from "@/lib/sign/slack";
+import { isSignExitReason } from "@/lib/sign/exit";
 import { ctx } from "../common";
 
 /**
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
   const c = await ctx();
   if (c instanceof NextResponse) return c;
   const { me } = c;
-  const b = (await req.json().catch(() => ({}))) as { kind?: unknown; step?: unknown };
+  const b = (await req.json().catch(() => ({}))) as { kind?: unknown; step?: unknown; reason?: unknown; rating?: unknown; comment?: unknown };
   const kind = b.kind === "started" || b.kind === "left" ? b.kind : null;
   const step = Number(b.step);
   if (!kind) return NextResponse.json({ error: "Bad request." }, { status: 400 });
@@ -31,6 +32,15 @@ export async function POST(req: NextRequest) {
   last.set(key, now);
   if (last.size > 5000) last.clear();
   const s = Number.isInteger(step) && step >= 1 && step <= STEPS.length ? step : 1;
-  await senderStep(me.name, me.email, kind, { step: s, label: STEPS[s - 1] });
+  /* 0233: the "Before you go" answer, if any, rides on the "left" line */
+  const rating = Number(b.rating);
+  const comment = typeof b.comment === "string" ? b.comment.replace(/\s+/g, " ").trim().slice(0, 300) : "";
+  await senderStep(me.name, me.email, kind, {
+    step: s,
+    label: STEPS[s - 1],
+    ...(kind === "left"
+      ? { reason: isSignExitReason(b.reason) ? b.reason : null, rating: Number.isInteger(rating) && rating >= 1 && rating <= 5 ? rating : null, comment: comment || null }
+      : {}),
+  });
   return NextResponse.json({ ok: true });
 }
