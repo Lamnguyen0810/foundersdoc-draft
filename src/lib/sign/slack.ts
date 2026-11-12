@@ -118,10 +118,10 @@ export async function signerStep(store: SignStore, envelopeId: string, position:
     step === "opened"
       ? `👀 FD Sign · ${who} · ${of} opened it`
       : step === "code"
-        ? `🔐 FD Sign · ${who} · ${of} confirmed their email code`
+        ? `🔐 FD Sign · ${who} · ${of} confirmed their signing code`
         : step === "signed"
           ? `✍️ FD Sign · ${who} · ${of} signed${n > 1 ? ` (${all.filter((s) => s.status === "signed").length}/${n} done)` : ""}`
-          : `✅ FD Sign · ${who} · completed: all ${n} signed`;
+          : `✅ FD Sign · ${who} · completed${n > 1 ? `: all ${n} signed` : ""}`;
   await activity(text, o.owner_email);
 }
 

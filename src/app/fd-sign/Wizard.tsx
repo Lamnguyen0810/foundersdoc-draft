@@ -4,6 +4,7 @@ import Link from "next/link";
 import { clearHandoff, peekHandoff } from "./handoff";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CHANNEL_TEXT, normalisePhone, type CodeChannel } from "@/lib/sign/phone-format";
 import BoxEditor from "../admin/sign/BoxEditor";
 import { openPdf, readPdf, type PdfInfo } from "../sign/PdfPages";
 import { autoPlace, boxId, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
@@ -39,11 +40,15 @@ interface Person {
   name: string;
   email: string;
   role: string;
+  /** 0222: how they get the signing code, and their mobile for WhatsApp / SMS */
+  via: CodeChannel;
+  phone: string;
 }
 let seq = 0;
-const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "" });
+const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "", via: "email", phone: "" });
 
-export default function Wizard() {
+/** channels = the phone channels switched on in Vercel (lib/sign/phone.ts); none = email codes only, as before */
+export default function Wizard({ channels = [] }: { channels?: CodeChannel[] }) {
   const router = useRouter();
   const params = useSearchParams();
   /* an FD AI draft as the document (0190): its signature blocks place the boxes */
@@ -238,6 +243,7 @@ export default function Wizard() {
     else if (filled.some((x) => !EMAIL.test(x.email.trim()))) p[2] = "Check the email addresses.";
     else if (new Set(filled.map((x) => x.email.trim().toLowerCase())).size !== filled.length) p[2] = "Each person needs their own email address.";
     else if (ccList.length > 5 || ccList.some((e) => !EMAIL.test(e))) p[2] = "Copies: up to 5 valid email addresses.";
+    else if (filled.some((x) => x.via !== "email" && !normalisePhone(x.phone))) p[2] = "Add a mobile number with the country code (e.g. +65 9123 4567) for WhatsApp / SMS codes.";
     const missing = filled.findIndex((_, i) => !boxes.some((b) => b.position === i + 1 && b.kind === "signature"));
     if (missing >= 0) p[3] = `${filled[missing].name || `Person ${missing + 1}`} needs a signature box.`;
     return p;
@@ -351,7 +357,12 @@ export default function Wizard() {
           message: message.trim() || null,
           senderName: senderName === "You" ? null : senderName,
           folderId: folderId || null,
-          signers: signers.map((s) => ({ name: s.name.trim(), email: s.email.trim().toLowerCase(), role: s.role.trim() })),
+          signers: signers.map((s) => ({
+            name: s.name.trim(),
+            email: s.email.trim().toLowerCase(),
+            role: s.role.trim(),
+            ...(s.via !== "email" && channels.includes(s.via) ? { channel: s.via, phone: normalisePhone(s.phone) } : {}),
+          })),
           cc: ccList,
           fields: boxes.map(({ position, kind, page, x, y, w, h, label, required }) => ({ position, kind, page, x, y, w, h, ...(asks(kind) ? { label: label?.trim() || undefined, required: !!required } : {}) })),
         }),
@@ -609,6 +620,33 @@ export default function Wizard() {
                     <Ic n="x" s={15} />
                   </button>
                 </span>
+                {channels.length > 0 && (
+                  <div className="fds-pc-code">
+                    <label htmlFor={`via-${p.key}`}>Signing code by</label>
+                    <select id={`via-${p.key}`} className="fds-inp" value={p.via} onChange={(e) => setP(p.key, { via: e.target.value as CodeChannel })}>
+                      <option value="email">Email</option>
+                      {channels.map((c) => (
+                        <option key={c} value={c}>
+                          {CHANNEL_TEXT[c]}
+                        </option>
+                      ))}
+                    </select>
+                    {p.via !== "email" && (
+                      <input
+                        className="fds-inp"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        value={p.phone}
+                        maxLength={24}
+                        placeholder="Mobile, e.g. +65 9123 4567"
+                        aria-label={`Person ${i + 1} mobile`}
+                        onChange={(e) => setP(p.key, { phone: e.target.value })}
+                      />
+                    )}
+                    <small>{p.via === "email" ? "The code goes to the same email as the link." : `A second check: the link comes by email, the code by ${CHANNEL_TEXT[p.via]}.`}</small>
+                  </div>
+                )}
               </div>
             ))}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>

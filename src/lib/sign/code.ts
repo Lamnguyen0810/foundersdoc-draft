@@ -2,8 +2,10 @@ import "server-only";
 import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { hashToken, isTokenShape, SignError, type Who } from "./service";
 import { isHookConfigured, notify } from "./notify";
-import type { SignCode, SignStore } from "./store";
+import type { SignCode, SignStore, Signer } from "./store";
 import { signerStep } from "./slack";
+import { phoneChannels, sendPhoneCode } from "./phone";
+import { CHANNEL_TEXT, maskPhone, type CodeChannel } from "./phone-format";
 
 /**
  * Email code before signing (SQL 114). The signer asks for a 6-digit code,
@@ -57,10 +59,26 @@ async function rowsFor(store: SignStore, token: string) {
   return { tokenHash, rows };
 }
 
-/** Email a new code. In the local preview the code is returned so it can be tested without email. */
-export async function sendCode(store: SignStore, token: string, origin: string, who: Who): Promise<{ to: string; devCode?: string }> {
+/** Where this link's code goes (0222): the sender's choice of WhatsApp / SMS when it's set up, else email. */
+async function target(store: SignStore, me: { id: string; email: string }, via?: "email"): Promise<{ channel: CodeChannel; phone: string | null; to: string }> {
+  const p = via === "email" ? null : await store.signerPhone(me.id).catch(() => null);
+  if (p?.phone && p.channel !== "email" && phoneChannels().includes(p.channel)) return { channel: p.channel, phone: p.phone, to: maskPhone(p.phone) };
+  return { channel: "email", phone: null, to: maskEmail(me.email) };
+}
+
+/** For the signing page: "We'll send a code by WhatsApp to +65 ****4567". */
+export async function codeTarget(store: SignStore, token: string): Promise<{ channel: CodeChannel; to: string }> {
+  const { rows } = await rowsFor(store, token);
+  const me = rows.find((r) => r.status === "invited") ?? rows[0];
+  const t = await target(store, me);
+  return { channel: t.channel, to: t.to };
+}
+
+/** Send a new code: by the signer's channel (WhatsApp / SMS, 0222) or email; via "email" = the signer asked for email instead.
+ *  In the local preview the code is returned so it can be tested without sending. */
+export async function sendCode(store: SignStore, token: string, origin: string, who: Who, via?: "email"): Promise<{ to: string; channel: CodeChannel; fellBack?: boolean; devCode?: string }> {
   const { tokenHash, rows } = await rowsFor(store, token);
-  const open = [];
+  const open: Signer[] = [];
   for (const r of rows) if (r.status === "invited" && (await store.envelope(r.envelope_id))?.status === "sent") open.push(r);
   if (!open.length) throw new SignError("There is nothing left to sign on this link.", 409);
   const now = Date.now();
@@ -85,11 +103,24 @@ export async function sendCode(store: SignStore, token: string, origin: string, 
   const me = open[0];
   const titles: string[] = [];
   for (const r of open) titles.push((await store.envelope(r.envelope_id))?.title ?? "Document");
-  for (const r of open) await store.addEvent({ envelope_id: r.envelope_id, signer_id: r.id, event: "code_sent", ip: who.ip, user_agent: who.ua, detail: maskEmail(me.email) });
-  if (store.kind === "memory") return { to: maskEmail(me.email), devCode: code };
+  const t = await target(store, me, via);
+  const log = (detail: string) => Promise.all(open.map((r) => store.addEvent({ envelope_id: r.envelope_id, signer_id: r.id, event: "code_sent", ip: who.ip, user_agent: who.ua, detail })));
+  if (store.kind === "memory") {
+    await log(t.channel === "email" ? t.to : `${t.to} by ${CHANNEL_TEXT[t.channel]}`);
+    return { to: t.to, channel: t.channel, devCode: code };
+  }
+  let fellBack = false;
+  if (t.channel !== "email" && t.phone) {
+    if (await sendPhoneCode(t.channel, t.phone, code)) {
+      await log(`${t.to} by ${CHANNEL_TEXT[t.channel]}`);
+      return { to: t.to, channel: t.channel };
+    }
+    fellBack = true; // WhatsApp / SMS didn't go: email it instead, so nobody is stuck
+  }
   const ok = await notify({ kind: "code", to: me.email, name: me.name, role: me.role, link: `${origin}/sign/${token}`, documents: titles, message: null, code });
   if (!ok) throw new SignError("We couldn't send the code just now. Please try again in a minute.", 502);
-  return { to: maskEmail(me.email) };
+  await log(fellBack ? `${maskEmail(me.email)} by email (${CHANNEL_TEXT[t.channel]} didn't go through)` : maskEmail(me.email));
+  return { to: maskEmail(me.email), channel: "email", ...(fellBack ? { fellBack } : {}) };
 }
 
 /** Check a code. Returns the browser secret to keep in a cookie. */

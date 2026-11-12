@@ -167,6 +167,10 @@ export interface SignStore {
   fieldsV2Ready(): Promise<boolean>;
   /** Save what a signer typed or ticked in their text / checkbox boxes. */
   /** what the signer typed or ticked; w / h when they resized a text box (fractions of the page) */
+  /** 0222 (SQL 130): how this signer gets their code. Before 130: always email. */
+  phoneReady(): Promise<boolean>;
+  signerPhone(signerId: string): Promise<{ phone: string | null; channel: "email" | "whatsapp" | "sms" }>;
+  setSignerPhone(signerId: string, phone: string | null, channel: "email" | "whatsapp" | "sms"): Promise<void>;
   setFieldValues(envelopeId: string, rows: Array<{ id: string; value: string; w?: number; h?: number }>): Promise<void>;
   getCode(tokenHash: string): Promise<SignCode | null>;
   putCode(row: SignCode): Promise<void>;
@@ -323,6 +327,17 @@ function supabaseStore(): SignStore {
       const r = await db.from("sign_fields").select("label, required, value").limit(1);
       return !r.error;
     },
+    async phoneReady() {
+      return !(await db.from("sign_signers").select("code_channel").limit(1)).error;
+    },
+    async signerPhone(signerId) {
+      const r = await db.from("sign_signers").select("phone, code_channel").eq("id", signerId).maybeSingle();
+      const d = (r.error ? null : r.data) as { phone: string | null; code_channel: "email" | "whatsapp" | "sms" } | null;
+      return { phone: d?.phone ?? null, channel: d?.phone ? (d.code_channel ?? "email") : "email" };
+    },
+    async setSignerPhone(signerId, phone, channel) {
+      must(await db.from("sign_signers").update({ phone, code_channel: phone ? channel : "email" }).eq("id", signerId));
+    },
     async setFieldValues(envelopeId, rows) {
       for (const row of rows)
         must(await db.from("sign_fields").update({ value: row.value, ...(row.w && row.h ? { w: row.w, h: row.h } : {}) }).eq("envelope_id", envelopeId).eq("id", row.id));
@@ -442,14 +457,16 @@ interface Mem {
   folders: Array<SignFolder & { owner_id: string }>;
   sig: Map<string, Signer & { png: Uint8Array | null }>;
   ev: SignEvent[];
+  phones: Map<string, { phone: string | null; channel: "email" | "whatsapp" | "sms" }>;
 }
 const g = globalThis as unknown as { __fdsign?: Mem };
 
 function memoryStore(): SignStore {
-  const m: Mem = (g.__fdsign ??= { fld: new Map(), codes: new Map(), view: [], env: new Map(), sig: new Map(), ev: [] as SignEvent[], folders: [] });
+  const m: Mem = (g.__fdsign ??= { fld: new Map(), codes: new Map(), view: [], env: new Map(), sig: new Map(), ev: [] as SignEvent[], folders: [], phones: new Map() });
   m.codes ??= new Map();
   m.view ??= [];
   m.folders ??= [];
+  m.phones ??= new Map();
   const now = () => new Date().toISOString();
   const strip = <T extends object>(o: T, k: string) => {
     const c = { ...o } as Record<string, unknown>;
@@ -548,6 +565,16 @@ function memoryStore(): SignStore {
     },
     async fieldsV2Ready() {
       return true;
+    },
+    async phoneReady() {
+      return true;
+    },
+    async signerPhone(signerId) {
+      const p = m.phones.get(signerId);
+      return p ?? { phone: null, channel: "email" };
+    },
+    async setSignerPhone(signerId, phone, channel) {
+      m.phones.set(signerId, { phone, channel: phone ? channel : "email" });
     },
     async setFieldValues(envelopeId, rows) {
       for (const f of m.fld.get(envelopeId) ?? []) {

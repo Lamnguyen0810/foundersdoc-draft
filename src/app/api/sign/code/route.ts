@@ -4,16 +4,17 @@ import { SignError } from "@/lib/sign/service";
 import { sendCode } from "@/lib/sign/code";
 import { who } from "@/lib/sign/http";
 
-/** POST /api/sign/code { token } — public: email the signer a 6-digit code (10 minutes). */
+/** POST /api/sign/code { token, via?: "email" } — public: send the signer a 6-digit code (10 minutes),
+ *  by the channel the sender chose (email, WhatsApp or SMS, 0222); via "email" = the signer asked for email instead. */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const store = signStore();
   if (store === "no-secret-key") return NextResponse.json({ error: "Signing is not available right now." }, { status: 503 });
-  const body = (await req.json().catch(() => ({}))) as { token?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { token?: unknown; via?: unknown };
   try {
-    const res = await sendCode(store, String(body.token ?? ""), req.nextUrl.origin, who(req));
+    const res = await sendCode(store, String(body.token ?? ""), req.nextUrl.origin, who(req), body.via === "email" ? "email" : undefined);
     return NextResponse.json({ ok: true, ...res });
   } catch (e) {
     if (e instanceof SignError) return NextResponse.json({ error: e.message }, { status: e.status });

@@ -38,7 +38,8 @@ export interface DocInput {
   bytes: Uint8Array;
   esopHolderId: string | null;
   esopTranche: number | null;
-  signers: Array<{ name: string; email: string; role: string }>;
+  /** phone + channel (0222): the signing code by WhatsApp or SMS instead of email */
+  signers: Array<{ name: string; email: string; role: string; phone?: string | null; channel?: "email" | "whatsapp" | "sms" }>;
   /** CC: get the signed copy when everyone has signed */
   cc?: string[];
   fields: SignField[];
@@ -121,7 +122,8 @@ export async function createSend(
       await store.addEvent({ envelope_id: id, signer_id: null, event: "created", ip: input.who.ip, user_agent: input.who.ua, detail: input.createdBy });
       for (let i = 0; i < d.signers.length; i++) {
         const s = d.signers[i];
-        await store.insertSigner({ envelope_id: id, position: i + 1, name: s.name, email: s.email.toLowerCase(), role: s.role });
+        const sid = await store.insertSigner({ envelope_id: id, position: i + 1, name: s.name, email: s.email.toLowerCase(), role: s.role });
+        if (s.phone && s.channel && s.channel !== "email") await store.setSignerPhone(sid, s.phone, s.channel);
       }
       if (d.cc?.length) await store.addViewers(id, d.cc);
       await store.insertFields(id, d.fields.filter((f) => f.position >= 1 && f.position <= d.signers.length && f.page >= 1 && f.page <= pages));
