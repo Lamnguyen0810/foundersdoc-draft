@@ -92,18 +92,31 @@ export function activityChannel(): string {
   return v || DEFAULT_ACTIVITY_CHANNEL;
 }
 
-/** 0234: FD Sign's own Zap ("FD Sign – activity to Slack", Catch Hook → Slack #fdai-signing), kept in Vercel as
- *  FD_SIGN_ACTIVITY_HOOK_URL. Not set = the older shared hook (SIGN_SLACK_HOOK_URL), as before. */
-function activityHook(): string {
+/** 0234: FD Sign's own Zap ("FD Sign – activity to Slack", Catch Hook → Slack #fdai-signing).
+ *  Where its address is kept, first found wins:
+ *    1. FD_SIGN_ACTIVITY_HOOK_URL in Vercel;
+ *    2. 0235: the locked public.webhooks table, row "fd_sign_activity" (set in the Supabase SQL editor, like the
+ *       drafting hooks; nobody but the server can read it);
+ *    3. the older shared hook, SIGN_SLACK_HOOK_URL. */
+const ZAPIER = /^https:\/\/hooks\.zapier\.com\//;
+let fromDb: { url: string; at: number } | null = null;
+async function activityHook(): Promise<string> {
   const own = process.env.FD_SIGN_ACTIVITY_HOOK_URL?.trim() ?? "";
-  if (/^https:\/\/hooks\.zapier\.com\//.test(own)) return own;
+  if (ZAPIER.test(own)) return own;
+  if (isSupabaseConfigured() && isAdminClientConfigured()) {
+    if (!fromDb || fromDb.at < Date.now() - 5 * 60_000) {
+      const r = await supabaseAdmin().from("webhooks").select("url").eq("name", "fd_sign_activity").eq("enabled", true).maybeSingle();
+      fromDb = { url: ((r.data as { url?: string } | null)?.url ?? "").trim(), at: Date.now() };
+    }
+    if (ZAPIER.test(fromDb.url)) return fromDb.url;
+  }
   return isSlackConfigured() ? (process.env.SIGN_SLACK_HOOK_URL?.trim() ?? "") : "";
 }
 
 export async function activity(text: string, senderEmail?: string | null): Promise<void> {
   if (isQuietAccount(senderEmail)) return;
   if (process.env.SIGN_SLACK_PREVIEW === "1" && !isSupabaseConfigured()) return void console.log("[slack:fd-sign]", text);
-  const hook = activityHook();
+  const hook = await activityHook().catch(() => "");
   const channel = activityChannel();
   if (!hook || !channel || !text) return;
   try {
