@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { SITE, ORGANIZATION, ldJson } from "@/lib/seo";
 import type { Product } from "@/lib/products/data";
-import { RIVALS } from "@/lib/products/compare";
+import { COMPARE_PATH, TOOLS } from "@/lib/products/compare";
 import { Breadcrumbs, Disclaimer, Faqs, MoreTemplates, TemplateLd } from "../templates/parts";
 import TemplateCta from "../templates/TemplateCta";
 import "../templates/templates.css";
@@ -100,9 +100,12 @@ export default function ProductPage({ p }: { p: Product }) {
           <section className="tpl-section" aria-labelledby="pp-compare">
             <h2 id="pp-compare">Compare FD Sign</h2>
             <ul className="tpl-chips">
-              {RIVALS.map((r) => (
-                <li key={r.slug}>
-                  <Link href={`/e-signature/${r.slug}`}>FD Sign vs {r.name}</Link>
+              <li>
+                <Link href={COMPARE_PATH}>Best DocuSign alternatives</Link>
+              </li>
+              {TOOLS.filter((t) => t.id !== "docusign").map((t) => (
+                <li key={t.id}>
+                  <Link href={`${COMPARE_PATH}#${t.id}`}>{t.searchPhrase}</Link>
                 </li>
               ))}
             </ul>
