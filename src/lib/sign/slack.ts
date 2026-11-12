@@ -92,12 +92,20 @@ export function activityChannel(): string {
   return v || DEFAULT_ACTIVITY_CHANNEL;
 }
 
+/** 0234: FD Sign's own Zap ("FD Sign – activity to Slack", Catch Hook → Slack #fdai-signing), kept in Vercel as
+ *  FD_SIGN_ACTIVITY_HOOK_URL. Not set = the older shared hook (SIGN_SLACK_HOOK_URL), as before. */
+function activityHook(): string {
+  const own = process.env.FD_SIGN_ACTIVITY_HOOK_URL?.trim() ?? "";
+  if (/^https:\/\/hooks\.zapier\.com\//.test(own)) return own;
+  return isSlackConfigured() ? (process.env.SIGN_SLACK_HOOK_URL?.trim() ?? "") : "";
+}
+
 export async function activity(text: string, senderEmail?: string | null): Promise<void> {
   if (isQuietAccount(senderEmail)) return;
   if (process.env.SIGN_SLACK_PREVIEW === "1" && !isSupabaseConfigured()) return void console.log("[slack:fd-sign]", text);
-  const hook = process.env.SIGN_SLACK_HOOK_URL?.trim();
+  const hook = activityHook();
   const channel = activityChannel();
-  if (!hook || !isSlackConfigured() || !channel || !text) return;
+  if (!hook || !channel || !text) return;
   try {
     await fetch(hook, {
       method: "POST",
