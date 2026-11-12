@@ -189,6 +189,8 @@ export interface SignStore {
   mine(ownerId: string, limit: number): Promise<OwnedEnvelope[]>;
   waitingFor(email: string): Promise<WaitingForMe[]>;
   sentSince(ownerId: string, sinceIso: string): Promise<number>;
+  /** 0223: WhatsApp / SMS signing codes this sender chose since then (signers with a phone channel; 0 before SQL 130) */
+  phoneSince(ownerId: string, sinceIso: string): Promise<number>;
   folders(ownerId: string): Promise<SignFolder[]>;
   addFolder(ownerId: string, name: string, colour: string): Promise<string>;
   deleteFolder(ownerId: string, folderId: string): Promise<void>;
@@ -426,6 +428,13 @@ function supabaseStore(): SignStore {
       if (r.error) throw new Error(r.error.message);
       return r.count ?? 0;
     },
+    async phoneSince(ownerId, sinceIso) {
+      const e = await db.from("sign_envelopes").select("id").eq("owner_id", ownerId).gte("created_at", sinceIso).limit(1000);
+      const ids = ((e.error ? [] : e.data) ?? []).map((x) => (x as { id: string }).id);
+      if (!ids.length) return 0;
+      const r = await db.from("sign_signers").select("id", { count: "exact", head: true }).in("envelope_id", ids).neq("code_channel", "email");
+      return r.error ? 0 : (r.count ?? 0);
+    },
     async folders(ownerId) {
       return (must(await db.from("sign_folders").select("id, name, colour, created_at").eq("owner_id", ownerId).order("name")) ?? []) as SignFolder[];
     },
@@ -632,6 +641,10 @@ function memoryStore(): SignStore {
     },
     async sentSince(ownerId, sinceIso) {
       return [...m.env.values()].filter((e) => e.owner_id === ownerId && e.created_at >= sinceIso).length;
+    },
+    async phoneSince(ownerId, sinceIso) {
+      const envs = new Set([...m.env.values()].filter((e) => e.owner_id === ownerId && e.created_at >= sinceIso).map((e) => e.id));
+      return [...m.sig.values()].filter((s) => envs.has(s.envelope_id) && (m.phones.get(s.id)?.channel ?? "email") !== "email").length;
     },
     async folders(ownerId) {
       return m.folders

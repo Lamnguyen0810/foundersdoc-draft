@@ -48,7 +48,14 @@ let seq = 0;
 const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "", via: "email", phone: "" });
 
 /** channels = the phone channels switched on in Vercel (lib/sign/phone.ts); none = email codes only, as before */
-export default function Wizard({ channels = [] }: { channels?: CodeChannel[] }) {
+/** plan (0223, FD_SIGN_PRICING=on): this month's requests and WhatsApp / SMS codes; null = Beta, nothing shown */
+export default function Wizard({
+  channels = [],
+  plan = null,
+}: {
+  channels?: CodeChannel[];
+  plan?: { label: string; used: number; limit: number | null; phoneLeft: number | null; phoneOffered: boolean } | null;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   /* an FD AI draft as the document (0190): its signature blocks place the boxes */
@@ -603,6 +610,19 @@ export default function Wizard({ channels = [] }: { channels?: CodeChannel[] }) 
               <h2>Who needs to sign?</h2>
               <p>In signing order. Each person is emailed when the one before has signed.</p>
             </div>
+            {plan && (
+              <p className="fds-plan">
+                <b>{plan.label} plan:</b>{" "}
+                {plan.limit === null ? "unlimited signing requests" : `${Math.max(0, plan.limit - plan.used)} of ${plan.limit} signing requests left this month`}
+                {plan.phoneOffered ? (plan.phoneLeft ? ` · ${plan.phoneLeft} WhatsApp / SMS codes left` : " · WhatsApp / SMS codes come with FD AI memberships") : ""}
+                {plan.label !== "Unlimited" && (
+                  <>
+                    {" · "}
+                    <a href="/pricing">See plans</a>
+                  </>
+                )}
+              </p>
+            )}
             {people.map((p, i) => (
               <div className="fds-pc" key={p.key} style={{ ["--c" as string]: colour(i + 1) }}>
                 <span className="n">{i + 1}</span>

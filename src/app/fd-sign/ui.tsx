@@ -103,7 +103,10 @@ export interface ListData {
   docs: DocRow[];
   forMe: ForMe[];
   today: number;
-  limit: number;
+  /** null = no limit (Unlimited plan) */
+  limit: number | null;
+  /** 0223: the FD Sign plan (lib/billing/sign-plans.ts); live = false while FD Sign is free (Beta) */
+  plan?: { live: boolean; label: string; per: "day" | "month"; phoneUsed: number; phoneLimit: number | null };
 }
 
 export function useList() {
@@ -207,7 +210,8 @@ export function Side({ data, view, onView, onFolders }: { data: ListData | null;
     setErr("");
     onFolders?.();
   }
-  const limit = data?.limit ?? 20;
+  const plan = data?.plan;
+  const limit = data?.limit === undefined ? 20 : data.limit;
   return (
     <aside className="fds-side">
       {items.map(([k, i, t, n, g]) => (
@@ -240,13 +244,21 @@ export function Side({ data, view, onView, onFolders }: { data: ListData | null;
       )}
       {err && <div className="fds-err">{err}</div>}
       <div className="fds-quota">
-        <b>Free during Beta</b>
+        <b>{plan?.live ? `${plan.label} plan` : "Free during Beta"}</b>
         <small>
-          {data?.today ?? 0} of {limit} requests sent today · PDF files up to 10 MB
+          {limit === null ? `${data?.today ?? 0} requests sent this month` : `${data?.today ?? 0} of ${limit} requests ${plan?.per === "month" ? "this month" : "sent today"}`}
+          {plan?.live && plan.phoneLimit ? ` · ${plan.phoneUsed} of ${plan.phoneLimit} WhatsApp / SMS codes` : ""} · PDF files up to 10 MB
         </small>
-        <div className="fds-bar">
-          <i style={{ width: `${Math.min(100, ((data?.today ?? 0) / limit) * 100)}%` }} />
-        </div>
+        {limit !== null && (
+          <div className="fds-bar">
+            <i style={{ width: `${Math.min(100, ((data?.today ?? 0) / limit) * 100)}%` }} />
+          </div>
+        )}
+        {plan?.live && plan.label !== "Unlimited" && (
+          <a className="fds-up" href="/pricing">
+            {plan.label === "Free" ? "Get more with FD AI plans ›" : "Upgrade ›"}
+          </a>
+        )}
       </div>
     </aside>
   );

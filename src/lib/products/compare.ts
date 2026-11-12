@@ -1,4 +1,12 @@
 import type { Faq } from "@/lib/templates/data";
+import { SIGN_PLANS, signPriceRows } from "@/lib/billing/sign-plans";
+
+/** 0223: FD Sign's own column follows lib/billing/sign-plans.ts (FD_SIGN_PRICING=on at build time). */
+const LIVE = (process.env.FD_SIGN_PRICING ?? "").trim().toLowerCase() === "on";
+const US = signPriceRows(LIVE);
+const FREE_ANSWER = LIVE
+  ? `Yes: every FD AI account can send ${SIGN_PLANS.free.requests} signing requests a month free. FD AI memberships include more (${SIGN_PLANS.basic.requests}, ${SIGN_PLANS.pro.requests} or unlimited), plus WhatsApp / SMS signing codes.`
+  : "Yes, with a free FD AI account. While FD Sign is in its launch phase you can send up to 20 signing requests a day.";
 
 /**
  * "Alternative" pages for FD Sign (0220): people search "DocuSign alternative", "HelloSign
@@ -64,10 +72,10 @@ export const RIVALS: Rival[] = [
     lead: "DocuSign is the best-known name in e-signatures, and it is built for large companies. If you send a few contracts a month and want them signed properly without per-envelope limits to watch, FD Sign does the job for free.",
     pricingUrl: "https://ecom.docusign.com/plans-and-pricing/esignature",
     prices: [
-      ["Free plan", "Yes", "No (free trial only)"],
-      ["Entry price", "S$0", "US$11 a month (Personal, annual)"],
-      ["Team price", "S$0", "US$30–45 a user a month (Standard, Business Pro, annual)"],
-      ["Sending limit", "Up to 20 requests a day while FD Sign is free", "5 envelopes a month (Personal); 100 a user a year (Standard, Business Pro)"],
+      ["Free plan", US.free, "No (free trial only)"],
+      ["Entry price", US.entry, "US$11 a month (Personal, annual)"],
+      ["Team price", US.team, "US$30–45 a user a month (Standard, Business Pro, annual)"],
+      ["Sending limit", US.limit, "5 envelopes a month (Personal); 100 a user a year (Standard, Business Pro)"],
     ],
     why: [
       { label: "Envelope limits", text: "DocuSign's paid plans count envelopes: 5 a month on Personal and 100 a user a year on Standard and Business Pro, according to its pricing page." },
@@ -75,7 +83,7 @@ export const RIVALS: Rival[] = [
       { label: "More than you need", text: "Small teams often only need to upload, place boxes, send and get a signed copy with an audit trail." },
     ],
     faqs: [
-      { q: "Is FD Sign really free?", a: "Yes, with a free FD AI account. While FD Sign is in its launch phase you can send up to 20 signing requests a day." },
+      { q: "Is FD Sign really free?", a: FREE_ANSWER },
       { q: "Is an FD Sign e-signature as valid as a DocuSign one?", a: "For most business contracts in Singapore, the Electronic Transactions Act 2010 recognises electronic signatures whichever tool you use. What matters is showing who signed and that they meant to, which FD Sign's email code and audit trail record. A few documents, such as wills, still need a traditional signature." },
       { q: "Can I move my existing contracts over?", a: "There is nothing to move: upload the PDF or Word file you want signed and send it. Keep your DocuSign records where they are." },
       { q: "Do my signers need an account?", a: "No. They get a private link by email, confirm a code and sign on their phone or computer." },
@@ -91,10 +99,10 @@ export const RIVALS: Rival[] = [
     lead: "HelloSign is now Dropbox Sign. It is simple and well liked, and its paid plans are charged per user. FD Sign covers the same everyday signing for free, with a check that the document is ready before anyone signs.",
     pricingUrl: "https://sign.dropbox.com/products/dropbox-sign/pricing",
     prices: [
-      ["Free plan", "Yes", "Yes (limits on their site)"],
-      ["Entry price", "S$0", "US$15 a month, or US$180 a year (Essentials, 1 user)"],
-      ["Team price", "S$0", "US$25 a user a month, or US$17.50 billed yearly (Standard, 2+ users)"],
-      ["Sending limit", "Up to 20 requests a day while FD Sign is free", "Unlimited signature requests on paid plans"],
+      ["Free plan", US.free, "Yes (limits on their site)"],
+      ["Entry price", US.entry, "US$15 a month, or US$180 a year (Essentials, 1 user)"],
+      ["Team price", US.team, "US$25 a user a month, or US$17.50 billed yearly (Standard, 2+ users)"],
+      ["Sending limit", US.limit, "Unlimited signature requests on paid plans"],
     ],
     why: [
       { label: "Paying per user", text: "Dropbox Sign's team plan is charged per user, with a minimum of 2 users, according to its pricing page." },
@@ -103,7 +111,7 @@ export const RIVALS: Rival[] = [
     ],
     faqs: [
       { q: "Is HelloSign the same as Dropbox Sign?", a: "Yes. HelloSign was renamed Dropbox Sign after Dropbox bought it." },
-      { q: "Is FD Sign really free?", a: "Yes, with a free FD AI account. While FD Sign is in its launch phase you can send up to 20 signing requests a day." },
+      { q: "Is FD Sign really free?", a: FREE_ANSWER },
       { q: "Is an FD Sign e-signature legally valid in Singapore?", a: "For most business contracts, yes: the Electronic Transactions Act 2010 generally recognises electronic signatures. A few documents, such as wills, still need a traditional signature." },
       { q: "Do my signers need an account?", a: "No. They get a private link by email, confirm a code and sign on their phone or computer." },
     ],
@@ -118,10 +126,10 @@ export const RIVALS: Rival[] = [
     lead: "PandaDoc is a full proposals and documents platform for sales teams. If what you need is to get contracts signed, without seats or a sales workflow, FD Sign does that for free.",
     pricingUrl: "https://www.pandadoc.com/pricing/",
     prices: [
-      ["Free plan", "Yes", "Yes, 5 documents a month"],
-      ["Entry price", "S$0", "US$19 a seat a month (Starter, annual)"],
-      ["Team price", "S$0", "US$49 a seat a month (Business, annual)"],
-      ["Sending limit", "Up to 20 requests a day while FD Sign is free", "5 a month on Free; unlimited e-signatures on Starter and up"],
+      ["Free plan", US.free, "Yes, 5 documents a month"],
+      ["Entry price", US.entry, "US$19 a seat a month (Starter, annual)"],
+      ["Team price", US.team, "US$49 a seat a month (Business, annual)"],
+      ["Sending limit", US.limit, "5 a month on Free; unlimited e-signatures on Starter and up"],
     ],
     why: [
       { label: "Built for sales", text: "PandaDoc focuses on proposals, quotes, CRM links and deal rooms. Many teams only need the signing part." },
@@ -129,7 +137,7 @@ export const RIVALS: Rival[] = [
       { label: "Legal documents", text: "FD Sign sits next to FD AI, which drafts NDAs, term sheets and other agreements from Founders Doc's lawyer-written wording." },
     ],
     faqs: [
-      { q: "Is FD Sign really free?", a: "Yes, with a free FD AI account. While FD Sign is in its launch phase you can send up to 20 signing requests a day." },
+      { q: "Is FD Sign really free?", a: FREE_ANSWER },
       { q: "Can I make the document in FD Sign?", a: "Draft it with FD AI (NDA, term sheet, employment contract and more), or upload your own PDF or Word file, then send it for signing." },
       { q: "Is an FD Sign e-signature legally valid in Singapore?", a: "For most business contracts, yes: the Electronic Transactions Act 2010 generally recognises electronic signatures. A few documents, such as wills, still need a traditional signature." },
       { q: "Do my signers need an account?", a: "No. They get a private link by email, confirm a code and sign on their phone or computer." },

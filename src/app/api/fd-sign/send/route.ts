@@ -4,7 +4,7 @@ import { parseFields } from "@/lib/sign/fields";
 import { who } from "@/lib/sign/http";
 import { isHookConfigured } from "@/lib/sign/notify";
 import { codeRequired } from "@/lib/sign/code";
-import { dailyLimit, startOfDaySgt } from "@/lib/sign/account";
+import { allowance, blockReason } from "@/lib/sign/allowance";
 import { NEW_FIELD_KINDS } from "@/lib/sign/store";
 import { ctx, fail, UUID } from "../common";
 import { senderStep } from "@/lib/sign/slack";
@@ -34,9 +34,8 @@ export async function POST(req: NextRequest) {
   if (store.kind !== "memory" && !isHookConfigured()) return NextResponse.json({ error: "Sending is switched off for a moment. Please try again later." }, { status: 503 });
   if (codeRequired(store) && !(await store.codesReady())) return NextResponse.json({ error: "FD Sign is being set up (run supabase/114_fd_sign_codes.sql)." }, { status: 503 });
 
-  const limit = dailyLimit();
-  const today = await store.sentSince(me.id, startOfDaySgt());
-  if (today >= limit) return NextResponse.json({ error: `You've sent ${limit} requests today, the most for now while FD Sign is free. Please try again tomorrow.` }, { status: 429 });
+  /* 0223: the daily Beta limit, or (FD_SIGN_PRICING=on) the month's plan from the FD AI membership */
+  const allow = await allowance(me, store);
 
   let form: FormData;
   try {
@@ -75,6 +74,8 @@ export async function POST(req: NextRequest) {
   if (byPhone.some((s) => !offered.includes(s.channel))) return NextResponse.json({ error: "Codes by WhatsApp or SMS aren't switched on right now. Choose email for the code." }, { status: 400 });
   const noPhone = byPhone.find((s) => !s.phone);
   if (noPhone) return NextResponse.json({ error: `${noPhone.name}: add a mobile number with the country code (e.g. +65 9123 4567) for the ${CHANNEL_TEXT[noPhone.channel]} code.` }, { status: 400 });
+  const blocked = blockReason(allow, byPhone.length);
+  if (blocked) return NextResponse.json({ error: blocked, upgrade: allow.live }, { status: 429 });
   if (byPhone.length && !(await store.phoneReady())) return NextResponse.json({ error: "Phone codes are being set up (run supabase/130_fd_sign_phone_codes.sql). Choose email for now." }, { status: 503 });
 
   const cc = [...new Set((Array.isArray(meta.cc) ? meta.cc : []).map((e) => String(e ?? "").trim().toLowerCase()).filter(Boolean))];
@@ -118,8 +119,8 @@ export async function POST(req: NextRequest) {
       emailedTo: first?.emailed ? first.name : null,
       /* local preview only (no emails): the link to try the signing page */
       previewLink: store.kind === "memory" ? first?.link : undefined,
-      today: today + 1,
-      limit,
+      today: allow.used + 1,
+      limit: allow.limit,
     });
   } catch (e) {
     const m = e instanceof Error ? e.message : "";

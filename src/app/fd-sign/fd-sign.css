@@ -636,3 +636,8 @@ html[data-theme="dark"] .fck-note b { color: #f3bf4b; }
 .fds-pc-code input.fds-inp { flex: 1 1 200px; min-width: 0; }
 .fds-pc-code small { flex-basis: 100%; font-size: 12px; color: var(--fds-muted, #777); }
 @media (max-width: 720px) { .fds-pc-code { grid-column: 1 / -1; } }
+
+/* 0223: FD Sign plans */
+.fds-up { display: inline-block; margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--fds-gold-deep, #8a6410); text-decoration: underline; text-underline-offset: 3px; }
+.fds-plan { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--fds-line); border-radius: 10px; background: var(--fds-card); font-size: 13px; }
+.fds-plan a { font-weight: 600; color: inherit; }

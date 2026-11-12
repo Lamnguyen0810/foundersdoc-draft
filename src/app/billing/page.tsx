@@ -5,6 +5,7 @@ import { getWallet } from "@/lib/billing/credits";
 import { pricedCatalogue } from "@/lib/billing/prices";
 import { recentInvoices, type InvoiceRow } from "@/lib/billing/invoices";
 import PricingView from "./PricingView";
+import { signPricingLive } from "@/lib/sign/allowance";
 
 /* The account's own pricing page. The public one is /pricing (same view,
    no account), so this one is kept out of search results. */
@@ -78,6 +79,7 @@ export default async function BillingPage({
       catalogue={catalogue}
       tier={tier}
       trialLive={trialLive}
+      signLive={signPricingLive()}
       notices={{ paid, cancelled, joined, resumed, changed }}
       invoices={invoices}
     />

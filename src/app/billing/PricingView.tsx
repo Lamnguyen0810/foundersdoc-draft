@@ -7,6 +7,7 @@ import PricingMotion from "./PricingMotion";
 import "./pricing.css";
 /* Loaded after, deliberately: it overrides the generated stylesheet. */
 import "./pricing-brand.css";
+import { SIGN_PLANS, phoneText, requestsText, type SignTier } from "@/lib/billing/sign-plans";
 
 /**
  * The pricing page itself, for two audiences:
@@ -28,6 +29,8 @@ export interface PricingViewProps {
   trialLive?: boolean;
   notices?: { paid?: string; cancelled?: string; joined?: string; resumed?: string; changed?: string };
   invoices?: InvoiceRow[];
+  /** 0223: FD Sign is part of the memberships (lib/billing/sign-plans.ts); shown only once FD_SIGN_PRICING=on */
+  signLive?: boolean;
 }
 
 function when(iso: string): string {
@@ -58,7 +61,7 @@ function Buy({
   );
 }
 
-export default function PricingView({ guest, catalogue, tier = null, trialLive = false, notices = {}, invoices = [] }: PricingViewProps) {
+export default function PricingView({ guest, catalogue, tier = null, trialLive = false, signLive = false, notices = {}, invoices = [] }: PricingViewProps) {
   const { paid, cancelled, joined, resumed, changed } = notices;
   const anyNotice = joined || paid || cancelled || resumed || changed;
   const savings = (credits: number, cents: number) => money(credits * catalogue.packs[0].amountCents - cents);
@@ -278,6 +281,12 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
                       {m.tier === "basic" && (<><div><b>✓</b><span>For light monthly use</span></div><div><b>✓</b><span>Member top-ups available</span></div><div><b>✓</b><span>Credits reset monthly</span></div></>)}
                       {m.tier === "pro" && (<><div><b>✓</b><span>For frequent monthly use</span></div><div><b>✓</b><span>Best value for regular use</span></div><div><b>✓</b><span>Access to exclusive top-up rates</span></div></>)}
                       {m.tier === "unlimited" && (<><div><b>✓</b><span>For heavy users and teams</span></div><div><b>✓</b><span>No need to manage credits</span></div><div><b>✓</b><span>Fair-use terms apply</span></div></>)}
+                      {signLive && m.tier in SIGN_PLANS && (
+                        <>
+                          <div><b>✓</b><span>FD Sign: {requestsText(SIGN_PLANS[m.tier as SignTier])}</span></div>
+                          <div><b>✓</b><span>{phoneText(SIGN_PLANS[m.tier as SignTier])}</span></div>
+                        </>
+                      )}
                     </div>
                     <Buy guest={guest} anchor="memberships" item={m} label={`Choose ${m.label}`} isCurrent={current} className={`btn ${featured ? "btn-black" : "btn-white"} card-btn`} />
                   </article>

@@ -47,4 +47,11 @@ export function startOfDaySgt(now = new Date()): string {
   return new Date(sgt.getTime() - 8 * 3_600_000).toISOString();
 }
 
+/** Start of this month in Singapore, as an ISO time (for the monthly FD Sign plans, 0223). */
+export function startOfMonthSgt(now = new Date()): string {
+  const sgt = new Date(now.getTime() + 8 * 3_600_000);
+  const first = Date.UTC(sgt.getUTCFullYear(), sgt.getUTCMonth(), 1);
+  return new Date(first - 8 * 3_600_000).toISOString();
+}
+
 export const FOLDER_COLOURS = ["#3b82f6", "#8b5cf6", "#10b981", "#ef6c4a", "#64748b", "#d946ef", "#0ea5a4", "#c9962a"];
