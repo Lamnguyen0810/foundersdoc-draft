@@ -628,3 +628,16 @@ html[data-theme="dark"] .fck-note b { color: #f3bf4b; }
   .fck-legend { gap: 10px; }
   .fck-mark span { min-width: 13px; height: 13px; line-height: 13px; font-size: 8.5px; padding: 0 3px; left: -5px; top: -9px; }
 }
+
+/* 0222: the signing code by email, WhatsApp or SMS */
+.fds-pc-code { grid-column: 2 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.fds-pc-code label { font-size: 12.5px; font-weight: 600; color: var(--fds-muted, #666); }
+.fds-pc-code select.fds-inp { width: auto; min-width: 120px; }
+.fds-pc-code input.fds-inp { flex: 1 1 200px; min-width: 0; }
+.fds-pc-code small { flex-basis: 100%; font-size: 12px; color: var(--fds-muted, #777); }
+@media (max-width: 720px) { .fds-pc-code { grid-column: 1 / -1; } }
+
+/* 0223: FD Sign plans */
+.fds-up { display: inline-block; margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--fds-gold-deep, #8a6410); text-decoration: underline; text-underline-offset: 3px; }
+.fds-plan { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--fds-line); border-radius: 10px; background: var(--fds-card); font-size: 13px; }
+.fds-plan a { font-weight: 600; color: inherit; }

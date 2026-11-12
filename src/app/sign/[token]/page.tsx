@@ -2,7 +2,7 @@ import { cookies, headers } from "next/headers";
 import { signStore } from "@/lib/sign/store";
 import { viewForToken } from "@/lib/sign/service";
 import { who } from "@/lib/sign/http";
-import { CODE_COOKIE, codeRequired, isVerified, maskEmail } from "@/lib/sign/code";
+import { CODE_COOKIE, codeRequired, codeTarget, isVerified, maskEmail } from "@/lib/sign/code";
 import SignClient from "./SignClient";
 import "../sign.css";
 
@@ -40,5 +40,7 @@ export default async function SignPage({ params }: { params: Promise<{ token: st
   }
   const needCode = view.state === "ready" && codeRequired(store);
   const verified = needCode ? await isVerified(store, token, (await cookies()).get(CODE_COOKIE)?.value) : true;
-  return <SignClient token={token} view={view} code={{ required: needCode, verified, to: maskEmail(view.signerEmail) }} />;
+  /* 0222: by WhatsApp / SMS when the sender chose it (and it's set up), else email */
+  const t = needCode ? await codeTarget(store, token).catch(() => null) : null;
+  return <SignClient token={token} view={view} code={{ required: needCode, verified, to: t?.to ?? maskEmail(view.signerEmail), channel: t?.channel ?? "email", email: maskEmail(view.signerEmail) }} />;
 }

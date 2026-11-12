@@ -3,6 +3,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import type { Envelope, SignStore } from "./store";
 import { slackChannel } from "@/lib/esop/test-mode";
+import { isQuietAccount } from "@/lib/quiet";
 
 /**
  * FD Sign progress in Slack, so everyone at Founders Doc sees what went out
@@ -71,3 +72,67 @@ export async function slack(store: SignStore, envelopeIds: string[], text: strin
 
 /** "3 documents" / the title of one */
 export const what = (titles: string[]) => (titles.length === 1 ? titles[0] : `${titles.length} documents`);
+
+/* ── FD Sign activity (0221): people's own requests, step by step ───────────────────────────
+   Rachel (12 Nov): "set up notification when someone wants to do signing, to which step".
+   People's own requests stay private (SQL 119): these lines never carry the document title,
+   the file, or the signers' names or emails: only the sender's account name and the step.
+   They go to their own channel, FD_SIGN_SLACK_CHANNEL (a Slack channel ID, through the same
+   Zap as SIGN_SLACK_HOOK_URL). Not set = nothing is posted. The team's test accounts are skipped. */
+
+export type SignStep = "started" | "left" | "sent" | "opened" | "code" | "signed" | "completed" | "stalled";
+
+export function activityChannel(): string {
+  return process.env.FD_SIGN_SLACK_CHANNEL?.trim() ?? "";
+}
+
+export async function activity(text: string, senderEmail?: string | null): Promise<void> {
+  if (isQuietAccount(senderEmail)) return;
+  if (process.env.SIGN_SLACK_PREVIEW === "1" && !isSupabaseConfigured()) return void console.log("[slack:fd-sign]", text);
+  const hook = process.env.SIGN_SLACK_HOOK_URL?.trim();
+  const channel = activityChannel();
+  if (!hook || !isSlackConfigured() || !channel || !text) return;
+  try {
+    await fetch(hook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, ref: "", thread_ts: "", slack_channel: channel, test_mode: false }),
+      signal: AbortSignal.timeout(8000),
+    });
+  } catch (e) {
+    console.error("[sign] activity hand-over failed:", e);
+  }
+}
+
+const WHO = (name: string | null | undefined, email: string | null | undefined) => (name?.trim() || (email ?? "").split("@")[0] || "Someone").slice(0, 80);
+
+/** A signer's step on someone's own request: "👀 Ann Lee's request · signer 1 of 2 opened it". FD's own requests use slack() instead. */
+export async function signerStep(store: SignStore, envelopeId: string, position: number, step: "opened" | "code" | "signed" | "completed"): Promise<void> {
+  const o = await store.ownerOf(envelopeId).catch(() => null);
+  if (!o?.owner_email) return;
+  const all = await store.signers(envelopeId).catch(() => []);
+  const n = all.length;
+  const who = `${WHO(o.owner_name, o.owner_email)}'s request`;
+  const of = n > 1 ? `signer ${position} of ${n}` : "the signer";
+  const text =
+    step === "opened"
+      ? `👀 FD Sign · ${who} · ${of} opened it`
+      : step === "code"
+        ? `🔐 FD Sign · ${who} · ${of} confirmed their signing code`
+        : step === "signed"
+          ? `✍️ FD Sign · ${who} · ${of} signed${n > 1 ? ` (${all.filter((s) => s.status === "signed").length}/${n} done)` : ""}`
+          : `✅ FD Sign · ${who} · completed${n > 1 ? `: all ${n} signed` : ""}`;
+  await activity(text, o.owner_email);
+}
+
+/** The sender's own steps in /fd-sign/new: started, left partway, sent. */
+export async function senderStep(name: string | null, email: string | null, step: "started" | "left" | "sent", detail: { step?: number; label?: string; signers?: number; pages?: number | null } = {}): Promise<void> {
+  const who = WHO(name, email);
+  const text =
+    step === "started"
+      ? `🖊️ FD Sign · ${who} started a signing request (step 1 · Document)`
+      : step === "left"
+        ? `⏸ FD Sign · ${who} left at step ${detail.step ?? "?"} · ${detail.label ?? "?"}, nothing sent yet`
+        : `📤 FD Sign · ${who} sent a signing request to ${detail.signers ?? "?"} signer${detail.signers === 1 ? "" : "s"}${detail.pages ? ` (${detail.pages} pages)` : ""}`;
+  await activity(text, email);
+}

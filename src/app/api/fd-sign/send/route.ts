@@ -4,9 +4,12 @@ import { parseFields } from "@/lib/sign/fields";
 import { who } from "@/lib/sign/http";
 import { isHookConfigured } from "@/lib/sign/notify";
 import { codeRequired } from "@/lib/sign/code";
-import { dailyLimit, startOfDaySgt } from "@/lib/sign/account";
+import { allowance, blockReason } from "@/lib/sign/allowance";
 import { NEW_FIELD_KINDS } from "@/lib/sign/store";
 import { ctx, fail, UUID } from "../common";
+import { senderStep } from "@/lib/sign/slack";
+import { phoneChannels } from "@/lib/sign/phone";
+import { CHANNEL_TEXT, normalisePhone, type CodeChannel } from "@/lib/sign/phone-format";
 
 /**
  * POST /api/fd-sign/send — anyone with an FD AI account sends their own PDF for signing.
@@ -31,9 +34,8 @@ export async function POST(req: NextRequest) {
   if (store.kind !== "memory" && !isHookConfigured()) return NextResponse.json({ error: "Sending is switched off for a moment. Please try again later." }, { status: 503 });
   if (codeRequired(store) && !(await store.codesReady())) return NextResponse.json({ error: "FD Sign is being set up (run supabase/114_fd_sign_codes.sql)." }, { status: 503 });
 
-  const limit = dailyLimit();
-  const today = await store.sentSince(me.id, startOfDaySgt());
-  if (today >= limit) return NextResponse.json({ error: `You've sent ${limit} requests today, the most for now while FD Sign is free. Please try again tomorrow.` }, { status: 429 });
+  /* 0223: the daily Beta limit, or (FD_SIGN_PRICING=on) the month's plan from the FD AI membership */
+  const allow = await allowance(me, store);
 
   let form: FormData;
   try {
@@ -58,11 +60,23 @@ export async function POST(req: NextRequest) {
       name: String(s?.name ?? "").trim().slice(0, 160),
       email: String(s?.email ?? "").trim().toLowerCase(),
       role: String(s?.role ?? "").trim().slice(0, 80) || "Signer",
+      /* 0222: the signing code by WhatsApp or SMS (checked below) */
+      channel: (["whatsapp", "sms"].includes(String(s?.channel)) ? String(s?.channel) : "email") as CodeChannel,
+      phone: normalisePhone(String(s?.phone ?? "")),
     }))
     .filter((s) => s.name || s.email);
   if (!signers.length || signers.length > 10) return NextResponse.json({ error: "Add 1 to 10 people to sign." }, { status: 400 });
   if (signers.some((s) => !s.name || !EMAIL.test(s.email) || s.email.length > 200)) return NextResponse.json({ error: "Every person needs a name and a valid email." }, { status: 400 });
   if (new Set(signers.map((s) => s.email)).size !== signers.length) return NextResponse.json({ error: "Each person needs their own email address." }, { status: 400 });
+
+  const offered = phoneChannels();
+  const byPhone = signers.filter((s) => s.channel !== "email");
+  if (byPhone.some((s) => !offered.includes(s.channel))) return NextResponse.json({ error: "Codes by WhatsApp or SMS aren't switched on right now. Choose email for the code." }, { status: 400 });
+  const noPhone = byPhone.find((s) => !s.phone);
+  if (noPhone) return NextResponse.json({ error: `${noPhone.name}: add a mobile number with the country code (e.g. +65 9123 4567) for the ${CHANNEL_TEXT[noPhone.channel]} code.` }, { status: 400 });
+  const blocked = blockReason(allow);
+  if (blocked) return NextResponse.json({ error: blocked, upgrade: allow.live }, { status: 429 });
+  if (byPhone.length && !(await store.phoneReady())) return NextResponse.json({ error: "Phone codes are being set up (run supabase/130_fd_sign_phone_codes.sql). Choose email for now." }, { status: 503 });
 
   const cc = [...new Set((Array.isArray(meta.cc) ? meta.cc : []).map((e) => String(e ?? "").trim().toLowerCase()).filter(Boolean))];
   if (cc.length > 5 || cc.some((e) => !EMAIL.test(e) || e.length > 200)) return NextResponse.json({ error: "Up to 5 valid emails can get a copy." }, { status: 400 });
@@ -97,14 +111,16 @@ export async function POST(req: NextRequest) {
       owner: { id: me.id, email: me.email, name: senderName, folderId },
     });
     const first = res.links[0];
+    /* 0221: "📤 <name> sent a signing request to N signers" (no title or names) */
+    await senderStep(senderName, me.email, "sent", { signers: signers.length }).catch(() => undefined);
     return NextResponse.json({
       ok: true,
       id: res.envelopeIds[0],
       emailedTo: first?.emailed ? first.name : null,
       /* local preview only (no emails): the link to try the signing page */
       previewLink: store.kind === "memory" ? first?.link : undefined,
-      today: today + 1,
-      limit,
+      today: allow.used + 1,
+      limit: allow.limit,
     });
   } catch (e) {
     const m = e instanceof Error ? e.message : "";

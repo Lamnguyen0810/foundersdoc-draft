@@ -145,3 +145,6 @@
    can see it. Nothing about the design's own blobs changes. */
 .fdp .hero { overflow: visible; }
 .fdp .hero-shell { overflow: hidden; }
+
+/* 0225: the FD Sign lines made the card lists longer; keep a gap above the button. */
+.fdp .points{margin-bottom:22px}

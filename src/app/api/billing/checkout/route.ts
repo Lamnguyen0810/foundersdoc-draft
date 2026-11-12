@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient, getUser } from "@/lib/supabase/server";
+import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import { isStripeConfigured, siteUrl, stripe } from "@/lib/billing/stripe";
 import {
   SELLING_CURRENCY,
@@ -8,6 +8,7 @@ import {
   packByLookupKey,
 } from "@/lib/billing/plans";
 import { portalConfigurationId } from "@/lib/billing/portal";
+import { isSignTier, signPricingOn, signProductByLookupKey } from "@/lib/billing/sign-plans";
 
 /**
  * Start a purchase — a bundle, a top-up, or a membership.
@@ -42,9 +43,22 @@ export async function POST(req: NextRequest) {
   const key = body.lookupKey ?? "";
   const pack = packByLookupKey(key);
   const membership = membershipByLookupKey(key);
+  /* 0225: an FD Sign plan is a monthly subscription of its own, beside any FD AI membership. It takes
+     the same subscription path below, but only ever meets other FD Sign subscriptions there. */
+  const signPlan = signProductByLookupKey(key);
+  const recurring = membership
+    ? { tier: membership.tier, lookupKey: membership.lookupKey, monthlyCredits: String(membership.monthlyCredits ?? 0), product: "fd_ai" }
+    : signPlan
+      ? { tier: signPlan.tier, lookupKey: signPlan.lookupKey, monthlyCredits: "0", product: "fd_sign" }
+      : null;
 
-  if (!pack && !membership) {
+  if (!pack && !recurring) {
     return NextResponse.json({ error: "Unknown item." }, { status: 400 });
+  }
+
+  /* Not on sale until FD_SIGN_PRICING=on; an admin can still buy one, to test the whole path. */
+  if (signPlan && !signPricingOn() && !(await isAdmin())) {
+    return NextResponse.json({ error: "FD Sign plans are not on sale yet.", code: "not_on_sale" }, { status: 403 });
   }
 
   /* ── THE TOP-UP GATE ──────────────────────────────────────────────────────
@@ -117,7 +131,7 @@ export async function POST(req: NextRequest) {
       existing.data[0] ??
       (await s.customers.create({ email: user.email, metadata: { supabase_user_id: user.id } }));
 
-    if (membership) {
+    if (recurring) {
       /* ── WHAT "CANCELLED" ACTUALLY MEANS IN STRIPE ────────────────────────
          Cancelling does not end a subscription there and then. Stripe sets
          `cancel_at_period_end` and leaves the status ACTIVE until the paid
@@ -131,9 +145,14 @@ export async function POST(req: NextRequest) {
          So: look at every subscription, not just "active" ones, and decide by
          what the customer is actually asking for. */
       const subs = await s.subscriptions.list({ customer: customer.id, status: "all", limit: 20 });
-      const live = subs.data.find((sub) =>
-        ["active", "trialing", "past_due"].includes(sub.status),
+      /* 0225: only a subscription of the same kind counts here. An FD AI membership and an FD Sign plan
+         live side by side; buying one must never change, cancel or open the portal on the other. */
+      const live = subs.data.find(
+        (sub) =>
+          ["active", "trialing", "past_due"].includes(sub.status) &&
+          isSignTier(sub.metadata?.tier) === Boolean(signPlan),
       );
+      const portalKind = signPlan ? "sign" : "membership";
 
       if (live) {
         const item = live.items.data[0];
@@ -142,8 +161,9 @@ export async function POST(req: NextRequest) {
 
         const metadata = {
           supabase_user_id: user.id,
-          tier: membership.tier,
-          monthly_credits: String(membership.monthlyCredits ?? 0),
+          tier: recurring.tier,
+          monthly_credits: recurring.monthlyCredits,
+          product: recurring.product,
         };
 
         /* ── SAME PLAN, ALREADY CANCELLED: they have changed their mind ────
@@ -187,7 +207,7 @@ export async function POST(req: NextRequest) {
 
           const flow = await s.billingPortal.sessions.create({
             customer: customer.id,
-            configuration: await portalConfigurationId(),
+            configuration: await portalConfigurationId(portalKind),
             return_url: `${origin}/billing`,
             flow_data: {
               type: "subscription_update_confirm",
@@ -208,7 +228,7 @@ export async function POST(req: NextRequest) {
              where cards and cancellation live. */
           const portal = await s.billingPortal.sessions.create({
             customer: customer.id,
-            configuration: await portalConfigurationId(),
+            configuration: await portalConfigurationId(portalKind),
             return_url: `${origin}/billing`,
           });
           return NextResponse.json({ url: portal.url, changed: true });
@@ -221,12 +241,12 @@ export async function POST(req: NextRequest) {
         adaptive_pricing: { enabled: false },
         customer: customer.id,
         line_items: [{ price: price.id, quantity: 1 }],
-        success_url: `${origin}/billing?joined=1&session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${origin}/billing?${signPlan ? "signplan" : "joined"}=1&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/billing?cancelled=1`,
         metadata: {
           supabase_user_id: user.id,
-          tier: membership.tier,
-          lookup_key: membership.lookupKey,
+          tier: recurring.tier,
+          lookup_key: recurring.lookupKey,
         },
         /* Copied onto the subscription itself, not just the checkout session.
            Renewal invoices months from now carry no memory of the session that
@@ -235,8 +255,9 @@ export async function POST(req: NextRequest) {
         subscription_data: {
           metadata: {
             supabase_user_id: user.id,
-            tier: membership.tier,
-            monthly_credits: String(membership.monthlyCredits ?? 0),
+            tier: recurring.tier,
+            monthly_credits: recurring.monthlyCredits,
+            product: recurring.product,
           },
         },
         allow_promotion_codes: true,

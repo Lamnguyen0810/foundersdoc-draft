@@ -3,6 +3,12 @@ import type Stripe from "stripe";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { isStripeConfigured, stripe } from "@/lib/billing/stripe";
 import { moneyIn } from "@/lib/billing/plans";
+import { SIGN_ONLY } from "@/lib/billing/sign-plans";
+
+/* 0225: which subscriptions a cancel is for. An FD AI membership ("membership", the default, as before)
+   and an FD Sign plan ("sign") are separate subscriptions; closing the account ends both ("all"). */
+type Kind = "membership" | "sign" | "all";
+const FD_AI_TIERS = ["basic", "pro", "unlimited"];
 
 /**
  * End a membership, now.
@@ -86,7 +92,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Please sign in first." }, { status: 401 });
   }
 
-  const body = (await req.json().catch(() => ({}))) as { reason?: string; note?: string };
+  const body = (await req.json().catch(() => ({}))) as { reason?: string; note?: string; kind?: string };
+  const kind: Kind = body.kind === "sign" || body.kind === "all" ? body.kind : "membership";
+  const tiers = kind === "membership" ? FD_AI_TIERS : kind === "sign" ? (SIGN_ONLY as string[]) : [...FD_AI_TIERS, ...SIGN_ONLY];
   const reason = body.reason && REASONS.has(body.reason) ? body.reason : "other";
   const note = typeof body.note === "string" ? body.note.slice(0, 1000) : null;
 
@@ -95,16 +103,16 @@ export async function POST(req: NextRequest) {
   /* The subscription id comes from our own copy, which the webhook keeps up to
      date. Reading it needs nothing special: the row is readable by its owner,
      and RLS makes "their own" mean their own. */
-  let stripeSubscriptionId: string | null = null;
+  let ids: string[] = [];
   try {
     const { data } = await supabase
       .from("subscriptions")
-      .select("stripe_subscription_id,status")
+      .select("stripe_subscription_id,status,tier")
       .in("status", ["trialing", "active", "past_due"])
+      .in("tier", tiers)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    stripeSubscriptionId = (data?.stripe_subscription_id as string | null) ?? null;
+      .limit(kind === "all" ? 10 : 1);
+    ids = (data ?? []).map((r) => r.stripe_subscription_id as string | null).filter((x): x is string => !!x);
   } catch (err) {
     console.error("[cancel] could not read the subscription:", err);
   }
@@ -116,7 +124,7 @@ export async function POST(req: NextRequest) {
      nothing there. */
   let orphaned = false;
 
-  if (isStripeConfigured() && stripeSubscriptionId) {
+  for (const stripeSubscriptionId of isStripeConfigured() ? ids : []) {
     try {
       const s = stripe();
       const sub = await s.subscriptions.retrieve(stripeSubscriptionId, {
@@ -164,7 +172,8 @@ export async function POST(req: NextRequest) {
                   fdai_reason: "cancelled mid-period: unused days returned",
                 },
               });
-              refunded = moneyIn(amount, invoice.currency ?? "sgd");
+              const back = moneyIn(amount, invoice.currency ?? "sgd");
+              refunded = refunded ? `${refunded} + ${back}` : back;
             } catch (err) {
               /* A refund can fail on its own — a disputed charge, a payment
                  method that will not take one. That must not stop the
@@ -224,10 +233,20 @@ export async function POST(req: NextRequest) {
      after switching Stripe accounts, for instance, the local copy can name a
      subscription that only ever existed in the sandbox, and leaving the
      account marked "member" when it is not would keep handing out credits. */
-  const { data: result, error } = await supabase.rpc("cancel_membership", {
-    p_reason: reason,
-    p_note: note,
-  });
+  /* cancel_membership ends FD AI memberships only (SQL 131); cancel_sign_plan ends FD Sign plans. */
+  let result: unknown = null;
+  let error: unknown = null;
+  if (kind !== "sign") {
+    const r = await supabase.rpc("cancel_membership", { p_reason: reason, p_note: note });
+    result = r.data;
+    error = r.error;
+  }
+  let signEnded = 0;
+  if (!error && kind !== "membership") {
+    const r = await supabase.rpc("cancel_sign_plan", { p_reason: reason, p_note: note });
+    error = r.error;
+    signEnded = Number(r.data ?? 0);
+  }
 
   if (error) {
     console.error("[cancel] could not record the cancellation:", error);
@@ -241,11 +260,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const row = Array.isArray(result) ? result[0] : result;
+  const row = (Array.isArray(result) ? result[0] : result) as { ended?: number; credits_removed?: number } | null;
 
   return NextResponse.json({
     ok: true,
-    ended: Number(row?.ended ?? 0),
+    ended: Number(row?.ended ?? 0) + signEnded,
     creditsRemoved: Number(row?.credits_removed ?? 0),
     refunded,
     stripeEnded,

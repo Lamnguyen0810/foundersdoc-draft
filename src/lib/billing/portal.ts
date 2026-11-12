@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import { MEMBERSHIPS } from "./plans";
+import { SIGN_PRODUCTS } from "./sign-plans";
 import { stripe } from "./stripe";
 
 /**
@@ -26,13 +27,20 @@ import { stripe } from "./stripe";
 
 const MARKER = "fdai_portal_v1";
 
-let cached: string | null = null;
+/* 0225: FD Sign's plans get a portal of their own, so a plan change there can only move between FD Sign
+   plans (never from an FD Sign plan to an FD AI membership, which would leave the wrong tier on file). */
+export type PortalKind = "membership" | "sign";
+const MARKERS: Record<PortalKind, string> = { membership: MARKER, sign: "fdsign_portal_v1" };
+const HEADLINES: Record<PortalKind, string> = { membership: "Founders Doc — FD AI membership", sign: "Founders Doc — FD Sign plan" };
+
+const cached: Record<PortalKind, string | null> = { membership: null, sign: null };
 
 /** The Stripe product behind each membership price, by lookup key. */
 async function membershipProducts(
   s: Stripe,
+  kind: PortalKind = "membership",
 ): Promise<{ product: string; prices: string[] }[]> {
-  const keys = MEMBERSHIPS.map((m) => m.lookupKey);
+  const keys = (kind === "sign" ? SIGN_PRODUCTS : MEMBERSHIPS).map((m) => m.lookupKey);
   const res = await s.prices.list({ lookup_keys: keys, active: true, limit: 20 });
 
   /* One entry per product, carrying its price. A product with no active price
@@ -48,20 +56,20 @@ async function membershipProducts(
   return [...byProduct].map(([product, prices]) => ({ product, prices }));
 }
 
-export async function portalConfigurationId(): Promise<string | undefined> {
-  if (cached) return cached;
+export async function portalConfigurationId(kind: PortalKind = "membership"): Promise<string | undefined> {
+  if (cached[kind]) return cached[kind]!;
 
   const s = stripe();
 
   // Already made, on a previous deploy or a previous process.
   const existing = await s.billingPortal.configurations.list({ active: true, limit: 100 });
-  const found = existing.data.find((c) => c.metadata?.fdai === MARKER);
+  const found = existing.data.find((c) => c.metadata?.fdai === MARKERS[kind]);
   if (found) {
-    cached = found.id;
-    return cached;
+    cached[kind] = found.id;
+    return found.id;
   }
 
-  const products = await membershipProducts(s);
+  const products = await membershipProducts(s, kind);
 
   /* No memberships in this Stripe account yet. Returning undefined lets the
      caller fall back to the account's default configuration rather than
@@ -69,8 +77,8 @@ export async function portalConfigurationId(): Promise<string | undefined> {
   if (products.length === 0) return undefined;
 
   const created = await s.billingPortal.configurations.create({
-    business_profile: { headline: "Founders Doc — FD AI membership" },
-    metadata: { fdai: MARKER },
+    business_profile: { headline: HEADLINES[kind] },
+    metadata: { fdai: MARKERS[kind] },
     features: {
       invoice_history: { enabled: true },
       payment_method_update: { enabled: true },
@@ -88,11 +96,12 @@ export async function portalConfigurationId(): Promise<string | undefined> {
     },
   });
 
-  cached = created.id;
-  return cached;
+  cached[kind] = created.id;
+  return created.id;
 }
 
 /** Forget the cached id — for tests, and after a configuration is changed. */
 export function resetPortalConfigurationCache(): void {
-  cached = null;
+  cached.membership = null;
+  cached.sign = null;
 }

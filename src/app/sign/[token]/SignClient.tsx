@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { SignView } from "@/lib/sign/service";
 import { TEXT_MAX, signerSize } from "@/lib/sign/fields";
+import { CHANNEL_TEXT, type CodeChannel } from "@/lib/sign/phone-format";
 
 /* The signing screen: the document(s) with this signer's "Sign here" boxes on
    the signature lines. As on DocuSign (Rachel, 6 Nov: "I signed directly on the
@@ -97,10 +98,13 @@ export default function SignClient({
 }: {
   token: string;
   view: SignView;
-  code?: { required: boolean; verified: boolean; to: string };
+  /** 0222: channel = how the sender chose to send the code; email = the masked email, for "send it by email instead" */
+  code?: { required: boolean; verified: boolean; to: string; channel?: CodeChannel; email?: string };
 }) {
-  /* email code before signing (lib/sign/code.ts) */
+  /* signing code before signing (lib/sign/code.ts): email, WhatsApp or SMS */
   const [ok, setOk] = useState(!code.required || code.verified);
+  const [via, setVia] = useState<{ channel: CodeChannel; to: string }>({ channel: code.channel ?? "email", to: code.to });
+  const by = via.channel === "email" ? "email" : CHANNEL_TEXT[via.channel];
   const [codeSent, setCodeSent] = useState(false);
   const [codeVal, setCodeVal] = useState("");
   const [codeBusy, setCodeBusy] = useState(false);
@@ -112,13 +116,15 @@ export default function SignClient({
     const t = setTimeout(() => setWait((w) => w - 1), 1000);
     return () => clearTimeout(t);
   }, [wait]);
-  async function askCode() {
+  async function askCode(byEmail = false) {
     setCodeErr("");
     setCodeBusy(true);
     try {
-      const res = await fetch("/api/sign/code", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token }) });
-      const j = (await res.json().catch(() => ({}))) as { error?: string; devCode?: string };
+      const res = await fetch("/api/sign/code", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, ...(byEmail ? { via: "email" } : {}) }) });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; devCode?: string; to?: string; channel?: CodeChannel; fellBack?: boolean };
       if (!res.ok) throw new Error(j.error || "Could not send a code.");
+      if (j.channel && j.to) setVia({ channel: j.channel, to: j.to });
+      if (j.fellBack) setCodeErr(`${CHANNEL_TEXT[code.channel ?? "email"]} didn't go through, so we emailed the code instead.`);
       setCodeSent(true);
       setCodeVal("");
       setDevCode(j.devCode ?? "");
@@ -131,7 +137,7 @@ export default function SignClient({
   }
   async function checkCode() {
     setCodeErr("");
-    if (codeVal.replace(/\D/g, "").length !== 6) return setCodeErr("Enter the 6 digits from the email.");
+    if (codeVal.replace(/\D/g, "").length !== 6) return setCodeErr(`Enter the 6 digits from the ${by === "email" ? "email" : `${by} message`}.`);
     setCodeBusy(true);
     try {
       const res = await fetch("/api/sign/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token, code: codeVal }) });
@@ -507,11 +513,11 @@ export default function SignClient({
             <div className="fs-card">
               <h2>First, confirm it&rsquo;s you</h2>
               <p className="fs-small fs-tight">
-                We&rsquo;ll email a 6-digit code to <b>{code.to}</b>. It works for 10 minutes.
+                {codeSent ? "We sent" : "We\u2019ll send"} a 6-digit code {via.channel === "email" ? "by email" : `by ${by}`} to <b>{via.to}</b>. It works for 10 minutes.
               </p>
               {!codeSent ? (
                 <button className="fs-btn primary" disabled={codeBusy} onClick={() => void askCode()}>
-                  {codeBusy ? "Sending…" : "Email me a code"}
+                  {codeBusy ? "Sending…" : via.channel === "email" ? "Email me a code" : `Send me a code by ${by}`}
                 </button>
               ) : (
                 <>
@@ -523,21 +529,29 @@ export default function SignClient({
                     inputMode="numeric"
                     autoComplete="one-time-code"
                     placeholder="••••••"
-                    aria-label="6-digit code from the email"
+                    aria-label={`6-digit code from the ${by === "email" ? "email" : `${by} message`}`}
                     autoFocus
                   />
-                  {devCode && <p className="fs-small">Preview only (no email sent): the code is {devCode}</p>}
+                  {devCode && <p className="fs-small">Preview only (nothing sent): the code is {devCode}</p>}
                   <button className="fs-btn primary" disabled={codeBusy} onClick={() => void checkCode()}>
                     {codeBusy ? "Checking…" : "Confirm"}
                   </button>
                   <p className="fs-small">
-                    Didn&rsquo;t get it? Check spam, or{" "}
+                    Didn&rsquo;t get it? {via.channel === "email" ? "Check spam, or " : ""}
                     {wait > 0 ? (
-                      <span>send again in {wait}s</span>
+                      <span>{via.channel === "email" ? "send" : "Send"} again in {wait}s</span>
                     ) : (
                       <button className="fs-textbtn" onClick={() => void askCode()}>
-                        send a new code
+                        {via.channel === "email" ? "send a new code" : "Send a new code"}
                       </button>
+                    )}
+                    {via.channel !== "email" && code.email && wait <= 0 && (
+                      <>
+                        {" "}or{" "}
+                        <button className="fs-textbtn" onClick={() => void askCode(true)}>
+                          get it by email instead
+                        </button>
+                      </>
                     )}
                     .
                   </p>
@@ -573,7 +587,7 @@ export default function SignClient({
           {view.state === "ready" && ok && (
             <div className="fs-card fs-sigcard">
               <h2>Your signature</h2>
-              {code.required && <p className="fs-verified">✓ Email confirmed</p>}
+              {code.required && <p className="fs-verified">✓ {via.channel === "email" ? "Email" : CHANNEL_TEXT[via.channel]} confirmed</p>}
               {adopted ? (
                 <button className="fs-adopted" onClick={() => openSheet(null)} aria-label="Change your signature">
                   {mode === "draw" && png ? (

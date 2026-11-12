@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PricedMembership, PricedPack } from "@/lib/billing/prices";
+import type { PricedMembership, PricedPack, PricedSign } from "@/lib/billing/prices";
 
 /**
  * The buy button, in the pricing design's own card.
@@ -12,7 +12,7 @@ import type { PricedMembership, PricedPack } from "@/lib/billing/prices";
  * here can be edited by whoever is looking at the page.
  */
 
-type Item = PricedPack | PricedMembership;
+type Item = PricedPack | PricedMembership | PricedSign;
 
 function isMembership(item: Item): item is PricedMembership {
   return item.kind === "membership";
@@ -22,12 +22,15 @@ export default function BuyButton({
   item,
   label,
   isCurrent = false,
+  manage = false,
   className = "btn btn-white card-btn",
 }: {
   item: Item;
   label: string;
   /** True when this is the plan the viewer is already paying for. */
   isCurrent?: boolean;
+  /** 0225: on the current plan, stay clickable as "Manage plan" (the server sends it to Stripe's portal). */
+  manage?: boolean;
   /** The design's button classes for this card, e.g. "btn btn-black card-btn". */
   className?: string;
 }) {
@@ -61,15 +64,17 @@ export default function BuyButton({
       <button
         type="button"
         className={className}
-        disabled={busy || item.missing || isCurrent}
+        disabled={busy || item.missing || (isCurrent && !manage)}
         onClick={() => void buy()}
       >
         {item.missing
           ? "Not available yet"
-          : isCurrent
-            ? "Your current plan"
-            : busy
-              ? "Opening Stripe…"
+          : busy
+            ? "Opening Stripe…"
+            : isCurrent
+              ? manage
+                ? "Manage plan"
+                : "Your current plan"
               : label}
       </button>
 

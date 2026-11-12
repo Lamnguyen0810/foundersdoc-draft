@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { isStripeConfigured, stripe, webhookSecret } from "@/lib/billing/stripe";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
+import { isSignTier } from "@/lib/billing/sign-plans";
 
 /**
  * Which subscription an invoice belongs to.
@@ -314,6 +315,10 @@ export async function POST(req: NextRequest) {
         if (!userId) return ok("cancellation without user metadata");
 
         await upsertSubscription(db, userId, sub);
+
+        /* 0225: an FD Sign plan ending touches no FD AI credits: the row above (status canceled) is all
+           there is, and FD Sign's allowance reads it. An FD AI membership running beside it is untouched. */
+        if (isSignTier(sub.metadata?.tier)) return ok("FD Sign plan ended; FD AI credits untouched");
 
         const { error: endError } = await db.rpc("end_membership_credits", { p_user_id: userId });
         if (endError) throw endError;

@@ -1,16 +1,27 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { signAccount } from "@/lib/sign/account";
+import { phoneChannels } from "@/lib/sign/phone";
+import { allowance } from "@/lib/sign/allowance";
+import { signStore } from "@/lib/sign/store";
 import Wizard from "../Wizard";
 
 export const metadata = { title: "New signing request" };
 export const dynamic = "force-dynamic";
 
 export default async function NewRequestPage() {
-  if (!(await signAccount())) redirect("/login?next=/fd-sign/new");
+  const me = await signAccount();
+  if (!me) redirect("/login?next=/fd-sign/new");
+  /* 0223: this month's plan (FD_SIGN_PRICING=on); off = Beta, nothing shown */
+  const store = signStore();
+  const a = store === "no-secret-key" ? null : await allowance(me, store).catch(() => null);
+  const channels = phoneChannels();
   return (
     <Suspense>
-      <Wizard />
+      <Wizard
+        channels={channels}
+        plan={a?.live ? { label: a.label, used: a.used, limit: a.limit } : null}
+      />
     </Suspense>
   );
 }

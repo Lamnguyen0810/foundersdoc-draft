@@ -4,6 +4,7 @@ import Link from "next/link";
 import { clearHandoff, peekHandoff } from "./handoff";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { CHANNEL_TEXT, normalisePhone, type CodeChannel } from "@/lib/sign/phone-format";
 import BoxEditor from "../admin/sign/BoxEditor";
 import { openPdf, readPdf, type PdfInfo } from "../sign/PdfPages";
 import { autoPlace, boxId, colour, type Box, type BoxKind } from "@/lib/sign/boxes";
@@ -39,11 +40,22 @@ interface Person {
   name: string;
   email: string;
   role: string;
+  /** 0222: how they get the signing code, and their mobile for WhatsApp / SMS */
+  via: CodeChannel;
+  phone: string;
 }
 let seq = 0;
-const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "" });
+const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "", via: "email", phone: "" });
 
-export default function Wizard() {
+/** channels = the phone channels switched on in Vercel (lib/sign/phone.ts); none = email codes only, as before */
+/** plan (0223, FD_SIGN_PRICING=on): this month's requests and WhatsApp / SMS codes; null = Beta, nothing shown */
+export default function Wizard({
+  channels = [],
+  plan = null,
+}: {
+  channels?: CodeChannel[];
+  plan?: { label: string; used: number; limit: number | null } | null;
+}) {
   const router = useRouter();
   const params = useSearchParams();
   /* an FD AI draft as the document (0190): its signature blocks place the boxes */
@@ -52,6 +64,11 @@ export default function Wizard() {
   const [draftBusy, setDraftBusy] = useState("");
   const { data, reload } = useList();
   const [step, setStep] = useState(1);
+  /* 0221: tell Founders Doc when someone starts a request and, if they leave, at which step (no title or file is sent) */
+  const progress = useRef({ started: false, sent: false, left: false, step: 1 });
+  useEffect(() => {
+    progress.current.step = step;
+  }, [step]);
   /* 0205: the furthest step reached, so the bar can jump back and forward again
      to any step already opened (each jump still checks the steps before it) */
   const [reached, setReached] = useState(1);
@@ -167,6 +184,27 @@ export default function Wizard() {
     setPlaced(false);
   }
 
+  /* 0221: started = a document is in; left = the page closes before sending */
+  useEffect(() => {
+    if (!file || progress.current.started) return;
+    progress.current.started = true;
+    void fetch("/api/fd-sign/progress", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "started", step: 1 }), keepalive: true }).catch(() => undefined);
+  }, [file]);
+  useEffect(() => {
+    const leave = () => {
+      const p = progress.current;
+      if (!p.started || p.sent || p.left) return;
+      p.left = true;
+      const body = new Blob([JSON.stringify({ kind: "left", step: p.step })], { type: "application/json" });
+      if (!navigator.sendBeacon?.("/api/fd-sign/progress", body)) void fetch("/api/fd-sign/progress", { method: "POST", body, keepalive: true }).catch(() => undefined);
+    };
+    window.addEventListener("pagehide", leave);
+    return () => {
+      window.removeEventListener("pagehide", leave);
+      leave(); // leaving for another page inside the app
+    };
+  }, []);
+
   /* people */
   const setP = (k: string, patch: Partial<Person>) => setPeople((l) => l.map((p) => (p.key === k ? { ...p, ...patch } : p)));
   function addMe() {
@@ -212,6 +250,7 @@ export default function Wizard() {
     else if (filled.some((x) => !EMAIL.test(x.email.trim()))) p[2] = "Check the email addresses.";
     else if (new Set(filled.map((x) => x.email.trim().toLowerCase())).size !== filled.length) p[2] = "Each person needs their own email address.";
     else if (ccList.length > 5 || ccList.some((e) => !EMAIL.test(e))) p[2] = "Copies: up to 5 valid email addresses.";
+    else if (filled.some((x) => x.via !== "email" && !normalisePhone(x.phone))) p[2] = "Add a mobile number with the country code (e.g. +65 9123 4567) for WhatsApp / SMS codes.";
     const missing = filled.findIndex((_, i) => !boxes.some((b) => b.position === i + 1 && b.kind === "signature"));
     if (missing >= 0) p[3] = `${filled[missing].name || `Person ${missing + 1}`} needs a signature box.`;
     return p;
@@ -325,7 +364,12 @@ export default function Wizard() {
           message: message.trim() || null,
           senderName: senderName === "You" ? null : senderName,
           folderId: folderId || null,
-          signers: signers.map((s) => ({ name: s.name.trim(), email: s.email.trim().toLowerCase(), role: s.role.trim() })),
+          signers: signers.map((s) => ({
+            name: s.name.trim(),
+            email: s.email.trim().toLowerCase(),
+            role: s.role.trim(),
+            ...(s.via !== "email" && channels.includes(s.via) ? { channel: s.via, phone: normalisePhone(s.phone) } : {}),
+          })),
           cc: ccList,
           fields: boxes.map(({ position, kind, page, x, y, w, h, label, required }) => ({ position, kind, page, x, y, w, h, ...(asks(kind) ? { label: label?.trim() || undefined, required: !!required } : {}) })),
         }),
@@ -338,6 +382,7 @@ export default function Wizard() {
       } catch {
         /* preview only */
       }
+      progress.current.sent = true;
       router.push(`/fd-sign/d/${j.id}?sent=${encodeURIComponent(j.emailedTo || signers[0].name)}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not send.");
@@ -565,6 +610,25 @@ export default function Wizard() {
               <h2>Who needs to sign?</h2>
               <p>In signing order. Each person is emailed when the one before has signed.</p>
             </div>
+            {plan && (
+              <p className="fds-plan">
+                {plan.limit === 0 ? (
+                  <>
+                    <b>FD Sign is part of the paid plans.</b> <a href="/billing#fd-sign">Choose a plan</a> to send this for signing.
+                  </>
+                ) : (
+                  <>
+                    <b>{plan.label}:</b> {plan.limit === null ? "unlimited signing requests" : `${Math.max(0, plan.limit - plan.used)} of ${plan.limit} signing requests left this month`}
+                    {plan.limit !== null && (
+                      <>
+                        {" · "}
+                        <a href="/billing#fd-sign">See plans</a>
+                      </>
+                    )}
+                  </>
+                )}
+              </p>
+            )}
             {people.map((p, i) => (
               <div className="fds-pc" key={p.key} style={{ ["--c" as string]: colour(i + 1) }}>
                 <span className="n">{i + 1}</span>
@@ -582,6 +646,33 @@ export default function Wizard() {
                     <Ic n="x" s={15} />
                   </button>
                 </span>
+                {channels.length > 0 && (
+                  <div className="fds-pc-code">
+                    <label htmlFor={`via-${p.key}`}>Signing code by</label>
+                    <select id={`via-${p.key}`} className="fds-inp" value={p.via} onChange={(e) => setP(p.key, { via: e.target.value as CodeChannel })}>
+                      <option value="email">Email</option>
+                      {channels.map((c) => (
+                        <option key={c} value={c}>
+                          {CHANNEL_TEXT[c]}
+                        </option>
+                      ))}
+                    </select>
+                    {p.via !== "email" && (
+                      <input
+                        className="fds-inp"
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        value={p.phone}
+                        maxLength={24}
+                        placeholder="Mobile, e.g. +65 9123 4567"
+                        aria-label={`Person ${i + 1} mobile`}
+                        onChange={(e) => setP(p.key, { phone: e.target.value })}
+                      />
+                    )}
+                    <small>{p.via === "email" ? "The code goes to the same email as the link." : `A second check: the link comes by email, the code by ${CHANNEL_TEXT[p.via]}.`}</small>
+                  </div>
+                )}
               </div>
             ))}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>

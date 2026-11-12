@@ -1,5 +1,8 @@
 import type { Faq } from "@/lib/templates/data";
 
+/** 0224: FD Sign is paid once FD_SIGN_PRICING=on (lib/billing/sign-plans.ts); until then it is free (Beta). */
+const SIGN_PAID = (process.env.FD_SIGN_PRICING ?? "").trim().toLowerCase() === "on";
+
 /**
  * The public product pages (0197): FD Sign and the ESOP dashboard can only be
  * opened after signing in, so search engines never see them. These two pages
@@ -36,14 +39,15 @@ export const PRODUCTS: Record<"sign" | "esop", Product> = {
     slug: "e-signature",
     name: "FD Sign",
     kicker: "FD Sign · e-signature",
-    title: "Free E-Signature for Singapore Businesses | FD Sign",
-    description:
-      "Send PDF or Word files for e-signature in minutes. Signers need no account: a private link, an email code and an audit trail. By Founders Doc. Start free.",
+    title: SIGN_PAID ? "E-Signature at Half DocuSign's Price | FD Sign" : "Free E-Signature for Singapore Businesses | FD Sign",
+    description: SIGN_PAID
+      ? "Send PDF or Word files for e-signature at half DocuSign's price. Signers need no account: a private link, an email, WhatsApp or SMS code, an audit trail."
+      : "Send PDF or Word files for e-signature in minutes. Signers need no account: a private link, an email code and an audit trail. By Founders Doc. Start free.",
     h1: "Sign documents online with FD Sign",
     lead: "Upload a contract, add who signs and in what order, and send. Each person signs on their phone or computer, and everyone gets the signed copy, with a full audit trail.",
     cta: { href: "/fd-sign/new", label: "Send a document for signing" },
     second: { href: "/templates", label: "Or draft one first with FD AI ›" },
-    small: "Free to start with an FD AI account · signers need no account",
+    small: SIGN_PAID ? "Half DocuSign's price · signers need no account" : "Free to start with an FD AI account · signers need no account",
     features: [
       { label: "Signing-ready check (new)", text: "Before you send, FD Sign's AI check flags blanks, [placeholders], tracked changes, notes to draft, missing schedules and wording that needs wet ink, so nobody signs an unfinished version." },
       { label: "PDF or Word", text: "Upload a PDF or a Word file up to 10 MB, or send a draft you made with FD AI straight to signing." },
@@ -71,7 +75,9 @@ export const PRODUCTS: Record<"sign" | "esop", Product> = {
       { q: "What can I send for signing?", a: "A PDF or a Word file up to 10 MB, or a document you drafted with FD AI. Word files are converted to PDF first, so check the layout before you send." },
       { q: "Can FD Sign check a contract before I send it?", a: "Yes. The signing-ready check reads your PDF or Word file and lists anything that should be fixed first, such as blanks, placeholders, tracked changes, notes to draft or missing schedules. It is a checklist, not legal advice." },
       { q: "How do I prove who signed?", a: "Download the signed PDF with its audit trail: it records each signer's email, the time, IP address and browser, and a fingerprint of the document." },
-      { q: "Is FD Sign free?", a: "You can start free with an FD AI account. Founders Doc clients also use it for documents such as ESOP option certificates." },
+      SIGN_PAID
+        ? { q: "How much does FD Sign cost?", a: "FD Sign plans are exactly half of DocuSign's price, per account rather than per user, with more signing requests. FD AI memberships include FD Sign too." }
+        : { q: "Is FD Sign free?", a: "You can start free with an FD AI account. Founders Doc clients also use it for documents such as ESOP option certificates." },
     ],
     related: [
       { href: "/esop-software", label: "ESOP dashboard" },

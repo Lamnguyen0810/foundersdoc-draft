@@ -53,6 +53,8 @@ const PUBLIC_PATHS = [
   "/api/seo-scan/cron",
   // The daily ESOP vesting alerts (123), also Vercel Cron with CRON_SECRET (app/api/esop/alerts/cron).
   "/api/esop/alerts/cron",
+  // 0221: the daily "waiting more than 2 days" FD Sign summary, Vercel Cron with CRON_SECRET (app/api/fd-sign/stalled).
+  "/api/fd-sign/stalled",
   // Automated SEO research sends its findings here with a private key; the
   // database checks the key and every field (104, app/api/seo/ingest).
   "/api/seo/ingest",

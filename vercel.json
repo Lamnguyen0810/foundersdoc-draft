@@ -8,6 +8,10 @@
     {
       "path": "/api/esop/alerts/cron",
       "schedule": "30 1 * * *"
+    },
+    {
+      "path": "/api/fd-sign/stalled",
+      "schedule": "0 2 * * *"
     }
   ]
 }
