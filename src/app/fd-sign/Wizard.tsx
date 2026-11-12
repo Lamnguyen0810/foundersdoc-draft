@@ -614,7 +614,7 @@ export default function Wizard({
               <p className="fds-plan">
                 {plan.limit === 0 ? (
                   <>
-                    <b>FD Sign is part of the paid plans.</b> <a href="/pricing">Choose a plan</a> to send this for signing.
+                    <b>FD Sign is part of the paid plans.</b> <a href="/billing#fd-sign">Choose a plan</a> to send this for signing.
                   </>
                 ) : (
                   <>
@@ -622,7 +622,7 @@ export default function Wizard({
                     {plan.limit !== null && (
                       <>
                         {" · "}
-                        <a href="/pricing">See plans</a>
+                        <a href="/billing#fd-sign">See plans</a>
                       </>
                     )}
                   </>

@@ -6,6 +6,7 @@ import { pricedCatalogue } from "@/lib/billing/prices";
 import { recentInvoices, type InvoiceRow } from "@/lib/billing/invoices";
 import PricingView from "./PricingView";
 import { signPricingLive } from "@/lib/sign/allowance";
+import { SIGN_ONLY } from "@/lib/billing/sign-plans";
 
 /* The account's own pricing page. The public one is /pricing (same view,
    no account), so this one is kept out of search results. */
@@ -21,13 +22,14 @@ export default async function BillingPage({
     joined?: string;
     resumed?: string;
     changed?: string;
+    signplan?: string;
   }>;
 }) {
   if (!isSupabaseConfigured()) redirect("/draft");
   const user = await getUser();
   if (!user) redirect("/login?next=%2Fbilling");
 
-  const { paid, cancelled, joined, resumed, changed } = await searchParams;
+  const { paid, cancelled, joined, resumed, changed, signplan } = await searchParams;
   const wallet = await getWallet();
   const catalogue = await pricedCatalogue();
 
@@ -41,6 +43,8 @@ export default async function BillingPage({
     unlimited_used: number;
   } | null = null;
   let stripeCustomerId: string | null = null;
+  /* 0225: a running FD Sign plan of its own (sign_*), read from the owner's own rows (RLS). */
+  let signTier: string | null = null;
 
   try {
     const supabase = await createClient();
@@ -64,6 +68,15 @@ export default async function BillingPage({
       .select("stripe_customer_id")
       .maybeSingle();
     stripeCustomerId = (account?.stripe_customer_id as string | null) ?? null;
+
+    const { data: signRows } = await supabase
+      .from("subscriptions")
+      .select("tier")
+      .in("status", ["trialing", "active", "past_due"])
+      .in("tier", SIGN_ONLY)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    signTier = (signRows?.[0]?.tier as string | undefined) ?? null;
   } catch {
     // The page still works without these; it just shows less.
   }
@@ -80,7 +93,8 @@ export default async function BillingPage({
       tier={tier}
       trialLive={trialLive}
       signLive={signPricingLive()}
-      notices={{ paid, cancelled, joined, resumed, changed }}
+      signTier={signTier}
+      notices={{ paid, cancelled, joined, resumed, changed, signplan }}
       invoices={invoices}
     />
   );

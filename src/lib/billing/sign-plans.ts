@@ -10,11 +10,15 @@
  *     (lib/sign/phone.ts). No separate count or charge per code.
  *
  *   requests   signing requests a month (calendar month, Singapore time); null = no limit (FAIR_USE)
- *   price      what the plan costs, for display; the FD Sign plans aren't sold yet (they need their Stripe
- *              products: placeholder = true keeps their price off the public pages)
+ *   price      what the plan costs (S$ cents a month); Stripe holds the real price under the lookup key
+ *              (SIGN_PRODUCTS, created by scripts/create-stripe-products.mjs), and /billing shows Stripe's
  *
- * Switched OFF until agreed: FD_SIGN_PRICING=on in Vercel turns the limits on (no deploy needed); until
- * then FD Sign works as before (free Beta, FD_SIGN_DAILY_LIMIT requests a day) and nothing is shown.
+ * 0225: the three FD Sign plans are sold through Stripe as their own monthly subscription, beside (not
+ * instead of) an FD AI membership. The larger of the two allowances counts (lib/sign/allowance.ts).
+ *
+ * Switched OFF until agreed: FD_SIGN_PRICING=on in Vercel turns the limits and the plan cards on (a
+ * redeploy picks it up); until then FD Sign works as before (free Beta, FD_SIGN_DAILY_LIMIT requests a
+ * day), nothing is shown and only an admin can buy a plan (to test).
  */
 export type SignTier = "none" | "sign_personal" | "sign_standard" | "sign_business" | "basic" | "pro" | "unlimited";
 
@@ -38,9 +42,60 @@ export const SIGN_PLANS: Record<SignTier, SignPlan> = {
   unlimited: { tier: "unlimited", label: "FD AI Unlimited", requests: null, amountCents: null },
 };
 
-/** The FD Sign plans of their own (not sold until their Stripe products exist and Rachel agrees the prices). */
+/** The FD Sign plans of their own (their own Stripe subscription, 0225). */
 export const SIGN_ONLY: SignTier[] = ["sign_personal", "sign_standard", "sign_business"];
-export const SIGN_PRICES_PLACEHOLDER = true;
+
+/** FD_SIGN_PRICING=on: plans, limits and plan cards live. Read on the server (and at build for static pages). */
+export function signPricingOn(): boolean {
+  return (process.env.FD_SIGN_PRICING ?? "").trim().toLowerCase() === "on";
+}
+
+/** True for the FD Sign plans' tiers (sign_*), false for FD AI memberships and anything else. */
+export function isSignTier(t: string | null | undefined): boolean {
+  return !!t && (SIGN_ONLY as string[]).includes(t);
+}
+
+/** An FD Sign plan as Stripe sells it (0225). Same shape the billing code uses for memberships. */
+export interface SignProduct {
+  kind: "sign";
+  tier: "sign_personal" | "sign_standard" | "sign_business";
+  /** Stripe price lookup key */
+  lookupKey: string;
+  label: string;
+  amountCents: number;
+  currency: "SGD";
+  requests: number;
+  blurb: string;
+}
+
+const product = (tier: SignProduct["tier"], lookupKey: string, blurb: string): SignProduct => ({
+  kind: "sign",
+  tier,
+  lookupKey,
+  label: SIGN_PLANS[tier].label,
+  amountCents: SIGN_PLANS[tier].amountCents!,
+  currency: "SGD",
+  requests: SIGN_PLANS[tier].requests!,
+  blurb,
+});
+
+export const SIGN_PRODUCTS: SignProduct[] = [
+  product("sign_personal", "fdsign_personal", "For one person sending now and then."),
+  product("sign_standard", "fdsign_standard", "For a small team sending every week."),
+  product("sign_business", "fdsign_business", "For teams that send contracts every day."),
+];
+
+export function signProductByLookupKey(key: string): SignProduct | undefined {
+  return SIGN_PRODUCTS.find((p) => p.lookupKey === key);
+}
+
+/** The bigger allowance of two plans (null = no limit wins). */
+export function biggerPlan(a: SignTier, b: SignTier): SignTier {
+  const ra = SIGN_PLANS[a].requests, rb = SIGN_PLANS[b].requests;
+  if (ra === null) return a;
+  if (rb === null) return b;
+  return rb > ra ? b : a;
+}
 
 /** Unlimited's fair-use ceiling a month, so a script can't send thousands. */
 export const FAIR_USE = 300;

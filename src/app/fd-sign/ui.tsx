@@ -259,7 +259,7 @@ export function Side({ data, view, onView, onFolders }: { data: ListData | null;
           </div>
         )}
         {plan?.live && limit !== null && (
-          <a className="fds-up" href="/pricing">
+          <a className="fds-up" href="/billing#fd-sign">
             {limit === 0 ? "Choose a plan ›" : "Upgrade ›"}
           </a>
         )}

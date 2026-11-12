@@ -1,16 +1,16 @@
 import "server-only";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
-import { FAIR_USE, SIGN_PLANS, type SignTier } from "@/lib/billing/sign-plans";
+import { FAIR_USE, SIGN_ONLY, SIGN_PLANS, biggerPlan, signPricingOn, type SignTier } from "@/lib/billing/sign-plans";
 import { dailyLimit, startOfDaySgt, startOfMonthSgt, type SignAccount } from "./account";
 import type { SignStore } from "./store";
 
 /**
  * What this sender may still send (0223). FD_SIGN_PRICING=on: the monthly plan from their FD AI
- * membership (lib/billing/sign-plans.ts). Off (today): the daily Beta limit, phone codes unmetered.
+ * membership or their FD Sign plan, whichever is bigger (lib/billing/sign-plans.ts, 0225). Off (today): the daily Beta limit, phone codes unmetered.
  */
 export function signPricingLive(): boolean {
-  return (process.env.FD_SIGN_PRICING ?? "").trim().toLowerCase() === "on";
+  return signPricingOn();
 }
 
 export interface Allowance {
@@ -27,8 +27,16 @@ export interface Allowance {
 async function tierOf(userId: string): Promise<SignTier> {
   const pick = (t: string | undefined): SignTier => (t && t in SIGN_PLANS ? (t as SignTier) : "none");
   if (!isSupabaseConfigured() || !isAdminClientConfigured()) return pick(process.env.FD_SIGN_PREVIEW_TIER);
-  const r = await supabaseAdmin().rpc("active_membership", { p_user_id: userId });
-  return pick((r.data as Array<{ tier?: string }> | null)?.[0]?.tier);
+  const db = supabaseAdmin();
+  /* 0225: an FD AI membership (active_membership, which SQL 131 keeps to basic/pro/unlimited) and an
+     FD Sign plan of its own can both be running; the bigger allowance counts. */
+  const [m, s] = await Promise.all([
+    db.rpc("active_membership", { p_user_id: userId }),
+    db.from("subscriptions").select("tier").eq("user_id", userId).in("status", ["trialing", "active", "past_due"]).in("tier", SIGN_ONLY),
+  ]);
+  let tier = pick((m.data as Array<{ tier?: string }> | null)?.[0]?.tier);
+  for (const row of (s.data as Array<{ tier?: string }> | null) ?? []) tier = biggerPlan(tier, pick(row.tier));
+  return tier;
 }
 
 export async function allowance(me: SignAccount, store: SignStore): Promise<Allowance> {

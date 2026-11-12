@@ -1,8 +1,8 @@
 import type { Faq } from "@/lib/templates/data";
-import { SIGN_PLANS, signPriceRows } from "@/lib/billing/sign-plans";
+import { SIGN_PLANS, signPriceRows, signPricingOn } from "@/lib/billing/sign-plans";
 
 /** 0223: FD Sign's own column follows lib/billing/sign-plans.ts (FD_SIGN_PRICING=on at build time). */
-const LIVE = (process.env.FD_SIGN_PRICING ?? "").trim().toLowerCase() === "on";
+const LIVE = signPricingOn();
 const US = signPriceRows(LIVE);
 /** 0224: paid plans only once FD_SIGN_PRICING=on (exported for the page's buttons) */
 export const SIGN_LIVE = LIVE;

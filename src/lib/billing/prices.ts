@@ -21,6 +21,7 @@ import {
   type CreditPack,
   type Membership,
 } from "./plans";
+import { SIGN_PRODUCTS, signPricingOn, type SignProduct } from "./sign-plans";
 
 export interface Priced {
   lookupKey: string;
@@ -40,11 +41,15 @@ export interface Priced {
 
 export type PricedPack = CreditPack & Priced;
 export type PricedMembership = Membership & Priced;
+/** 0225: an FD Sign plan, checked against Stripe like the rest */
+export type PricedSign = SignProduct & Priced;
 
 export interface Catalogue {
   packs: PricedPack[];
   memberships: PricedMembership[];
   topups: PricedPack[];
+  /** 0225: FD Sign's own plans (shown once FD_SIGN_PRICING=on) */
+  signPlans: PricedSign[];
   /** True when at least one product has not been created in Stripe yet. */
   anyMissing: boolean;
   /** True when any live price is denominated in something other than SGD. */
@@ -64,13 +69,14 @@ function fallback<T extends { lookupKey: string; amountCents: number }>(item: T,
 }
 
 export async function pricedCatalogue(): Promise<Catalogue> {
-  const all = [...PACKS, ...MEMBERSHIPS, ...TOPUPS];
+  const all = [...PACKS, ...MEMBERSHIPS, ...TOPUPS, ...SIGN_PRODUCTS];
 
   if (!isStripeConfigured()) {
     return {
       packs: PACKS.map((p) => fallback(p, false)),
       memberships: MEMBERSHIPS.map((m) => fallback(m, false)),
       topups: TOPUPS.map((t) => fallback(t, false)),
+      signPlans: SIGN_PRODUCTS.map((p) => fallback(p, false)),
       anyMissing: false,
       anyWrongCurrency: false,
     };
@@ -78,14 +84,15 @@ export async function pricedCatalogue(): Promise<Catalogue> {
 
   let byKey = new Map<string, { unit_amount: number | null; currency: string }>();
   try {
-    // One call for all of them rather than one per product.
-    const res = await stripe().prices.list({
-      lookup_keys: all.map((p) => p.lookupKey),
-      active: true,
-      limit: 50,
-    });
+    /* As few calls as possible. Stripe takes at most 10 lookup keys per list call (0225: FD Sign's three
+       plans made it 13), so the keys go in groups of 10, side by side. */
+    const keys = all.map((p) => p.lookupKey);
+    const groups: string[][] = [];
+    for (let i = 0; i < keys.length; i += 10) groups.push(keys.slice(i, i + 10));
+    const lists = await Promise.all(groups.map((g) => stripe().prices.list({ lookup_keys: g, active: true, limit: 20 })));
     byKey = new Map(
-      res.data
+      lists
+        .flatMap((res) => res.data)
         .filter((p) => p.lookup_key)
         .map((p) => [p.lookup_key!, { unit_amount: p.unit_amount, currency: p.currency }]),
     );
@@ -95,6 +102,7 @@ export async function pricedCatalogue(): Promise<Catalogue> {
       packs: PACKS.map((p) => fallback(p, false)),
       memberships: MEMBERSHIPS.map((m) => fallback(m, false)),
       topups: TOPUPS.map((t) => fallback(t, false)),
+      signPlans: SIGN_PRODUCTS.map((p) => fallback(p, false)),
       anyMissing: false,
       anyWrongCurrency: false,
     };
@@ -138,13 +146,17 @@ export async function pricedCatalogue(): Promise<Catalogue> {
   const packs = PACKS.map(price);
   const memberships = MEMBERSHIPS.map(price);
   const topups = TOPUPS.map(price);
+  const signPlans = SIGN_PRODUCTS.map(price);
 
-  const all_ = [...packs, ...memberships, ...topups];
+  /* FD Sign's plans count towards "missing" only once they are on sale: until FD_SIGN_PRICING=on their
+     Stripe products may not exist yet, and nobody should see a warning about it. */
+  const all_ = [...packs, ...memberships, ...topups, ...(signPricingOn() ? signPlans : [])];
 
   return {
     packs,
     memberships,
     topups,
+    signPlans,
     anyMissing: all_.some((p) => p.missing),
     anyWrongCurrency: all_.some((p) => p.wrongCurrency),
   };

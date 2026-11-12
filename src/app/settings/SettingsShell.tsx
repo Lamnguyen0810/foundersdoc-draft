@@ -272,16 +272,17 @@ export default function SettingsShell({
   async function closeAccount(action: "deactivate" | "delete") {
     setCloseBusy(true);
     try {
-      if (billing.status && ["active", "trialing", "past_due"].includes(billing.status)) {
-        await fetch("/api/billing/cancel", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            reason: "other",
-            note: action === "delete" ? "Account deleted by the customer" : "Account deactivated by the customer",
-          }),
-        }).catch(() => null);
-      }
+      /* 0225: always, and kind "all": an FD Sign plan can be running without an FD AI membership, and
+         it must stop charging too. With nothing running the route changes nothing. */
+      await fetch("/api/billing/cancel", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          kind: "all",
+          reason: "other",
+          note: action === "delete" ? "Account deleted by the customer" : "Account deactivated by the customer",
+        }),
+      }).catch(() => null);
 
       const res = await fetch("/api/account", {
         method: "POST",

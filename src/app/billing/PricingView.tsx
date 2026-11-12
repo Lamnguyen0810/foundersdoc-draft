@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { Catalogue, PricedMembership, PricedPack } from "@/lib/billing/prices";
+import type { Catalogue, PricedMembership, PricedPack, PricedSign } from "@/lib/billing/prices";
 import type { InvoiceRow } from "@/lib/billing/invoices";
 import { TRIAL, money } from "@/lib/billing/plans";
 import BuyButton from "./BuyButtons";
@@ -27,10 +27,12 @@ export interface PricingViewProps {
   catalogue: Catalogue;
   tier?: string | null;
   trialLive?: boolean;
-  notices?: { paid?: string; cancelled?: string; joined?: string; resumed?: string; changed?: string };
+  notices?: { paid?: string; cancelled?: string; joined?: string; resumed?: string; changed?: string; signplan?: string };
   invoices?: InvoiceRow[];
   /** 0223: FD Sign is part of the memberships (lib/billing/sign-plans.ts); shown only once FD_SIGN_PRICING=on */
   signLive?: boolean;
+  /** 0225: the viewer's running FD Sign plan (sign_*), if any */
+  signTier?: string | null;
 }
 
 function when(iso: string): string {
@@ -44,16 +46,18 @@ function Buy({
   item,
   label,
   isCurrent,
+  manage,
   className,
 }: {
   guest: boolean;
   anchor: string;
-  item: PricedPack | PricedMembership;
+  item: PricedPack | PricedMembership | PricedSign;
   label: string;
   isCurrent?: boolean;
+  manage?: boolean;
   className: string;
 }) {
-  if (!guest) return <BuyButton item={item} label={label} isCurrent={isCurrent} className={className} />;
+  if (!guest) return <BuyButton item={item} label={label} isCurrent={isCurrent} manage={manage} className={className} />;
   return (
     <a className={className} href={`/billing#${anchor}`}>
       {anchor === "topups" ? "For members" : label}
@@ -61,9 +65,9 @@ function Buy({
   );
 }
 
-export default function PricingView({ guest, catalogue, tier = null, trialLive = false, signLive = false, notices = {}, invoices = [] }: PricingViewProps) {
-  const { paid, cancelled, joined, resumed, changed } = notices;
-  const anyNotice = joined || paid || cancelled || resumed || changed;
+export default function PricingView({ guest, catalogue, tier = null, trialLive = false, signLive = false, signTier = null, notices = {}, invoices = [] }: PricingViewProps) {
+  const { paid, cancelled, joined, resumed, changed, signplan } = notices;
+  const anyNotice = joined || paid || cancelled || resumed || changed || signplan;
   const savings = (credits: number, cents: number) => money(credits * catalogue.packs[0].amountCents - cents);
 
   return (
@@ -77,6 +81,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
             <a className="tab-link active" href="#trial">Free trial</a>
             <a className="tab-link" href="#credits">Flexible credits</a>
             <a className="tab-link" href="#memberships">Memberships</a>
+            {signLive && <a className="tab-link" href="#fd-sign">FD Sign</a>}
             <a className="tab-link" href="#topups">Member top-ups</a>
             <a className="tab-link" href="#compare">Compare</a>
           </nav>
@@ -113,6 +118,9 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
           )}
           {joined && (
             <div className="banner ok"><div><strong>Welcome to FD AI.</strong><span>Your membership is active. This month&rsquo;s documents land on your account within a few seconds — reload if the number above has not moved yet.</span></div></div>
+          )}
+          {signplan && (
+            <div className="banner ok"><div><strong>Your FD Sign plan is active.</strong><span>Your monthly signing requests are ready. If the send page still shows the old limit, reload in a moment.</span></div></div>
           )}
           {paid && (
             <div className="banner ok"><div><strong>Payment received.</strong><span>Your documents are on your account. If the number above has not moved yet, reload in a moment.</span></div></div>
@@ -296,6 +304,43 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
           </div>
         </div>
       </section>
+
+      {/* ── 0225: FD Sign plans, their own monthly subscription (FD_SIGN_PRICING=on) ── */}
+      {signLive && (
+        <section className="section alt" id="fd-sign">
+          <div className="wrap reveal">
+            <div className="section-head">
+              <div className="section-kicker">FD Sign</div>
+              <h2>FD Sign plans</h2>
+              <p>E-signature on its own, at half DocuSign&rsquo;s price with more requests. FD AI memberships include FD Sign too; if you have both, the bigger allowance counts.</p>
+            </div>
+            <div className="shell soft">
+              <div className="card-grid three-up">
+                {catalogue.signPlans.map((p) => {
+                  const current = p.tier === signTier;
+                  const featured = p.tier === "sign_standard";
+                  return (
+                    <article key={p.lookupKey} className={`card${featured ? " featured" : ""}`}>
+                      <div className={`tag${featured || current ? " gold" : ""}`}>{current ? "Your plan" : featured ? "Most popular" : p.tier === "sign_personal" ? "Just you" : "Busy teams"}</div>
+                      <div className="plan-title">{p.label}</div>
+                      <div className="plan-price"><strong>{p.price}</strong><span>/ month</span></div>
+                      <div className="plan-credit">{requestsText(SIGN_PLANS[p.tier])}</div>
+                      <div className="plan-rate">{p.blurb}</div>
+                      <div className="divider" />
+                      <div className="points">
+                        <div><b>✓</b><span>{CODE_TEXT}</span></div>
+                        <div><b>✓</b><span>Signers need no account</span></div>
+                        <div><b>✓</b><span>Signed PDF with an audit trail</span></div>
+                      </div>
+                      <Buy guest={guest} anchor="fd-sign" item={p} label={`Choose ${p.label}`} isCurrent={current} manage className={`btn ${featured ? "btn-black" : "btn-white"} card-btn`} />
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── member top-ups ────────────────────────────────────────────────── */}
       <section className="section alt" id="topups">

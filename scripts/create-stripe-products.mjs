@@ -21,6 +21,7 @@
  */
 import Stripe from "stripe";
 import { PACKS, MEMBERSHIPS, TOPUPS, money } from "../src/lib/billing/plans.ts";
+import { SIGN_PRODUCTS } from "../src/lib/billing/sign-plans.ts";
 
 /* PowerShell and copy-paste both like to bring friends: a trailing space, a
    pair of quotes, an invisible newline. None of those are part of the key, and
@@ -119,6 +120,15 @@ const ITEMS = [
       monthly_credits: String(m.monthlyCredits ?? 0),
       kind: "membership",
     },
+  })),
+  /* 0225: FD Sign's own plans, a monthly subscription of their own. tier = sign_*; no FD AI credits. */
+  ...SIGN_PRODUCTS.map((p) => ({
+    lookupKey: p.lookupKey,
+    name: `FD Sign ${p.label.replace(/^Sign /, "")}`,
+    description: `${p.requests} signing requests a month. Signing code by email, WhatsApp or SMS. ${p.blurb}`,
+    amountCents: p.amountCents,
+    recurring: true,
+    metadata: { tier: p.tier, monthly_credits: "0", kind: "fd_sign" },
   })),
   ...TOPUPS.map((t) => ({
     lookupKey: t.lookupKey,
