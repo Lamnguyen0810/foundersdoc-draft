@@ -656,3 +656,23 @@ html[data-theme="dark"] .fck-note b { color: #f3bf4b; }
 @media (max-width: 760px) { .fds-cred.side { display: none; } }
 .fds-cred-mob { display: none; }
 @media (max-width: 760px) { .fds-cred-mob { display: block; } }
+/* 0236: a premium feature, shown locked */
+.fds-lock { display: inline-flex; align-items: center; gap: 6px; margin: 0 0 12px; font-size: 12.5px; color: var(--fds-tx3); }
+.fds-lock a { font-weight: 600; color: var(--fds-gold-deep, #8a6410); text-decoration: none; }
+.fds-lock a:hover { text-decoration: underline; text-underline-offset: 3px; }
+/* 0236: the document's overall progress, above each signer */
+.fds-sum { margin: 2px 0 12px; }
+.fds-sum .fds-bar { display: block; margin: 0 0 7px; }
+.fds-sum p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--fds-tx2, inherit); }
+.fds-sum p b { color: var(--fds-tx, inherit); }
+.fds-sum p.now { margin-top: 2px; font-size: 12.5px; color: var(--fds-tx3); }
+/* 0236: status emails setting, under the counter */
+.fds-mail { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; padding: 0 4px; font-size: 12.5px; color: var(--fds-tx3); }
+.fds-mail select { margin-left: auto; height: 28px; padding: 0 6px; border: 1px solid var(--fds-line); border-radius: 8px; background: var(--fds-card); font-size: 12.5px; color: var(--fds-tx, inherit); }
+.fds-mail span { white-space: nowrap; }
+.fds-mail select.saved { border-color: var(--fds-green, #2f8f3a); }
+.fds-mail.up { text-decoration: none; }
+.fds-mail.up:hover { color: var(--fds-gold-deep, #8a6410); }
+@media (max-width: 760px) { .fds-mail { display: none; } }
+/* 0236: "Remind" from the status email */
+.fds-btn.pulse { box-shadow: 0 0 0 3px color-mix(in srgb, var(--fds-gold) 55%, transparent); }

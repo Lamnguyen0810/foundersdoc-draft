@@ -71,7 +71,7 @@ export default function Home() {
           {/* 0229: on a phone the sidebar's counter is hidden, so it shows here */}
           {data?.plan?.live && (
             <div className="fds-cred-mob">
-              <SignCredits a={{ label: data.plan.label, used: data.today, limit: data.limit, per: data.plan.per }} />
+              <SignCredits a={{ label: data.plan.label, used: data.today, limit: data.limit, per: data.plan.per, endsAt: data.plan.endsAt }} />
             </div>
           )}
           {err && <div className="fds-err">{err}</div>}

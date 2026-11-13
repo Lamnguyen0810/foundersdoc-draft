@@ -69,8 +69,11 @@ export async function POST(req: NextRequest) {
   if (signers.some((s) => !s.name || !EMAIL.test(s.email) || s.email.length > 200)) return NextResponse.json({ error: "Every person needs a name and a valid email." }, { status: 400 });
   if (new Set(signers.map((s) => s.email)).size !== signers.length) return NextResponse.json({ error: "Each person needs their own email address." }, { status: 400 });
 
-  const offered = phoneChannels();
+  /* 0236: WhatsApp / SMS codes are a premium-plan feature (Sign Standard and up); the Beta keeps them all */
+  const offered = !allow.live || allow.premium ? phoneChannels() : [];
   const byPhone = signers.filter((s) => s.channel !== "email");
+  if (byPhone.length && allow.live && !allow.premium && phoneChannels().length)
+    return NextResponse.json({ error: "WhatsApp and SMS codes come with Sign Standard, Sign Business, FD AI Pro and Unlimited. Choose email for the code, or upgrade.", upgrade: true }, { status: 403 });
   if (byPhone.some((s) => !offered.includes(s.channel))) return NextResponse.json({ error: "Codes by WhatsApp or SMS aren't switched on right now. Choose email for the code." }, { status: 400 });
   const noPhone = byPhone.find((s) => !s.phone);
   if (noPhone) return NextResponse.json({ error: `${noPhone.name}: add a mobile number with the country code (e.g. +65 9123 4567) for the ${CHANNEL_TEXT[noPhone.channel]} code.` }, { status: 400 });

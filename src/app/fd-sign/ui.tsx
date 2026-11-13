@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import type { DocRow, DocStatus } from "@/lib/sign/mine";
 import { colour } from "@/lib/sign/boxes";
+import { FREE_SIGN } from "@/lib/billing/sign-plans";
 
 /* Shared bits for the FD Sign pages: icons, the header strip, the sidebar,
    status pills, avatars, dates, and the My documents data. */
@@ -106,7 +107,7 @@ export interface ListData {
   /** null = no limit (Unlimited plan) */
   limit: number | null;
   /** 0223: the FD Sign plan (lib/billing/sign-plans.ts); live = false while FD Sign is free (Beta) */
-  plan?: { live: boolean; label: string; per: "day" | "month" | "free" };
+  plan?: { live: boolean; label: string; per: "day" | "month" | "free"; premium?: boolean; endsAt?: string | null };
 }
 
 /** 0229: what a sender may still send, the way FD AI shows credits. live plans only (FD_SIGN_PRICING=on). */
@@ -116,6 +117,8 @@ export interface SignAllowanceView {
   /** null = no limit (Unlimited) */
   limit: number | null;
   per: "day" | "month" | "free";
+  /** 0236: the free week's end, once started */
+  endsAt?: string | null;
 }
 
 export function signLeft(a: SignAllowanceView): number | null {
@@ -129,20 +132,66 @@ export function signLeft(a: SignAllowanceView): number | null {
  *   Unlimited:       ✎ Unlimited signing requests · FD AI Unlimited
  * newTab: the plans open in a new tab, so a request being made isn't lost.
  */
+/** 0236: the status emails setting (premium plans), in the My documents sidebar: daily, weekly or off. */
+export function StatusEmails({ premium }: { premium: boolean }) {
+  const [f, setF] = useState<"daily" | "weekly" | "off" | null>(null);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (!premium) return;
+    void fetch("/api/fd-sign/email-settings", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => setF(j.frequency ?? "weekly"))
+      .catch(() => setF("weekly"));
+  }, [premium]);
+  if (!premium) {
+    return (
+      <a className="fds-mail up" id="status-emails" href="/billing#fd-sign">
+        <Ic n="mail" s={13} w={2} /> Status emails come with Sign Standard and up ›
+      </a>
+    );
+  }
+  const change = async (v: "daily" | "weekly" | "off") => {
+    setF(v);
+    setSaved(false);
+    const r = await fetch("/api/fd-sign/email-settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ frequency: v }) }).catch(() => null);
+    setSaved(!!r?.ok);
+  };
+  return (
+    <label className="fds-mail" id="status-emails">
+      <Ic n="mail" s={13} w={2} />
+      <span>Status emails</span>
+      <select className={saved ? "saved" : undefined} value={f ?? "weekly"} disabled={!f} onChange={(e) => void change(e.target.value as "daily" | "weekly" | "off")} aria-label="Status emails" title={saved ? "Saved" : undefined}>
+        <option value="weekly">Weekly</option>
+        <option value="daily">Daily</option>
+        <option value="off">Off</option>
+      </select>
+    </label>
+  );
+}
+
 export function SignCredits({ a, newTab = false, side = false }: { a: SignAllowanceView; newTab?: boolean; side?: boolean }) {
   const left = signLeft(a);
   const out = left === 0;
   const free = a.per === "free";
   const s = (n: number) => (n === 1 ? "" : "s");
+  /* the server closes an ended free week by setting limit = what was used (below FREE_SIGN) */
+  const ended = free && out && !!a.endsAt && (a.limit ?? 0) < FREE_SIGN;
+  const ends = a.endsAt ? new Date(a.endsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Singapore" }) : "";
   const text =
     left === null ? (
       <>Unlimited signing requests · {a.label}</>
     ) : out ? (
-      free ? <>Free signing requests used</> : <>No signing requests left this month</>
+      free ? ended ? <>Your free week has ended</> : <>Free signing requests used</> : <>No signing requests left this month</>
     ) : free ? (
-      <>
-        <b>{left}</b> free signing request{s(left)} left
-      </>
+      a.endsAt ? (
+        <>
+          <b>{left}</b> free signing request{s(left)} left · free week ends {ends}
+        </>
+      ) : (
+        <>
+          <b>{left}</b> free signing requests in your first week
+        </>
+      )
     ) : (
       <>
         <b>{left}</b> of {a.limit} signing requests left · {a.label}
@@ -299,7 +348,10 @@ export function Side({ data, view, onView, onFolders }: { data: ListData | null;
       )}
       {err && <div className="fds-err">{err}</div>}
       {plan?.live ? (
-        <SignCredits side a={{ label: plan.label, used: data?.today ?? 0, limit, per: plan.per }} />
+        <>
+          <SignCredits side a={{ label: plan.label, used: data?.today ?? 0, limit, per: plan.per, endsAt: plan.endsAt }} />
+          <StatusEmails premium={!!plan.premium} />
+        </>
       ) : (
       <div className="fds-quota">
         <b>{plan?.live ? (limit === 0 ? "No FD Sign plan yet" : plan.label) : "Free during Beta"}</b>

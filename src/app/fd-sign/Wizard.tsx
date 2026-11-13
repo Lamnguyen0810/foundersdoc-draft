@@ -52,9 +52,12 @@ const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name:
 /** plan (0223, FD_SIGN_PRICING=on): this month's requests and WhatsApp / SMS codes; null = Beta, nothing shown */
 export default function Wizard({
   channels = [],
+  phoneLocked = false,
   plan = null,
 }: {
   channels?: CodeChannel[];
+  /** 0236: WhatsApp / SMS codes are switched on, but only for premium plans: show them, locked */
+  phoneLocked?: boolean;
   plan?: SignAllowanceView | null;
 }) {
   const router = useRouter();
@@ -66,7 +69,7 @@ export default function Wizard({
   const { data, reload } = useList();
   /* 0229: the signing-requests counter. Starts from the server's figure, then follows My documents'
      list, which reloads when the sender comes back to this tab (e.g. after buying a plan in another tab). */
-  const allow: SignAllowanceView | null = data?.plan?.live ? { label: data.plan.label, used: data.today, limit: data.limit, per: data.plan.per } : plan;
+  const allow: SignAllowanceView | null = data?.plan?.live ? { label: data.plan.label, used: data.today, limit: data.limit, per: data.plan.per, endsAt: data.plan.endsAt } : plan;
   const noneLeft = !!allow && signLeft(allow) === 0;
   useEffect(() => {
     const back = () => document.visibilityState === "visible" && void reload();
@@ -636,6 +639,14 @@ export default function Wizard({
               <p>In signing order. Each person is emailed when the one before has signed.</p>
             </div>
             {noneLeft && allow && <SignCredits a={allow} newTab />}
+            {phoneLocked && (
+              <p className="fds-lock">
+                <Ic n="shield" s={13} w={2} /> Signing codes by WhatsApp come with Sign Standard and up.{" "}
+                <a href="/billing#fd-sign" target="_blank" rel="noopener">
+                  See plans ›
+                </a>
+              </p>
+            )}
             {people.map((p, i) => (
               <div className="fds-pc" key={p.key} style={{ ["--c" as string]: colour(i + 1) }}>
                 <span className="n">{i + 1}</span>

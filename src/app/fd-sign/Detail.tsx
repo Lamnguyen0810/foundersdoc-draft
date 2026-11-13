@@ -111,7 +111,7 @@ export default function DetailPage({ id }: { id: string }) {
                   </button>
                 )}
                 {(doc.status === "waiting" || doc.status === "waiting_me") && !meNow && (
-                  <button className="fds-btn sm" disabled={!!busy} onClick={() => void act("remind")}>
+                  <button className={`fds-btn sm${params.get("remind") === "1" ? " pulse" : ""}`} disabled={!!busy} onClick={() => void act("remind")}>
                     <Ic n="bell" s={15} />
                     {busy === "remind" ? "Sending…" : `Remind ${doc.waitingFor?.split(/\s+/)[0] ?? ""}`}
                   </button>
@@ -168,9 +168,31 @@ export default function DetailPage({ id }: { id: string }) {
                 </div>
 
                 <div className="fds-card fds-trk">
-                  <h3>
-                    Progress · {doc.signed} of {doc.total} signed
-                  </h3>
+                  <h3>Progress</h3>
+                  {/* 0236 (Rachel): the overall picture first, e.g. 4 of 10 signed · 6 remaining · with Daniel now */}
+                  {(() => {
+                    const open = doc.status === "waiting" || doc.status === "waiting_me";
+                    const left = doc.total - doc.signed;
+                    const nowS = open ? doc.signers.find((s) => s.status === "invited") : undefined;
+                    return (
+                      <div className="fds-sum">
+                        <span className="fds-bar" aria-hidden="true">
+                          <i style={{ width: `${doc.total ? Math.round((doc.signed / doc.total) * 100) : 0}%` }} />
+                        </span>
+                        <p>
+                          <b>
+                            {doc.signed} of {doc.total} signed
+                          </b>
+                          {open && left > 0 && <> · {left} remaining</>}
+                        </p>
+                        {nowS && (
+                          <p className="now">
+                            Now with <b>{nowS.me ? "you" : nowS.name}</b> · {nowS.viewedAt ? "opened, not signed yet" : "emailed, not opened yet"}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {doc.signers.map((s, i) => {
                     const now = s.status === "invited" && (doc.status === "waiting" || doc.status === "waiting_me");
                     return (

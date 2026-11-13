@@ -99,9 +99,18 @@ export function biggerPlan(a: SignTier, b: SignTier): SignTier {
   return rb > ra ? b : a;
 }
 
-/** 0229: with no plan, an account's first FREE_SIGN signing requests are free (ever, not a month), the way
- *  FD AI's first documents are; then a plan (FD Sign or an FD AI membership). */
-export const FREE_SIGN = 3;
+/** 0236 (Rachel, 12 Nov: "1st week free"): with no plan, an account's first week is free, up to FREE_SIGN
+ *  signing requests. The week starts with their first request, so it isn't used up before they try it.
+ *  Then a plan (FD Sign or an FD AI membership). */
+export const FREE_SIGN = 10;
+export const FREE_SIGN_DAYS = 7;
+export const FREE_TEXT = `First week free, up to ${FREE_SIGN} signing requests`;
+
+/** 0236 (Rachel, 12 Nov): premium plans get the WhatsApp / SMS signing code and the daily or weekly status
+ *  email. The other plans and the free week get the email code. */
+export const PREMIUM: SignTier[] = ["sign_standard", "sign_business", "pro", "unlimited"];
+export const isPremium = (t: SignTier | string | null | undefined): boolean => !!t && (PREMIUM as string[]).includes(t);
+export const PREMIUM_TEXT = "Sign Standard, Sign Business, FD AI Pro and Unlimited";
 
 /** 0231: the free requests count from launch day (Singapore time), so people who used the Beta get a fresh 3. */
 export const FREE_SIGN_SINCE = "2026-11-12T00:00:00+08:00";
@@ -131,7 +140,7 @@ export function signPriceRows(live: boolean): { free: string; entry: string; tea
   if (!live) return { free: "Yes", entry: "S$0", team: "S$0", limit: "Up to 20 requests a day while FD Sign is free" };
   const p = SIGN_PLANS.sign_personal, s = SIGN_PLANS.sign_standard, b = SIGN_PLANS.sign_business;
   return {
-    free: `Your first ${FREE_SIGN} signing requests`,
+    free: FREE_TEXT,
     entry: `${sgd(p.amountCents!)} a month (${p.label}, ${p.requests} requests)`,
     team: `${sgd(s.amountCents!)}–${sgd(b.amountCents!)} a month per account (${s.label}, ${b.label})`,
     limit: `${p.requests} / ${s.requests} / ${b.requests} a month; FD AI memberships include 20, 60 or unlimited`,

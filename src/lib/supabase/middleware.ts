@@ -55,6 +55,8 @@ const PUBLIC_PATHS = [
   "/api/esop/alerts/cron",
   // 0221: the daily "waiting more than 2 days" FD Sign summary, Vercel Cron with CRON_SECRET (app/api/fd-sign/stalled).
   "/api/fd-sign/stalled",
+  // 0236: the daily FD Sign status emails (premium senders), Vercel Cron with CRON_SECRET (app/api/fd-sign/status-emails).
+  "/api/fd-sign/status-emails",
   // Automated SEO research sends its findings here with a private key; the
   // database checks the key and every field (104, app/api/seo/ingest).
   "/api/seo/ingest",

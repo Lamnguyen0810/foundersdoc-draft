@@ -189,6 +189,8 @@ export interface SignStore {
   mine(ownerId: string, limit: number): Promise<OwnedEnvelope[]>;
   waitingFor(email: string): Promise<WaitingForMe[]>;
   sentSince(ownerId: string, sinceIso: string): Promise<number>;
+  /** 0236: when this sender's first request since then was made (ISO), or null */
+  firstSentSince(ownerId: string, sinceIso: string): Promise<string | null>;
   /** 0223: WhatsApp / SMS signing codes this sender chose since then (signers with a phone channel; 0 before SQL 130) */
   phoneSince(ownerId: string, sinceIso: string): Promise<number>;
   folders(ownerId: string): Promise<SignFolder[]>;
@@ -428,6 +430,11 @@ function supabaseStore(): SignStore {
       if (r.error) throw new Error(r.error.message);
       return r.count ?? 0;
     },
+    async firstSentSince(ownerId, sinceIso) {
+      const r = await db.from("sign_envelopes").select("created_at").eq("owner_id", ownerId).gte("created_at", sinceIso).order("created_at").limit(1).maybeSingle();
+      if (r.error) throw new Error(r.error.message);
+      return (r.data as { created_at?: string } | null)?.created_at ?? null;
+    },
     async phoneSince(ownerId, sinceIso) {
       const e = await db.from("sign_envelopes").select("id").eq("owner_id", ownerId).gte("created_at", sinceIso).limit(1000);
       const ids = ((e.error ? [] : e.data) ?? []).map((x) => (x as { id: string }).id);
@@ -641,6 +648,10 @@ function memoryStore(): SignStore {
     },
     async sentSince(ownerId, sinceIso) {
       return [...m.env.values()].filter((e) => e.owner_id === ownerId && e.created_at >= sinceIso).length;
+    },
+    async firstSentSince(ownerId, sinceIso) {
+      const t = [...m.env.values()].filter((e) => e.owner_id === ownerId && e.created_at >= sinceIso).map((e) => e.created_at).sort()[0];
+      return t ?? null;
     },
     async phoneSince(ownerId, sinceIso) {
       const envs = new Set([...m.env.values()].filter((e) => e.owner_id === ownerId && e.created_at >= sinceIso).map((e) => e.id));
