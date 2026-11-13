@@ -1,7 +1,7 @@
 import "server-only";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
-import { FAIR_USE, FREE_SIGN, FREE_SIGN_SINCE, SIGN_ONLY, SIGN_PLANS, biggerPlan, signPricingOn, type SignTier } from "@/lib/billing/sign-plans";
+import { FAIR_USE, FREE_SIGN, FREE_SIGN_DAYS, FREE_SIGN_SINCE, SIGN_ONLY, SIGN_PLANS, biggerPlan, isPremium, signPricingOn, type SignTier } from "@/lib/billing/sign-plans";
 import { dailyLimit, startOfDaySgt, startOfMonthSgt, type SignAccount } from "./account";
 import type { SignStore } from "./store";
 
@@ -22,9 +22,13 @@ export interface Allowance {
   used: number;
   /** null = no limit (Unlimited: FAIR_USE behind the scenes); 0 = no plan */
   limit: number | null;
+  /** 0236: premium plan (WhatsApp / SMS code, status emails) */
+  premium: boolean;
+  /** 0236: the free week's last moment (ISO), once it has started; null = not started yet */
+  endsAt?: string | null;
 }
 
-async function tierOf(userId: string): Promise<SignTier> {
+export async function tierOf(userId: string): Promise<SignTier> {
   const pick = (t: string | undefined): SignTier => (t && t in SIGN_PLANS ? (t as SignTier) : "none");
   if (!isSupabaseConfigured() || !isAdminClientConfigured()) return pick(process.env.FD_SIGN_PREVIEW_TIER);
   const db = supabaseAdmin();
@@ -41,21 +45,30 @@ async function tierOf(userId: string): Promise<SignTier> {
 
 export async function allowance(me: SignAccount, store: SignStore): Promise<Allowance> {
   if (!signPricingLive()) {
-    return { live: false, tier: "none", label: "Beta", per: "day", used: await store.sentSince(me.id, startOfDaySgt()), limit: dailyLimit() };
+    return { live: false, tier: "none", label: "Beta", per: "day", used: await store.sentSince(me.id, startOfDaySgt()), limit: dailyLimit(), premium: false };
   }
   const tier = await tierOf(me.id);
-  /* 0229: no plan yet = the first FREE_SIGN requests are free; 0231: counted from launch day (FREE_SIGN_SINCE) */
+  /* 0236: no plan yet = a free week, up to FREE_SIGN requests, from their first request after launch (FREE_SIGN_SINCE).
+     Once the week is over, no more free requests (limit = what they used, so none are left). */
   if (tier === "none") {
-    return { live: true, tier, label: "Free", per: "free", used: await store.sentSince(me.id, new Date(FREE_SIGN_SINCE).toISOString()), limit: FREE_SIGN };
+    const since = new Date(FREE_SIGN_SINCE).toISOString();
+    const [used, first] = await Promise.all([store.sentSince(me.id, since), store.firstSentSince(me.id, since)]);
+    const endsAt = first ? new Date(Date.parse(first) + FREE_SIGN_DAYS * 86_400_000).toISOString() : null;
+    const over = !!endsAt && Date.now() > Date.parse(endsAt);
+    return { live: true, tier, label: "Free week", per: "free", used, limit: over ? Math.min(used, FREE_SIGN) : FREE_SIGN, premium: false, endsAt };
   }
   const plan = SIGN_PLANS[tier];
-  return { live: true, tier, label: plan.label, per: "month", used: await store.sentSince(me.id, startOfMonthSgt()), limit: plan.requests };
+  return { live: true, tier, label: plan.label, per: "month", used: await store.sentSince(me.id, startOfMonthSgt()), limit: plan.requests, premium: isPremium(tier) };
 }
 
 /** null = may send; otherwise the message to show. The signing code (email, WhatsApp or SMS) is part of the request. */
 export function blockReason(a: Allowance): string | null {
   if (a.live && a.limit === 0) return "FD Sign is part of the paid plans. Choose a plan to send documents for signing.";
-  if (a.per === "free" && a.used >= (a.limit ?? 0)) return `You've used your ${a.limit} free signing requests. Choose a plan to keep sending.`;
+  if (a.per === "free" && a.used >= (a.limit ?? 0)) {
+    return a.endsAt && Date.now() > Date.parse(a.endsAt)
+      ? "Your free week has ended. Choose a plan to keep sending."
+      : `You've used your ${a.limit} free signing requests this week. Choose a plan to keep sending.`;
+  }
   const cap = a.limit ?? FAIR_USE;
   if (a.used < cap) return null;
   if (!a.live) return `You've sent ${a.limit} requests today, the most for now while FD Sign is free. Please try again tomorrow.`;

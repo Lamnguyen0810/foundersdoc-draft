@@ -7,7 +7,7 @@ import PricingMotion from "./PricingMotion";
 import "./pricing.css";
 /* Loaded after, deliberately: it overrides the generated stylesheet. */
 import "./pricing-brand.css";
-import { FREE_SIGN, SIGN_PLANS, codeText, requestsText, type SignTier } from "@/lib/billing/sign-plans";
+import { FREE_SIGN, FREE_SIGN_DAYS, SIGN_PLANS, codeText, isPremium, requestsText, type SignTier } from "@/lib/billing/sign-plans";
 
 /**
  * The pricing page itself, for two audiences:
@@ -298,7 +298,8 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
                       {signLive && m.tier in SIGN_PLANS && (
                         <>
                           <div><b>✓</b><span>FD Sign: {requestsText(SIGN_PLANS[m.tier as SignTier])}</span></div>
-                          <div><b>✓</b><span>{CODE_TEXT}</span></div>
+                          <div><b>✓</b><span>{isPremium(m.tier) ? CODE_TEXT : "Signing code by email"}</span></div>
+                          {isPremium(m.tier) && <div><b>✓</b><span>Daily or weekly signing status emails</span></div>}
                         </>
                       )}
                     </div>
@@ -318,7 +319,7 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
             <div className="section-head">
               <div className="section-kicker">FD Sign</div>
               <h2>FD Sign plans</h2>
-              <p>Your first {FREE_SIGN} signing requests are free. Then e-signature on its own, at half DocuSign&rsquo;s price with more requests. FD AI memberships include FD Sign too; if you have both, the bigger allowance counts.</p>
+              <p>Your first {FREE_SIGN_DAYS} days are free, up to {FREE_SIGN} signing requests. Then e-signature on its own, at half DocuSign&rsquo;s price with more requests. FD AI memberships include FD Sign too; if you have both, the bigger allowance counts.</p>
             </div>
             <div className="shell soft">
               <div className="card-grid three-up">
@@ -334,7 +335,8 @@ export default function PricingView({ guest, catalogue, tier = null, trialLive =
                       <div className="plan-rate">{p.blurb}</div>
                       <div className="divider" />
                       <div className="points">
-                        <div><b>✓</b><span>{CODE_TEXT}</span></div>
+                        <div><b>✓</b><span>{isPremium(p.tier) ? CODE_TEXT : "Signing code by email"}</span></div>
+                        {isPremium(p.tier) && <div><b>✓</b><span>Daily or weekly status emails: who&rsquo;s signed, who&rsquo;s left</span></div>}
                         <div><b>✓</b><span>Signers need no account</span></div>
                         <div><b>✓</b><span>Signed PDF with an audit trail</span></div>
                       </div>

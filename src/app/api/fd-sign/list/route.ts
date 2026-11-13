@@ -24,7 +24,7 @@ export async function GET() {
       /* 0223: the day's Beta limit, or the month's plan (FD_SIGN_PRICING=on) */
       today: allow.used,
       limit: allow.limit,
-      plan: { live: allow.live, label: allow.label, per: allow.per },
+      plan: { live: allow.live, label: allow.label, per: allow.per, premium: allow.premium, endsAt: allow.endsAt ?? null },
     });
   } catch (e) {
     return fail(e, "list");
