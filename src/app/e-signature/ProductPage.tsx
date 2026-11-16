@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { SITE, ORGANIZATION, ldJson } from "@/lib/seo";
 import type { Product } from "@/lib/products/data";
 import { COMPARE_PATH, TOOLS } from "@/lib/products/compare";
+import { LAW_PATH } from "@/lib/products/esign-law";
 import { Breadcrumbs, Disclaimer, Faqs, MoreTemplates, TemplateLd } from "../templates/parts";
 import TemplateCta from "../templates/TemplateCta";
 import "../templates/templates.css";
@@ -100,6 +101,9 @@ export default function ProductPage({ p }: { p: Product }) {
           <section className="tpl-section" aria-labelledby="pp-compare">
             <h2 id="pp-compare">Compare FD Sign</h2>
             <ul className="tpl-chips">
+              <li>
+                <Link href={LAW_PATH}>Is e-signature legal in Singapore?</Link>
+              </li>
               <li>
                 <Link href={COMPARE_PATH}>Best DocuSign alternatives</Link>
               </li>

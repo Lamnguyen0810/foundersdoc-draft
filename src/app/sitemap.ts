@@ -5,6 +5,7 @@ import { publishedCards } from "@/lib/blog/store";
 import { loadDocTypes } from "@/lib/doctypes.server";
 import { PUBLIC_PAGES, SITE } from "@/lib/seo";
 import { COMPARE_PATH } from "@/lib/products/compare";
+import { LAW_PATH } from "@/lib/products/esign-law";
 import { TEMPLATES_UPDATED, templatePaths } from "@/lib/templates/data";
 
 /**
@@ -34,6 +35,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     page("/draft", 0.9),
     /* 0226: FD Sign compared with DocuSign, Dropbox Sign (HelloSign) and PandaDoc, on one page */
     page(COMPARE_PATH, 0.7),
+    /* 0238: is e-signature legal in Singapore? (the Electronic Transactions Act, plainly) */
+    page(LAW_PATH, 0.7),
     ...docs.map((d) => page(draftHref(d.slug), d.slug === "nda" ? 0.9 : 0.8)),
     ...templatePaths().map((p) => page(p, p.split("/").length > 3 ? 0.8 : 0.7, TEMPLATES_UPDATED)),
     ...STATIC_ARTICLES.map((a) => page(`/resources/${a.slug}`, 0.7)),

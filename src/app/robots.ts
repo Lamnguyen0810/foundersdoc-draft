@@ -25,6 +25,9 @@ export default function robots(): MetadataRoute.Robots {
           "/zzqa",
           "/draft/",
           "/my-options/",
+          /* 0238: FD Sign's app and signers' private links (both noindex already) */
+          "/fd-sign",
+          "/sign/",
         ],
       },
     ],

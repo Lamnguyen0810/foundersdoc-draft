@@ -181,6 +181,7 @@ export const FAQS: Faq[] = [
 /** Related pages, linked by the words people search (same as the template pages' "Related templates"). */
 export const RELATED: { href: string; title: string; text: string }[] = [
   { href: "/e-signature", title: "FD Sign: e-signature for PDF and Word", text: "how sending for signature works, step by step" },
+  { href: "/e-signature/is-e-signature-legal-in-singapore", title: "Is e-signature legal in Singapore?", text: "what the Electronic Transactions Act says, and what still needs wet ink" },
   { href: "/templates/nda/singapore", title: "Free NDA template Singapore", text: "the agreement most often signed first" },
   { href: "/templates/employment-contract/singapore", title: "Employment contract template Singapore", text: "draft it, then send it for signing" },
   { href: "/templates/term-sheet/singapore", title: "Term sheet template Singapore", text: "agree the deal before the investment documents" },

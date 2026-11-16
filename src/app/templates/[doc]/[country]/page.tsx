@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { SITE } from "@/lib/seo";
 import { TRIAL } from "@/lib/billing/plans";
 import { TEMPLATES, countryPage, draftLink, inSentence, pageLabel } from "@/lib/templates/data";
-import { Breadcrumbs, CtaBand, Disclaimer, Faqs, MoreTemplates, RelatedTemplates, Steps, TemplateLd } from "../../parts";
+import { Breadcrumbs, CtaBand, Disclaimer, Faqs, MoreTemplates, RelatedTemplates, SignNext, Steps, TemplateLd } from "../../parts";
 import TemplateCta from "../../TemplateCta";
 import "../../templates.css";
 
@@ -114,6 +114,7 @@ export default async function TemplateCountryPage({ params }: { params: Params }
         ) : null}
 
         <Steps docShort={inSentence(t)} />
+        <SignNext docShort={inSentence(t)} source={source} singapore={page.slug === "singapore"} />
         <Faqs items={faqs} />
 
         <section className="tpl-section" aria-labelledby="tpl-other">

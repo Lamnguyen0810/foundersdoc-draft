@@ -25,6 +25,7 @@
 
 - [FD Sign](https://foundersdoc.com/e-signature): send PDF or Word documents for e-signature; signers need no account (private link + email code), with an audit trail
 - [DocuSign alternatives compared](https://foundersdoc.com/e-signature/docusign-alternatives): DocuSign, Dropbox Sign (HelloSign), PandaDoc and FD Sign side by side: prices, sending limits and who each suits
+- [Is e-signature legal in Singapore?](https://foundersdoc.com/e-signature/is-e-signature-legal-in-singapore): what the Electronic Transactions Act 2010 says, the documents that still need wet ink (wills, trusts, powers of attorney, land), and a checklist before you e-sign
 - [ESOP dashboard](https://foundersdoc.com/esop-software): track option holders, vesting dates and certificates, with approvals, vesting alerts and e-signing; any company can create one
 
 ## Talk to a lawyer
