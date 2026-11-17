@@ -60,4 +60,6 @@ export interface LoanParties {
 export interface LoanInput extends LoanParties {
   answers: Answers;
   date: string;
+  /** What the user typed, put into contract wording by FD AI (lib/loan/tidy.ts), by field. */
+  tidy?: Record<string, string>;
 }

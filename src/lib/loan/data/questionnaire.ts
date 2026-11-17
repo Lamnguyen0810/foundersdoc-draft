@@ -45,9 +45,23 @@
  *
  * Data, not code: the screen asks these in order, the server checks them,
  * the assembler reads them by id, and the admin console lists them.
+ *
+ * 1.2 (0240), after an outside lawyer's review of the chat and of a draft:
+ *   - amounts are read by lib/loan/amount.ts (format: "amount"), so "1.000.000"
+ *     is a million and not a blank; the question names the currency; with
+ *     several Lenders the amount lent is their total and is not asked again;
+ *   - the usual interest is a rate a year (simple, day by day); tiered stays
+ *     as a choice; a floating rate (SORA or Term SOFR plus a margin) is added;
+ *   - drawdown on the Borrower's request; early repayment with a break fee;
+ *   - three ways to treat defaults (balanced is the old lender-friendly list;
+ *     lender-friendly now has no grace for a missed payment and a material
+ *     adverse change default);
+ *   - change of control at more than 50% or more than 75%;
+ *   - the costs cap has its own currency and says whether GST and
+ *     disbursements are inside it.
  */
 
-const NUM = { pattern: "^(?!\\s*\\d[\\d,]*(\\.\\d+)?\\s*$)", message: "A number only, please (e.g. 50,000)." };
+const NUM = { pattern: "^(?!\\s*\\d[\\d,]*(\\.\\d+)?\\s*$)", message: "A number only, please (e.g. 18)." };
 const PCT = { pattern: "^(?!\\s*\\d{1,2}(\\.\\d{1,2})?\\s*%?\\s*$)", message: "A percentage only, please (e.g. 8 or 8.5)." };
 const SIDE = (lender: unknown, borrower: unknown) => ({ q: "LN1", map: { lender, borrower } });
 const NOT_SIMPLE = ["standard", "comprehensive"] as const;
@@ -56,7 +70,7 @@ const CONNECTED = { any: [{ q: "LN3", eq: "company" }, { q: "LN4", eq: "yes" }] 
 
 export const LOAN_QUESTIONNAIRE = {
   id: "FD_LOAN_QUESTIONNAIRE",
-  version: "1.1",
+  version: "1.2",
   for_master: "FD Master Loan Agreement Template (Universal), with four reference loan agreements (redacted)",
   status: "Beta",
   questions: [
@@ -153,10 +167,11 @@ export const LOAN_QUESTIONNAIRE = {
       section: "The loan",
       type: "free_text",
       required: true,
-      max_length: 20,
-      text: "Amount. How much is being lent?",
+      max_length: 24,
+      text: "Amount. How much is being lent, in {{currency}}?",
+      help: "Pro Tip: Figures only — 50,000, 50000 or 1.5m all work. This agreement is for one lump sum, paid over once.",
       placeholder: "e.g. 50,000",
-      reject: [NUM],
+      format: "amount",
     },
     {
       id: "LN7",
@@ -166,7 +181,7 @@ export const LOAN_QUESTIONNAIRE = {
       section: "The loan",
       type: "free_text",
       required: false,
-      max_length: 200,
+      max_length: 300,
       text: "Purpose. What is the money for? Skip if it can be used for anything.",
       help: "Pro Tip: A stated purpose lets the Lender object if the money is used for something else. Keep it broad — e.g. “the working capital of the Company”.",
       placeholder: "e.g. the working capital of the Company",
@@ -182,14 +197,15 @@ export const LOAN_QUESTIONNAIRE = {
       required: true,
       default: "days5",
       text: "Drawdown. When is the money paid over?",
-      help: "Pro Tip: The loan is paid in one go into the Borrower's bank account. The date can always be moved by agreement in writing (an email will do).",
+      help: "Pro Tip: The loan is paid in one go into the Borrower's bank account: this agreement is a term loan, not a revolving facility or a loan drawn in stages. The date can always be moved by agreement in writing (an email will do).",
       options: [
         { value: "signing", label: "On the date of the agreement" },
         { value: "days5", label: "Within five Business Days of signing", recommended: true },
+        { value: "request", label: "When the Borrower asks – within five Business Days of its written request" },
         { value: "date", label: "On a set date" },
       ],
     },
-    { id: "LN8a", key: "drawdown_date", section: "Drawdown and term", type: "free_text", required: true, max_length: 40, show_if: { q: "LN8", eq: "date" }, text: "Drawdown date?", placeholder: "e.g. 1 December 2026" },
+    { id: "LN8a", key: "drawdown_date", section: "Drawdown and term", type: "free_text", required: true, max_length: 120, show_if: { q: "LN8", eq: "date" }, text: "Drawdown date?", placeholder: "e.g. 1 December 2026" },
     {
       id: "LN9",
       key: "term",
@@ -198,7 +214,7 @@ export const LOAN_QUESTIONNAIRE = {
       required: true,
       default: "12",
       text: "Term. When does the loan mature?",
-      help: "Pro Tip: The Maturity Date is counted from the date of the agreement. The Lender can extend it in writing.",
+      help: "Pro Tip: The term runs from the day the money is paid over (the Drawdown Date), so a 12-month loan is borrowed for 12 months. The Lender can extend it in writing.",
       options: [
         { value: "6", label: "6 months" },
         { value: "12", label: "12 months", recommended: true },
@@ -245,11 +261,14 @@ export const LOAN_QUESTIONNAIRE = {
       required: true,
       default: "free",
       text: "Early Repayment. Can the Borrower repay early?",
+      help: "Pro Tip: A break fee pays the Lender for the interest it loses when the money comes back early. It is common with a fixed or floating rate a year; with tiered or flat interest the Lender is already covered.",
       options: [
         { value: "free", label: "Any time, without penalty – in whole or in part", recommended: true },
+        { value: "fee", label: "Any time, with a break fee – no consent needed" },
         { value: "consent", label: "Only with the Lender's consent" },
       ],
     },
+    { id: "LN11a", key: "early_fee", section: "Drawdown and term", type: "free_text", required: true, max_length: 6, show_if: { q: "LN11", eq: "fee" }, text: "Break fee (% of the amount repaid early)?", placeholder: "e.g. 2", reject: [PCT] },
 
     /* ── interest ── */
     {
@@ -258,12 +277,13 @@ export const LOAN_QUESTIONNAIRE = {
       section: "Interest",
       type: "single_choice",
       required: true,
-      default: "tiered",
+      default: "annual",
       text: "Interest. How is interest charged?",
-      help: "Pro Tip: Tiered interest is a total percentage of the amount lent that steps up the longer the loan is out — it rewards early repayment and is the Founders Doc master's position. Interest a year accrues day by day. A flat charge is one fixed amount however long the loan runs.",
+      help: "Pro Tip: A fixed rate a year, accruing day by day, is the usual choice for a lump-sum loan. A floating rate follows a benchmark (SORA for Singapore dollars, Term SOFR for US dollars) plus a margin, for a Lender whose own funding cost moves. Tiered interest is a total that steps up the longer the loan is out: it rewards early repayment and suits a short bridge loan. A flat charge is one fixed amount however long the loan runs.",
       options: [
-        { value: "tiered", label: "Tiered – a total that steps up at 3 and 6 months", recommended: true },
-        { value: "annual", label: "A rate a year – simple interest, day by day" },
+        { value: "annual", label: "A fixed rate a year – simple interest, day by day", recommended: true },
+        { value: "floating", label: "A floating rate – a benchmark plus a margin" },
+        { value: "tiered", label: "Tiered – a total that steps up at 3 and 6 months" },
         { value: "flat", label: "A flat charge – one fixed percentage of the amount lent" },
         { value: "none", label: "Interest-free" },
       ],
@@ -315,6 +335,19 @@ export const LOAN_QUESTIONNAIRE = {
     },
     { id: "LN12e", key: "flat", section: "Interest", type: "free_text", required: true, max_length: 6, show_if: { q: "LN12", eq: "flat" }, text: "Flat charge (% of the amount lent)?", placeholder: "e.g. 10", reject: [PCT] },
     {
+      id: "LN12f",
+      key: "margin",
+      section: "Interest",
+      type: "free_text",
+      required: true,
+      max_length: 6,
+      show_if: { q: "LN12", eq: "floating" },
+      text: "Margin over the benchmark (% a year)?",
+      help: "Pro Tip: The rate is the benchmark plus this margin, reset every three months: 3-month Compounded SORA for a Singapore dollar loan, 3-month Term SOFR for a US dollar loan. Interest is paid at the end of each three-month period.",
+      placeholder: "e.g. 3",
+      reject: [PCT],
+    },
+    {
       id: "LN13",
       asked_at: ONLY_COMPREHENSIVE,
       fixed: { simple: "none" },
@@ -323,7 +356,7 @@ export const LOAN_QUESTIONNAIRE = {
       type: "single_choice",
       required: true,
       show_if: { q: "LN12", not_in: ["tiered"] },
-      default_by: { q: "LN12", map: { annual: "plus2", flat: "none", none: "none" } },
+      default_by: { q: "LN12", map: { annual: "plus2", floating: "plus2", flat: "none", none: "none" } },
       text: "Late Payment. Is extra interest charged on overdue amounts?",
       help: "Pro Tip: Default interest compensates the Lender for late payment. It must be a genuine estimate of loss, not a penalty — 2% a year above the normal rate is the market standard.",
       options: [
@@ -344,7 +377,7 @@ export const LOAN_QUESTIONNAIRE = {
       required: true,
       default: "none",
       text: "Security. Is the loan secured?",
-      help: "Pro Tip: Most loans of this kind are unsecured. Security — a guarantee, a charge, a pledge — is given in a separate document; this agreement makes it a condition of the loan. A share pledge is not normal for a loan agreement and needs its own lawyer-drafted pledge.",
+      help: "Pro Tip: Most loans of this kind are unsecured. Security — a guarantee, a charge, a pledge — is given in a separate document, which FD AI does not draft yet; this agreement makes it a condition of the loan, and a Founders Doc lawyer can prepare it. A share pledge is not normal for a loan agreement and needs its own lawyer-drafted pledge.",
       options: [
         { value: "none", label: "Unsecured – no security", recommended: true },
         { value: "other", label: "Guarantee or charge – in a separate document" },
@@ -357,10 +390,11 @@ export const LOAN_QUESTIONNAIRE = {
       section: "Protections",
       type: "free_text",
       required: true,
-      max_length: 200,
+      max_length: 400,
       show_if: { q: "LN14", eq: "other" },
       text: "What is the security?",
-      placeholder: "e.g. a personal guarantee from Tan Ah Kow",
+      help: "Pro Tip: Say it in your own words, one item after another. FD AI puts it into contract wording and shows you both.",
+      placeholder: "e.g. a personal guarantee from Tan Ah Kow; a charge over the Borrower's stock",
     },
     {
       id: "LN14b",
@@ -368,7 +402,7 @@ export const LOAN_QUESTIONNAIRE = {
       section: "Protections",
       type: "free_text",
       required: true,
-      max_length: 200,
+      max_length: 300,
       show_if: { q: "LN14", eq: "pledge" },
       text: "Which shares are pledged?",
       placeholder: "e.g. 100,000 ordinary shares in the Company held by the Borrower",
@@ -382,10 +416,11 @@ export const LOAN_QUESTIONNAIRE = {
       required: true,
       default_by: SIDE("strict", "lenient"),
       text: "Defaults. How strictly are defaults treated?",
-      help: "Pro Tip: The master gives the Borrower 30 days to fix a breach and a further 90 days to cure a default before the loan can be called in. Lenders usually want a short grace period and more triggers — a false statement, other debts called in, insolvency steps.",
+      help: "Pro Tip: The master gives the Borrower 30 days to fix a breach and a further 90 days to cure a default before the loan can be called in. Lenders usually want more triggers — a false statement, other debts called in, insolvency steps. A few days' grace for a payment held up by a bank error is something a strong Borrower asks for; a Lender's own draft leaves it out and adds a general material adverse change trigger.",
       options: [
         { value: "lenient", label: "Borrower-friendly – 30 days to fix a breach, then 90 days to cure" },
-        { value: "strict", label: "Lender-friendly – 3 Business Days for a missed payment, 15 for other breaches, more triggers" },
+        { value: "balanced", label: "Balanced – 3 Business Days for a payment held up by a technical error, 15 for other breaches, more triggers" },
+        { value: "strict", label: "Lender-friendly – no grace for a missed payment, 15 Business Days for other breaches, more triggers and a material adverse change" },
       ],
     },
     {
@@ -396,12 +431,13 @@ export const LOAN_QUESTIONNAIRE = {
       section: "Protections",
       type: "single_choice",
       required: true,
-      default: "yes",
+      default_by: SIDE("yes50", "yes"),
       show_if: CONNECTED,
       text: "Change of Control. Can the loan be called in if the company is sold?",
-      help: "Pro Tip: A sale of more than 75% of the shares, a merger, or a sale of more than 75% of the assets lets the Lender ask for repayment within 30 days.",
+      help: "Pro Tip: A sale of the shares, a merger, a sale of the assets or a change in who ultimately owns the company lets the Lender ask for repayment within 30 days. More than 50% is the usual test of control; the master's 75% leaves the loan running through a smaller sale.",
       options: [
-        { value: "yes", label: "Callable on a sale – more than 75% of the company", recommended: true },
+        { value: "yes50", label: "Callable on a sale of more than 50% – the usual test of control" },
+        { value: "yes", label: "Callable on a sale of more than 75% – the master's threshold" },
         { value: "no", label: "Not callable on a sale" },
       ],
     },
@@ -428,7 +464,7 @@ export const LOAN_QUESTIONNAIRE = {
       section: "Protections",
       type: "free_text",
       required: false,
-      max_length: 120,
+      max_length: 200,
       show_if: { all: [CONNECTED, { q: "LN17", eq: "yes" }] },
       text: "Which financial statements does the Borrower stand behind?",
       placeholder: "e.g. the financial year ended 31 December 2025",
@@ -441,7 +477,8 @@ export const LOAN_QUESTIONNAIRE = {
       required: false,
       max_length: 60,
       show_if: { all: [CONNECTED, { q: "LN17", eq: "yes" }] },
-      text: "The next financing round, for the quarterly updates? Skip for “next”.",
+      text: "Fundraising Updates. What is the company's next funding round called? Leave blank if it has no name yet.",
+      help: "Pro Tip: Every quarter the Borrower tells the Lender how this fundraising is going. Give the round a name (“Series A”) and the agreement says “Series A financing”; leave it blank and it says “next financing”.",
       placeholder: "e.g. Series A",
     },
     {
@@ -491,7 +528,38 @@ export const LOAN_QUESTIONNAIRE = {
         { value: "borrower", label: "The Borrower pays the Lender's costs in full" },
       ],
     },
-    { id: "LN20a", key: "costs_cap", section: "Protections", type: "free_text", required: false, max_length: 20, show_if: { q: "LN20", eq: "cap" }, text: "The cap on legal costs?", placeholder: "e.g. 3,000", reject: [NUM] },
+    {
+      id: "LN20b",
+      key: "costs_cap_currency",
+      section: "Protections",
+      type: "single_choice",
+      required: true,
+      default: "SGD",
+      default_by: { q: "LN5", map: { SGD: "SGD", USD: "USD" } },
+      show_if: { q: "LN20", eq: "cap" },
+      text: "Cap Currency. Which currency is the cap on legal costs in?",
+      help: "Pro Tip: The cap need not be in the loan's currency: lawyers in Singapore usually bill in Singapore dollars even when the loan is in US dollars.",
+      options: [
+        { value: "SGD", label: "Singapore dollars (S$)" },
+        { value: "USD", label: "US dollars (US$)" },
+      ],
+    },
+    { id: "LN20a", key: "costs_cap", section: "Protections", type: "free_text", required: false, max_length: 24, show_if: { q: "LN20", eq: "cap" }, text: "The cap on legal costs, in {{cap_currency}}?", placeholder: "e.g. 3,000", format: "amount" },
+    {
+      id: "LN20c",
+      key: "costs_cap_basis",
+      section: "Protections",
+      type: "single_choice",
+      required: true,
+      default_by: SIDE("excl", "incl"),
+      show_if: { q: "LN20", eq: "cap" },
+      text: "Cap Basis. Does the cap include GST and disbursements?",
+      help: "Pro Tip: Disbursements are what the lawyers pay out for you, such as search and filing fees. A cap that includes them and GST is the most the Borrower can be asked for.",
+      options: [
+        { value: "incl", label: "Includes GST and disbursements" },
+        { value: "excl", label: "Excludes GST and disbursements – they are paid on top" },
+      ],
+    },
     {
       id: "LN21",
       key: "disputes",
@@ -500,7 +568,7 @@ export const LOAN_QUESTIONNAIRE = {
       required: true,
       default: "siac",
       text: "Disputes. How are disputes resolved?",
-      help: "Pro Tip: Both start with 30 days of talks or mediation. Arbitration is private and enforceable abroad; the courts are usually cheaper for a small loan between people in Singapore.",
+      help: "Pro Tip: Both start with 30 days of talks or mediation. Arbitration is private and enforceable abroad; the courts are usually cheaper for a small loan between people in Singapore. Either way the Lender need not wait for talks to claim a plain unpaid debt, to act in the Borrower's insolvency or to enforce security.",
       options: [
         { value: "siac", label: "Talks or mediation, then arbitration in Singapore (SIAC)", recommended: true },
         { value: "courts", label: "Talks or mediation, then the Singapore courts" },

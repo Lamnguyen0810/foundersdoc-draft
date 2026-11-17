@@ -2,7 +2,7 @@
 
 import { Fragment } from "react";
 import { LOAN_QUESTIONNAIRE } from "@/lib/loan/data/questionnaire";
-import { ADAPTATIONS, CORRECTIONS, MASTER_VERSION, SECTIONS } from "@/lib/loan/data/master";
+import { ADAPTATIONS, CORRECTIONS, MASTER_VERSION, REVIEW_CHANGES, SECTIONS } from "@/lib/loan/data/master";
 import { ALL_QUESTIONS, defaultsBy, LEVELS, levelsOf, showIf, type Condition, type Question } from "@/lib/loan/questions";
 import { SIMPLE_LEAVES_OUT } from "@/lib/loan/assemble";
 
@@ -32,29 +32,29 @@ const TYPE_LABEL: Record<string, string> = {
 const SHAPES: Record<string, string> = {
   LN0: "Which questions are asked (see Levels); Simple also leaves out the Confidentiality, Announcements, Limitation of Liability and Further Assurances clauses",
   LN1: "The side's usual answers below (repayment, defaults, the Borrower's cap); payments applied to principal first (Borrower, master) or costs and interest first (Lender, B); announcements approved by the Borrower (master) or both",
-  LN2: "One Lender as party (2), or the Lenders in Schedule 1 Part 1 with each one's amount, jointly and severally, through the Lenders' Authorised Representative (Schedule 1 Part 2, master)",
+  LN2: "One Lender as party (2), or the Lenders in Schedule 1 Part 1 with each one's amount, each liable for its own share only (0240; the master had them jointly and severally), through the Lenders' Authorised Representative (Schedule 1 Part 2, master)",
   LN3: "Party (1) wording; a company Borrower adds its incorporation warranty and board approval as a condition precedent (B); the company warranties, reporting and change of control then concern the Borrower",
   LN4: "The Company definition, the Company's warranties, quarterly reporting and change of control (master) — or none for a personal loan",
   LN5: "Agreed Currency; S$ or US$ throughout",
-  LN6: "Recital (A), the advance, the tier and flat interest amounts, instalments",
+  LN6: "Recital (A), the advance, the tier and flat interest amounts, instalments. With several Lenders it is not asked: it is the total of their amounts (0240)",
   LN7: "Purpose clause (B), own wording",
-  LN8: "Drawdown Date: the Effective Date, within five Business Days (FD default) or a set date", LN8a: "Drawdown Date (own wording)",
-  LN9: "Maturity Date (master: 12 months)", LN9a: "Maturity Date",
+  LN8: "Drawdown Date: the Effective Date, within five Business Days (FD default), five Business Days after the Borrower's written request made within three months (0240) or a set date", LN8a: "Drawdown Date (own wording)",
+  LN9: "Maturity Date (master: 12 months), counted from the Drawdown Date (0240)", LN9a: "Maturity Date",
   LN10: "Repayment: within 30 days of a request served on or after the Maturity Date or on a Change of Control (master), in full on the Maturity Date (B, C), or equal instalments",
   LN10a: "Instalments: monthly or quarterly",
-  LN11: "Voluntary Early Repayment without penalty (master), or only with consent; the Date of Repayment rule for tiered or annual interest",
-  LN12: "Interest: tiered totals at 3 and 6 months (master), a rate a year, 365-day basis (B, C), a flat charge, or interest-free (FD)",
+  LN11: "Voluntary Early Repayment without penalty (master), with a break fee (0240, FD) or only with consent; the Date of Repayment rule for tiered, annual or floating interest", LN11a: "The break fee, as a percentage of the amount repaid early",
+  LN12: "Interest: a rate a year, 365-day basis (B, C; the usual answer since 0240), a floating rate over SORA or Term SOFR (0240, FD), tiered totals at 3 and 6 months (master), a flat charge, or interest-free (FD)",
   LN12a: "The three tiers and the default tier (master 20 / 25 / 30%)", LN12b: "The three tiers",
-  LN12c: "Rate a year", LN12d: "Settlement of Interest: with the principal (master) or quarterly in arrears (B)", LN12e: "Flat charge",
+  LN12c: "Rate a year", LN12d: "Settlement of Interest: with the principal (master) or quarterly in arrears (B)", LN12e: "Flat charge", LN12f: "The margin over the Benchmark Rate; adds the Benchmark Rate and Interest Period definitions",
   LN13: "Default Interest: 2% a year above the rate (B), a set rate, or none — with tiered interest the top tier applies instead (master)", LN13a: "Default rate",
   LN14: "Security clause, Security Document condition precedent, enforcement and release; a share pledge adds certificates, undated transfers and consents (C) — flagged", LN14a: "Security (own wording)", LN14b: "Pledged Shares (own wording)",
-  LN15: "Events of Default and consequences: the master's three events, 30-day fix and 90-day cure; or C's strict list (3 / 15 Business Days, misrepresentation, cross-default, insolvency steps, illegality)",
-  LN16: "Change of Control clause and repayment trigger (75%, master)",
+  LN15: "Events of Default and consequences: the master's three events, 30-day fix and 90-day cure; balanced — C's list (3 Business Days for a technical error, 15 for other breaches, misrepresentation, cross-default, insolvency steps, illegality); or lender-friendly — the same with no grace for a missed payment and a material adverse change (0240, FD)",
+  LN16: "Change of Control clause and repayment trigger: more than 50% (0240) or more than 75% (master), with an indirect-ownership limb (0240, FD)",
   LN17: "Company warranties (accounts, no off-balance-sheet items, no material adverse change, compliance) and quarterly reporting (master)", LN17a: "Financial Statements period", LN17b: "The round in the Reporting clause",
   LN18: "Lender's assignment: 30 days' notice, not to a competitor (master); freely (B); or with the Borrower's consent",
   LN19: "Limitation of Liability: the Borrower's cap at twice the Principal Amount (master) or none",
-  LN20: "Costs: the Borrower up to a cap (master), each its own (B) or the Borrower in full (B)", LN20a: "Costs cap",
-  LN21: "Dispute Resolution: consultation or mediation for 30 days, then SIAC arbitration in Singapore (master) or the Singapore courts",
+  LN20: "Costs: the Borrower up to a cap (master), each its own (B) or the Borrower in full (B)", LN20a: "Costs cap", LN20b: "The currency of the cap (need not be the loan's)", LN20c: "Whether the cap includes GST and disbursements",
+  LN21: "Dispute Resolution: consultation or mediation for 30 days, then SIAC arbitration in Singapore (master) or the Singapore courts; no talks needed for an undisputed debt, insolvency steps, enforcing security or urgent relief (0240, FD)",
 };
 
 function listText(v: readonly unknown[] | undefined): string {
@@ -213,6 +213,15 @@ export default function LoanQuestions() {
       </div>
       <ul style={{ fontSize: 12, margin: "6px 0 0 18px" }}>
         {ADAPTATIONS.map((c) => (
+          <li key={c} style={{ marginBottom: 4 }}>{c}</li>
+        ))}
+      </ul>
+
+      <div className="questions-status" style={{ marginTop: 18 }}>
+        <span className="badge">Changed after the outside review, November 2026 — for FD review</span>
+      </div>
+      <ul style={{ fontSize: 12, margin: "6px 0 0 18px" }}>
+        {REVIEW_CHANGES.map((c) => (
           <li key={c} style={{ marginBottom: 4 }}>{c}</li>
         ))}
       </ul>

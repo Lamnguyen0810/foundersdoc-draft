@@ -16,10 +16,11 @@ import { aiReview, logReviewUsage } from "@/lib/ai/review";
 import { tidyTypedName } from "@/lib/draft-name";
 import { formatDate, todaySingapore, toIso } from "../termsheet/format";
 import { blocksToHtml, blocksToText, wordCount } from "../termsheet/render";
-import { assemble, type Assembled } from "./assemble";
+import { assemble, type Assembled, type Tidied } from "./assemble";
 import { ruleChecks, titleFor } from "./checks";
 import { MASTER_LOADED, MASTER_VERSION } from "./data/master";
-import { QUESTION_ID, applyDefaults, questionsFor } from "./questions";
+import { QUESTION_ID, applyDefaults, questionsFor, withLendersTotal } from "./questions";
+import { tidyTyped } from "./tidy";
 import type { Answers, Bank, DraftStatus, Flag, LoanParties, Party, PartyKind, Rep } from "./types";
 
 export type AiFields = Record<string, never>;
@@ -123,7 +124,8 @@ function dedupe(flags: Flag[]): Flag[] {
 }
 
 export async function prepareLoan(req: LoanRequest, userId: string): Promise<PrepareOutcome> {
-  const answers = applyDefaults(req.answers);
+  /* With several Lenders the amount lent is their total (0240). */
+  const answers = applyDefaults(withLendersTotal(req.answers, req.lenders));
   const dateIso = toIso(todaySingapore());
   const rules = ruleChecks(answers, req);
   const flags: Flag[] = [...rules.flags];
@@ -131,7 +133,13 @@ export async function prepareLoan(req: LoanRequest, userId: string): Promise<Pre
   /* FD AI reviews the answers for points the user's lawyer should check. It
      never touches the master wording; if the model is down the agreement is
      drafted from the rules alone (lib/ai/review.ts). */
-  const review = await aiReview({ slug: LOAN_SLUG, docName: "Loan Agreement", questions: questionsFor(answers), answers, already: flags });
+  /* At the same time FD AI puts what the user typed (the purpose, the security
+     and so on) into contract wording — those phrases only; if that fails they
+     go in as typed (lib/loan/tidy.ts). */
+  const [review, tidied] = await Promise.all([
+    aiReview({ slug: LOAN_SLUG, docName: "Loan Agreement", questions: questionsFor(answers), answers, already: flags }),
+    MASTER_LOADED ? tidyTyped(answers) : Promise.resolve({ tidy: {} as Tidied, usage: null }),
+  ]);
   flags.push(...review.flags);
   const title = draftTitle(answers, req.borrower, req.lenders);
 
@@ -147,13 +155,27 @@ export async function prepareLoan(req: LoanRequest, userId: string): Promise<Pre
     return { kind: "stopped", message: PENDING_MESSAGE, draftId, flags, pending: true };
   }
 
-  const assembled = assemble({ ...req, answers, date: dateIso });
+  const assembled = assemble({ ...req, answers, date: dateIso, tidy: tidied.tidy });
   flags.push(...assembled.flags);
+  /* What was reworded, beside the words as typed, so nothing changes unseen. */
+  const typedAs: Record<keyof Tidied, [string, string]> = {
+    purpose: ["LN7", "The purpose"],
+    drawdown_date: ["LN8a", "The drawdown date"],
+    security_desc: ["LN14a", "The security"],
+    pledged_shares: ["LN14b", "The pledged shares"],
+    financial_periods: ["LN17a", "The financial statements"],
+    next_round: ["LN17b", "The next round"],
+  };
+  for (const [k, v] of Object.entries(tidied.tidy) as [keyof Tidied, string][]) {
+    const [q, label] = typedAs[k];
+    flags.push({ level: "green", scenario: "LN22", title: "Reworded by FD AI", reason: `${label}: you typed “${str(answers[q])}”; the agreement says “${v}”.`, user_message: `${label}: you typed “${str(answers[q])}”. I have written it as “${v}”. Change it in the document if that is not what you meant.`, field: q });
+  }
   const unique = dedupe(flags);
   for (const f of unique) f.title = titleFor(f);
   const status: DraftStatus = unique.some((f) => f.level === "red") ? "stopped" : "draft";
-  const draftId = await persist({ userId, req: { ...req, answers }, assembled, status, flags: unique, title, dateIso });
+  const draftId = await persist({ userId, req: { ...req, answers }, assembled, status, flags: unique, title, dateIso, tidy: tidied.tidy });
   await logReviewUsage(userId, draftId, review.usage);
+  await logReviewUsage(userId, draftId, tidied.usage);
 
   if (status === "stopped") {
     return { kind: "stopped", message: STOP_MESSAGE, draftId, flags: unique };
@@ -174,9 +196,10 @@ export async function prepareLoan(req: LoanRequest, userId: string): Promise<Pre
 
 /** The answers as saved: the questionnaire plus what the assembler needs to
  *  draw the same agreement again. */
-export function savedAnswers(req: LoanRequest, dateIso: string): Record<string, unknown> {
+export function savedAnswers(req: LoanRequest, dateIso: string, tidy: Tidied = {}): Record<string, unknown> {
   return {
     ...req.answers,
+    ...(Object.keys(tidy).length ? { _tidy: tidy } : {}),
     _borrower: req.borrower,
     _lenders: req.lenders,
     _rep: req.rep,
@@ -196,6 +219,7 @@ async function persist(input: {
   flags: Flag[];
   title: string;
   dateIso: string;
+  tidy?: Tidied;
 }): Promise<string | null> {
   try {
     const supabase = await createClient();
@@ -208,7 +232,7 @@ async function persist(input: {
         user_id: input.userId,
         doc_type_id: dt?.id ?? null,
         title: input.title,
-        answers: savedAnswers(input.req, input.dateIso),
+        answers: savedAnswers(input.req, input.dateIso, input.tidy),
         source_text: null,
         output: text,
         output_html: html,

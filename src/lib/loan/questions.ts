@@ -9,6 +9,7 @@
  * the level takes its usual answer, or the one the level sets (fixed).
  */
 
+import { amountProblem, formatAmount, sumAmounts } from "./amount";
 import { LOAN_QUESTIONNAIRE } from "./data/questionnaire";
 import type { Answers } from "./types";
 
@@ -51,6 +52,8 @@ export interface Question {
   maxLength?: number;
   defaultValue?: unknown;
   reject?: Reject[];
+  /** "amount": money, read by lib/loan/amount.ts (0240). */
+  format?: "amount";
 }
 
 /** The level of detail (LN0). */
@@ -90,6 +93,20 @@ function defaultFor(q: Raw, a: Answers): unknown {
   return q.default;
 }
 
+/** The currency, said in full where a question asks for an amount (0240):
+ *  {{currency}} is the loan's, {{cap_currency}} the legal-costs cap's. */
+const CURRENCY_NAME: Record<string, string> = { SGD: "Singapore dollars (S$)", USD: "US dollars (US$)" };
+export function currencyOf(a: Answers): "SGD" | "USD" {
+  return a.LN5 === "USD" ? "USD" : "SGD";
+}
+export function capCurrencyOf(a: Answers): "SGD" | "USD" {
+  return a.LN20b === "USD" || a.LN20b === "SGD" ? a.LN20b : currencyOf(a);
+}
+function sayCurrency(text: string, a: Answers): string {
+  if (!text.includes("{{")) return text;
+  return text.replace("{{currency}}", CURRENCY_NAME[currencyOf(a)]).replace("{{cap_currency}}", CURRENCY_NAME[capCurrencyOf(a)]);
+}
+
 function concrete(q: Raw, a: Answers): Question {
   const d = defaultFor(q, a);
   /* The recommended option is the usual answer for this side. */
@@ -101,7 +118,7 @@ function concrete(q: Raw, a: Answers): Question {
     key: q.key as string,
     section: (q.section as string) ?? "",
     type: (q.type as QuestionType) ?? "free_text",
-    text: (q.text as string) ?? "",
+    text: sayCurrency((q.text as string) ?? "", a),
     help: q.help as string | undefined,
     placeholder: q.placeholder as string | undefined,
     required: Boolean(q.required),
@@ -110,6 +127,7 @@ function concrete(q: Raw, a: Answers): Question {
     maxLength: q.max_length as number | undefined,
     defaultValue: Array.isArray(d) ? [...(d as unknown[])] : d,
     reject: q.reject as Reject[] | undefined,
+    format: q.format as "amount" | undefined,
   };
 }
 
@@ -164,7 +182,9 @@ export function levelsOf(id: string): { asked: Level[]; fixed: Partial<Record<Le
 
 /** Why a free-text answer cannot be accepted, or null when it can. */
 export function problemWith(q: Question, value: unknown): string | null {
-  if (typeof value !== "string" || !value.trim() || !q.reject?.length) return null;
+  if (typeof value !== "string" || !value.trim()) return null;
+  if (q.format === "amount") return amountProblem(value);
+  if (!q.reject?.length) return null;
   for (const r of q.reject) {
     if (new RegExp(r.pattern, "i").test(value)) return r.message;
   }
@@ -221,4 +241,13 @@ export function unanswered(a: Answers): Question[] {
 export function picks(a: Answers, id: string): string[] {
   const v = a[id];
   return Array.isArray(v) ? v.map(String) : typeof v === "string" && v ? [v] : [];
+}
+
+/** With several Lenders the amount lent is what they put in between them, so
+ *  it is not asked a second time (0240): LN6 is their total, whenever every
+ *  Lender's amount can be read. Otherwise the answers are left as they are. */
+export function withLendersTotal(a: Answers, lenders: { amount?: string }[]): Answers {
+  if (a.LN2 !== "several" || lenders.length === 0) return a;
+  const total = sumAmounts(lenders.map((l) => l.amount ?? ""));
+  return Number.isFinite(total) ? { ...a, LN6: formatAmount(total) } : a;
 }

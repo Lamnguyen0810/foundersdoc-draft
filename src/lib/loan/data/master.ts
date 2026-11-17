@@ -25,6 +25,15 @@
  * five documents, written in the master's style. ADAPTATIONS lists what was
  * generalised; CORRECTIONS the master's slips that are fixed here.
  *
+ * LN-V2 (0240). An outside lawyer reviewed a draft in Word (comments and
+ * tracked changes) and the chat that made it. His changes are in, each
+ * marked `fd: true` where the wording is new, so it is listed for FD review
+ * beside every draft that uses it; REVIEW_CHANGES below lists them all. The
+ * ones that move the master's position (Rachel to confirm): the Maturity
+ * Date runs from the Drawdown Date; Lenders are no longer jointly and
+ * severally liable; a rate a year is the usual interest; change of control
+ * at more than 50% for a Lender.
+ *
  * Markup, as the other masters: {{field}}, {{clause:id}}, {{section:id}},
  * **bold**. The Lender wording follows the number of Lenders:
  * {{the_lenders}} is "the Lenders" or "the Lender", {{lar}} "the Lenders'
@@ -33,7 +42,7 @@
  * "the Borrower" when the Borrower is the company.
  */
 
-export const MASTER_VERSION = "LN-V1";
+export const MASTER_VERSION = "LN-V2";
 export const MASTER_LOADED = true;
 
 export interface MasterSub {
@@ -91,6 +100,7 @@ export const DEFINITIONS: Definition[] = [
   { term: "Agreed Currency", text: "means {{cur_name}} ({{cur}}), being the lawful currency of {{cur_country}};" },
   { term: "Arbitral Institution", text: "has the meaning given to it in {{clause:disputes}} (Dispute Resolution);", when: "siac" },
   { term: "Arbitration Rules", text: "has the meaning given to it in {{clause:disputes}} (Dispute Resolution);", when: "siac" },
+  { term: "Benchmark Rate", text: "means, for an Interest Period, {{benchmark}} as at the first day of that Interest Period (or, if that day is not a Business Day, the preceding Business Day), provided that: (i) if that rate is less than zero, the Benchmark Rate shall be deemed to be zero; and (ii) if that rate is not available, the Benchmark Rate shall be such replacement rate as {{lar}} and the Borrower may agree in good faith and, until they so agree, the rate that last applied;", when: "floating" },
   { term: "Borrower Bank Account", text: "refers to the bank account of the Borrower with {{bank}} (account name: {{account_name}}; account number: {{account_no}}; SWIFT / BIC code: {{swift}}; bank address: {{bank_address}}), or such other account nominated by the Borrower in writing from time to time;" },
   { term: "Business Day", text: "means a day (other than a Saturday, a Sunday, or a public holiday) on which banks are open for business generally in Singapore;" },
   { term: "Change of Control Event", text: "has the meaning given to it in {{clause:coc_event}} (Change of Control Event);", when: "coc" },
@@ -99,9 +109,10 @@ export const DEFINITIONS: Definition[] = [
   { term: "Event of Default", text: "shall have the meaning given to it in {{clause:eod}} (Events of Default);" },
   { term: "Financial Statements", text: "has the meaning given to it in {{clause:reps_company}} ({{reps_company_head}});", when: "comfort" },
   { term: "Interest", text: "has the meaning given to it in {{clause:interest}} (Interest Rate);", when: "interest" },
+  { term: "Interest Period", text: "means each successive period of three (3) months, the first commencing on the Drawdown Date and the last ending on the Settlement Date;", when: "floating" },
   { term: "Lenders' Authorised Representative", text: "means the person(s) set out in Part 2 of Schedule 1 (Lenders' Authorised Representative);", when: "several" },
   { term: "Loan", text: "refers to the Principal Amount{{and_interest}} in accordance with the terms set out herein;" },
-  { term: "Maturity Date", text: "refers to the date falling {{term_words}} from the Effective Date, or such other later date as extended by {{lar}} in writing from time to time;" },
+  { term: "Maturity Date", text: "refers to the date falling {{term_words}} from the Drawdown Date, or such other later date as extended by {{lar}} in writing from time to time;" },
   { term: "Principal Amount", text: "has the meaning given to it in Recital (A);" },
   { term: "Security Document", text: "has the meaning given to it in {{clause:security}} (Security);", when: "security" },
   { term: "Settlement Date", text: "has the meaning given to it in {{clause:repayment}} (Repayment);" },
@@ -114,7 +125,7 @@ export const INTERPRETATION: { text: string; when?: string }[] = [
   { text: "References to \"Agreement\" and \"this Agreement\" are references to this agreement, including the recitals and the schedule(s) hereto, as amended in writing from time to time." },
   { text: "References to \"persons\" include any individual, company, corporation, firm, partnership, joint venture, association, state, state agency, institution, or trust (whether or not having a separate legal personality)." },
   { text: "Words importing the singular include the plural and vice versa, words importing any gender include any gender, words importing persons include bodies corporate and unincorporated, and references to time, unless otherwise agreed by the relevant parties thereto, shall mean the time in Singapore." },
-  { text: "All undertakings, representations and warranties provided by the Lenders under this Agreement shall be provided on a joint and several basis.", when: "several" },
+  { text: "The obligations of each Lender under this Agreement are several. No Lender is responsible for the obligations of any other Lender, and the failure of a Lender to perform its obligations does not affect the obligations of any other Party.", when: "several" },
 ];
 
 /* ── the clauses ──────────────────────────────────────────────────────── */
@@ -147,8 +158,8 @@ export const SECTIONS: MasterSection[] = [
         ],
       },
       { id: "drawdown", text: "**Drawdown Date.** {{The_lenders}} shall pay the full amount of the Principal Amount to the Borrower on the Drawdown Date in cleared funds into the Borrower Bank Account. {{The_lenders}} shall make the Principal Amount available to the Borrower in a single advance on the terms set out in this Agreement." },
-      { id: "payments_borrower", when: "principal_first", text: "**Payments.** All payments made under this Agreement shall be made in the Agreed Currency. All payments shall be applied {{pay_order}}. Whenever any payment becomes due on a day that is not a Business Day, payment shall be made on the following Business Day." },
-      { id: "payments_lender", when: "interest_first", text: "**Payments.** All payments made under this Agreement shall be made in the Agreed Currency, in immediately available funds and without set-off, counterclaim or deduction. All payments shall be applied {{pay_order}}. Whenever any payment becomes due on a day that is not a Business Day, payment shall be made on the following Business Day." },
+      { id: "payments_borrower", when: "principal_first", text: "**Payments.** All payments made under this Agreement shall be made in the Agreed Currency, save that costs and expenses shall be paid in the currency in which they were incurred. All payments shall be applied {{pay_order}}. Whenever any payment becomes due on a day that is not a Business Day, payment shall be made on the following Business Day." },
+      { id: "payments_lender", when: "interest_first", text: "**Payments.** All payments made under this Agreement shall be made in the Agreed Currency (save that costs and expenses shall be paid in the currency in which they were incurred), in immediately available funds and without set-off, counterclaim or deduction. All payments shall be applied {{pay_order}}. Whenever any payment becomes due on a day that is not a Business Day, payment shall be made on the following Business Day." },
       { id: "assign_notice", when: "assign_notice", text: "**{{lenders_heading}} Ability to Assign.** The Parties hereby agree that {{the_lenders}} {{reserve}} the right to assign the rights under this Agreement to a third party{{not_competitor}}, by providing the Borrower with a written notice at least thirty (30) calendar days prior to such assignment." },
       { id: "assign_free", when: "assign_free", text: "**{{lenders_heading}} Ability to Assign.** {{The_lenders}} may assign, transfer or otherwise dispose of {{lenders_their}} rights under this Agreement as {{the_lenders}} may see fit, without the consent of the Borrower, by written notice to the Borrower. The Borrower shall promptly execute all such documents and take all such steps as {{lar}} may reasonably require to give the assignee the benefit of this Agreement." },
       { id: "assign_consent", when: "assign_consent", text: "**{{lenders_heading}} Ability to Assign.** {{The_lenders}} may not assign or transfer any of {{lenders_their}} rights under this Agreement without the prior written consent of the Borrower (such consent not to be unreasonably withheld or delayed)." },
@@ -171,12 +182,14 @@ export const SECTIONS: MasterSection[] = [
         ],
       },
       { id: "interest", when: "annual", text: "**Interest Rate.** The Loan shall accrue a simple interest at the rate of {{rate_words}} per annum on the Principal Amount outstanding from time to time, from (and including) the Drawdown Date to (but excluding) the date of repayment (the \"**Interest**\"). The Interest shall be calculated on the basis of a 365-day year and the actual number of days elapsed." },
+      { id: "interest", when: "floating", fd: true, text: "**Interest Rate.** The Loan shall accrue a simple interest on the Principal Amount outstanding from time to time, from (and including) the Drawdown Date to (but excluding) the date of repayment, at the rate per annum which is, for each Interest Period, the aggregate of the Benchmark Rate for that Interest Period and a margin of {{margin_words}} per annum (the \"**Interest**\"). The Interest shall be calculated on the basis of a {{day_count}}-day year and the actual number of days elapsed. {{Lar}} shall notify the Borrower of the rate applying to each Interest Period promptly after it is fixed." },
       { id: "interest", when: "flat", text: "**Interest Rate.** In consideration of the Loan, the Borrower shall pay a fixed interest of {{flat_words}} of the Principal Amount, i.e. an interest payment equivalent to {{flat_amount}} (the \"**Interest**\"), which shall be payable in full irrespective of the date on which the Loan is repaid." },
       { id: "interest_free", when: "interest_free", fd: true, text: "**No Interest.** The Loan is interest-free. No interest shall accrue on the Principal Amount{{save_default}}." },
       { id: "settlement", when: "settle_end", text: "**Settlement of Interest.** The Interest shall be payable on the Settlement Date, along with the repayment of the Principal Amount." },
       { id: "settlement", when: "settle_quarterly", text: "**Settlement of Interest.** The Interest shall be payable quarterly in arrears on the last day of each successive period of three (3) months from the Drawdown Date, and on the Settlement Date for the period then ending." },
       { id: "settlement", when: "settle_instalments", text: "**Settlement of Interest.** The Interest accrued up to the date of each instalment shall be payable with that instalment, and any balance on the Settlement Date." },
-      { id: "default_interest", when: "default_interest", text: "**Default Interest.** If the Borrower fails to pay any amount under this Agreement on its due date, interest shall accrue on the overdue amount from the due date up to the date of actual payment (both before and after judgment) at the rate of {{default_rate}} per annum. Such default interest shall be payable on demand by {{lar}}." },
+      { id: "settlement", when: "settle_period", fd: true, text: "**Settlement of Interest.** The Interest shall be payable in arrears on the last day of each Interest Period." },
+      { id: "default_interest", when: "default_interest", text: "**Default Interest.** If the Borrower fails to pay any amount under this Agreement on its due date, interest shall accrue on the overdue amount from the due date up to the date of actual payment (both before and after judgment) at {{default_rate}}. Such default interest shall be payable on demand by {{lar}}." },
     ],
   },
   {
@@ -204,6 +217,17 @@ export const SECTIONS: MasterSection[] = [
           { ref: "(b)", text: "{{lar}} shall provide full and complete details of the bank account(s), in respect of which the Loan is to be repaid, within three (3) calendar days of the notice referred to above." },
         ],
       },
+      {
+        id: "early",
+        when: "early_fee",
+        fd: true,
+        text: "**Voluntary Early Repayment.** The Borrower shall have the option (but not the obligation) at any time to repay the whole or any part of the Loan before the Settlement Date, without the consent of {{the_lenders}}, Provided That:",
+        subs: [
+          { ref: "(a)", text: "written notice (via email or otherwise) shall have been given by the Borrower to {{lar}} in respect of its intention to repay the Loan;" },
+          { ref: "(b)", text: "{{lar}} shall provide full and complete details of the bank account(s), in respect of which the Loan is to be repaid, within three (3) calendar days of the notice referred to above; and" },
+          { ref: "(c)", text: "the Borrower shall pay to {{the_lenders}}, together with the amount repaid, an early repayment fee of {{early_fee_words}} of the principal amount so repaid, which the Parties agree is a genuine pre-estimate of the return that {{the_lenders}} will lose, and the costs that {{the_lenders}} will incur, by reason of the early repayment." },
+        ],
+      },
       { id: "early", when: "early_consent", text: "**Voluntary Early Repayment.** The Borrower may not repay the whole or any part of the Loan before the Settlement Date without the prior written consent of {{lar}}." },
       { id: "repay_date", when: "repay_date", text: "**Date of Repayment.** For the purposes of calculating the Interest in accordance with {{section:interest}} (Interest), the date that the Loan is repaid shall be: (i) the date that irrevocable instructions were provided to the financial institution and/or bank in respect of the transfer; or (ii) in the event that {{lar}} does not provide the bank account details within the period stated in {{clause:early}}, the date that the written notice of repayment was served by the Borrower." },
     ],
@@ -227,14 +251,16 @@ export const SECTIONS: MasterSection[] = [
         when: "strict",
         text: "**Events of Default.** For the purposes of this Agreement, the Parties agree that \"**Event of Default**\" shall refer to the occurrence of any of the following events during the Term:",
         subs: [
-          { ref: "(a)", text: "if the Borrower fails to pay any sum when due under this Agreement, unless such failure is caused by an administrative or technical error and payment is made within three (3) Business Days of its due date;" },
+          { ref: "(a)", when: "grace_tech", text: "if the Borrower fails to pay any sum when due under this Agreement, unless such failure is caused by an administrative or technical error and payment is made within three (3) Business Days of its due date;" },
+          { ref: "(a)", when: "no_grace", text: "if the Borrower fails to pay any sum when due under this Agreement;" },
           { ref: "(b)", text: "if the Borrower fails to comply with any other provision of this Agreement{{or_security}}, unless such failure is capable of remedy and is remedied within fifteen (15) Business Days of the earlier of the Borrower becoming aware of it and {{lar}} giving notice of it;" },
           { ref: "(c)", text: "if any representation or warranty made or deemed to be made by the Borrower in this Agreement is or proves to have been incorrect or misleading in any material respect when made;" },
           { ref: "(d)", text: "if any other indebtedness of the Borrower for borrowed money is not paid when due, or becomes due and payable before its stated maturity by reason of a default;" },
           { ref: "(e)", text: "if the Borrower is unable or admits inability to pay its debts as they fall due, suspends making payments on any of its debts, or commences negotiations with its creditors with a view to rescheduling its indebtedness;" },
           { ref: "(f)", text: "if any step is taken for the {{insolvency_steps}} of the Borrower, or for the appointment of a {{insolvency_officer}} over the Borrower or any of its assets, which is not frivolous or vexatious and is not discharged within twenty-one (21) days;", },
-          { ref: "(g)", when: "security", text: "if the Security Document is not, or ceases to be, in full force and effect, or any party to it (other than {{the_lenders}}) repudiates it; or" },
-          { ref: "(h)", text: "if it becomes unlawful for the Borrower to perform any of its obligations under this Agreement." },
+          { ref: "(g)", when: "security", text: "if the Security Document is not, or ceases to be, in full force and effect, or any party to it (other than {{the_lenders}}) repudiates it;" },
+          { ref: "(h)", text: "if it becomes unlawful for the Borrower to perform any of its obligations under this Agreement; or" },
+          { ref: "(i)", when: "mac", fd: true, text: "if any event or circumstance occurs which, in the reasonable opinion of {{lar}}, has or is reasonably likely to have a material adverse effect on the business, assets or financial condition of the Borrower, or on the ability of the Borrower to perform its payment obligations under this Agreement." },
         ],
       },
       {
@@ -262,8 +288,8 @@ export const SECTIONS: MasterSection[] = [
     clauses: [
       { id: "security", when: "security_other", text: "**Security.** The Loan and all other amounts payable by the Borrower under this Agreement shall be secured by {{security_desc}}, in a form agreed by {{lar}} (the \"**Security Document**\"), which shall be delivered in accordance with {{clause:conditions}} (Conditions Precedent)." },
       { id: "security", when: "pledge", text: "**Security.** The Loan and all other amounts payable by the Borrower under this Agreement shall be secured by a first-ranking pledge of {{pledged_shares}} (the \"**Pledged Shares**\") in favour of {{the_lenders}}, in a form agreed by {{lar}} (the \"**Security Document**\"), which shall be delivered in accordance with {{clause:conditions}} (Conditions Precedent)." },
-      { id: "enforcement", text: "**Enforcement.** At any time after the Loan has been declared due and payable under {{clause:consequences}} (Consequences of Default), {{lar}} may enforce the Security Document in accordance with its terms. The rights of {{the_lenders}} under the Security Document are in addition to, and not in substitution for, {{lenders_their}} rights under this Agreement." },
-      { id: "release", fd: true, text: "**Release.** Upon the full repayment of the Loan and all other amounts due and payable under this Agreement, {{the_lenders}} shall, at the cost of the Borrower, promptly release the security created by the Security Document{{and_return_pledge}}." },
+      { id: "enforcement", text: "**Enforcement.** The Security Document may be enforced only in accordance with its own terms. The rights of {{the_lenders}} under the Security Document are in addition to, and not in substitution for, {{lenders_their}} rights under this Agreement." },
+      { id: "release", fd: true, text: "**Release.** Upon the full and irrevocable repayment of the Loan and all other amounts due and payable under this Agreement, {{the_lenders}} shall, at the cost of the Borrower, promptly release the security created by the Security Document{{and_return_pledge}}." },
     ],
   },
   {
@@ -276,7 +302,7 @@ export const SECTIONS: MasterSection[] = [
         text: "**{{reps_company_head}}.** The Borrower represents and warrants to {{the_lenders}} that, as at the Effective Date:",
         subs: [
           { ref: "(a)", id: "c_incorporated", text: "{{co}} is a corporation duly incorporated and validly existing under the laws of {{co_jurisdiction}};" },
-          { ref: "(b)", text: "the financial statements relating to {{co}}, being the financial statements in respect of {{financial_periods}} (the \"**Financial Statements**\"), provide a true and fair view of {{co_poss}} financial affairs, the current cash balance of accounts and burn-down rate;" },
+          { ref: "(b)", text: "the financial statements relating to {{co}}, being the financial statements in respect of {{financial_periods}} (the \"**Financial Statements**\"), include at least a profit and loss statement and a balance sheet, and provide a true and fair view of {{co_poss}} financial affairs, the current cash balance of accounts and burn-down rate;" },
           {
             ref: "(c)",
             text: "the Financial Statements:",
@@ -296,17 +322,17 @@ export const SECTIONS: MasterSection[] = [
           { ref: "(a)", when: "borrower_company", text: "the Borrower is a company duly incorporated and validly existing under the laws of {{borrower_jurisdiction}};", id: "b_incorporated" },
           { ref: "(b)", text: "the Borrower has full power and authority to perform the Borrower's obligations under this Agreement and has procured or will procure any consent(s) required for the execution and performance of this Agreement;" },
           { ref: "(c)", text: "entry into this Agreement and the transactions contemplated hereunder shall not result in the breach of any applicable laws and/or regulations in Singapore by the Borrower{{or_company}};" },
-          { ref: "(d)", text: "this Agreement constitutes valid and legally binding obligations of the Borrower, enforceable against the Borrower in accordance with its terms; and" },
-          { ref: "(e)", text: "the Borrower has the legal right and full power and authority to enter into and perform this Agreement, which when executed will constitute valid and binding obligations on the Borrower, in accordance with its terms." },
+          { ref: "(d)", text: "{{each_of}}this Agreement{{and_security_doc}} constitutes valid and legally binding obligations of the Borrower, enforceable against the Borrower in accordance with its terms; and" },
+          { ref: "(e)", text: "the Borrower has the legal right and full power and authority to enter into and perform this Agreement{{and_security_doc}}, {{each_of}}which when executed will constitute valid and binding obligations on the Borrower, in accordance with its terms." },
         ],
       },
       {
         id: "reps_lenders",
-        text: "**{{lenders_heading}} Representations & Warranties.** {{The_lenders}}{{jointly}} {{represent}} and {{warrant}} to the Borrower that, as at the Effective Date:",
+        text: "**{{lenders_heading}} Representations & Warranties.** {{Each_lender}} represents and warrants to the Borrower that, as at the Effective Date:",
         subs: [
-          { ref: "(a)", text: "{{each_lender}}{{lender_being}} has full power and authority to perform {{lender_poss}} obligations under this Agreement and has procured any consent(s) required for the execution and performance of this Agreement;" },
-          { ref: "(b)", text: "this Agreement constitutes valid and legally binding obligations of {{each_lender}}, enforceable against {{each_lender_obj}} in accordance with its terms; and" },
-          { ref: "(c)", text: "{{each_lender}} has the legal right and full power and authority to enter into and perform this Agreement, which when executed will constitute valid and binding obligations on {{each_lender_obj}}, in accordance with its terms." },
+          { ref: "(a)", text: "{{it_lender}}{{lender_being}} has full power and authority to perform {{lender_poss}} obligations under this Agreement and has procured any consent(s) required for the execution and performance of this Agreement;" },
+          { ref: "(b)", text: "this Agreement constitutes valid and legally binding obligations of the Lender, enforceable against {{each_lender_obj}} in accordance with its terms; and" },
+          { ref: "(c)", text: "{{it_lender}} has the legal right and full power and authority to enter into and perform this Agreement, which when executed will constitute valid and binding obligations on {{each_lender_obj}}, in accordance with its terms." },
         ],
       },
       {
@@ -330,9 +356,10 @@ export const SECTIONS: MasterSection[] = [
         id: "coc_event",
         text: "**Change of Control Event.** For the purposes of this Agreement, a \"**Change of Control Event**\" shall mean the occurrence of any of the following events:",
         subs: [
-          { ref: "(a)", text: "the acquisition by any person of beneficial ownership, including through a merger, consolidation or reorganisation, of more than seventy-five per cent. (75%) of the shares or other equity securities in issue and/or voting power of {{co}};" },
-          { ref: "(b)", text: "the consummation of a merger or consolidation involving {{co}}, unless, following such transaction, the shareholders of {{co}} immediately prior to such merger or consolidation own, directly or indirectly, at least seventy-five per cent. (75%) of the combined voting power of the surviving entity; or" },
-          { ref: "(c)", text: "the sale or disposition by {{co}} of assets representing more than seventy-five per cent. (75%) of the total assets of {{co}}, based on {{co_poss}} most recent financial statements, excluding sales or dispositions made in the ordinary course of business." },
+          { ref: "(a)", text: "the acquisition by any person of beneficial ownership, including through a merger, consolidation or reorganisation, of more than {{coc_pct}} of the shares or other equity securities in issue and/or voting power of {{co}};" },
+          { ref: "(b)", text: "the consummation of a merger or consolidation involving {{co}}, unless, following such transaction, the shareholders of {{co}} immediately prior to such merger or consolidation own, directly or indirectly, {{coc_keep}} of the combined voting power of the surviving entity;" },
+          { ref: "(c)", text: "the sale or disposition by {{co}} of assets representing more than {{coc_pct}} of the total assets of {{co}}, based on {{co_poss}} most recent financial statements, excluding sales or dispositions made in the ordinary course of business; or" },
+          { ref: "(d)", fd: true, text: "any person (or persons acting in concert) who did not, as at the Effective Date, ultimately own or control more than {{coc_pct}} of the shares or voting power of {{co}} coming to do so, directly or indirectly, including through one or more holding companies or other intermediate entities." },
         ],
       },
       { id: "coc_accel", text: "**Acceleration of Repayment.** Upon the occurrence of a Change of Control Event, {{lar}} may, by written notice to the Borrower, determine that all or part of the Loan, together with the Interest accrued thereunder{{as_per_interest}}, become due and payable {{coc_when}}." },
@@ -342,7 +369,7 @@ export const SECTIONS: MasterSection[] = [
     id: "termination",
     heading: "TERMINATION",
     clauses: [
-      { id: "term_events", text: "**Termination Events.** Save for the Surviving Provisions, the Parties agree that this Agreement shall automatically terminate ipso facto upon the full repayment of the Loan, and any amounts due and payable under this Agreement in accordance with the terms set out herein." },
+      { id: "term_events", text: "**Termination Events.** Save for the Surviving Provisions, the Parties agree that this Agreement shall automatically terminate ipso facto upon the full and irrevocable repayment of the Loan, and any amounts due and payable under this Agreement in accordance with the terms set out herein." },
       { id: "term_effects", text: "**Effects of Termination.** Upon the termination of this Agreement for any of the reasons set forth above, all obligations of the Parties under this Agreement shall cease, save for the Surviving Provisions." },
     ],
   },
@@ -392,7 +419,7 @@ export const SECTIONS: MasterSection[] = [
         when: "costs_cap",
         text: "**Costs.**",
         subs: [
-          { ref: "(a)", text: "The Parties hereby agree that the Borrower shall bear the costs of the legal fees and/or expenses incurred in connection with this Agreement up to an agreed cap of {{costs_cap}}. Unless otherwise agreed upon in writing and the terms set out herein, any other legal fees and/or expenses exceeding the agreed cap of {{costs_cap}} shall be borne by the Party incurring the additional legal fees and/or expenses. The Parties agree that all legal fees and/or expenses incurred shall be documented and receipts shall be provided or made available to the Parties for the purposes of transparency and record keeping." },
+          { ref: "(a)", text: "The Parties hereby agree that the Borrower shall bear the costs of the legal fees and/or expenses incurred in connection with this Agreement up to an agreed cap of {{costs_cap}} ({{costs_cap_basis}}). Unless otherwise agreed upon in writing and the terms set out herein, any other legal fees and/or expenses exceeding the agreed cap of {{costs_cap}} shall be borne by the Party incurring the additional legal fees and/or expenses. The Parties agree that all legal fees and/or expenses incurred shall be documented and receipts shall be provided or made available to the Parties for the purposes of transparency and record keeping.{{costs_split}}" },
           { ref: "(b)", text: "Other than the above and except as provided herein, each Party shall bear its own costs and expenses incurred in connection with this Agreement." },
         ],
       },
@@ -408,6 +435,7 @@ export const SECTIONS: MasterSection[] = [
         subs: [
           { ref: "(a)", text: "If any dispute, controversy, or claim arises out of or relating to this Agreement, or to the interpretation, breach, termination or validity of this Agreement, the Parties must use their best efforts to resolve such dispute through consultation or mediation. The consultation or mediation between the Parties must begin as soon as practicable after one disputing Party has delivered to the other disputing Party a written notice setting out the matter of the dispute." },
           { ref: "(b)", text: "If such dispute is not settled within thirty (30) calendar days after the date of the relevant dispute notice referred to above, the dispute must be referred to and resolved by arbitration seated in Singapore in accordance with the Arbitration Rules of the Singapore International Arbitration Centre for the time being in force, administered by the Singapore International Arbitration Centre (the \"**Arbitration Rules**\" and the \"**Arbitral Institution**\" respectively). The tribunal will consist of one (1) arbitrator, to be appointed in accordance with the Arbitration Rules. The language of the arbitration will be English." },
+          { ref: "(c)", fd: true, text: "Nothing in this Clause requires consultation or mediation before, or otherwise prevents: (i) {{the_lenders}} from bringing proceedings in the courts of Singapore, or of any other competent jurisdiction, to recover a sum that is due and payable under this Agreement and is not disputed in good faith; (ii) {{the_lenders}} from taking any step in the {{insolvency_steps}} of the Borrower, or in any similar proceedings; (iii) {{the_lenders}} from enforcing {{any_security}} in accordance with its terms; or (iv) any Party from seeking urgent interim relief from a court of competent jurisdiction at any time." },
         ],
       },
       {
@@ -416,12 +444,17 @@ export const SECTIONS: MasterSection[] = [
         text: "**Dispute Resolution.**",
         subs: [
           { ref: "(a)", text: "If any dispute, controversy, or claim arises out of or relating to this Agreement, or to the interpretation, breach, termination or validity of this Agreement, the Parties must use their best efforts to resolve such dispute through consultation or mediation. The consultation or mediation between the Parties must begin as soon as practicable after one disputing Party has delivered to the other disputing Party a written notice setting out the matter of the dispute." },
-          { ref: "(b)", text: "If such dispute is not settled within thirty (30) calendar days after the date of the relevant dispute notice referred to above, any Party may refer the dispute to the courts of Singapore, which shall have exclusive jurisdiction, and each Party irrevocably submits to the jurisdiction of the Singapore courts. Nothing in this Clause prevents a Party from seeking urgent interim relief at any time." },
+          { ref: "(b)", text: "If such dispute is not settled within thirty (30) calendar days after the date of the relevant dispute notice referred to above, any Party may refer the dispute to the courts of Singapore, which shall have exclusive jurisdiction, and each Party irrevocably submits to the jurisdiction of the Singapore courts." },
+          { ref: "(c)", fd: true, text: "Nothing in this Clause requires consultation or mediation before, or otherwise prevents: (i) {{the_lenders}} from bringing proceedings to recover a sum that is due and payable under this Agreement and is not disputed in good faith; (ii) {{the_lenders}} from taking any step in the {{insolvency_steps}} of the Borrower, or in any similar proceedings; (iii) {{the_lenders}} from enforcing {{any_security}} in accordance with its terms; or (iv) any Party from seeking urgent interim relief at any time." },
         ],
       },
     ],
   },
 ];
+
+/** With several Lenders: how they share the costs cap (0240, FD supplementary wording). */
+export const COSTS_SPLIT =
+  " As between the Lenders, the agreed cap shall be shared equally. Any part of a Lender's share that it does not use shall be available, in equal shares, to those Lenders whose legal fees and/or expenses exceed their own shares, and so on until the agreed cap is used up or all such legal fees and/or expenses have been met.";
 
 export const EXECUTED = "IN WITNESS WHEREOF this Agreement has been entered into on the Effective Date.";
 
@@ -437,6 +470,24 @@ export const ADAPTATIONS: string[] = [
   "Security in a separate document (C, D): a guarantee or charge, or — offered but never the usual answer — a share pledge, which Rachel notes is not normal for a loan agreement.",
   "Transfers by the Lender freely (B) or only with consent; payments applied to interest first for a lender (B); costs paid by the Borrower in full or each side its own (B).",
   "The master's square-bracketed choices are filled for Singapore: Business Days, the time zone, the Moneylenders Act 2008, the Contracts (Rights of Third Parties) Act 2001, Singapore law, SIAC arbitration in Singapore in English — or the Singapore courts.",
+];
+
+/** What changed after the outside review of November 2026 (0240), for the admin list. */
+export const REVIEW_CHANGES: string[] = [
+  "Maturity Date: counted from the Drawdown Date, not the Effective Date, so a 24-month loan is borrowed for 24 months (reviewer's tracked change). Rachel to confirm.",
+  "Several Lenders: no longer jointly and severally liable, which made each Lender a guarantor of the others. Their obligations are stated to be several, and each Lender gives its own representations (reviewer's tracked changes). Rachel to confirm.",
+  "Payments are in the Agreed Currency, save for costs and expenses, which are paid in the currency in which they were incurred.",
+  "Assignment: \"a competitor as deemed by the board\" is now an objective test — a person, or an affiliate of a person, whose business competes with the principal business.",
+  "Events of Default: three levels. Balanced is the old lender-friendly list. Lender-friendly has no grace period for a missed payment and adds a material adverse change event.",
+  "Security: the sentence on enforcing the Security Document is removed, since enforcement belongs in the security document; the clause now says it is enforced only under its own terms. The Borrower's warranties cover the Security Document.",
+  "Release and Termination: on \"full and irrevocable\" repayment, so a payment later clawed back in an insolvency does not release the security.",
+  "Financial Statements: must include at least a profit and loss statement and a balance sheet.",
+  "Change of Control: more than 50% (the usual answer for a Lender) or more than 75% (the master); a new limb for an indirect change in who ultimately owns the company.",
+  "Costs: the cap has its own currency, says whether GST and disbursements are inside it, and with several Lenders is shared equally, with unused shares passing to those who have spent more.",
+  "Dispute Resolution: no talks are needed before an undisputed debt claim, insolvency steps, enforcing security or urgent relief.",
+  "Interest: a fixed rate a year is the usual answer; a floating rate (3-month Compounded SORA or 3-month Term SOFR, plus a margin, floored at zero) is new. Rachel to confirm the default.",
+  "Drawdown on the Borrower's written request, within three months of signing; early repayment with a break fee.",
+  "What the user types (purpose, security, pledged shares, financial statements, the next round) is put into contract wording by FD AI and listed beside the draft with the original; dates such as 31/12/25 are written out.",
 ];
 
 /** The master's slips, fixed here. */

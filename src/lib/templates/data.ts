@@ -430,9 +430,9 @@ export const TEMPLATES: TemplateDoc[] = [
       { label: "Lender or borrower", text: "Tell FD AI which side you are on, and the usual answers lean your way." },
       { label: "Who is lending", text: "One lender, or several lending together through an authorised representative, to an individual or a company." },
       { label: "Founder loans", text: "A founder lending to, or borrowing for, their own company, or a personal loan with no company involved." },
-      { label: "Amount and term", text: "Singapore or US dollars, paid on signing or on a set date, for 6, 12 or 24 months or another period." },
+      { label: "Amount and term", text: "A term loan in Singapore or US dollars: one lump sum, paid on signing, on a set date or when the borrower asks, for 6, 12 or 24 months or another period." },
       { label: "Repayment", text: "In full at the end, in equal instalments, or on request — with or without the right to repay early." },
-      { label: "Interest", text: "A rate a year, a flat charge, a total that steps up over time, or interest-free, plus optional extra interest on late payment." },
+      { label: "Interest", text: "A fixed rate a year, a floating rate over SORA or Term SOFR, a flat charge, a total that steps up over time, or interest-free, plus optional extra interest on late payment." },
       { label: "Security", text: "Unsecured, or backed by a guarantee or charge set out in a separate document." },
     ],
     whenNeeded: [
@@ -444,6 +444,7 @@ export const TEMPLATES: TemplateDoc[] = [
     faqs: [
       { q: "Does a loan between friends or family need an agreement?", a: "It is not always required, but a written agreement makes the amount, repayment date and any interest clear, which avoids arguments later." },
       { q: "Can the loan be interest-free?", a: "Yes. Choose interest-free, or a rate a year, a flat charge or interest that steps up over time." },
+      { q: "Does it cover a revolving credit facility (RCF)?", a: "No. It is for a term loan: one lump sum, paid over once and repaid by the end of the term. For a revolving facility, an overdraft or a loan drawn in stages, speak to a Founders Doc lawyer." },
       { q: "Is the loan secured?", a: "By default it is unsecured. If the lender wants a guarantee or a charge over assets, that is set out in a separate document, and the agreement refers to it." },
       { q: "Can I edit the agreement after FD AI drafts it?", a: "Yes. Change any wording before you download it as a Word document, and ask FD AI to explain any clause." },
     ],

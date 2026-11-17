@@ -5,7 +5,8 @@
  * the credit is refunded and the firm follows up.
  */
 
-import { num, readAnswers } from "./assemble";
+import { parseAmount } from "./amount";
+import { readAnswers } from "./assemble";
 import { applyDefaults, problemWith, questionsFor } from "./questions";
 import type { Answers, Flag, LoanParties } from "./types";
 
@@ -27,7 +28,11 @@ export const FLAG_TITLES: Record<string, string> = {
   LN12: "Borrower's liability uncapped",
   LN13: "Lenders' shares",
   LN14: "Level of detail",
+  LN15: "Floating rate",
+  LN16: "Break fee and the interest chosen",
+  LN17: "Material adverse change",
   LN21: "Your own wording",
+  LN22: "Reworded by FD AI",
 };
 
 export function titleFor(f: Flag): string {
@@ -56,7 +61,7 @@ export function ruleChecks(answersIn: Answers, parties: LoanParties): { flags: F
       title: "Simple version",
       user_message: "This is the simple version: the essentials only. It leaves out confidentiality, announcements, the limit on liability and further assurances, and has no security, late-payment interest or company warranties. Need any of them? Change the level of detail from the list on the right.",
       reason:
-        "This is the simple version: one Lender, no warranties on a connected company and no change of control, no security, no stated purpose and no late-payment interest; drawdown within five Business Days, early repayment at any time, each side pays its own costs, the Events of Default follow your side, and the Lender may transfer the loan on 30 days' notice. The confidentiality, announcements, limitation of liability and further assurances clauses are left out. If any of these matter, choose Standard or Comprehensive.",
+        "This is the simple version: one Lender, no warranties on a connected company and no change of control, no security, no stated purpose and no late-payment interest; a single lump sum, drawn down within five Business Days, early repayment at any time, each side pays its own costs, the Events of Default follow your side, and the Lender may transfer the loan on 30 days' notice. The confidentiality, announcements, limitation of liability and further assurances clauses are left out. If any of these matter, choose Standard or Comprehensive.",
       field: "LN0",
     });
   } else if (r.level === "standard") {
@@ -119,7 +124,37 @@ export function ruleChecks(answersIn: Answers, parties: LoanParties): { flags: F
   }
 
   if (!r.lenderSide && r.strict) {
-    flags.push({ level: "yellow", scenario: "LN6", reason: "As the Borrower you have chosen the lender-friendly Events of Default: three Business Days for a missed payment, fifteen for other breaches, and more triggers, with no cure period before the loan is called in.", field: "LN15" });
+    flags.push({
+      level: "yellow",
+      scenario: "LN6",
+      reason:
+        r.defaults === "strict"
+          ? "As the Borrower you have chosen the lender-friendly Events of Default: no grace period for a missed payment, fifteen Business Days for other breaches, more triggers and a material adverse change event, with no cure period before the loan is called in."
+          : "As the Borrower you have chosen the balanced Events of Default: three Business Days for a payment held up by a technical error, fifteen for other breaches, and more triggers, with no cure period before the loan is called in.",
+      field: "LN15",
+    });
+  }
+  if (r.defaults === "strict") {
+    flags.push({ level: "green", scenario: "LN17", reason: "The lender-friendly Events of Default include a material adverse change, judged by the Lender acting reasonably. It is wide by design: check both sides accept it.", field: "LN15" });
+  }
+  if (r.model === "floating") {
+    flags.push({
+      level: "yellow",
+      scenario: "LN15",
+      reason: `Interest floats: ${r.usd ? "3-month Term SOFR" : "3-month Compounded SORA"} plus the margin, reset every three months and floored at zero, on a ${r.usd ? "360" : "365"}-day year. Check the benchmark and the day count suit the Lender's own funding, and what applies if the benchmark stops being published (the agreement keeps the last rate until the parties agree a replacement).`,
+      field: "LN12",
+    });
+  }
+  if (r.early === "fee" && (r.model === "tiered" || r.model === "flat")) {
+    flags.push({
+      level: "yellow",
+      scenario: "LN16",
+      reason:
+        r.model === "tiered"
+          ? "Tiered interest rewards early repayment, while the break fee charges for it. Check both are meant: together they can look like a penalty."
+          : "A flat charge is paid in full however early the loan is repaid, so a break fee on top pays the Lender twice. Check both are meant: together they can look like a penalty.",
+      field: "LN11",
+    });
   }
   if (!r.lenderSide && r.level !== "simple" && str(a.LN19) === "none") {
     flags.push({ level: "green", scenario: "LN12", reason: "The Borrower's liability for a breach is not capped. The master caps it at twice the amount lent.", field: "LN19" });
@@ -137,7 +172,7 @@ export function ruleChecks(answersIn: Answers, parties: LoanParties): { flags: F
   }
 
   if (r.several) {
-    const amounts = lenders.map((l) => num(str(l.amount)));
+    const amounts = lenders.map((l) => parseAmount(str(l.amount)));
     const total = amounts.reduce((x, y) => x + (Number.isFinite(y) ? y : 0), 0);
     if (amounts.some((x) => !Number.isFinite(x))) {
       flags.push({ level: "yellow", scenario: "LN13", reason: "Not every Lender's share of the loan is filled in: Schedule 1 shows [●]. Say how much each Lender advances.", field: "parties" });
