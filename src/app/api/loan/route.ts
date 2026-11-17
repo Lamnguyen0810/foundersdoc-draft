@@ -13,7 +13,7 @@ import { getUser } from "@/lib/supabase/server";
 import { FAIR_USE_REACHED, attachDraft, currentBalance, refundCredit, reserveCredit } from "@/lib/billing/credits";
 import { cleanAnswers, cleanParties, prepareLoan } from "@/lib/loan/server";
 import { MASTER_LOADED } from "@/lib/loan/data/master";
-import { applyDefaults, unanswered } from "@/lib/loan/questions";
+import { applyDefaults, unanswered, withLendersTotal } from "@/lib/loan/questions";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -31,9 +31,10 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Please sign in again." }, { status: 401 });
   }
 
-  const answers = cleanAnswers(body.answers);
-  const filled = applyDefaults(answers);
   const parties = cleanParties(body && typeof body === "object" ? body : {});
+  /* With several Lenders the amount lent is their total, so it is not asked twice (0240). */
+  const answers = withLendersTotal(cleanAnswers(body.answers), parties.lenders);
+  const filled = applyDefaults(answers);
 
   const missing = unanswered(filled);
   if (missing.length > 0) {

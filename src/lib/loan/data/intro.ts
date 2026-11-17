@@ -4,20 +4,22 @@
  */
 export const LOAN_INTRO = {
   short:
-    "**A loan agreement, for lending or borrowing money.**\n\nAnswer plain-English questions about the amount, the interest and how it is repaid — and FD AI puts together a loan agreement from our lawyers' master: one lender or several, to an individual or a company, including a founder borrowing for their start-up.\n\nFirst choose how detailed it should be: Simple (the essentials), Standard (our lawyers' master) or Comprehensive (every option). Then tell us whether you are lending or borrowing, and the usual answers lean to your side. It is in Beta and written under Singapore law. It takes 3 to 10 minutes; anything you skip takes the usual answer.",
+    "**A loan agreement, for lending or borrowing money.**\n\nAnswer plain-English questions about the amount, the interest and how it is repaid — and FD AI puts together a loan agreement from our lawyers' master: one lender or several, to an individual or a company, including a founder borrowing for their start-up.\n\n**For a term loan paid in one lump sum.** It does not cover a revolving credit facility (RCF) or a loan drawn in stages; for those, talk to a Founders Doc lawyer.\n\nFirst choose how detailed it should be: Simple (the essentials), Standard (our lawyers' master) or Comprehensive (every option). Then tell us whether you are lending or borrowing, and the usual answers lean to your side. It is in Beta and written under Singapore law. It takes 3 to 10 minutes; anything you skip takes the usual answer.",
   learn_more: {
     what_you_get: [
       "Three levels of detail: Simple — a short agreement with the essentials; Standard — the Founders Doc master; Comprehensive — every option, including security, a stated purpose and late-payment interest",
       "A loan agreement naming the Borrower and the Lender — or several Lenders, listed in a schedule and acting through one authorised representative",
       "The amount, the drawdown into the Borrower's bank account, the term and how it is repaid: on request, on the Maturity Date or in instalments",
-      "Tiered interest that rewards early repayment (the master's position), a rate a year, a flat charge, or interest-free",
+      "Interest at a fixed rate a year (the usual choice), a floating rate over SORA or Term SOFR, tiered interest that rewards early repayment, a flat charge, or interest-free",
       "Events of default, the Company's warranties and change of control for a founder loan, security if there is any, and how disputes are resolved",
       "Points your lawyer should check, listed beside the agreement, and a Word file",
     ],
     good_to_know: [
+      "This is a term loan: one lump sum, paid over once and repaid by the end of the term. It is not a revolving credit facility (RCF), an overdraft or a loan drawn in stages.",
       "The usual answers lean to the side you choose — the other side may ask for changes. Each choice says what it means.",
       "Lending to an individual for interest can count as moneylending under the Moneylenders Act 2008. FD AI flags it; check before you sign.",
-      "Security such as a guarantee or share pledge is given in a separate document, which this agreement does not draft.",
+      "Security such as a guarantee, a charge or a share pledge is given in a separate document, which this agreement does not draft. A Founders Doc lawyer can prepare it.",
+      "Your answers are saved on this device as you go, so you can stop and come back.",
       "Beta: the wording follows the Founders Doc master loan agreement and four reference loan agreements. Have a lawyer read it in full.",
     ],
   },

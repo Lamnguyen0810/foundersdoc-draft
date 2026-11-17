@@ -26,7 +26,8 @@ import type { RecentDraft } from "./history";
 import type { CompanyPrefill } from "./TermSheet";
 import { track } from "@/lib/track";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
-import { applyDefaults, levelOf, problemWith, questionsFor, withFixed, type Option, type Question } from "@/lib/loan/questions";
+import { applyDefaults, currencyOf, levelOf, problemWith, questionsFor, withFixed, withLendersTotal, type Option, type Question } from "@/lib/loan/questions";
+import { amountProblem, formatAmount, parseAmount, sumAmounts } from "@/lib/loan/amount";
 import { LOAN_INTRO } from "@/lib/loan/data/intro";
 import type { Answers, Bank, DraftStatus, Flag, Party, PartyKind, Rep } from "@/lib/loan/types";
 import { useExitFeedback } from "./ExitFeedback";
@@ -65,6 +66,15 @@ type Step = { kind: "q"; q: Question } | { kind: "parties" };
 const PARTIES_AFTER = "LN5";
 export const LOAN_HANDOFF_KEY = "fdai.loan-handoff";
 const STASH_KEY = "fdai.loan-in-progress";
+/* 0240: answers in progress are kept on the device, per account, for a week —
+   not only in the tab. A reviewer ran out of credits at the last step, came
+   back in a new tab and had to answer everything again. */
+const STASH_DAYS = 7;
+const stashKeyFor = (email: string | null) => {
+  let h = 5381;
+  for (const c of (email ?? "guest").toLowerCase()) h = ((h << 5) + h + c.charCodeAt(0)) >>> 0;
+  return `${STASH_KEY}:${h.toString(36)}`;
+};
 const MAX_LENDERS = 10;
 
 const PARTIES_Q = "Who are the Borrower and the Lender? Names as they will appear in the agreement, and where the money is paid.";
@@ -75,10 +85,13 @@ type Settled = Record<string, "done" | "skp">;
 
 const stepKey = (s: Step) => (s.kind === "q" ? s.q.id : s.kind);
 
-/** The parties once the side, the Lenders, the Borrower and the currency are known (LN5). */
+/** The parties once the side, the Lenders, the Borrower and the currency are known (LN5).
+ *  With several Lenders the amount lent (LN6) is the total of what each puts
+ *  in, given with the parties, so it is not asked again (0240). */
 function stepsFor(a: Answers): Step[] {
   const out: Step[] = [];
   for (const q of questionsFor(a)) {
+    if (q.id === "LN6" && a.LN2 === "several") continue;
     out.push({ kind: "q", q });
     if (q.id === PARTIES_AFTER) out.push({ kind: "parties" });
   }
@@ -87,11 +100,11 @@ function stepsFor(a: Answers): Step[] {
 
 const SHORT: Record<string, string> = {
   LN0: "Level of detail", LN1: "Your side", LN2: "Lenders", LN3: "Borrower", LN4: "Connected company", LN5: "Currency", LN6: "Amount", LN7: "Purpose",
-  LN8: "Drawdown", LN8a: "Drawdown date", LN9: "Term", LN9a: "Term (months)", LN10: "Repayment", LN10a: "Instalments", LN11: "Early repayment",
-  LN12: "Interest", LN12a: "Tiers", LN12b: "Tiers (%)", LN12c: "Rate a year", LN12d: "Interest payments", LN12e: "Flat charge",
+  LN8: "Drawdown", LN8a: "Drawdown date", LN9: "Term", LN9a: "Term (months)", LN10: "Repayment", LN10a: "Instalments", LN11: "Early repayment", LN11a: "Break fee",
+  LN12: "Interest", LN12a: "Tiers", LN12b: "Tiers (%)", LN12c: "Rate a year", LN12d: "Interest payments", LN12e: "Flat charge", LN12f: "Margin",
   LN13: "Late payment", LN13a: "Default rate", LN14: "Security", LN14a: "The security", LN14b: "Pledged shares", LN15: "Defaults",
   LN16: "Change of control", LN17: "Company comfort", LN17a: "Financial statements", LN17b: "Next round", LN18: "Transfers",
-  LN19: "Borrower's liability", LN20: "Legal costs", LN20a: "Costs cap", LN21: "Disputes",
+  LN19: "Borrower's liability", LN20: "Legal costs", LN20a: "Costs cap", LN20b: "Cap currency", LN20c: "Cap basis", LN21: "Disputes",
 };
 
 function shortLabel(s: Step): string {
@@ -243,12 +256,16 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
     const t = setTimeout(() => {
       try {
         const handoff = localStorage.getItem(LOAN_HANDOFF_KEY);
-        const raw = handoff ?? sessionStorage.getItem(STASH_KEY);
+        const raw = handoff ?? localStorage.getItem(stashKeyFor(userEmail)) ?? sessionStorage.getItem(STASH_KEY);
         if (!raw) return;
         const s = JSON.parse(raw) as {
-          answers: Answers; borrower?: Party; lenders?: Party[]; rep?: Rep; company?: Party; bank?: Bank; settled?: Settled; msgs?: Msg[]; stage: Stage;
+          answers: Answers; borrower?: Party; lenders?: Party[]; rep?: Rep; company?: Party; bank?: Bank; settled?: Settled; msgs?: Msg[]; stage: Stage; at?: number;
         };
         if (!s || !s.answers || Object.keys(s.answers).length === 0) return;
+        if (!handoff && typeof s.at === "number" && Date.now() - s.at > STASH_DAYS * 86_400_000) {
+          localStorage.removeItem(stashKeyFor(userEmail));
+          return;
+        }
         setAnswers(s.answers);
         setBorrower(s.borrower ?? emptyParty());
         setLenders(Array.isArray(s.lenders) && s.lenders.length ? s.lenders : [emptyParty()]);
@@ -268,20 +285,32 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [resume, guest]);
+  }, [resume, guest, userEmail]);
 
   useEffect(() => {
-    if (resume || stage === "drafted") return;
+    if (resume || stage === "drafted" || Object.keys(answers).length === 0) return;
     try {
-      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, borrower, lenders, rep, company, bank, settled, msgs, stage }));
+      localStorage.setItem(stashKeyFor(userEmail), JSON.stringify({ answers, borrower, lenders, rep, company, bank, settled, msgs, stage, at: Date.now() }));
     } catch {
       /* private mode */
     }
-  }, [answers, borrower, lenders, rep, company, bank, settled, msgs, stage, resume]);
+  }, [answers, borrower, lenders, rep, company, bank, settled, msgs, stage, resume, userEmail]);
 
+  const clearStash = () => {
+    try {
+      localStorage.removeItem(stashKeyFor(userEmail));
+      sessionStorage.removeItem(STASH_KEY);
+    } catch {
+      /* fine */
+    }
+  };
+
+  /* Also when the drafting screen gives way to the conversation again (busy)
+     and when the "add credits" note appears (paywalled): the conversation is
+     drawn afresh then, and used to sit at the top (0240). */
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, stage, error, fd.follow.length, fd.asking]);
+  }, [msgs.length, stage, error, fd.follow.length, fd.asking, busy, paywalled]);
 
   /* ── answering ──────────────────────────────────────────────────────── */
 
@@ -309,8 +338,20 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
     if (q.id === "LN1" && mine && value === "lender" && !lenders[0]?.name.trim()) setLenders((ls) => [mine, ...ls.slice(1)]);
     if (next.LN2 !== "several") setLenders((ls) => (ls.length > 1 ? ls.slice(0, 1) : ls));
     if (Object.keys(settled).length === 0) track("draft_started", { doc_type: "loan", total_steps: steps.length });
+    /* An amount is kept as a tidy figure: "1.000.000" → "1,000,000". */
+    if (q.format === "amount" && typeof value === "string" && Number.isFinite(parseAmount(value))) next[q.id] = formatAmount(parseAmount(value));
+    /* One Lender becomes several (or back): the parties are asked again, since
+       each Lender's amount is now needed (or the one amount is). */
+    const lendersChanged = q.id === "LN2" && answers.LN2 !== undefined && answers.LN2 !== value;
     setAnswers(next);
-    setSettled((st) => ({ ...st, [q.id]: skipped ? "skp" : "done" }));
+    setSettled((st) => {
+      const out: Settled = { ...st, [q.id]: skipped ? "skp" : "done" };
+      if (lendersChanged) {
+        delete out.parties;
+        if (value !== "several" && !Number.isFinite(parseAmount(next.LN6))) delete out.LN6;
+      }
+      return out;
+    });
     say({ who: "fd", text: q.text }, { who: "me", label: shortLabel({ kind: "q", q }), text: skipped ? "Skipped for now" : answerLabel(q, next) || "None", skipped });
     setOpenKey(null);
     resetInput();
@@ -319,10 +360,24 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
   const commit = (q: Question, value: unknown) => settle(q, value, false);
   const skip = (q: Question) => settle(q, q.defaultValue ?? "", true);
 
+  const curSign = currencyOf(answers) === "USD" ? "US$" : "S$";
+  /* Several Lenders: what they put in between them is the amount lent. */
+  const lendersTotal = several ? sumAmounts(lenders.map((l) => l.amount ?? "")) : NaN;
+
   const settleParties = () => {
-    setSettled((st) => ({ ...st, parties: "done" }));
+    setSettled((st) => ({ ...st, parties: "done", ...(several && Number.isFinite(lendersTotal) ? { LN6: "done" as const } : {}) }));
+    if (several && Number.isFinite(lendersTotal)) {
+      setAnswers((a) => withLendersTotal(a, lenders));
+      setLenders((ls) => ls.map((l) => ({ ...l, amount: formatAmount(parseAmount(l.amount ?? "")) })));
+    }
     setOpenKey(null);
-    say({ who: "fd", text: several ? PARTIES_Q_SEVERAL : PARTIES_Q }, { who: "me", label: "The parties", text: partiesLine });
+    say(
+      { who: "fd", text: several ? PARTIES_Q_SEVERAL : PARTIES_Q },
+      { who: "me", label: "The parties", text: partiesLine },
+      ...(several && Number.isFinite(lendersTotal)
+        ? [{ who: "fd" as const, text: `The amount lent is the total of the Lenders’ amounts: ${curSign}${formatAmount(lendersTotal)}. I won’t ask for it again.` }]
+        : []),
+    );
     resetInput();
   };
 
@@ -421,7 +476,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          answers: applyDefaults(answers),
+          answers: applyDefaults(withLendersTotal(answers, several ? lenders : [])),
           borrower: { ...borrower, kind: answers.LN3 === "company" ? "company" : "individual" },
           lenders: several ? lenders : lenders.slice(0, 1),
           rep: several ? rep : {},
@@ -448,11 +503,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
         setHtml(null);
         setText("");
         setStage("drafted");
-        try {
-          sessionStorage.removeItem(STASH_KEY);
-        } catch {
-          /* fine */
-        }
+        clearStash();
         track("draft_generated", { doc_type: "loan", words: 0, reason: "master_pending" });
         return;
       }
@@ -467,11 +518,8 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
       setDocOpen(true);
       setStage("drafted");
       if (typeof j.creditsLeft === "number") setCredits(j.creditsLeft);
-      try {
-        sessionStorage.removeItem(STASH_KEY);
-      } catch {
-        /* fine */
-      }
+      setPaywalled(false);
+      clearStash();
       track("draft_generated", { doc_type: "loan", words: Number(j.words ?? 0) });
     } catch {
       setError("Could not reach FD AI. Check your connection and try again.");
@@ -712,6 +760,9 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
       case "free_text":
       default: {
         const problem = typed.trim() ? problemWith(q, typed.trim()) : null;
+        /* An amount is read back as it is typed, so "1.000.000" or "1.5m" is seen to be understood. */
+        const readAs = q.format === "amount" && typed.trim() && !problem ? parseAmount(typed) : NaN;
+        const sign = q.id === "LN20a" ? (answers.LN20b === "USD" ? "US$" : answers.LN20b === "SGD" ? "S$" : curSign) : curSign;
         return (
           <div className="chips">
             <textarea
@@ -729,6 +780,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
               }}
             />
             {problem && <p className="ts-refuse" role="alert">{problem}</p>}
+            {Number.isFinite(readAs) && <p className="later" style={{ flexBasis: "100%", margin: 0 }}>Read as <b>{sign}{formatAmount(readAs)}</b></p>}
             {backButton()}
             <button type="button" className="go" disabled={!typed.trim() || Boolean(problem)} onClick={() => commit(q, typed.trim())}>
               Continue
@@ -815,8 +867,20 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
           )}
           {opts.amount && (
             <label>
-              Amount this Lender puts in
-              <input className="input" inputMode="decimal" value={p.amount ?? ""} onChange={(e) => set({ amount: e.target.value })} placeholder="e.g. 50,000" />
+              Amount this Lender puts in ({curSign})
+              <input
+                className="input"
+                inputMode="decimal"
+                value={p.amount ?? ""}
+                aria-invalid={Boolean(amountProblem(p.amount ?? ""))}
+                onChange={(e) => set({ amount: e.target.value })}
+                onBlur={(e) => {
+                  const n = parseAmount(e.target.value);
+                  if (Number.isFinite(n)) set({ amount: formatAmount(n) });
+                }}
+                placeholder="e.g. 50,000"
+              />
+              {amountProblem(p.amount ?? "") && <span className="ts-refuse" role="alert">{amountProblem(p.amount ?? "")}</span>}
             </label>
           )}
         </div>
@@ -844,7 +908,10 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
   }
 
   function partiesUI() {
-    const ok = Boolean(borrower.name.trim() && lenders.some((l) => l.name.trim()));
+    /* Several Lenders: each one named, with an amount that can be read — the
+       amount lent is their total, so none may be left blank (0240). */
+    const lendersOk = several ? lenders.every((l) => l.name.trim() && Number.isFinite(parseAmount(l.amount ?? ""))) : lenders.some((l) => l.name.trim());
+    const ok = Boolean(borrower.name.trim() && lendersOk);
     const iAmBorrower = answers.LN1 === "borrower";
     const borrowerCo = answers.LN3 === "company";
     const connected = !borrowerCo && answers.LN4 !== "no";
@@ -891,6 +958,15 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
           </div>
         )}
         {several && (
+          <p className="later" style={{ margin: "2px 0 8px" }}>
+            {Number.isFinite(lendersTotal) ? (
+              <>Amount lent, the total of the Lenders’ amounts: <b>{curSign}{formatAmount(lendersTotal)}</b></>
+            ) : (
+              "The amount lent is the total of the Lenders’ amounts: fill in each one, in figures."
+            )}
+          </p>
+        )}
+        {several && (
           <div className="ts-party">
             <div className="ts-party-h">
               <b>The Lenders’ Authorised Representative</b>
@@ -923,11 +999,11 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
         )}
         <div className="chips">
           {backButton()}
-          <button type="button" className="go" disabled={!ok} onClick={settleParties} title={ok ? undefined : "The Borrower’s and a Lender’s names are needed"}>
+          <button type="button" className="go" disabled={!ok} onClick={settleParties} title={ok ? undefined : several ? "The Borrower’s name, and each Lender’s name and amount, are needed" : "The Borrower’s and a Lender’s names are needed"}>
             Continue
           </button>
         </div>
-        <p className="later">Only the names are needed now. Anything left blank is marked [●] in the agreement.</p>
+        <p className="later">{several ? "Only the names and each Lender’s amount are needed now." : "Only the names are needed now."} Anything left blank is marked [●] in the agreement.</p>
       </div>
     );
   }
@@ -936,7 +1012,11 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
 
   const summary = steps
     .filter((s): s is { kind: "q"; q: Question } => s.kind === "q")
-    .map((s) => ({ id: s.q.id, label: shortLabel(s), value: answerLabel(s.q, answers) }))
+    .flatMap((s) => [
+      { id: s.q.id, label: shortLabel(s), value: answerLabel(s.q, answers) },
+      /* Several Lenders: the amount is not a step of its own, so it is shown after the currency. */
+      ...(s.q.id === "LN5" && several && typeof answers.LN6 === "string" ? [{ id: "LN6", label: "Amount", value: `${answers.LN6} (the Lenders’ total)` }] : []),
+    ])
     .filter((x) => x.value);
 
   const yellow = flags.filter((f) => f.level === "yellow" || f.level === "red");
@@ -948,11 +1028,22 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
   /* As on the NDA: one numbered list of what to fill in or check. */
   const reminders = buildReminders({ missing, flags: yellow, steps, label: (s) => shortLabel(s), question: (s) => (s.kind === "q" ? s.q.text : undefined), id: (s) => stepKey(s), isQuestion: (s) => s.kind === "q", open: revisit });
 
+  /* What goes with this loan (0240): the security is its own document, which FD
+     AI does not draft yet; a founder's lender often takes shares instead. */
+  const nextSteps: { text: string; link: string; href: string }[] = [
+    ...(answers.LN14 === "other" || answers.LN14 === "pledge"
+      ? [{ text: `The ${answers.LN14 === "pledge" ? "share pledge" : "guarantee or charge"} is a separate document, and a condition of this loan. A Founders Doc lawyer can prepare it.`, link: "Book a lawyer", href: "/fd-consult" }]
+      : []),
+    ...(answers.LN3 === "company" || answers.LN4 === "yes"
+      ? [{ text: "Should the Lender be able to turn the loan into shares? That is a convertible loan.", link: "Draft a convertible loan agreement", href: "/draft?type=convertibleloanagreement" }]
+      : []),
+  ];
+
   const stepAnswer = (s: Step): string => {
     const k = stepKey(s);
     if (settled[k] === "skp") return "Skipped";
     if (settled[k] !== "done") return "";
-    if (s.kind === "parties") return partiesLine;
+    if (s.kind === "parties") return several && Number.isFinite(lendersTotal) ? `${partiesLine} · ${curSign}${formatAmount(lendersTotal)} in all` : partiesLine;
     return answerLabel(s.q, answers);
   };
 
@@ -1143,8 +1234,10 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        <b style={{ fontWeight: 500 }}>You’ve used your free documents.</b>
-                        <p style={{ margin: "8px 0 0" }}>Your answers are still here. Add credits and the agreement is prepared straight away.</p>
+                        <b style={{ fontWeight: 500 }}>You have no drafting credits left.</b>
+                        <p style={{ margin: "8px 0 0" }}>
+                          Nothing is lost: your answers are saved on this device for {STASH_DAYS} days. Add credits, open the Loan Agreement again and press Generate draft — you will not be asked the questions again.
+                        </p>
                         <p style={{ margin: "14px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <a className="btn btn-gold" href="/billing">Add credits</a>
                           <a className="btn btn-white" href="/history">Past drafts</a>
@@ -1258,6 +1351,18 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
                         )}
                         {infos.length > 0 && <ul className="cg-checks">{infos.map((f, k) => <li key={k}>{f.user_message}</li>)}</ul>}
                         <ReminderList items={reminders} />
+                        {nextSteps.length > 0 && (
+                          <>
+                            <p><b>What usually comes next</b></p>
+                            <ul className="cg-checks">
+                              {nextSteps.map((n) => (
+                                <li key={n.href}>
+                                  {n.text} <a href={n.href} target="_blank" rel="noopener" data-no-exit>{n.link} ›</a>
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        )}
                       </>
                     )}
                   </div>

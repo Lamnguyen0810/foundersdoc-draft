@@ -19,7 +19,10 @@ import { EXIT_REASONS, RATING_WORDS, type ExitReason } from "@/lib/exit-feedback
 
    WHEN IT OPENS (once per document per tab, never after a draft exists)
    • Desktop: the pointer leaves through the top of the window — on its way to
-     the close button, the tab bar or the address bar.
+     the close button, the tab bar or the address bar — and stays out for a
+     moment. Not while the person is answering (0240): a reviewer had it open
+     over a question he was typing into. So it waits until nothing has been
+     typed or clicked for a while and no answer box holds unsent words.
    • Any device: a link to somewhere else on the site is clicked. The click is
      held, the box opens, and the link is followed when they choose to leave.
    • Any device: the browser's Back button (and Android's back gesture). Once
@@ -158,11 +161,37 @@ export default function ExitFeedbackHost() {
       track("exit_prompt_shown", { doc_type: s.doc, step: s.answered, total_steps: s.total, source: trigger });
     };
 
-    /* Desktop: heading for the top of the window. */
+    /* Desktop: heading for the top of the window. Only when the person has
+       stopped answering: nothing typed or clicked for QUIET_MS, no words
+       waiting in an answer box, and the pointer still outside after OUT_MS
+       (a pointer that only brushed the top edge comes straight back). */
+    const QUIET_MS = 12_000;
+    const OUT_MS = 700;
+    let lastActive = Date.now();
+    let outTimer: ReturnType<typeof setTimeout> | null = null;
+    const active = () => {
+      lastActive = Date.now();
+    };
+    const answering = () => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el) return false;
+      if (el.isContentEditable) return true;
+      const typing = el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && !/^(button|checkbox|radio|submit|range)$/i.test((el as HTMLInputElement).type));
+      return typing && (el as HTMLInputElement | HTMLTextAreaElement).value.trim().length > 0;
+    };
+    const cancelOut = () => {
+      if (outTimer) clearTimeout(outTimer);
+      outTimer = null;
+    };
     const onOut = (e: MouseEvent) => {
       if (e.relatedTarget || e.clientY > 0) return;
       if (!window.matchMedia("(pointer: fine)").matches) return;
-      if (canAsk()) ask("exit_intent");
+      if (Date.now() - lastActive < QUIET_MS || answering()) return;
+      cancelOut();
+      outTimer = setTimeout(() => {
+        outTimer = null;
+        if (Date.now() - lastActive >= QUIET_MS && !answering() && canAsk()) ask("exit_intent");
+      }, OUT_MS);
     };
 
     /* A link elsewhere on the site: hold it, ask, then follow it. */
@@ -199,10 +228,17 @@ export default function ExitFeedbackHost() {
     };
 
     document.addEventListener("mouseout", onOut);
+    document.addEventListener("mouseover", cancelOut);
+    document.addEventListener("keydown", active, true);
+    document.addEventListener("pointerdown", active, true);
     document.addEventListener("click", onClick, true);
     window.addEventListener("popstate", onPop, true);
     return () => {
+      cancelOut();
       document.removeEventListener("mouseout", onOut);
+      document.removeEventListener("mouseover", cancelOut);
+      document.removeEventListener("keydown", active, true);
+      document.removeEventListener("pointerdown", active, true);
       document.removeEventListener("click", onClick, true);
       window.removeEventListener("popstate", onPop, true);
     };
@@ -256,6 +292,10 @@ export default function ExitFeedbackHost() {
     ? `${st.answered} of ${st.total} questions answered`
     : `${st.answered} ${st.answered === 1 ? "question" : "questions"} answered`;
   const said = !!(reason || rating || comment.trim());
+  /* Is the person on their way somewhere (a link, Back), or only near the top
+     of the window? The buttons say what each one does (0240: "Maybe later"
+     beside "Keep drafting" did the same thing and read as two choices). */
+  const going = !!open.href;
 
   return (
     <div className="fb-overlay" onClick={(e) => e.target === e.currentTarget && stay()}>
@@ -265,7 +305,7 @@ export default function ExitFeedbackHost() {
           You&rsquo;ve made a good start on your {st.docLabel} ({done}).{" "}
           {st.guest
             ? "Your answers are saved in this tab. Create a free account whenever you're ready to keep them and get your draft."
-            : "Your answers are saved in this tab, so you can pick up right where you left off."}
+            : "Your answers are saved, so you can pick up right where you left off."}
         </p>
 
         <div className="exit-q">
@@ -299,16 +339,24 @@ export default function ExitFeedbackHost() {
         <p className="exit-thanks">Thank you, it really helps us make FD AI better for you.</p>
 
         <div className="fb-actions exit-actions">
-          <button type="button" className="dbtn" onClick={() => void send()} disabled={sending}>
-            {sending ? "Sending…" : said ? "Send and leave" : "Maybe later"}
-          </button>
+          {going ? (
+            <button type="button" className="dbtn" onClick={() => void send()} disabled={sending}>
+              {sending ? "Sending…" : said ? "Send feedback and leave" : "Leave without feedback"}
+            </button>
+          ) : (
+            said && (
+              <button type="button" className="dbtn" onClick={() => void send()} disabled={sending}>
+                {sending ? "Sending…" : "Send feedback"}
+              </button>
+            )
+          )}
           {st.guest && (
             <a className="dbtn" href="/signup?from=draft" onClick={() => { leaving.current = true; track("exit_prompt_signup", { doc_type: st.doc, step: st.answered }); }}>
               Save my progress (free)
             </a>
           )}
           <button type="button" className="dbtn gold" onClick={stay} autoFocus>
-            Keep drafting
+            {going ? "Stay and keep drafting" : "Keep drafting"}
           </button>
         </div>
       </div>

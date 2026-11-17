@@ -15,11 +15,12 @@
 
 import type { Block } from "../contract/parse";
 import { formatDate, joinAnd, numberWords, parseDate, todaySingapore } from "../termsheet/format";
+import { formatAmount, parseAmount } from "./amount";
 import {
-  AGREED, BETWEEN, DEFINITIONS, EXECUTED, INTERPRETATION, LENDERS_SCHEDULE, MADE_ON, PARTIES_COLLECTIVE, PARTY_COMPANY, PARTY_INDIVIDUAL,
+  AGREED, BETWEEN, COSTS_SPLIT, DEFINITIONS, EXECUTED, INTERPRETATION, LENDERS_SCHEDULE, MADE_ON, PARTIES_COLLECTIVE, PARTY_COMPANY, PARTY_INDIVIDUAL,
   RECITAL, SECTIONS, TITLE, WHEREAS, type MasterClause, type MasterSub,
 } from "./data/master";
-import { applyDefaults, levelOf, type Level } from "./questions";
+import { applyDefaults, capCurrencyOf, levelOf, type Level } from "./questions";
 import type { Answers, Flag, LoanInput, Party } from "./types";
 
 export interface Assembled {
@@ -38,9 +39,11 @@ const oneLine = (s: string) => s.replace(/\s*\n\s*/g, ", ").trim();
 const MAY_BE_EMPTY = new Set([
   "lenders_desc", "jointly", "lender_being", "or_company", "co_advisers", "lar_notices", "and_security_doc", "and_security_costs",
   "or_security_doc", "and_return_pledge", "or_security", "as_per_interest", "save_default", "and_interest", "each_share", "not_competitor",
+  "each_of", "costs_split",
 ]);
 
-/** "8,000" → 8000; anything that is not a plain number → NaN. */
+/** "8,000" → 8000; anything that is not a plain number → NaN. For rates and
+ *  months; money is read by parseAmount (lib/loan/amount.ts). */
 export function num(raw: string): number {
   const s = String(raw ?? "").replace(/[,\s%]/g, "").replace(/^(S\$|US\$|SGD|USD|\$)/i, "");
   return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
@@ -68,6 +71,24 @@ function asPhrase(s: string): string {
   if (!t) return "";
   return /^[A-Z][a-z]/.test(t) && !/^[A-Z][a-z]+ [A-Z]/.test(t) ? t.charAt(0).toLowerCase() + t.slice(1) : t;
 }
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** A date typed in figures, written out (0240): "31/12/25" → "31 December
+ *  2025". Day first, as in Singapore; anything that is not a real date is
+ *  left exactly as typed. */
+export function spellDates(s: string): string {
+  return s.replace(/\b(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2}|\d{4})\b/g, (all, d: string, m: string, y: string) => {
+    const day = Number(d), month = Number(m);
+    const year = y.length === 2 ? 2000 + Number(y) : Number(y);
+    if (month < 1 || month > 12 || day < 1 || day > new Date(year, month, 0).getDate()) return all;
+    return `${day} ${MONTHS[month - 1]} ${year}`;
+  });
+}
+
+/** What the user typed, by the field it goes into, after FD AI has put it
+ *  into contract wording (lib/loan/tidy.ts). Absent: used as typed. */
+export type Tidied = Partial<Record<"purpose" | "security_desc" | "pledged_shares" | "financial_periods" | "next_round" | "drawdown_date", string>>;
 
 /** What the simple version leaves out (LN0): the master's boilerplate that a
  *  short agreement between people who know each other can do without. */
@@ -114,19 +135,27 @@ export function readAnswers(a: Answers) {
   const companyDef = !borrowerCompany && str(a.LN4) === "yes";
   const connected = borrowerCompany || companyDef;
   const usd = str(a.LN5) === "USD";
-  const principal = num(str(a.LN6));
+  const principal = parseAmount(str(a.LN6));
   const termMonths = str(a.LN9) === "other" ? num(str(a.LN9a)) : num(str(a.LN9) || "12");
   const repay = str(a.LN10) || (lenderSide ? "maturity" : "demand");
-  const model = str(a.LN12) || "tiered";
+  /* A draft saved before 0240 has LN12 (the usual answer was tiered then). */
+  const model = str(a.LN12) || "annual";
   const tiers = model === "tiered" ? (str(a.LN12a) === "other" ? tiersOf(str(a.LN12b)) : TIER_SETS[str(a.LN12a) || "20_25_30"] ?? [20, 25, 30]) : [];
   const rate = model === "annual" ? num(str(a.LN12c)) : NaN;
   const flat = model === "flat" ? num(str(a.LN12e)) : NaN;
+  const margin = model === "floating" ? num(str(a.LN12f)) : NaN;
   const defaultKind = model === "tiered" ? "tier" : str(a.LN13) || "none";
   const security = str(a.LN14) || "none";
-  const strict = str(a.LN15) === "strict";
+  /* LN15: lenient (the master), balanced (the reference list, with grace for a
+     technical error) or strict (no grace, and a material adverse change). */
+  const defaults = str(a.LN15) === "strict" ? "strict" : str(a.LN15) === "balanced" ? "balanced" : "lenient";
+  const strict = defaults !== "lenient";
   const coc = connected && str(a.LN16) !== "no";
+  const cocPct = str(a.LN16) === "yes50" ? 50 : 75;
+  const early = str(a.LN11) === "consent" ? "consent" : str(a.LN11) === "fee" ? "fee" : "free";
+  const earlyFee = early === "fee" ? num(str(a.LN11a)) : NaN;
   const comfort = connected && str(a.LN17) !== "no";
-  return { level, lenderSide, several, borrowerCompany, companyDef, connected, usd, principal, termMonths, repay, model, tiers, rate, flat, defaultKind, security, strict, coc, comfort };
+  return { level, lenderSide, several, borrowerCompany, companyDef, connected, usd, principal, termMonths, repay, model, tiers, rate, flat, margin, defaultKind, security, defaults, strict, coc, cocPct, early, earlyFee, comfort };
 }
 
 export function assemble(input: LoanInput): Assembled {
@@ -142,7 +171,10 @@ export function assemble(input: LoanInput): Assembled {
   const r = readAnswers(a);
   const { several, borrowerCompany, companyDef, connected, principal, termMonths, repay, model, tiers, security, strict, coc, comfort } = r;
   const cur = r.usd ? "US$" : "S$";
-  const money = (n: number) => (Number.isFinite(n) ? `${cur}${n.toLocaleString("en-GB", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}` : GAP);
+  const money = (n: number, sign = cur) => (Number.isFinite(n) ? `${sign}${formatAmount(n)}` : GAP);
+  const tidy = input.tidy ?? {};
+  /* What the user typed: FD AI's contract wording when there is one, else as typed (dates written out). */
+  const typed = (k: keyof Tidied, raw: string) => str(tidy[k]) || spellDates(raw);
   const share = (p: number) => (Number.isFinite(principal) && Number.isFinite(p) ? money(Math.round(principal * p) / 100) : GAP);
   const allIndividual = lenders.every((l) => l.kind === "individual");
   const pledge = security === "pledge";
@@ -151,8 +183,8 @@ export function assemble(input: LoanInput): Assembled {
   const assign = str(a.LN18) || (r.lenderSide ? "notice" : "consent");
   const costs = str(a.LN20) || "cap";
   const disputes = str(a.LN21) === "courts" ? "courts" : "siac";
-  const earlyFree = str(a.LN11) !== "consent";
-  const purpose = asPhrase(str(a.LN7));
+  const earlyFree = r.early === "free";
+  const purpose = asPhrase(typed("purpose", str(a.LN7)));
   if (purpose) own.push("the purpose");
   if (security === "other" && str(a.LN14a)) own.push("the security");
   if (pledge && str(a.LN14b)) own.push("the pledged shares");
@@ -181,21 +213,27 @@ export function assemble(input: LoanInput): Assembled {
       case "assign_consent": return assign === "consent";
       case "assign_any": return assign !== "consent";
       case "tiered": return model === "tiered";
+      case "floating": return model === "floating";
       case "annual": return model === "annual";
       case "flat": return model === "flat";
       case "interest_free": return model === "none";
       case "settle_end": return model === "tiered" || model === "flat" || (model === "annual" && str(a.LN12d) !== "quarterly" && repay !== "instalments");
       case "settle_quarterly": return model === "annual" && str(a.LN12d) === "quarterly" && repay !== "instalments";
       case "settle_instalments": return model === "annual" && repay === "instalments";
+      case "settle_period": return model === "floating";
       case "default_interest": return defaultInterest;
       case "repay_demand": return repay === "demand";
       case "repay_maturity": return repay === "maturity";
       case "repay_instalments": return repay === "instalments";
       case "early_free": return earlyFree;
-      case "early_consent": return !earlyFree;
-      case "repay_date": return earlyFree && (model === "tiered" || model === "annual");
+      case "early_fee": return r.early === "fee";
+      case "early_consent": return r.early === "consent";
+      case "repay_date": return r.early !== "consent" && (model === "tiered" || model === "annual" || model === "floating");
       case "lenient": return !strict;
       case "strict": return strict;
+      case "grace_tech": return r.defaults === "balanced";
+      case "no_grace": return r.defaults === "strict";
+      case "mac": return r.defaults === "strict";
       case "co_any": return connected;
       case "announce_borrower": return !r.lenderSide;
       case "announce_mutual": return r.lenderSide;
@@ -214,16 +252,21 @@ export function assemble(input: LoanInput): Assembled {
   const theLenders = several ? "the Lenders" : "the Lender";
   const cap1 = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
   const drawdown = str(a.LN8) || "days5";
-  const drawdownDate = drawdown === "date" ? str(a.LN8a) : "";
+  const drawdownDate = drawdown === "date" ? typed("drawdown_date", str(a.LN8a)) : "";
   if (drawdownDate) own.push("the drawdown date");
 
   const t = tiers.length === 3 ? tiers : [NaN, NaN, NaN];
   if (model === "tiered" && tiers.length !== 3) missing.add("interest tiers");
   if (model === "annual" && !Number.isFinite(r.rate)) missing.add("interest rate");
   if (model === "flat" && !Number.isFinite(r.flat)) missing.add("flat interest");
+  if (model === "floating" && !Number.isFinite(r.margin)) missing.add("interest margin");
+  if (r.early === "fee" && !Number.isFinite(r.earlyFee)) missing.add("early repayment fee");
   const defaultRate =
     r.defaultKind === "plus2" ? (model === "annual" && Number.isFinite(r.rate) ? r.rate + 2 : model === "annual" ? NaN : 2) : r.defaultKind === "fixed" ? num(str(a.LN13a)) : NaN;
-  if (defaultInterest && !Number.isFinite(defaultRate)) missing.add("default interest rate");
+  /* With a floating rate, "2% above the rate" follows the rate as it moves. */
+  const floatingPlus2 = model === "floating" && r.defaultKind === "plus2";
+  if (defaultInterest && !floatingPlus2 && !Number.isFinite(defaultRate)) missing.add("default interest rate");
+  const capCur = capCurrencyOf(a) === "USD" ? "US$" : "S$";
 
   const freq = str(a.LN10a) === "quarterly" ? 3 : 1;
   const nInst = Number.isFinite(termMonths) && termMonths > 0 ? Math.max(1, Math.floor(termMonths / freq)) : NaN;
@@ -249,36 +292,42 @@ export function assemble(input: LoanInput): Assembled {
     swift: str(bank.swift) || GAP,
     bank_address: oneLine(str(bank.bank_address)) || GAP,
     company: coName(company),
-    drawdown: drawdown === "signing" ? "the Effective Date" : drawdown === "date" ? drawdownDate || GAP : "a date falling no later than five (5) Business Days after the Effective Date",
+    drawdown:
+      drawdown === "signing"
+        ? "the Effective Date"
+        : drawdown === "date"
+          ? drawdownDate || GAP
+          : drawdown === "request"
+            ? `the date falling five (5) Business Days after the date on which the Borrower gives ${lar} written notice asking for the Principal Amount to be advanced (such notice to be given no later than three (3) months after the Effective Date, failing which ${theLenders} shall no longer be obliged to advance it)`
+            : "a date falling no later than five (5) Business Days after the Effective Date",
     term_words: months(termMonths),
     the_lenders: theLenders,
     The_lenders: cap1(theLenders),
     lar,
     Lar: cap1(lar),
     each_lender: several ? "each Lender" : "the Lender",
+    Each_lender: several ? "Each Lender" : "The Lender",
+    it_lender: several ? "it" : "the Lender",
     each_lender_obj: several ? "such Lender" : "the Lender",
     lender_poss: several ? "such Lender's" : "the Lender's",
     lenders_heading: several ? "Lenders'" : "Lender's",
     lenders_their: several ? "their" : "the Lender's",
     lenders_desc: allIndividual ? (several ? ", being individuals," : ", being an individual,") : "",
     lender_being: allIndividual ? ", being an individual," : "",
-    jointly: several ? ", on a joint and several basis," : "",
     have: several ? "have" : "has",
     agree: several ? "agree" : "agrees",
     reserve: several ? "reserve" : "reserves",
     are: several ? "are" : "is",
-    represent: several ? "represent" : "represents",
-    warrant: several ? "warrant" : "warrants",
     co,
-    not_competitor: connected ? ` (other than a competitor of ${co} as deemed by the board of directors of ${co})` : "",
+    not_competitor: connected ? ` (other than a person that carries on, or is an affiliate of a person that carries on, a business that competes with the principal business of ${co})` : "",
     co_poss: borrowerCompany ? "the Borrower's" : "the Company's",
     co_jurisdiction: (borrowerCompany ? str(borrower.jurisdiction) : str(company.jurisdiction)) || "Singapore",
     borrower_jurisdiction: str(borrower.jurisdiction) || "Singapore",
     reps_company_head: borrowerCompany ? "Financial Representations & Warranties" : "Company's Representations & Warranties",
     or_company: companyDef ? " or by the Company" : "",
     co_advisers: companyDef ? ", or of the Company and/or its officers in connection with any transaction relating to the Company and its subsidiaries" : "",
-    financial_periods: str(a.LN17a).replace(/[.;\s]+$/, "") || GAP,
-    next_round: str(a.LN17b).replace(/[.;\s]+$/, "") || "next",
+    financial_periods: typed("financial_periods", str(a.LN17a)).replace(/[.;\s]+$/, "") || GAP,
+    next_round: typed("next_round", str(a.LN17b)).replace(/[.;\s]+$/, "") || "next",
     purpose,
     and_interest: model === "none" ? "" : " and the Interest accrued thereunder",
     t1_words: pct(t[0]), t2_words: pct(t[1]), t3_words: pct(t[2]),
@@ -286,7 +335,19 @@ export function assemble(input: LoanInput): Assembled {
     rate_words: pct(r.rate),
     flat_words: pct(r.flat),
     flat_amount: share(r.flat),
-    default_rate: pct(defaultRate),
+    default_rate: floatingPlus2
+      ? "the rate which is two per cent. (2%) per annum above the rate of Interest applying from time to time under {{clause:interest}} (Interest Rate)"
+      : `the rate of ${pct(defaultRate)} per annum`,
+    margin_words: pct(r.margin),
+    benchmark: r.usd
+      ? "the 3-month Term SOFR reference rate administered by CME Group Benchmark Administration Limited (or any person that takes over the administration of that rate)"
+      : "the 3-month Compounded SORA (Singapore Overnight Rate Average) published by the Monetary Authority of Singapore (or any person that takes over the publication of that rate)",
+    day_count: r.usd ? "360" : "365",
+    early_fee_words: pct(r.earlyFee),
+    coc_pct: pct(r.cocPct),
+    coc_keep: r.cocPct === 50 ? "more than fifty per cent. (50%)" : "at least seventy-five per cent. (75%)",
+    each_of: secured ? "each of " : "",
+    any_security: secured ? "the Security Document" : "any security held for the Loan",
     save_default: defaultInterest ? ", save for default interest under {{clause:default_interest}} (Default Interest)" : "",
     as_per_interest: model === "tiered" ? " as determined in accordance with {{section:interest}} (Interest)" : "",
     instalment_count: Number.isFinite(nInst) ? count(nInst) : GAP,
@@ -297,8 +358,8 @@ export function assemble(input: LoanInput): Assembled {
     or_security: secured ? " or the Security Document" : "",
     insolvency_steps: borrowerCompany ? "winding up, dissolution, judicial management or administration" : "bankruptcy",
     insolvency_officer: borrowerCompany ? "liquidator, judicial manager, receiver or similar officer" : "trustee in bankruptcy, receiver or similar officer",
-    security_desc: asPhrase(str(a.LN14a)) || GAP,
-    pledged_shares: asPhrase(str(a.LN14b)) || GAP,
+    security_desc: asPhrase(typed("security_desc", str(a.LN14a))) || GAP,
+    pledged_shares: asPhrase(typed("pledged_shares", str(a.LN14b))) || GAP,
     and_return_pledge: pledge ? ", and return the share certificate(s) and share transfer forms for the Pledged Shares" : "",
     lar_notices: several
       ? " Unless expressed to the contrary, a notice served on the Lenders' Authorised Representative shall be deemed a notice validly served on each of the Lenders, and a notice served by the Lenders' Authorised Representative shall be deemed a notice served on behalf of all the Lenders acting as a collective."
@@ -306,10 +367,15 @@ export function assemble(input: LoanInput): Assembled {
     and_security_doc: secured ? " and the Security Document" : "",
     and_security_costs: secured ? " and the Security Document" : "",
     or_security_doc: secured ? " or the Security Document" : "",
-    costs_cap: money(num(str(a.LN20a))),
+    costs_cap: money(parseAmount(str(a.LN20a)), capCur),
+    costs_cap_basis: str(a.LN20c) === "incl" ? "inclusive of goods and services tax and disbursements" : "exclusive of goods and services tax and disbursements",
+    costs_split: several && costs === "cap" ? COSTS_SPLIT : "",
   };
-  if (costs === "cap" && !Number.isFinite(num(str(a.LN20a)))) missing.add("legal costs cap");
+  if (costs === "cap" && !Number.isFinite(parseAmount(str(a.LN20a)))) missing.add("legal costs cap");
+  if (several && costs === "cap") fdUsed.push("costs (the Lenders' shares of the cap)");
   if (comfort && !str(a.LN17a)) missing.add("financial statements period");
+  if (comfort && str(tidy.financial_periods)) own.push("the financial statements period");
+  if (comfort && str(tidy.next_round)) own.push("the next round");
 
   /* ── which clauses ─────────────────────────────────────────────────── */
   const dropSub = new Set<string>();
@@ -321,7 +387,12 @@ export function assemble(input: LoanInput): Assembled {
     if (!keep(sec.when)) continue;
     const clauses = sec.clauses.filter((c) => keep(c.when) && !(r.level === "simple" && SIMPLE_LEAVES_OUT.includes(c.id)));
     if (clauses.length) built.push({ id: sec.id, heading: sec.heading, clauses });
-    for (const c of clauses) if (c.fd) fdUsed.push(c.text.match(/^\*\*(.+?)\.\*\*/)?.[1]?.toLowerCase() ?? c.id);
+    for (const c of clauses) {
+      const name = c.text.match(/^\*\*(.+?)\.\*\*/)?.[1]?.toLowerCase() ?? c.id;
+      if (c.fd) fdUsed.push(name);
+      /* A new limb inside one of the master's clauses (0240) is listed too. */
+      else if ((c.subs ?? []).some((x) => x.fd && keep(x.when))) fdUsed.push(`${name} (a new limb)`);
+    }
   }
   const clauseNo: Record<string, string> = {};
   built.forEach((s, i) => {
@@ -446,7 +517,7 @@ export function assemble(input: LoanInput): Assembled {
         l.kind === "individual"
           ? `Citizenship: ${str(l.nationality) || GAP}; NRIC / Passport No.: ${str(l.id_no) || GAP}; Address: ${oneLine(str(l.address)) || GAP}; E-mail address: ${str(l.email) || GAP}`
           : `a company incorporated in ${str(l.jurisdiction) || "Singapore"} (Registration Number ${str(l.id_no) || GAP}); Registered office: ${oneLine(str(l.address)) || GAP}; E-mail address: ${str(l.email) || GAP}`;
-      const amt = num(str(l.amount));
+      const amt = parseAmount(str(l.amount));
       blocks.push({ kind: "clause", num: `${i + 1}.`, text: `**${nm}** — ${details}; Amount advanced: ${Number.isFinite(amt) ? money(amt) : GAP}.` });
     });
     plain("**Part 2 — Lenders' Authorised Representative**");
@@ -460,7 +531,15 @@ export function assemble(input: LoanInput): Assembled {
 
   /* ── what the lawyer should know ───────────────────────────────────── */
   if (own.length) {
-    flags.push({ level: "yellow", scenario: "LN21", title: "Your own wording", reason: `Wording you typed has gone into the agreement as written: ${joinAnd(Array.from(new Set(own)))}. Have your lawyer check it.` });
+    const reworded = Object.values(tidy).some((v) => str(v));
+    flags.push({
+      level: "yellow",
+      scenario: "LN21",
+      title: "Your own wording",
+      reason: reworded
+        ? `What you typed has gone into the agreement, put into contract wording by FD AI: ${joinAnd(Array.from(new Set(own)))}. Check it still says what you meant, and have your lawyer check it.`
+        : `Wording you typed has gone into the agreement as written: ${joinAnd(Array.from(new Set(own)))}. Have your lawyer check it.`,
+    });
   }
   if (fdUsed.length) {
     flags.push({
