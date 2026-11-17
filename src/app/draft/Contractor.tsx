@@ -30,6 +30,9 @@ import { DEFAULT_JURISDICTIONS } from "@/lib/jurisdictions";
 import { applyDefaults, problemWith, questionsFor, workJurisdiction, type Option, type Question } from "@/lib/contractor/questions";
 import { CONTRACTOR_INTRO } from "@/lib/contractor/data/intro";
 import type { Answers, Company as Employer, Contractor as Employee, DraftStatus, Engagement as Job, Flag } from "@/lib/contractor/types";
+import { STASH_DAYS, dropStash, readStash, writeStash } from "./stash";
+import StashNote from "./StashNote";
+import AmountHint from "./AmountHint";
 import { useExitFeedback } from "./ExitFeedback";
 import SignButton from "./SignButton";
 
@@ -196,6 +199,8 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
+  /* Opened onto answers kept from an earlier sitting (stash.ts): say so, and offer to start again. */
+  const [restored, setRestored] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
 
   /* the draft */
@@ -263,7 +268,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
     const t = setTimeout(() => {
       try {
         const handoff = localStorage.getItem(CONTRACTOR_HANDOFF_KEY);
-        const raw = handoff ?? sessionStorage.getItem(STASH_KEY);
+        const raw = handoff ?? readStash(STASH_KEY, userEmail);
         if (!raw) return;
         const s = JSON.parse(raw) as { answers: Answers; employer: Employer; employee: Employee; job: Job; settled?: Settled; msgs?: Msg[]; stage: Stage };
         if (!s || !s.answers || Object.keys(s.answers).length === 0) return;
@@ -273,6 +278,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
         setJob(s.job ?? emptyJob());
         setSettled(s.settled ?? {});
         setMsgs(Array.isArray(s.msgs) ? s.msgs : []);
+        setRestored(!handoff);
         if (handoff && !guest) {
           localStorage.removeItem(CONTRACTOR_HANDOFF_KEY);
           setStage("review");
@@ -284,20 +290,20 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [resume, guest]);
+  }, [resume, guest, userEmail]);
 
   useEffect(() => {
     if (resume || stage === "drafted") return;
     try {
-      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, employer, employee, job, settled, msgs, stage }));
+      writeStash(STASH_KEY, userEmail, { answers, employer, employee, job, settled, msgs, stage });
     } catch {
       /* private mode */
     }
-  }, [answers, employer, employee, job, settled, msgs, stage, resume]);
+  }, [answers, employer, employee, job, settled, msgs, stage, resume, userEmail]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, stage, error, fd.follow.length, fd.asking]);
+  }, [msgs.length, stage, error, fd.follow.length, fd.asking, busy, paywalled]);
 
   /* ── answering ──────────────────────────────────────────────────────── */
 
@@ -451,11 +457,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
         setHtml(null);
         setText("");
         setStage("drafted");
-        try {
-          sessionStorage.removeItem(STASH_KEY);
-        } catch {
-          /* fine */
-        }
+        dropStash(STASH_KEY, userEmail);
         track("draft_generated", { doc_type: "contractor", words: 0, reason: j.pending ? "master_pending" : "red_flag" });
         return;
       }
@@ -472,11 +474,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
       setDocOpen(true);
       setStage("drafted");
       if (typeof j.creditsLeft === "number") setCredits(j.creditsLeft);
-      try {
-        sessionStorage.removeItem(STASH_KEY);
-      } catch {
-        /* fine */
-      }
+      dropStash(STASH_KEY, userEmail);
       track("draft_generated", { doc_type: "contractor", words: Number(j.words ?? 0) });
     } catch {
       setError("Could not reach FD AI. Check your connection and try again.");
@@ -912,6 +910,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
             <label>
               Fee, with the currency
               <input className="input" value={job.fee ?? ""} onChange={(e) => set({ fee: e.target.value })} placeholder="e.g. SGD 8,000" />
+              <AmountHint value={job.fee} lenient />
             </label>
             <div>
               <span className="emp-place-h">Per</span>
@@ -1096,6 +1095,7 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                   </div>
                 </div>
 
+                {restored && <StashNote stashKey={STASH_KEY} email={userEmail} />}
                 {msgs.map((m, k) =>
                   m.who === "fd" ? (
                     <div className="m" key={k}>
@@ -1174,8 +1174,8 @@ export default function Contractor({ look = DEFAULT_LOOK, userEmail, guest, wall
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        <b style={{ fontWeight: 500 }}>You’ve used your free documents.</b>
-                        <p style={{ margin: "8px 0 0" }}>Your answers are still here. Add credits and the contract is prepared straight away.</p>
+                        <b style={{ fontWeight: 500 }}>You have no drafting credits left.</b>
+                        <p style={{ margin: "8px 0 0" }}>Nothing is lost: your answers are saved on this device for {STASH_DAYS} days. Add credits, open this document again and press Generate draft — you will not be asked the questions again.</p>
                         <p style={{ margin: "14px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <a className="btn btn-gold" href="/billing">Add credits</a>
                           <a className="btn btn-white" href="/history">Past drafts</a>

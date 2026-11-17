@@ -12,6 +12,7 @@
  *   included  the clause ids that went in (for tests and the admin view)
  */
 
+import { formatAmount, parseAmount } from "../amount";
 import type { Block } from "../contract/parse";
 import { formatDate, joinAnd, normaliseMoney, numberWords, parseDate, todaySingapore } from "../termsheet/format";
 import {
@@ -60,7 +61,12 @@ function yearsWords(raw: string): string {
 function moneyWords(raw: string, defaultCurrency = "US$"): string {
   const s = raw.trim();
   if (!s) return "";
-  if (/^\d[\d,]*(\.\d+)?$/.test(s)) return `${defaultCurrency}${Number(s.replace(/,/g, "")).toLocaleString("en-GB")}`;
+  /* A bare figure takes the usual currency; it is read by lib/amount.ts (0241),
+     so "1.000.000" is a million and "50.000" is left as typed, not read as fifty. */
+  if (/^[\d.,\s'’]+(k|m|mn|million|bn|billion)?$/i.test(s)) {
+    const n = parseAmount(s);
+    return Number.isFinite(n) ? `${defaultCurrency}${formatAmount(n)}` : s;
+  }
   const m = normaliseMoney(s);
   if (!m) return s;
   return m.currency === "USD" ? `US$${m.amount.toLocaleString("en-GB")}` : m.currency === "SGD" ? `S$${m.amount.toLocaleString("en-GB")}` : m.text;
@@ -548,7 +554,8 @@ export function assemble(input: ShaInput): Assembled {
   if (holders.length === 0) sub("(a)", GAP, 2);
   holders.forEach((h, i) => {
     const capital = moneyWords(str(h.capital), "S$");
-    const shares = str(h.shares).replace(/\s*shares?$/i, "");
+    const typedShares = str(h.shares).replace(/\s*shares?$/i, "");
+    const shares = Number.isFinite(parseAmount(typedShares)) ? formatAmount(parseAmount(typedShares)) : typedShares;
     const cls = str(h.share_class) || "Ordinary Shares";
     if (!capital) missing.add(`capital of ${str(h.name)}`);
     if (!shares) missing.add(`shares of ${str(h.name)}`);

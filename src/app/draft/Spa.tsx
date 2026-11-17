@@ -25,6 +25,9 @@ import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { applyDefaults, problemWith, questionsFor, sellerCount, type Option, type Question } from "@/lib/spa/questions";
 import { SPA_INTRO } from "@/lib/spa/data/intro";
 import type { Answers, DraftStatus, Flag, Party, PartyKind, Seller, Target } from "@/lib/spa/types";
+import { STASH_DAYS, dropStash, readStash, writeStash } from "./stash";
+import StashNote from "./StashNote";
+import AmountHint from "./AmountHint";
 import { useExitFeedback } from "./ExitFeedback";
 import SignButton from "./SignButton";
 
@@ -158,6 +161,8 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
+  /* Opened onto answers kept from an earlier sitting (stash.ts): say so, and offer to start again. */
+  const [restored, setRestored] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
 
   /* the draft */
@@ -235,7 +240,7 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
     const t = setTimeout(() => {
       try {
         const handoff = localStorage.getItem(SPA_HANDOFF_KEY);
-        const raw = handoff ?? sessionStorage.getItem(STASH_KEY);
+        const raw = handoff ?? readStash(STASH_KEY, userEmail);
         if (!raw) return;
         const s = JSON.parse(raw) as { answers: Answers; target: Target; buyer: Party; sellers: Seller[]; settled?: Settled; msgs?: Msg[]; stage: Stage };
         if (!s || !s.answers || Object.keys(s.answers).length === 0) return;
@@ -245,6 +250,7 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
         setSellers(sized(Array.isArray(s.sellers) ? s.sellers : [], sellerCount(s.answers)));
         setSettled(s.settled ?? {});
         setMsgs(Array.isArray(s.msgs) ? s.msgs : []);
+        setRestored(!handoff);
         if (handoff && !guest) {
           localStorage.removeItem(SPA_HANDOFF_KEY);
           setStage("review");
@@ -256,20 +262,20 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [resume, guest]);
+  }, [resume, guest, userEmail]);
 
   useEffect(() => {
     if (resume || stage === "drafted") return;
     try {
-      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, target, buyer, sellers, settled, msgs, stage }));
+      writeStash(STASH_KEY, userEmail, { answers, target, buyer, sellers, settled, msgs, stage });
     } catch {
       /* private mode */
     }
-  }, [answers, target, buyer, sellers, settled, msgs, stage, resume]);
+  }, [answers, target, buyer, sellers, settled, msgs, stage, resume, userEmail]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, stage, error, fd.follow.length, fd.asking]);
+  }, [msgs.length, stage, error, fd.follow.length, fd.asking, busy, paywalled]);
 
   /* ── answering ──────────────────────────────────────────────────────── */
 
@@ -422,11 +428,7 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
         setHtml(null);
         setText("");
         setStage("drafted");
-        try {
-          sessionStorage.removeItem(STASH_KEY);
-        } catch {
-          /* fine */
-        }
+        dropStash(STASH_KEY, userEmail);
         track("draft_generated", { doc_type: "spa", words: 0, reason: "master_pending" });
         return;
       }
@@ -441,11 +443,7 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
       setDocOpen(true);
       setStage("drafted");
       if (typeof j.creditsLeft === "number") setCredits(j.creditsLeft);
-      try {
-        sessionStorage.removeItem(STASH_KEY);
-      } catch {
-        /* fine */
-      }
+      dropStash(STASH_KEY, userEmail);
       track("draft_generated", { doc_type: "spa", words: Number(j.words ?? 0) });
     } catch {
       setError("Could not reach FD AI. Check your connection and try again.");
@@ -741,10 +739,12 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
             <label>
               Total issued shares
               <input className="input" inputMode="numeric" value={target.issued_shares ?? ""} onChange={(e) => set({ issued_shares: e.target.value })} placeholder="e.g. 10,000" />
+              <AmountHint value={target.issued_shares} />
             </label>
             <label>
               Issued share capital
               <input className="input" value={target.issued_capital ?? ""} onChange={(e) => set({ issued_capital: e.target.value })} placeholder="e.g. S$10,000" />
+              <AmountHint value={target.issued_capital} lenient />
             </label>
             <label>
               Latest accounts made up to
@@ -835,10 +835,12 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
             <label>
               Shares sold
               <input className="input" inputMode="numeric" value={(x as Seller).shares ?? ""} onChange={(e) => onChange({ shares: e.target.value })} placeholder="e.g. 5,000" />
+              <AmountHint value={(x as Seller).shares} />
             </label>
             <label>
               Price for those shares ({cur})
               <input className="input" inputMode="decimal" value={(x as Seller).price ?? ""} onChange={(e) => onChange({ price: e.target.value })} placeholder="e.g. 250,000" />
+              <AmountHint value={(x as Seller).price} />
             </label>
           </div>
         )}
@@ -1006,6 +1008,7 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                   </div>
                 </div>
 
+                {restored && <StashNote stashKey={STASH_KEY} email={userEmail} />}
                 {msgs.map((m, k) =>
                   m.who === "fd" ? (
                     <div className="m" key={k}>
@@ -1085,8 +1088,8 @@ export default function Spa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        <b style={{ fontWeight: 500 }}>You’ve used your free documents.</b>
-                        <p style={{ margin: "8px 0 0" }}>Your answers are still here. Add credits and the agreement is prepared straight away.</p>
+                        <b style={{ fontWeight: 500 }}>You have no drafting credits left.</b>
+                        <p style={{ margin: "8px 0 0" }}>Nothing is lost: your answers are saved on this device for {STASH_DAYS} days. Add credits, open this document again and press Generate draft — you will not be asked the questions again.</p>
                         <p style={{ margin: "14px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <a className="btn btn-gold" href="/billing">Add credits</a>
                           <a className="btn btn-white" href="/history">Past drafts</a>

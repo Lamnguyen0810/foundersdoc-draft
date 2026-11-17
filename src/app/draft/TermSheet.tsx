@@ -39,6 +39,8 @@ import { INTRO } from "@/lib/termsheet/data/intro";
 import { DOCUMENT_TITLES } from "@/lib/termsheet/data/master";
 import { normaliseMoney } from "@/lib/termsheet/format";
 import type { AiFields, DraftStatus, Flag, KeyTerm, Party } from "@/lib/termsheet/types";
+import { STASH_DAYS, dropStash, readStash, writeStash } from "./stash";
+import StashNote from "./StashNote";
 import { useExitFeedback } from "./ExitFeedback";
 import SignButton from "./SignButton";
 
@@ -230,6 +232,8 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
      the step that fixes it where there is one. */
   const [asks, setAsks] = useState<{ text: string; step?: string; scenario?: string }[]>([]);
   const [paywalled, setPaywalled] = useState(false);
+  /* Opened onto answers kept from an earlier sitting (stash.ts): say so, and offer to start again. */
+  const [restored, setRestored] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
 
   /* the draft */
@@ -305,7 +309,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
     const t = setTimeout(() => {
       try {
         const handoff = localStorage.getItem(HANDOFF_KEY);
-        const raw = handoff ?? sessionStorage.getItem(STASH_KEY);
+        const raw = handoff ?? readStash(STASH_KEY, userEmail);
         if (!raw) return;
         const s = JSON.parse(raw) as { answers: Answers; parties: Party[]; settled?: Settled; msgs?: Msg[]; stage: Stage };
         /* Nothing answered yet is nothing to restore — and the intro is
@@ -315,6 +319,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
         setParties(s.parties?.length >= 2 ? s.parties : [emptyParty(), emptyParty()]);
         setSettled(s.settled ?? {});
         setMsgs(Array.isArray(s.msgs) ? s.msgs : []);
+        setRestored(!handoff);
         if (handoff && !guest) {
           localStorage.removeItem(HANDOFF_KEY);
           setStage("review");
@@ -326,20 +331,20 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [resume, guest]);
+  }, [resume, guest, userEmail]);
 
   useEffect(() => {
     if (resume || stage === "drafted") return;
     try {
-      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, parties, settled, msgs, stage }));
+      writeStash(STASH_KEY, userEmail, { answers, parties, settled, msgs, stage });
     } catch {
       /* private mode */
     }
-  }, [answers, parties, settled, msgs, stage, resume]);
+  }, [answers, parties, settled, msgs, stage, resume, userEmail]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, stage, asks, error, fd.follow.length, fd.asking]);
+  }, [msgs.length, stage, asks, error, fd.follow.length, fd.asking, busy, paywalled]);
 
   /* ── answering ──────────────────────────────────────────────────────── */
 
@@ -591,11 +596,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
       setDocOpen(true);
       setStage("drafted");
       if (typeof j.creditsLeft === "number") setCredits(j.creditsLeft);
-      try {
-        sessionStorage.removeItem(STASH_KEY);
-      } catch {
-        /* fine */
-      }
+      dropStash(STASH_KEY, userEmail);
       track("draft_generated", { doc_type: "term", words: Number(j.words ?? 0) });
     } catch {
       setError("Could not reach FD AI. Check your connection and try again.");
@@ -1311,6 +1312,7 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                   </div>
                 </div>
 
+                {restored && <StashNote stashKey={STASH_KEY} email={userEmail} />}
                 {msgs.map((m, k) =>
                   m.who === "fd" ? (
                     <div className="m" key={k}>
@@ -1435,8 +1437,8 @@ export default function TermSheet({ look = DEFAULT_LOOK, userEmail, guest, walle
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        <b style={{ fontWeight: 500 }}>You’ve used your free documents.</b>
-                        <p style={{ margin: "8px 0 0" }}>Your answers are still here. Add credits and the term sheet is prepared straight away.</p>
+                        <b style={{ fontWeight: 500 }}>You have no drafting credits left.</b>
+                        <p style={{ margin: "8px 0 0" }}>Nothing is lost: your answers are saved on this device for {STASH_DAYS} days. Add credits, open this document again and press Generate draft — you will not be asked the questions again.</p>
                         <p style={{ margin: "14px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <a className="btn btn-gold" href="/billing">Add credits</a>
                           <a className="btn btn-white" href="/history">Past drafts</a>

@@ -26,6 +26,9 @@ import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { applyDefaults, problemWith, questionsFor, type Option, type Question } from "@/lib/cln/questions";
 import { CLN_INTRO } from "@/lib/cln/data/intro";
 import type { Answers, DraftStatus, Flag, Party } from "@/lib/cln/types";
+import { STASH_DAYS, dropStash, readStash, writeStash } from "./stash";
+import StashNote from "./StashNote";
+import { ReadAs } from "./AmountHint";
 import { useExitFeedback } from "./ExitFeedback";
 import SignButton from "./SignButton";
 
@@ -144,6 +147,8 @@ export default function Cln({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
+  /* Opened onto answers kept from an earlier sitting (stash.ts): say so, and offer to start again. */
+  const [restored, setRestored] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
 
   /* the draft */
@@ -214,7 +219,7 @@ export default function Cln({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
     const t = setTimeout(() => {
       try {
         const handoff = localStorage.getItem(CLN_HANDOFF_KEY);
-        const raw = handoff ?? sessionStorage.getItem(STASH_KEY);
+        const raw = handoff ?? readStash(STASH_KEY, userEmail);
         if (!raw) return;
         const s = JSON.parse(raw) as { answers: Answers; coParty?: Party; investor?: Party; settled?: Settled; msgs?: Msg[]; stage: Stage };
         if (!s || !s.answers || Object.keys(s.answers).length === 0) return;
@@ -223,6 +228,7 @@ export default function Cln({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
         setInvestor(s.investor ?? emptyParty());
         setSettled(s.settled ?? {});
         setMsgs(Array.isArray(s.msgs) ? s.msgs : []);
+        setRestored(!handoff);
         if (handoff && !guest) {
           localStorage.removeItem(CLN_HANDOFF_KEY);
           setStage("review");
@@ -234,20 +240,20 @@ export default function Cln({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [resume, guest]);
+  }, [resume, guest, userEmail]);
 
   useEffect(() => {
     if (resume || stage === "drafted") return;
     try {
-      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, coParty, investor, settled, msgs, stage }));
+      writeStash(STASH_KEY, userEmail, { answers, coParty, investor, settled, msgs, stage });
     } catch {
       /* private mode */
     }
-  }, [answers, coParty, investor, settled, msgs, stage, resume]);
+  }, [answers, coParty, investor, settled, msgs, stage, resume, userEmail]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, stage, error, fd.follow.length, fd.asking]);
+  }, [msgs.length, stage, error, fd.follow.length, fd.asking, busy, paywalled]);
 
   /* ── answering ──────────────────────────────────────────────────────── */
 
@@ -405,11 +411,7 @@ export default function Cln({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
         setHtml(null);
         setText("");
         setStage("drafted");
-        try {
-          sessionStorage.removeItem(STASH_KEY);
-        } catch {
-          /* fine */
-        }
+        dropStash(STASH_KEY, userEmail);
         track("draft_generated", { doc_type: "cln", words: 0, reason: "master_pending" });
         return;
       }
@@ -424,11 +426,7 @@ export default function Cln({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
       setDocOpen(true);
       setStage("drafted");
       if (typeof j.creditsLeft === "number") setCredits(j.creditsLeft);
-      try {
-        sessionStorage.removeItem(STASH_KEY);
-      } catch {
-        /* fine */
-      }
+      dropStash(STASH_KEY, userEmail);
       track("draft_generated", { doc_type: "cln", words: Number(j.words ?? 0) });
     } catch {
       setError("Could not reach FD AI. Check your connection and try again.");
@@ -667,6 +665,7 @@ export default function Cln({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
               }}
             />
             {problem && <p className="ts-refuse" role="alert">{problem}</p>}
+            {q.format === "amount" && !problem && <ReadAs value={typed} />}
             {backButton()}
             <button type="button" className="go" disabled={!typed.trim() || Boolean(problem)} onClick={() => commit(q, typed.trim())}>
               Continue
@@ -906,6 +905,7 @@ export default function Cln({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                   </div>
                 </div>
 
+                {restored && <StashNote stashKey={STASH_KEY} email={userEmail} />}
                 {msgs.map((m, k) =>
                   m.who === "fd" ? (
                     <div className="m" key={k}>
@@ -983,8 +983,8 @@ export default function Cln({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        <b style={{ fontWeight: 500 }}>You’ve used your free documents.</b>
-                        <p style={{ margin: "8px 0 0" }}>Your answers are still here. Add credits and the agreement is prepared straight away.</p>
+                        <b style={{ fontWeight: 500 }}>You have no drafting credits left.</b>
+                        <p style={{ margin: "8px 0 0" }}>Nothing is lost: your answers are saved on this device for {STASH_DAYS} days. Add credits, open this document again and press Generate draft — you will not be asked the questions again.</p>
                         <p style={{ margin: "14px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <a className="btn btn-gold" href="/billing">Add credits</a>
                           <a className="btn btn-white" href="/history">Past drafts</a>

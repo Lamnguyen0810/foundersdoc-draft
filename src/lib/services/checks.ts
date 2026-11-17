@@ -5,7 +5,7 @@
  * the credit is refunded and the firm follows up.
  */
 
-import { num } from "./assemble";
+import { amt } from "./assemble";
 import { applyDefaults, problemWith, questionsFor } from "./questions";
 import type { Answers, Flag, Party } from "./types";
 
@@ -66,7 +66,7 @@ export function ruleChecks(answersIn: Answers, provider: Party, customer: Party)
   if (str(a.SV8) === "retainer_success") {
     flags.push({ level: "yellow", scenario: "SV6", reason: "The success fee is in your own words. Check that it says exactly what triggers it, how it is calculated (gross or net, cash and non-cash) and how long after the agreement ends it can still be earned.", field: "SV8d" });
   }
-  const fee = platform ? num(str(a.SV7)) : num(str(a.SV8a));
+  const fee = platform ? amt(str(a.SV7)) : amt(str(a.SV8a));
   if (!Number.isFinite(fee)) {
     flags.push({ level: "yellow", scenario: "SV7", reason: "No fee amount as a plain number: Schedule 2 shows [●]. Fill it in before signing.", field: platform ? "SV7" : "SV8a" });
   }

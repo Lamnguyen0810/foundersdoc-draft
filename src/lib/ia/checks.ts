@@ -5,7 +5,7 @@
  * the credit is refunded and the firm follows up.
  */
 
-import { num } from "./assemble";
+import { amt } from "./assemble";
 import { applyDefaults, founderCount, picks, problemWith, questionsFor } from "./questions";
 import type { Answers, Company, Flag, Founder, Investor } from "./types";
 
@@ -47,7 +47,7 @@ export function ruleChecks(answersIn: Answers, company: Company, founders: Found
   if (str(a.IA3) === "preference" && str(a.IA7) === "no") {
     flags.push({ level: "yellow", scenario: "IA1", reason: "Preference shares are being issued but no amended constitution is adopted at completion. Their rights must be in the Constitution: check that it already provides for this class, or approach an FD lawyer to amend it.", field: "IA7" });
   }
-  if (!Number.isFinite(num(str(investor.shares))) || !Number.isFinite(num(str(investor.amount)))) {
+  if (!Number.isFinite(amt(str(investor.shares))) || !Number.isFinite(amt(str(investor.amount)))) {
     flags.push({ level: "yellow", scenario: "IA2", reason: "No number of shares or investment amount (as a plain number): the agreement shows [●] there. Fill it in before signing.", field: "investor" });
   }
   if (str(a.IA3) === "preference" && str(a.IA18) === "ratchet") {
@@ -56,8 +56,8 @@ export function ruleChecks(answersIn: Answers, company: Company, founders: Found
   if (lead && str(a.IA12) === "company_founders" && str(a.IA12a) === "joint") {
     flags.push({ level: "yellow", scenario: "IA4", reason: "The founders give the warranties jointly and severally: each can be pursued for the whole claim, up to the cap. The FD sample has them warrant severally. Check this is intended.", field: "IA12a" });
   }
-  const cap = str(a.IA14) === "other" ? num(str(a.IA14a)) : num(str(a.IA14));
-  const amount = num(str(investor.amount));
+  const cap = str(a.IA14) === "other" ? amt(str(a.IA14a)) : amt(str(a.IA14));
+  const amount = amt(str(investor.amount));
   if (lead && str(a.IA12) === "company_founders" && Number.isFinite(cap) && Number.isFinite(amount) && cap > amount) {
     flags.push({ level: "yellow", scenario: "IA5", reason: `Each founder's liability is capped at ${cap.toLocaleString("en-GB")}, more than the investment itself (${amount.toLocaleString("en-GB")}). Check this is intended.`, field: "IA14" });
   }

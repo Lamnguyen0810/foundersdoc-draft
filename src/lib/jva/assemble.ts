@@ -14,6 +14,7 @@
  * investment and its promises) for what it gets.
  */
 
+import { parseAmount } from "../amount";
 import type { Block } from "../contract/parse";
 import { formatDate, joinAnd, numberWords, parseDate, todaySingapore } from "../termsheet/format";
 import {
@@ -49,6 +50,10 @@ export function num(raw: string): number {
   const s = String(raw ?? "").replace(/[,\s%]/g, "").replace(/^(S\$|US\$|HK\$|SGD|USD|HKD|GBP|EUR|£|€|\$)/i, "");
   return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
 }
+
+/** Money and share numbers, read by lib/amount.ts (0241): "1.000.000" is a
+ *  million, and "50.000" is not guessed. Rates, months and percentages stay with num(). */
+export const amt = (raw: string): number => parseAmount(raw);
 
 const CURRENCIES: Record<string, { sym: string }> = {
   SGD: { sym: "S$" },
@@ -121,11 +126,11 @@ export function readAnswers(a: Answers, parties: Party[] = []) {
   const business = asPhrase(str(a.JV5));
 
   const currency = CURRENCIES[str(a.JV6)] ? str(a.JV6) : "SGD";
-  const investA = num(str(a.JV7));
-  const investB = equal ? investA : num(str(a.JV7a));
+  const investA = amt(str(a.JV7));
+  const investB = equal ? investA : amt(str(a.JV7a));
 
   const funding = standard && str(a.JV8) === "cap" ? "cap" : "voluntary";
-  const fundingCap = num(str(a.JV8a));
+  const fundingCap = amt(str(a.JV8a));
 
   const dirKey = equal ? str(a.JV9) || "one" : str(a.JV10) || "2_1";
   const [dirA, dirB] = DIRECTORS[dirKey] ?? (equal ? [1, 1] : [2, 1]);
@@ -135,7 +140,7 @@ export function readAnswers(a: Answers, parties: Party[] = []) {
 
   const picked = new Set([...CORE_RESERVED, ...picks(a, "JV13")]);
   const reserved = RESERVED_ORDER.filter((k) => picked.has(k));
-  const borrowingLimit = num(str(a.JV13a));
+  const borrowingLimit = amt(str(a.JV13a));
 
   const deadlock = standard ? (["shotgun", "wind_up"].includes(str(a.JV14)) ? str(a.JV14) : "escalate") : "escalate";
   const transfers = str(a.JV15) === "consent" ? "consent" : "first_refusal";

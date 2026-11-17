@@ -1,27 +1,32 @@
 /**
- * Money as people type it (0240).
+ * Money and share numbers as people type them (0240 for the loan agreement;
+ * every document since 0241).
  *
  * A reviewer typed "1.000.000" (one million, with dots for thousands) as a
  * Lender's amount; the old reader only knew "1,000,000" and the agreement
- * came out with a blank. Every amount in the loan agreement — the amount
- * lent, each Lender's share, the cap on legal costs — is now read here,
- * the same way on the screen (which refuses what it cannot read) and on the
- * server (which never guesses).
+ * came out with a blank. The other documents had the same reader, and a
+ * worse case: "50.000" was accepted and read as fifty. Every amount and
+ * share count — a loan, an investment, a fee, a price, a cap, shares issued
+ * or bought — is now read here, the same way on the screen (which refuses
+ * what it cannot read) and on the server (which never guesses).
  *
  * Read:    50000 · 50,000 · 1,000,000.50 · 1.000.000 · 1.000.000,50 ·
- *          1 000 000 · 1'000'000 · S$50,000 · USD 5m · 250k · 1.5 million
+ *          1 000 000 · 1'000'000 · 1,00,000 (lakh) · S$50,000 · USD 5m ·
+ *          250k · 1.5 million · 2bn · "5,000 shares"
  * Refused: 50.000 (fifty, or fifty thousand?), words, anything else.
  *
  * Pure: no imports, so the screen and the server share it.
  */
 
-const CURRENCY = /^(s\$|us\$|sgd|usd|\$)|(sgd|usd)$/gi;
-const UNITS: Record<string, number> = { k: 1e3, thousand: 1e3, m: 1e6, mil: 1e6, mio: 1e6, million: 1e6 };
+const CODES = "sgd|usd|hkd|gbp|eur|aud|myr|inr";
+const CURRENCY = new RegExp(`^(s\\$|us\\$|hk\\$|a\\$|rm|£|€|₹|\\$|${CODES})|(${CODES})$`, "gi");
+const UNITS: Record<string, number> = { k: 1e3, thousand: 1e3, m: 1e6, mn: 1e6, mil: 1e6, mio: 1e6, million: 1e6, bn: 1e9, billion: 1e9 };
 
 /** The text with spaces, apostrophes and a currency sign taken off. */
 function bare(raw: unknown): string {
   return String(raw ?? "")
     .replace(/[\s  '’_]/g, "")
+    .replace(/(ordinary)?shares?$/i, "")
     .replace(CURRENCY, "")
     .replace(CURRENCY, "");
 }
@@ -36,7 +41,7 @@ export function parseAmount(raw: unknown): number {
   let s = bare(raw);
   if (!s) return NaN;
   let times = 1;
-  const unit = /^([\d.,]+)(k|thousand|m|mil|mio|million)$/i.exec(s);
+  const unit = /^([\d.,]+)(k|thousand|m|mn|mil|mio|million|bn|billion)$/i.exec(s);
   if (unit) {
     s = unit[1];
     times = UNITS[unit[2].toLowerCase()];
@@ -45,6 +50,8 @@ export function parseAmount(raw: unknown): number {
   if (/^\d+$/.test(s)) n = Number(s);
   /* 1,000,000 · 50,000 · 1,000,000.50 */
   else if (/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(s)) n = Number(s.replace(/,/g, ""));
+  /* 1,00,000 · 12,50,000.50 (lakh and crore) */
+  else if (/^\d{1,2}(,\d{2})+,\d{3}(\.\d{1,2})?$/.test(s)) n = Number(s.replace(/,/g, ""));
   /* 1.000.000 · 1.000.000,50 · 50.000,00 */
   else if (/^\d{1,3}(\.\d{3}){2,}(,\d{1,2})?$/.test(s) || /^\d{1,3}(\.\d{3})+,\d{1,2}$/.test(s)) n = Number(s.replace(/\./g, "").replace(",", "."));
   /* 1000.50 · 1.5 (with a unit: 1.5m) */

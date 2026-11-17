@@ -5,7 +5,7 @@
  * the credit is refunded and the firm follows up.
  */
 
-import { num } from "./assemble";
+import { amt } from "./assemble";
 import { applyDefaults, founderCount, investorCount, picks, problemWith, questionsFor } from "./questions";
 import type { Answers, Company, Flag, Founder, Investor } from "./types";
 
@@ -70,11 +70,11 @@ export function ruleChecks(answersIn: Answers, company: Company, founders: Found
   if (investors.length < stated) {
     flags.push({ level: "yellow", scenario: "SS6", reason: `${stated} investors were stated, but ${investors.length} ${investors.length === 1 ? "is" : "are"} named. Each investor must be a party and sign.`, field: "SS4" });
   }
-  const gaps = investors.filter((x) => !Number.isFinite(num(str(x.shares))) || !Number.isFinite(num(str(x.amount)))).map((x) => x.name);
+  const gaps = investors.filter((x) => !Number.isFinite(amt(str(x.shares))) || !Number.isFinite(amt(str(x.amount)))).map((x) => x.name);
   if (gaps.length) {
     flags.push({ level: "yellow", scenario: "SS5", reason: `No number of shares or subscription amount (as a plain number) for ${gaps.join(", ")}: Schedule 1 shows [●] there. Fill it in before signing.`, field: "investors" });
   }
-  const total = investors.reduce((s, x) => s + (num(str(x.amount)) || 0), 0);
+  const total = investors.reduce((s, x) => s + (amt(str(x.amount)) || 0), 0);
   if (total > 750000) {
     flags.push({ level: "yellow", scenario: "SS8", reason: `The investment totals S$${total.toLocaleString("en-GB")}. The FD Lite SSA is recommended for simple investments of up to about $750k; a larger round usually needs a fuller agreement and a disclosure letter.`, field: "investors" });
   }

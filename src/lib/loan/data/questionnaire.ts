@@ -47,7 +47,7 @@
  * the assembler reads them by id, and the admin console lists them.
  *
  * 1.2 (0240), after an outside lawyer's review of the chat and of a draft:
- *   - amounts are read by lib/loan/amount.ts (format: "amount"), so "1.000.000"
+ *   - amounts are read by lib/amount.ts (format: "amount"), so "1.000.000"
  *     is a million and not a blank; the question names the currency; with
  *     several Lenders the amount lent is their total and is not asked again;
  *   - the usual interest is a rate a year (simple, day by day); tiered stays

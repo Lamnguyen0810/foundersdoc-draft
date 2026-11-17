@@ -10,6 +10,7 @@
  * part is the review of the answers (server.ts).
  */
 
+import { parseAmount } from "../amount";
 import type { Block } from "../contract/parse";
 import { formatDate, joinAnd, numberWords, parseDate, todaySingapore } from "../termsheet/format";
 import {
@@ -46,6 +47,10 @@ export function num(raw: string): number {
   const s = String(raw ?? "").replace(/[,\s%]/g, "").replace(/^(S\$|US\$|HK\$|SGD|USD|HKD|GBP|EUR|£|€|\$)/i, "");
   return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
 }
+
+/** Money and share numbers, read by lib/amount.ts (0241): "1.000.000" is a
+ *  million, and "50.000" is not guessed. Rates, months and percentages stay with num(). */
+export const amt = (raw: string): number => parseAmount(raw);
 
 const CURRENCIES: Record<string, { sym: string; unit: string; cents: string }> = {
   SGD: { sym: "S$", unit: "Singapore dollars", cents: "cents" },
@@ -168,7 +173,7 @@ export function readAnswers(a: Answers) {
 
   const fee = str(a.IP16) === "fee";
   const currency = CURRENCIES[str(a.IP16a)] ? str(a.IP16a) : "SGD";
-  const feeAmount = fee ? num(str(a.IP16b)) : NaN;
+  const feeAmount = fee ? amt(str(a.IP16b)) : NaN;
   /* A deed when nothing is paid for the IP — never under US law. */
   const deed = !fee && !j.us;
 

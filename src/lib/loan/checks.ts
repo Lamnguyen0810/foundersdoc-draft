@@ -5,7 +5,7 @@
  * the credit is refunded and the firm follows up.
  */
 
-import { parseAmount } from "./amount";
+import { parseAmount } from "../amount";
 import { readAnswers } from "./assemble";
 import { applyDefaults, problemWith, questionsFor } from "./questions";
 import type { Answers, Flag, LoanParties } from "./types";

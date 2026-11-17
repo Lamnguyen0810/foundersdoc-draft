@@ -27,6 +27,8 @@ import { applyDefaults, founderCount, problemWith, questionsFor, type Option, ty
 import { percentOf } from "@/lib/cofounder/checks";
 import { COFOUNDER_INTRO } from "@/lib/cofounder/data/intro";
 import type { Answers, Company, DraftStatus, Flag, Founder, Holding } from "@/lib/cofounder/types";
+import { STASH_DAYS, dropStash, readStash, writeStash } from "./stash";
+import StashNote from "./StashNote";
 import { useExitFeedback } from "./ExitFeedback";
 import SignButton from "./SignButton";
 
@@ -200,6 +202,8 @@ export default function Cofounder({ look = DEFAULT_LOOK, userEmail, guest, walle
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
+  /* Opened onto answers kept from an earlier sitting (stash.ts): say so, and offer to start again. */
+  const [restored, setRestored] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
 
   /* the draft */
@@ -271,7 +275,7 @@ export default function Cofounder({ look = DEFAULT_LOOK, userEmail, guest, walle
     const t = setTimeout(() => {
       try {
         const handoff = localStorage.getItem(COFOUNDER_HANDOFF_KEY);
-        const raw = handoff ?? sessionStorage.getItem(STASH_KEY);
+        const raw = handoff ?? readStash(STASH_KEY, userEmail);
         if (!raw) return;
         const s = JSON.parse(raw) as { answers: Answers; company: Company; founders: Founder[]; holdings: Holding[]; settled?: Settled; msgs?: Msg[]; stage: Stage };
         if (!s || !s.answers || Object.keys(s.answers).length === 0) return;
@@ -281,6 +285,7 @@ export default function Cofounder({ look = DEFAULT_LOOK, userEmail, guest, walle
         setHoldings(Array.isArray(s.holdings) ? s.holdings : []);
         setSettled(s.settled ?? {});
         setMsgs(Array.isArray(s.msgs) ? s.msgs : []);
+        setRestored(!handoff);
         if (handoff && !guest) {
           localStorage.removeItem(COFOUNDER_HANDOFF_KEY);
           setStage("review");
@@ -292,20 +297,20 @@ export default function Cofounder({ look = DEFAULT_LOOK, userEmail, guest, walle
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [resume, guest]);
+  }, [resume, guest, userEmail]);
 
   useEffect(() => {
     if (resume || stage === "drafted") return;
     try {
-      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, company, founders, holdings, settled, msgs, stage }));
+      writeStash(STASH_KEY, userEmail, { answers, company, founders, holdings, settled, msgs, stage });
     } catch {
       /* private mode */
     }
-  }, [answers, company, founders, holdings, settled, msgs, stage, resume]);
+  }, [answers, company, founders, holdings, settled, msgs, stage, resume, userEmail]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, stage, error, fd.follow.length, fd.asking]);
+  }, [msgs.length, stage, error, fd.follow.length, fd.asking, busy, paywalled]);
 
   /* ── answering ──────────────────────────────────────────────────────── */
 
@@ -459,11 +464,7 @@ export default function Cofounder({ look = DEFAULT_LOOK, userEmail, guest, walle
         setHtml(null);
         setText("");
         setStage("drafted");
-        try {
-          sessionStorage.removeItem(STASH_KEY);
-        } catch {
-          /* fine */
-        }
+        dropStash(STASH_KEY, userEmail);
         track("draft_generated", { doc_type: "cofounder", words: 0, reason: "master_pending" });
         return;
       }
@@ -478,11 +479,7 @@ export default function Cofounder({ look = DEFAULT_LOOK, userEmail, guest, walle
       setDocOpen(true);
       setStage("drafted");
       if (typeof j.creditsLeft === "number") setCredits(j.creditsLeft);
-      try {
-        sessionStorage.removeItem(STASH_KEY);
-      } catch {
-        /* fine */
-      }
+      dropStash(STASH_KEY, userEmail);
       track("draft_generated", { doc_type: "cofounder", words: Number(j.words ?? 0) });
     } catch {
       setError("Could not reach FD AI. Check your connection and try again.");
@@ -997,6 +994,7 @@ export default function Cofounder({ look = DEFAULT_LOOK, userEmail, guest, walle
                   </div>
                 </div>
 
+                {restored && <StashNote stashKey={STASH_KEY} email={userEmail} />}
                 {msgs.map((m, k) =>
                   m.who === "fd" ? (
                     <div className="m" key={k}>
@@ -1076,8 +1074,8 @@ export default function Cofounder({ look = DEFAULT_LOOK, userEmail, guest, walle
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        <b style={{ fontWeight: 500 }}>You’ve used your free documents.</b>
-                        <p style={{ margin: "8px 0 0" }}>Your answers are still here. Add credits and the agreement is prepared straight away.</p>
+                        <b style={{ fontWeight: 500 }}>You have no drafting credits left.</b>
+                        <p style={{ margin: "8px 0 0" }}>Nothing is lost: your answers are saved on this device for {STASH_DAYS} days. Add credits, open this document again and press Generate draft — you will not be asked the questions again.</p>
                         <p style={{ margin: "14px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <a className="btn btn-gold" href="/billing">Add credits</a>
                           <a className="btn btn-white" href="/history">Past drafts</a>

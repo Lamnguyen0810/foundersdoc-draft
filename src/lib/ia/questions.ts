@@ -5,6 +5,7 @@
  * the server, which checks. The SHA engine, for the investment agreement's list.
  */
 
+import { amountProblem } from "../amount";
 import { IA_QUESTIONNAIRE } from "./data/questionnaire";
 import type { Answers } from "./types";
 
@@ -47,6 +48,8 @@ export interface Question {
   maxLength?: number;
   defaultValue?: unknown;
   reject?: Reject[];
+  /** "amount": money, read by lib/amount.ts (0241). */
+  format?: "amount";
 }
 
 /** Question ids: IA1 … IA18, with a letter for a follow-up (IA3a, IA14a). */
@@ -85,6 +88,7 @@ function concrete(q: Raw): Question {
     maxLength: q.max_length as number | undefined,
     defaultValue: Array.isArray(q.default) ? [...(q.default as unknown[])] : q.default,
     reject: q.reject as Reject[] | undefined,
+    format: q.format as "amount" | undefined,
   };
 }
 
@@ -92,7 +96,9 @@ const RAW = IA_QUESTIONNAIRE.questions as unknown as Raw[];
 
 /** Why a free-text answer cannot be accepted, or null when it can. */
 export function problemWith(q: Question, value: unknown): string | null {
-  if (typeof value !== "string" || !value.trim() || !q.reject?.length) return null;
+  if (typeof value !== "string" || !value.trim()) return null;
+  if (q.format === "amount") return amountProblem(value);
+  if (!q.reject?.length) return null;
   for (const r of q.reject) {
     if (new RegExp(r.pattern, "i").test(value)) return r.message;
   }

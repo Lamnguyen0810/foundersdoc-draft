@@ -23,7 +23,6 @@
  * the assembler reads them by id, and the admin console lists them.
  */
 
-const NUM = { pattern: "^(?!\\s*\\d[\\d,]*(\\.\\d+)?\\s*$)", message: "A number only, please (e.g. 200,000)." };
 const LEAD = { q: "IA1", eq: "lead" } as const;
 const SIMPLE = { q: "IA1", eq: "simple" } as const;
 const PREF = { q: "IA3", eq: "preference" } as const;
@@ -165,7 +164,7 @@ export const IA_QUESTIONNAIRE = {
         { value: "date", label: "By a set date" },
       ],
     },
-    { id: "IA4a", key: "completion_date", section: "Completion", type: "free_text", required: true, max_length: 40, show_if: { all: [SIMPLE, { q: "IA4", eq: "date" }] }, text: "By when?", placeholder: "e.g. 31 December 2026" },
+    { id: "IA4a", key: "completion_date", section: "Completion", type: "free_text", required: true, max_length: 120, show_if: { all: [SIMPLE, { q: "IA4", eq: "date" }] }, text: "By when?", placeholder: "e.g. 31 December 2026" },
     {
       id: "IA5",
       key: "conditions",
@@ -268,7 +267,7 @@ export const IA_QUESTIONNAIRE = {
         { value: "yes", label: "Yes" },
       ],
     },
-    { id: "IA10a", key: "safe_date", section: "Completion", type: "free_text", required: false, max_length: 40, show_if: { all: [SIMPLE, { q: "IA10", eq: "yes" }] }, text: "When was the SAFE signed? (Optional)", placeholder: "e.g. 27 February 2025" },
+    { id: "IA10a", key: "safe_date", section: "Completion", type: "free_text", required: false, max_length: 120, show_if: { all: [SIMPLE, { q: "IA10", eq: "yes" }] }, text: "When was the SAFE signed? (Optional)", placeholder: "e.g. 27 February 2025" },
     {
       id: "IA11",
       key: "round",
@@ -365,7 +364,7 @@ export const IA_QUESTIONNAIRE = {
         { value: "other", label: "Other – please specify" },
       ],
     },
-    { id: "IA14a", key: "founder_cap_other", section: "Warranties", type: "free_text", required: true, max_length: 12, show_if: { all: [LEAD, { q: "IA12", eq: "company_founders" }, { q: "IA14", eq: "other" }] }, text: "What cap per founder?", placeholder: "e.g. 75,000", reject: [NUM] },
+    { id: "IA14a", key: "founder_cap_other", section: "Warranties", type: "free_text", required: true, max_length: 24, show_if: { all: [LEAD, { q: "IA12", eq: "company_founders" }, { q: "IA14", eq: "other" }] }, text: "What cap per founder?", placeholder: "e.g. 75,000", format: "amount" },
 
     /* ── investor undertakings ── */
     {

@@ -27,9 +27,11 @@ import type { CompanyPrefill } from "./TermSheet";
 import { track } from "@/lib/track";
 import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { applyDefaults, currencyOf, levelOf, problemWith, questionsFor, withFixed, withLendersTotal, type Option, type Question } from "@/lib/loan/questions";
-import { amountProblem, formatAmount, parseAmount, sumAmounts } from "@/lib/loan/amount";
+import { amountProblem, formatAmount, parseAmount, sumAmounts } from "@/lib/amount";
 import { LOAN_INTRO } from "@/lib/loan/data/intro";
 import type { Answers, Bank, DraftStatus, Flag, Party, PartyKind, Rep } from "@/lib/loan/types";
+import { STASH_DAYS, dropStash, readStash, writeStash } from "./stash";
+import StashNote from "./StashNote";
 import { useExitFeedback } from "./ExitFeedback";
 import SignButton from "./SignButton";
 
@@ -67,14 +69,7 @@ const PARTIES_AFTER = "LN5";
 export const LOAN_HANDOFF_KEY = "fdai.loan-handoff";
 const STASH_KEY = "fdai.loan-in-progress";
 /* 0240: answers in progress are kept on the device, per account, for a week —
-   not only in the tab. A reviewer ran out of credits at the last step, came
-   back in a new tab and had to answer everything again. */
-const STASH_DAYS = 7;
-const stashKeyFor = (email: string | null) => {
-  let h = 5381;
-  for (const c of (email ?? "guest").toLowerCase()) h = ((h << 5) + h + c.charCodeAt(0)) >>> 0;
-  return `${STASH_KEY}:${h.toString(36)}`;
-};
+   not only in the tab (stash.ts, shared by every drafting screen since 0241). */
 const MAX_LENDERS = 10;
 
 const PARTIES_Q = "Who are the Borrower and the Lender? Names as they will appear in the agreement, and where the money is paid.";
@@ -181,6 +176,8 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
+  /* Opened onto answers kept from an earlier sitting (stash.ts): say so, and offer to start again. */
+  const [restored, setRestored] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
 
   /* the draft */
@@ -256,16 +253,12 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
     const t = setTimeout(() => {
       try {
         const handoff = localStorage.getItem(LOAN_HANDOFF_KEY);
-        const raw = handoff ?? localStorage.getItem(stashKeyFor(userEmail)) ?? sessionStorage.getItem(STASH_KEY);
+        const raw = handoff ?? readStash(STASH_KEY, userEmail);
         if (!raw) return;
         const s = JSON.parse(raw) as {
-          answers: Answers; borrower?: Party; lenders?: Party[]; rep?: Rep; company?: Party; bank?: Bank; settled?: Settled; msgs?: Msg[]; stage: Stage; at?: number;
+          answers: Answers; borrower?: Party; lenders?: Party[]; rep?: Rep; company?: Party; bank?: Bank; settled?: Settled; msgs?: Msg[]; stage: Stage;
         };
         if (!s || !s.answers || Object.keys(s.answers).length === 0) return;
-        if (!handoff && typeof s.at === "number" && Date.now() - s.at > STASH_DAYS * 86_400_000) {
-          localStorage.removeItem(stashKeyFor(userEmail));
-          return;
-        }
         setAnswers(s.answers);
         setBorrower(s.borrower ?? emptyParty());
         setLenders(Array.isArray(s.lenders) && s.lenders.length ? s.lenders : [emptyParty()]);
@@ -274,6 +267,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
         setBank(s.bank ?? {});
         setSettled(s.settled ?? {});
         setMsgs(Array.isArray(s.msgs) ? s.msgs : []);
+        setRestored(!handoff);
         if (handoff && !guest) {
           localStorage.removeItem(LOAN_HANDOFF_KEY);
           setStage("review");
@@ -288,22 +282,11 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
   }, [resume, guest, userEmail]);
 
   useEffect(() => {
-    if (resume || stage === "drafted" || Object.keys(answers).length === 0) return;
-    try {
-      localStorage.setItem(stashKeyFor(userEmail), JSON.stringify({ answers, borrower, lenders, rep, company, bank, settled, msgs, stage, at: Date.now() }));
-    } catch {
-      /* private mode */
-    }
+    if (resume || stage === "drafted") return;
+    writeStash(STASH_KEY, userEmail, { answers, borrower, lenders, rep, company, bank, settled, msgs, stage });
   }, [answers, borrower, lenders, rep, company, bank, settled, msgs, stage, resume, userEmail]);
 
-  const clearStash = () => {
-    try {
-      localStorage.removeItem(stashKeyFor(userEmail));
-      sessionStorage.removeItem(STASH_KEY);
-    } catch {
-      /* fine */
-    }
-  };
+  const clearStash = () => dropStash(STASH_KEY, userEmail);
 
   /* Also when the drafting screen gives way to the conversation again (busy)
      and when the "add credits" note appears (paywalled): the conversation is
@@ -1157,6 +1140,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
                   </div>
                 </div>
 
+                {restored && <StashNote stashKey={STASH_KEY} email={userEmail} />}
                 {msgs.map((m, k) =>
                   m.who === "fd" ? (
                     <div className="m" key={k}>
@@ -1236,7 +1220,7 @@ export default function Loan({ look = DEFAULT_LOOK, userEmail, guest, wallet, is
                       <div className="txt">
                         <b style={{ fontWeight: 500 }}>You have no drafting credits left.</b>
                         <p style={{ margin: "8px 0 0" }}>
-                          Nothing is lost: your answers are saved on this device for {STASH_DAYS} days. Add credits, open the Loan Agreement again and press Generate draft — you will not be asked the questions again.
+                          Nothing is lost: your answers are saved on this device for {STASH_DAYS} days. Add credits, open this document again and press Generate draft — you will not be asked the questions again.
                         </p>
                         <p style={{ margin: "14px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <a className="btn btn-gold" href="/billing">Add credits</a>

@@ -7,6 +7,7 @@
  * usual answer leans to the side the user is on.
  */
 
+import { amountProblem } from "../amount";
 import { CLN_QUESTIONNAIRE } from "./data/questionnaire";
 import type { Answers } from "./types";
 
@@ -49,6 +50,8 @@ export interface Question {
   maxLength?: number;
   defaultValue?: unknown;
   reject?: Reject[];
+  /** "amount": money, read by lib/amount.ts (0241). */
+  format?: "amount";
 }
 
 /** Question ids: CL1 … CL22, with a letter for a follow-up (CL3a, CL7a). */
@@ -104,6 +107,7 @@ function concrete(q: Raw, a: Answers): Question {
     maxLength: q.max_length as number | undefined,
     defaultValue: Array.isArray(d) ? [...(d as unknown[])] : d,
     reject: q.reject as Reject[] | undefined,
+    format: q.format as "amount" | undefined,
   };
 }
 
@@ -111,7 +115,9 @@ const RAW = CLN_QUESTIONNAIRE.questions as unknown as Raw[];
 
 /** Why a free-text answer cannot be accepted, or null when it can. */
 export function problemWith(q: Question, value: unknown): string | null {
-  if (typeof value !== "string" || !value.trim() || !q.reject?.length) return null;
+  if (typeof value !== "string" || !value.trim()) return null;
+  if (q.format === "amount") return amountProblem(value);
+  if (!q.reject?.length) return null;
   for (const r of q.reject) {
     if (new RegExp(r.pattern, "i").test(value)) return r.message;
   }

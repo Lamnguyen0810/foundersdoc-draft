@@ -1,5 +1,6 @@
 "use client";
 
+import { clearAllStashes } from "@/app/draft/stash";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
@@ -163,7 +164,7 @@ function AccountChip({
         <Link href="/billing">Credits</Link>
         <Link href="/usage">Usage</Link>
         <Link href="/settings">Settings</Link>
-        <form action="/auth/signout" method="post">
+        <form action="/auth/signout" method="post" onSubmit={clearAllStashes}>
           <button type="submit">Log out</button>
         </form>
       </div>
@@ -377,7 +378,7 @@ export function AppNav({
               <Link href="/billing">Credits</Link>
               <Link href="/usage">Usage</Link>
               <Link href="/settings">Settings</Link>
-              <form action="/auth/signout" method="post">
+              <form action="/auth/signout" method="post" onSubmit={clearAllStashes}>
                 <button type="submit" style={{ padding: "4px 0 4px 12px", fontSize: 15 }}>
                   Log out
                 </button>

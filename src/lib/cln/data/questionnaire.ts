@@ -17,7 +17,6 @@
  * the assembler reads them by id, and the admin console lists them.
  */
 
-const NUM = { pattern: "^(?!\\s*\\d[\\d,]*(\\.\\d+)?\\s*$)", message: "A number only, please (e.g. 250,000)." };
 const PCT = { pattern: "^(?!\\s*\\d{1,2}(\\.\\d{1,2})?\\s*%?\\s*$)", message: "A percentage only, please (e.g. 8 or 8.5)." };
 const INT = { pattern: "^(?!\\s*\\d{1,2}\\s*$)", message: "A whole number only, please (e.g. 3)." };
 const SIDE = (company: unknown, investor: unknown) => ({ q: "CL1", map: { company, investor } });
@@ -99,7 +98,7 @@ export const CLN_QUESTIONNAIRE = {
       max_length: 20,
       text: "Amount. How much is the investor lending?",
       placeholder: "e.g. 250,000",
-      reject: [NUM],
+      format: "amount",
     },
     {
       id: "CL6",
@@ -180,7 +179,7 @@ export const CLN_QUESTIONNAIRE = {
         { value: "multiple", label: "In multiples of a set amount" },
       ],
     },
-    { id: "CL10a", key: "multiple", section: "Interest and maturity", type: "free_text", required: true, max_length: 20, show_if: { q: "CL10", eq: "multiple" }, text: "In multiples of how much?", placeholder: "e.g. 10,000", reject: [NUM] },
+    { id: "CL10a", key: "multiple", section: "Interest and maturity", type: "free_text", required: true, max_length: 20, show_if: { q: "CL10", eq: "multiple" }, text: "In multiples of how much?", placeholder: "e.g. 10,000", format: "amount" },
 
     /* ── conversion ── */
     {
@@ -193,7 +192,7 @@ export const CLN_QUESTIONNAIRE = {
       text: "Valuation Cap. What company valuation sets the conversion price?",
       help: "Pro Tip: The loan converts at no more than the price this valuation gives — the investor's reward for coming in early. In a qualifying round they get the lower of this price and the round price.",
       placeholder: "e.g. 5,000,000",
-      reject: [NUM],
+      format: "amount",
     },
     {
       id: "CL12",
@@ -241,7 +240,7 @@ export const CLN_QUESTIONNAIRE = {
         { value: "down", label: "Only a round at a valuation below the cap" },
       ],
     },
-    { id: "CL14a", key: "min_raise", section: "Conversion", type: "free_text", required: true, max_length: 20, show_if: { q: "CL14", eq: "raise" }, text: "The minimum amount the round must raise?", placeholder: "e.g. 1,000,000", reject: [NUM] },
+    { id: "CL14a", key: "min_raise", section: "Conversion", type: "free_text", required: true, max_length: 20, show_if: { q: "CL14", eq: "raise" }, text: "The minimum amount the round must raise?", placeholder: "e.g. 1,000,000", format: "amount" },
     {
       id: "CL15",
       key: "esop",
