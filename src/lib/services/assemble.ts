@@ -14,6 +14,7 @@
  * those (data/questionnaire.ts).
  */
 
+import { parseAmount } from "../amount";
 import type { Block } from "../contract/parse";
 import { formatDate, joinAnd, numberWords, parseDate, todaySingapore } from "../termsheet/format";
 import {
@@ -43,6 +44,10 @@ export function num(raw: string): number {
   const s = String(raw ?? "").replace(/[,\s]/g, "").replace(/^(S\$|US\$|SGD|USD|\$)/i, "");
   return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
 }
+
+/** Money and share numbers, read by lib/amount.ts (0241): "1.000.000" is a
+ *  million, and "50.000" is not guessed. Rates, months and percentages stay with num(). */
+export const amt = (raw: string): number => parseAmount(raw);
 
 const count = (n: number) => (Number.isInteger(n) && n > 0 && n < 1000 ? `${numberWords(n)} (${n})` : String(n));
 const months = (n: number) => (Number.isFinite(n) && n > 0 ? `${count(n)} month${n === 1 ? "" : "s"}` : GAP);
@@ -169,7 +174,7 @@ export function assemble(input: ServicesInput): Assembled {
   const startDate = str(a.SV5s) === "date" ? str(a.SV5t) : "";
   if (startDate) own.push("the start date");
   const payDays = Number(str(a.SV9) || "30");
-  const capFixed = num(str(a.SV16a));
+  const capFixed = amt(str(a.SV16a));
   const capKind = str(a.SV16) || "fees_12";
   const money = (n: number) => (Number.isFinite(n) ? `${cur}${n.toLocaleString("en-GB", { maximumFractionDigits: 2 })}` : GAP);
 
@@ -370,16 +375,16 @@ export function assemble(input: ServicesInput): Assembled {
   schedule(2, "FEES");
   const rows: string[] = [];
   if (platform) {
-    const fee = num(str(a.SV7));
+    const fee = amt(str(a.SV7));
     if (!Number.isFinite(fee)) missing.add("subscription fee");
     const bill = str(a.SV7a) || "monthly";
     const per = bill === "annually" ? "annually" : bill === "quarterly" ? "quarterly" : "monthly";
     rows.push(`**Subscription Fee:** ${money(fee)} per month, invoiced ${per} in advance.`);
     if (str(a.SV7b) === "yes") rows.push(`**Usage Fees:** ${str(a.SV7c).replace(/[.;]\s*$/, "") || GAP}, invoiced monthly in arrears.`);
-    const setup = num(str(a.SV7d));
+    const setup = amt(str(a.SV7d));
     if (Number.isFinite(setup) && setup > 0) rows.push(`**Set-up Fee:** ${money(setup)}, invoiced on the Commencement Date.`);
   } else {
-    const amount = num(str(a.SV8a));
+    const amount = amt(str(a.SV8a));
     if (!Number.isFinite(amount)) missing.add("fee amount");
     if (basis === "fixed") {
       const sched = str(a.SV8b) || "half";
@@ -387,7 +392,7 @@ export function assemble(input: ServicesInput): Assembled {
       rows.push(`**Fixed Fee:** ${money(amount)} for the Services, ${when}.`);
     } else if (basis === "hourly") {
       rows.push(`**Hourly Rate:** ${money(amount)} per hour, for time properly spent on the Services, invoiced monthly in arrears with a summary of the time spent.`);
-      const capped = num(str(a.SV8c));
+      const capped = amt(str(a.SV8c));
       if (Number.isFinite(capped) && capped > 0) rows.push(`**Fee Cap:** the Fees shall not exceed ${money(capped)} in total without the Customer's prior written approval.`);
     } else {
       rows.push(

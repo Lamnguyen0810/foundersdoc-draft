@@ -35,6 +35,9 @@ import { applyDefaults, problemWith, questionsFor, workJurisdiction, type Option
 import { builtInGuide, countriesFrom, guideKey, issueFor, leaveIssue, type LawGuide } from "@/lib/employment/guide";
 import { EMPLOYMENT_INTRO } from "@/lib/employment/data/intro";
 import type { AiFields, Answers, DraftStatus, Employee, Employer, Flag, Job } from "@/lib/employment/types";
+import { STASH_DAYS, dropStash, readStash, writeStash } from "./stash";
+import StashNote from "./StashNote";
+import AmountHint from "./AmountHint";
 import { useExitFeedback } from "./ExitFeedback";
 import SignButton from "./SignButton";
 
@@ -193,6 +196,8 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
+  /* Opened onto answers kept from an earlier sitting (stash.ts): say so, and offer to start again. */
+  const [restored, setRestored] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
   /* The law guide (Rachel, 10 Oct): the firm's table at once, FD AI's fuller
      overview when it arrives (signed-in only). */
@@ -264,7 +269,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
     const t = setTimeout(() => {
       try {
         const handoff = localStorage.getItem(EMPLOYMENT_HANDOFF_KEY);
-        const raw = handoff ?? sessionStorage.getItem(STASH_KEY);
+        const raw = handoff ?? readStash(STASH_KEY, userEmail);
         if (!raw) return;
         const s = JSON.parse(raw) as { answers: Answers; employer: Employer; employee: Employee; job: Job; settled?: Settled; msgs?: Msg[]; stage: Stage };
         if (!s || !s.answers || Object.keys(s.answers).length === 0) return;
@@ -274,6 +279,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
         setJob(s.job ?? emptyJob());
         setSettled(s.settled ?? {});
         setMsgs(Array.isArray(s.msgs) ? s.msgs : []);
+        setRestored(!handoff);
         if (handoff && !guest) {
           localStorage.removeItem(EMPLOYMENT_HANDOFF_KEY);
           setStage("review");
@@ -285,20 +291,20 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [resume, guest]);
+  }, [resume, guest, userEmail]);
 
   useEffect(() => {
     if (resume || stage === "drafted") return;
     try {
-      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, employer, employee, job, settled, msgs, stage }));
+      writeStash(STASH_KEY, userEmail, { answers, employer, employee, job, settled, msgs, stage });
     } catch {
       /* private mode */
     }
-  }, [answers, employer, employee, job, settled, msgs, stage, resume]);
+  }, [answers, employer, employee, job, settled, msgs, stage, resume, userEmail]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, stage, error, warn, fd.follow.length, fd.asking]);
+  }, [msgs.length, stage, error, warn, fd.follow.length, fd.asking, busy, paywalled]);
 
   /* A new guide whenever where or nationality changes. */
   const placesKey = str(answers.E1a) && str(answers.E1c) ? guideKey(answers) : "";
@@ -518,11 +524,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
       setDocOpen(true);
       setStage("drafted");
       if (typeof j.creditsLeft === "number") setCredits(j.creditsLeft);
-      try {
-        sessionStorage.removeItem(STASH_KEY);
-      } catch {
-        /* fine */
-      }
+      dropStash(STASH_KEY, userEmail);
       track("draft_generated", { doc_type: "employment", words: Number(j.words ?? 0) });
     } catch {
       setError("Could not reach FD AI. Check your connection and try again.");
@@ -986,6 +988,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
             <label>
               Salary, with the currency
               <input className="input" value={job.salary ?? ""} onChange={(e) => set({ salary: e.target.value })} placeholder="e.g. SGD 6,500" />
+              <AmountHint value={job.salary} lenient />
             </label>
             {/* Not a <label>: a click on "year" would be handed to the
                 label's first button, "month". */}
@@ -1195,6 +1198,7 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                   </div>
                 </div>
 
+                {restored && <StashNote stashKey={STASH_KEY} email={userEmail} />}
                 {msgs.map((m, k) =>
                   m.who === "fd" ? (
                     <div className="m" key={k}>
@@ -1273,8 +1277,8 @@ export default function Employment({ look = DEFAULT_LOOK, userEmail, guest, wall
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        <b style={{ fontWeight: 500 }}>You’ve used your free documents.</b>
-                        <p style={{ margin: "8px 0 0" }}>Your answers are still here. Add credits and the contract is prepared straight away.</p>
+                        <b style={{ fontWeight: 500 }}>You have no drafting credits left.</b>
+                        <p style={{ margin: "8px 0 0" }}>Nothing is lost: your answers are saved on this device for {STASH_DAYS} days. Add credits, open this document again and press Generate draft — you will not be asked the questions again.</p>
                         <p style={{ margin: "14px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <a className="btn btn-gold" href="/billing">Add credits</a>
                           <a className="btn btn-white" href="/history">Past drafts</a>

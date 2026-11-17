@@ -26,6 +26,9 @@ import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { ALWAYS_PARTIES, applyDefaults, founderCount, investorCount, problemWith, questionsFor, withRequiredParties, type Option, type Question } from "@/lib/ssa/questions";
 import { SSA_INTRO } from "@/lib/ssa/data/intro";
 import type { Answers, Company, DraftStatus, Flag, Founder, Investor, PartyKind } from "@/lib/ssa/types";
+import { STASH_DAYS, dropStash, readStash, writeStash } from "./stash";
+import StashNote from "./StashNote";
+import AmountHint from "./AmountHint";
 import { useExitFeedback } from "./ExitFeedback";
 import SignButton from "./SignButton";
 
@@ -167,6 +170,8 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
+  /* Opened onto answers kept from an earlier sitting (stash.ts): say so, and offer to start again. */
+  const [restored, setRestored] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
 
   /* the draft */
@@ -241,7 +246,7 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
     const t = setTimeout(() => {
       try {
         const handoff = localStorage.getItem(SSA_HANDOFF_KEY);
-        const raw = handoff ?? sessionStorage.getItem(STASH_KEY);
+        const raw = handoff ?? readStash(STASH_KEY, userEmail);
         if (!raw) return;
         const s = JSON.parse(raw) as { answers: Answers; company: Company; founders: Founder[]; investors: Investor[]; representative?: string; settled?: Settled; msgs?: Msg[]; stage: Stage };
         if (!s || !s.answers || Object.keys(s.answers).length === 0) return;
@@ -252,6 +257,7 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
         setRepresentative(s.representative ?? "");
         setSettled(s.settled ?? {});
         setMsgs(Array.isArray(s.msgs) ? s.msgs : []);
+        setRestored(!handoff);
         if (handoff && !guest) {
           localStorage.removeItem(SSA_HANDOFF_KEY);
           setStage("review");
@@ -263,20 +269,20 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [resume, guest]);
+  }, [resume, guest, userEmail]);
 
   useEffect(() => {
     if (resume || stage === "drafted") return;
     try {
-      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, company, founders, investors, representative, settled, msgs, stage }));
+      writeStash(STASH_KEY, userEmail, { answers, company, founders, investors, representative, settled, msgs, stage });
     } catch {
       /* private mode */
     }
-  }, [answers, company, founders, investors, representative, settled, msgs, stage, resume]);
+  }, [answers, company, founders, investors, representative, settled, msgs, stage, resume, userEmail]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, stage, error, fd.follow.length, fd.asking]);
+  }, [msgs.length, stage, error, fd.follow.length, fd.asking, busy, paywalled]);
 
   /* ── answering ──────────────────────────────────────────────────────── */
 
@@ -437,11 +443,7 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
         setHtml(null);
         setText("");
         setStage("drafted");
-        try {
-          sessionStorage.removeItem(STASH_KEY);
-        } catch {
-          /* fine */
-        }
+        dropStash(STASH_KEY, userEmail);
         track("draft_generated", { doc_type: "ssa", words: 0, reason: "master_pending" });
         return;
       }
@@ -456,11 +458,7 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
       setDocOpen(true);
       setStage("drafted");
       if (typeof j.creditsLeft === "number") setCredits(j.creditsLeft);
-      try {
-        sessionStorage.removeItem(STASH_KEY);
-      } catch {
-        /* fine */
-      }
+      dropStash(STASH_KEY, userEmail);
       track("draft_generated", { doc_type: "ssa", words: Number(j.words ?? 0) });
     } catch {
       setError("Could not reach FD AI. Check your connection and try again.");
@@ -757,10 +755,12 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
             <label>
               Issued shares before the investment
               <input className="input" inputMode="numeric" value={company.issued_shares ?? ""} onChange={(e) => set({ issued_shares: e.target.value })} placeholder="e.g. 1,000,000" />
+              <AmountHint value={company.issued_shares} />
             </label>
             <label>
               Issued share capital
               <input className="input" value={company.issued_capital ?? ""} onChange={(e) => set({ issued_capital: e.target.value })} placeholder="e.g. S$10,000" />
+              <AmountHint value={company.issued_capital} lenient />
             </label>
           </div>
           <div className="ts-row">
@@ -901,10 +901,12 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                 <label>
                   Shares subscribed
                   <input className="input" inputMode="numeric" value={x.shares ?? ""} onChange={(e) => setI(i, { shares: e.target.value })} placeholder="e.g. 50,000" />
+                  <AmountHint value={x.shares} />
                 </label>
                 <label>
                   Subscription amount (S$)
                   <input className="input" inputMode="decimal" value={x.amount ?? ""} onChange={(e) => setI(i, { amount: e.target.value })} placeholder="e.g. 250,000" />
+                  <AmountHint value={x.amount} />
                 </label>
               </div>
             </div>
@@ -1066,6 +1068,7 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                   </div>
                 </div>
 
+                {restored && <StashNote stashKey={STASH_KEY} email={userEmail} />}
                 {msgs.map((m, k) =>
                   m.who === "fd" ? (
                     <div className="m" key={k}>
@@ -1145,8 +1148,8 @@ export default function Ssa({ look = DEFAULT_LOOK, userEmail, guest, wallet, isA
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        <b style={{ fontWeight: 500 }}>You’ve used your free documents.</b>
-                        <p style={{ margin: "8px 0 0" }}>Your answers are still here. Add credits and the agreement is prepared straight away.</p>
+                        <b style={{ fontWeight: 500 }}>You have no drafting credits left.</b>
+                        <p style={{ margin: "8px 0 0" }}>Nothing is lost: your answers are saved on this device for {STASH_DAYS} days. Add credits, open this document again and press Generate draft — you will not be asked the questions again.</p>
                         <p style={{ margin: "14px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <a className="btn btn-gold" href="/billing">Add credits</a>
                           <a className="btn btn-white" href="/history">Past drafts</a>

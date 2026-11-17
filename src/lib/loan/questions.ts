@@ -9,7 +9,7 @@
  * the level takes its usual answer, or the one the level sets (fixed).
  */
 
-import { amountProblem, formatAmount, sumAmounts } from "./amount";
+import { amountProblem, formatAmount, sumAmounts } from "../amount";
 import { LOAN_QUESTIONNAIRE } from "./data/questionnaire";
 import type { Answers } from "./types";
 

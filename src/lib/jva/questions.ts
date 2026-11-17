@@ -9,6 +9,7 @@
  * question can read differently for each shape (text_by).
  */
 
+import { amountProblem } from "../amount";
 import { JVA_QUESTIONNAIRE } from "./data/questionnaire";
 import type { Answers } from "./types";
 
@@ -53,6 +54,8 @@ export interface Question {
   maxLength?: number;
   defaultValue?: unknown;
   reject?: Reject[];
+  /** "amount": money, read by lib/amount.ts (0241). */
+  format?: "amount";
 }
 
 /** The level of detail (JV0): Basic, Standard and Complex. */
@@ -121,6 +124,7 @@ function concrete(q: Raw, a: Answers): Question {
     maxLength: q.max_length as number | undefined,
     defaultValue: Array.isArray(d) ? [...(d as unknown[])] : d,
     reject: q.reject as Reject[] | undefined,
+    format: q.format as "amount" | undefined,
   };
 }
 
@@ -172,7 +176,9 @@ export function levelsOf(id: string): { asked: Level[]; fixed: Partial<Record<Le
 
 /** Why a free-text answer cannot be accepted, or null when it can. */
 export function problemWith(q: Question, value: unknown): string | null {
-  if (typeof value !== "string" || !value.trim() || !q.reject?.length) return null;
+  if (typeof value !== "string" || !value.trim()) return null;
+  if (q.format === "amount") return amountProblem(value);
+  if (!q.reject?.length) return null;
   for (const r of q.reject) {
     if (new RegExp(r.pattern, "i").test(value)) return r.message;
   }

@@ -116,7 +116,7 @@ export const SERVICES_QUESTIONNAIRE = {
         { value: "date", label: "On a set date" },
       ],
     },
-    { id: "SV5t", key: "start_date", section: "Term", type: "free_text", required: true, max_length: 40, show_if: { q: "SV5s", eq: "date" }, text: "Start date?", placeholder: "e.g. 1 December 2026" },
+    { id: "SV5t", key: "start_date", section: "Term", type: "free_text", required: true, max_length: 120, show_if: { q: "SV5s", eq: "date" }, text: "Start date?", placeholder: "e.g. 1 December 2026" },
     {
       id: "SV5",
       key: "term",
@@ -152,7 +152,7 @@ export const SERVICES_QUESTIONNAIRE = {
     },
 
     /* ── fees: platform ── */
-    { id: "SV7", key: "subscription_fee", section: "Fees", type: "free_text", required: true, max_length: 20, show_if: PLATFORM, text: "Subscription Fee. How much is the subscription per month (before GST)?", placeholder: "e.g. 8,000", reject: [NUM] },
+    { id: "SV7", key: "subscription_fee", section: "Fees", type: "free_text", required: true, max_length: 20, show_if: PLATFORM, text: "Subscription Fee. How much is the subscription per month (before GST)?", placeholder: "e.g. 8,000", format: "amount" },
     {
       id: "SV7a",
       key: "billing",
@@ -183,7 +183,7 @@ export const SERVICES_QUESTIONNAIRE = {
       ],
     },
     { id: "SV7c", key: "usage_terms", section: "Fees", type: "free_text", required: true, max_length: 200, show_if: { all: [PLATFORM, { q: "SV7b", eq: "yes" }] }, text: "Describe the usage fees.", placeholder: "e.g. S$0.05 per route optimisation above 50,000 in a calendar month" },
-    { id: "SV7d", key: "setup_fee", section: "Fees", type: "free_text", required: false, max_length: 20, show_if: PLATFORM, text: "Set-up Fee. Is there a one-off set-up fee? Enter the amount, or skip.", placeholder: "e.g. 5,000", reject: [NUM] },
+    { id: "SV7d", key: "setup_fee", section: "Fees", type: "free_text", required: false, max_length: 20, show_if: PLATFORM, text: "Set-up Fee. Is there a one-off set-up fee? Enter the amount, or skip.", placeholder: "e.g. 5,000", format: "amount" },
 
     /* ── fees: professional ── */
     {
@@ -202,7 +202,7 @@ export const SERVICES_QUESTIONNAIRE = {
         { value: "retainer_success", label: "A monthly retainer plus a success fee" },
       ],
     },
-    { id: "SV8a", key: "fee_amount", section: "Fees", type: "free_text", required: true, max_length: 20, show_if: PRO, text: "Amount. The fixed fee, the monthly retainer or the hourly rate (before GST)?", placeholder: "e.g. 10,000", reject: [NUM] },
+    { id: "SV8a", key: "fee_amount", section: "Fees", type: "free_text", required: true, max_length: 20, show_if: PRO, text: "Amount. The fixed fee, the monthly retainer or the hourly rate (before GST)?", placeholder: "e.g. 10,000", format: "amount" },
     {
       id: "SV8b",
       key: "fixed_schedule",
@@ -218,7 +218,7 @@ export const SERVICES_QUESTIONNAIRE = {
         { value: "completion", label: "100% on completion" },
       ],
     },
-    { id: "SV8c", key: "fee_cap", section: "Fees", type: "free_text", required: false, max_length: 20, show_if: { all: [PRO, { q: "SV8", eq: "hourly" }] }, text: "Fee Cap. Is there a cap on the total fees without the Customer's written approval? Enter the amount, or skip.", placeholder: "e.g. 30,000", reject: [NUM] },
+    { id: "SV8c", key: "fee_cap", section: "Fees", type: "free_text", required: false, max_length: 20, show_if: { all: [PRO, { q: "SV8", eq: "hourly" }] }, text: "Fee Cap. Is there a cap on the total fees without the Customer's written approval? Enter the amount, or skip.", placeholder: "e.g. 30,000", format: "amount" },
     { id: "SV8d", key: "success_fee", section: "Fees", type: "free_text", required: true, max_length: 300, show_if: { all: [PRO, { q: "SV8", eq: "retainer_success" }] }, text: "Success Fee. Describe the success fee — the amount, what triggers it and any period after the agreement ends.", help: "Pro Tip: Say exactly what counts as success and for how long after the agreement ends it can still be earned (the “tail”) — that is where disputes start.", placeholder: "e.g. 3% of the gross proceeds of any financing completed during the Term or within 12 months after it ends" },
     {
       id: "SV9",
@@ -328,7 +328,7 @@ export const SERVICES_QUESTIONNAIRE = {
         { value: "fixed", label: "A fixed amount" },
       ],
     },
-    { id: "SV16a", key: "cap_amount", section: "Risk", type: "free_text", required: true, max_length: 20, show_if: { q: "SV16", eq: "fixed" }, text: "The cap amount?", placeholder: "e.g. 100,000", reject: [NUM] },
+    { id: "SV16a", key: "cap_amount", section: "Risk", type: "free_text", required: true, max_length: 20, show_if: { q: "SV16", eq: "fixed" }, text: "The cap amount?", placeholder: "e.g. 100,000", format: "amount" },
     {
       id: "SV17",
       key: "cap_who",

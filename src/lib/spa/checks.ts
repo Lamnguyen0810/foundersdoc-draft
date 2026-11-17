@@ -5,7 +5,7 @@
  * the credit is refunded and the firm follows up.
  */
 
-import { num } from "./assemble";
+import { amt } from "./assemble";
 import { applyDefaults, picks, problemWith, questionsFor, sellerCount } from "./questions";
 import type { Answers, Flag, Party, Seller, Target } from "./types";
 
@@ -49,13 +49,13 @@ export function ruleChecks(answersIn: Answers, target: Target, buyer: Party, sel
     flags.push({ level: "yellow", scenario: "SP1", reason: `${stated} sellers were stated, but ${sellers.length} ${sellers.length === 1 ? "is" : "are"} named. Every seller must be a party and sign, or their shares are not sold.`, field: "P1" });
   }
 
-  const gaps = sellers.filter((s) => !Number.isFinite(num(str(s.shares))) || !Number.isFinite(num(str(s.price)))).map((s) => s.name);
+  const gaps = sellers.filter((s) => !Number.isFinite(amt(str(s.shares))) || !Number.isFinite(amt(str(s.price)))).map((s) => s.name);
   if (gaps.length) {
     flags.push({ level: "yellow", scenario: "SP2", reason: `No number of shares or price (as a plain number) for ${gaps.join(", ")}: Schedule 2 shows [●] there and the total price cannot be worked out. Fill it in before signing.`, field: "sellers" });
   }
 
-  const sold = sellers.reduce((t, s) => t + (num(str(s.shares)) || 0), 0);
-  const issued = num(str(target.issued_shares));
+  const sold = sellers.reduce((t, s) => t + (amt(str(s.shares)) || 0), 0);
+  const issued = amt(str(target.issued_shares));
   if (Number.isFinite(issued) && sold > issued) {
     flags.push({ level: "red", scenario: "SP3", reason: `The sellers are selling ${sold.toLocaleString("en-GB")} shares, but the company has only ${issued.toLocaleString("en-GB")} issued shares. One of the figures is wrong.`, field: "target" });
   } else if (Number.isFinite(issued) && str(a.P3) !== "part" && sold > 0 && sold < issued) {

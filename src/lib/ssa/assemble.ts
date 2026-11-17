@@ -15,6 +15,7 @@
  * with the Company as the only warrantor, at the end (reword()).
  */
 
+import { parseAmount } from "../amount";
 import type { Block } from "../contract/parse";
 import { formatDate, joinAnd, numberWords, parseDate, todaySingapore } from "../termsheet/format";
 import {
@@ -45,6 +46,10 @@ export function num(raw: string): number {
   const s = String(raw ?? "").replace(/[,\s]/g, "").replace(/^(S\$|US\$|SGD|USD|\$)/i, "").replace(/shares?$/i, "");
   return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
 }
+
+/** Money and share numbers, read by lib/amount.ts (0241): "1.000.000" is a
+ *  million, and "50.000" is not guessed. Rates, months and percentages stay with num(). */
+export const amt = (raw: string): number => parseAmount(raw);
 
 const count = (n: number) => (Number.isInteger(n) && n > 0 && n < 1000 ? `${numberWords(n)} (${n})` : String(n));
 const pct = (n: number) => (Number.isFinite(n) && n > 0 ? `${Number.isInteger(n) && n < 1000 ? numberWords(n) : n} per cent. (${n}%)` : GAP);
@@ -150,15 +155,15 @@ export function assemble(input: SsaInput): Assembled {
   const sha = conds.includes("sha") || invActions.includes("sha");
 
   /* ── the numbers ───────────────────────────────────────────────────── */
-  const shares = investors.map((x) => num(str(x.shares)));
-  const amounts = investors.map((x) => num(str(x.amount)));
+  const shares = investors.map((x) => amt(str(x.shares)));
+  const amounts = investors.map((x) => amt(str(x.amount)));
   const totalShares = shares.length && shares.every(Number.isFinite) ? shares.reduce((s, v) => s + v, 0) : NaN;
   const totalAmount = amounts.length && amounts.every(Number.isFinite) ? amounts.reduce((s, v) => s + v, 0) : NaN;
   investors.forEach((x, i) => {
     if (!Number.isFinite(shares[i])) missing.add(`shares for ${str(x.name)}`);
     if (!Number.isFinite(amounts[i])) missing.add(`amount for ${str(x.name)}`);
   });
-  const issued = num(str(company.issued_shares));
+  const issued = amt(str(company.issued_shares));
 
   /* ── the fields ────────────────────────────────────────────────────── */
   const shareWord = preference ? "Preference Shares" : "Ordinary Shares";

@@ -15,7 +15,7 @@
 
 import type { Block } from "../contract/parse";
 import { formatDate, joinAnd, numberWords, parseDate, todaySingapore } from "../termsheet/format";
-import { formatAmount, parseAmount } from "./amount";
+import { formatAmount, parseAmount } from "../amount";
 import {
   AGREED, BETWEEN, COSTS_SPLIT, DEFINITIONS, EXECUTED, INTERPRETATION, LENDERS_SCHEDULE, MADE_ON, PARTIES_COLLECTIVE, PARTY_COMPANY, PARTY_INDIVIDUAL,
   RECITAL, SECTIONS, TITLE, WHEREAS, type MasterClause, type MasterSub,

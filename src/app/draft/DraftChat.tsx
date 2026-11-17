@@ -20,6 +20,7 @@
  *      for an uploaded source, /api/export for the Word file.
  */
 
+import { clearAllStashes } from "./stash";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { BetaBadge, isBeta } from "./beta";
 import { MEMBERSHIPS, PACKS, TRIAL, money } from "@/lib/billing/plans";
@@ -4055,7 +4056,7 @@ function Chat({
                 <a href="/billing">Credits</a>
                 <a href="/usage">Usage</a>
                 <a href="/settings">Settings</a>
-                <form action="/auth/signout" method="post">
+                <form action="/auth/signout" method="post" onSubmit={clearAllStashes}>
                   <button type="submit">Log out</button>
                 </form>
               </div>

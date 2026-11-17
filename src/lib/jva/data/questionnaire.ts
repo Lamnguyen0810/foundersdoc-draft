@@ -35,7 +35,6 @@
  * the assembler reads them by id, and the admin console lists them.
  */
 
-const NUM = { pattern: "^(?!\\s*\\d[\\d,]*(\\.\\d+)?\\s*$)", message: "A number only, please (e.g. 50,000)." };
 const PCT = { pattern: "^(?!\\s*\\d{1,2}(\\.\\d{1,2})?\\s*%?\\s*$)", message: "A percentage only, please (e.g. 60)." };
 const NOT_BASIC = ["standard", "complex"] as const;
 const ONLY_COMPLEX = ["complex"] as const;
@@ -197,9 +196,9 @@ export const JVA_QUESTIONNAIRE = {
       text_by: { q: "JV1", map: { equal: "Initial Investment. How much will each party pay for its shares at the start?", majority: "Initial Investment. How much will the majority party pay for its shares at the start?" } },
       help: "The total each party pays to subscribe for its shares, in the currency above. Any later money is dealt with under Further Funding.",
       placeholder: "e.g. 50,000",
-      reject: [NUM],
+      format: "amount",
     },
-    { id: "JV7a", key: "invest_b", section: "The money", type: "free_text", required: true, max_length: 20, show_if: MAJORITY, text: "And the minority party?", placeholder: "e.g. 20,000", reject: [NUM] },
+    { id: "JV7a", key: "invest_b", section: "The money", type: "free_text", required: true, max_length: 20, show_if: MAJORITY, text: "And the minority party?", placeholder: "e.g. 20,000", format: "amount" },
     {
       id: "JV8",
       key: "funding",
@@ -216,7 +215,7 @@ export const JVA_QUESTIONNAIRE = {
         { value: "cap", label: "Yes – each funds its share of what the board asks for, up to a cap" },
       ],
     },
-    { id: "JV8a", key: "funding_cap", asked_at: NOT_BASIC, section: "The money", type: "free_text", required: true, max_length: 20, show_if: { q: "JV8", eq: "cap" }, text: "Up to how much in total, for each party (in the same currency)?", placeholder: "e.g. 100,000", reject: [NUM] },
+    { id: "JV8a", key: "funding_cap", asked_at: NOT_BASIC, section: "The money", type: "free_text", required: true, max_length: 20, show_if: { q: "JV8", eq: "cap" }, text: "Up to how much in total, for each party (in the same currency)?", placeholder: "e.g. 100,000", format: "amount" },
 
     /* ── the board ── */
     {
@@ -309,7 +308,7 @@ export const JVA_QUESTIONNAIRE = {
         { value: "ip", label: "Licensing or selling the company's intellectual property" },
       ],
     },
-    { id: "JV13a", key: "borrowing_limit", asked_at: NOT_BASIC, section: "Decisions", type: "free_text", required: true, max_length: 20, show_if: { q: "JV13", has: "borrowing" }, text: "Borrowing above how much should need both parties (in the same currency)?", placeholder: "e.g. 100,000", reject: [NUM] },
+    { id: "JV13a", key: "borrowing_limit", asked_at: NOT_BASIC, section: "Decisions", type: "free_text", required: true, max_length: 20, show_if: { q: "JV13", has: "borrowing" }, text: "Borrowing above how much should need both parties (in the same currency)?", placeholder: "e.g. 100,000", format: "amount" },
     {
       id: "JV14",
       key: "deadlock",

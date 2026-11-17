@@ -14,6 +14,7 @@
  * the Company as the only warrantor at the end (reword()).
  */
 
+import { parseAmount } from "../amount";
 import type { Block } from "../contract/parse";
 import { formatDate, joinAnd, numberWords, parseDate, todaySingapore } from "../termsheet/format";
 import {
@@ -44,6 +45,10 @@ export function num(raw: string): number {
   const s = String(raw ?? "").replace(/[,\s]/g, "").replace(/^(S\$|US\$|SGD|USD|\$)/i, "").replace(/shares?$/i, "");
   return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
 }
+
+/** Money and share numbers, read by lib/amount.ts (0241): "1.000.000" is a
+ *  million, and "50.000" is not guessed. Rates, months and percentages stay with num(). */
+export const amt = (raw: string): number => parseAmount(raw);
 
 const count = (n: number) => (Number.isInteger(n) && n > 0 && n < 1000 ? `${numberWords(n)} (${n})` : String(n));
 const months = (n: number) => (Number.isFinite(n) && n > 0 ? `${count(n)} month${n === 1 ? "" : "s"}` : GAP);
@@ -134,14 +139,14 @@ export function assemble(input: IaInput): Assembled {
   const individual = investor.kind !== "company";
 
   /* ── the numbers ───────────────────────────────────────────────────── */
-  const shares = num(str(investor.shares));
-  const amount = num(str(investor.amount));
+  const shares = amt(str(investor.shares));
+  const amount = amt(str(investor.amount));
   if (!Number.isFinite(shares)) missing.add("number of Subscription Shares");
   if (!Number.isFinite(amount)) missing.add("Investment Amount");
   const fmt = (n: number, dp = 2) => (Number.isFinite(n) ? `${cur}${n.toLocaleString("en-GB", { maximumFractionDigits: dp })}` : GAP);
   const price = Number.isFinite(shares) && Number.isFinite(amount) && shares > 0 ? amount / shares : NaN;
-  const issued = num(str(company.issued_shares));
-  const capRaw = str(a.IA14) === "other" ? num(str(a.IA14a)) : num(str(a.IA14) || "150000");
+  const issued = amt(str(company.issued_shares));
+  const capRaw = str(a.IA14) === "other" ? amt(str(a.IA14a)) : amt(str(a.IA14) || "150000");
 
   /* ── recitals ──────────────────────────────────────────────────────── */
   const recitals: string[] = [RECITAL_INCORPORATED, RECITAL_CAPITAL, RECITAL_SUBSCRIPTION];

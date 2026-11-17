@@ -16,6 +16,7 @@
  *   included  the clause ids that went in (for tests and the admin view)
  */
 
+import { parseAmount } from "../amount";
 import type { Block } from "../contract/parse";
 import { formatDate, joinAnd, numberWords, parseDate, todaySingapore } from "../termsheet/format";
 import {
@@ -47,6 +48,10 @@ export function num(raw: string): number {
   const s = String(raw ?? "").replace(/[,\s]/g, "").replace(/^(S\$|US\$|SGD|USD|\$)/i, "").replace(/shares?$/i, "");
   return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
 }
+
+/** Money and share numbers, read by lib/amount.ts (0241): "1.000.000" is a
+ *  million, and "50.000" is not guessed. Rates, months and percentages stay with num(). */
+export const amt = (raw: string): number => parseAmount(raw);
 
 function count(n: number): string {
   return Number.isInteger(n) && n > 0 && n < 1000 ? `${numberWords(n)} (${n})` : String(n);
@@ -161,15 +166,15 @@ export function assemble(input: SpaInput): Assembled {
   const mac = conditions.includes("no_mac") || termination.includes("mac");
 
   /* ── the numbers ───────────────────────────────────────────────────── */
-  const shares = sellers.map((s) => num(str(s.shares)));
-  const prices = sellers.map((s) => num(str(s.price)));
+  const shares = sellers.map((s) => amt(str(s.shares)));
+  const prices = sellers.map((s) => amt(str(s.price)));
   const totalShares = shares.every(Number.isFinite) && shares.length ? shares.reduce((x, y) => x + y, 0) : NaN;
   const totalPrice = prices.every(Number.isFinite) && prices.length ? prices.reduce((x, y) => x + y, 0) : NaN;
   sellers.forEach((s, i) => {
     if (!Number.isFinite(shares[i])) missing.add(`shares sold by ${str(s.name)}`);
     if (!Number.isFinite(prices[i])) missing.add(`price for ${str(s.name)}`);
   });
-  const issued = num(str(target.issued_shares));
+  const issued = amt(str(target.issued_shares));
 
   /* ── the fields ────────────────────────────────────────────────────── */
   const f: Record<string, string> = {

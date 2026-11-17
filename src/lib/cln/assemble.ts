@@ -8,6 +8,7 @@
  * JURISDICTIONS). FD AI's only part is the review of the answers (server.ts).
  */
 
+import { parseAmount } from "../amount";
 import type { Block } from "../contract/parse";
 import { formatDate, joinAnd, numberWords, parseDate, todaySingapore } from "../termsheet/format";
 import {
@@ -45,6 +46,10 @@ export function num(raw: string): number {
   const s = String(raw ?? "").replace(/[,\s%]/g, "").replace(/^(S\$|US\$|HK\$|SGD|USD|HKD|GBP|EUR|£|€|\$)/i, "");
   return /^\d+(\.\d+)?$/.test(s) ? Number(s) : NaN;
 }
+
+/** Money and share numbers, read by lib/amount.ts (0241): "1.000.000" is a
+ *  million, and "50.000" is not guessed. Rates, months and percentages stay with num(). */
+export const amt = (raw: string): number => parseAmount(raw);
 
 const CURRENCIES: Record<string, { sym: string; name: string; country: string; unit: string; cents: string }> = {
   SGD: { sym: "S$", name: "Singapore dollars", country: "Singapore", unit: "Singapore dollars", cents: "cents" },
@@ -117,20 +122,20 @@ export function readAnswers(a: Answers) {
   const otherLaw = lawKey === "other" || !JURISDICTIONS[lawKey];
   const j: Jurisdiction = otherLaw ? { ...OTHER_JURISDICTION, law: str(a.CL3a) } : JURISDICTIONS[lawKey];
   const currency = CURRENCIES[str(a.CL4)] ? str(a.CL4) : "SGD";
-  const principal = num(str(a.CL5));
+  const principal = amt(str(a.CL5));
   const purposeKind = str(a.CL6) || "general";
   const interest = str(a.CL7) || "simple";
   const rate = interest === "none" ? NaN : num(str(a.CL7a));
   const maturity = str(a.CL8) === "other" ? num(str(a.CL8a)) : num(str(a.CL8) || "2");
   const payDays = str(a.CL9) === "none" ? NaN : num(str(a.CL9) || (companySide ? "10" : "5"));
   const partialMultiple = str(a.CL10) === "multiple";
-  const multiple = partialMultiple ? num(str(a.CL10a)) : NaN;
-  const cap = num(str(a.CL11));
+  const multiple = partialMultiple ? amt(str(a.CL10a)) : NaN;
+  const cap = amt(str(a.CL11));
   const basis = str(a.CL12) === "pre" ? "pre-money" : "post-money";
   const discountKind = str(a.CL13) || (companySide ? "none" : "20");
   const discount = discountKind === "none" ? NaN : discountKind === "other" ? num(str(a.CL13a)) : num(discountKind);
   const qfe = str(a.CL14) === "down" ? "down" : "raise";
-  const minRaise = qfe === "raise" ? num(str(a.CL14a)) : NaN;
+  const minRaise = qfe === "raise" ? amt(str(a.CL14a)) : NaN;
   const esop = num(str(a.CL15) || "10");
   const auto = str(a.CL17) === "auto";
   const exercise = num(str(a.CL18) || "10");

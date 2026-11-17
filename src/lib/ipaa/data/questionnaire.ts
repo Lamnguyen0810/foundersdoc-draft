@@ -35,7 +35,6 @@
  * the assembler reads them by id, and the admin console lists them.
  */
 
-const NUM = { pattern: "^(?!\\s*\\d[\\d,]*(\\.\\d+)?\\s*$)", message: "A number only, please (e.g. 5,000)." };
 const PCT = { pattern: "^(?!\\s*\\d{1,2}(\\.\\d{1,2})?\\s*%?\\s*$)", message: "A percentage only, please (e.g. 60)." };
 const INT = { pattern: "^(?!\\s*\\d{1,3}\\s*$)", message: "A whole number only, please (e.g. 6)." };
 const SIDE = (creator: unknown, recipient: unknown) => ({ q: "IP1", map: { creator, recipient } });
@@ -402,7 +401,7 @@ export const IPAA_QUESTIONNAIRE = {
         { value: "EUR", label: "Euros (€)" },
       ],
     },
-    { id: "IP16b", key: "fee_amount", section: "Payment and signing", type: "free_text", required: true, max_length: 20, show_if: { q: "IP16", eq: "fee" }, text: "How much is the fee?", placeholder: "e.g. 5,000", reject: [NUM] },
+    { id: "IP16b", key: "fee_amount", section: "Payment and signing", type: "free_text", required: true, max_length: 20, show_if: { q: "IP16", eq: "fee" }, text: "How much is the fee?", placeholder: "e.g. 5,000", format: "amount" },
 
     /* ── promises and disputes ── */
     {

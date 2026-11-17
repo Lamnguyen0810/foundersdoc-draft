@@ -25,6 +25,9 @@ import { DEFAULT_LOOK, type DocumentLook } from "@/lib/playbook";
 import { applyDefaults, founderCount, problemWith, questionsFor, type Option, type Question } from "@/lib/ia/questions";
 import { IA_INTRO } from "@/lib/ia/data/intro";
 import type { Answers, Company, DraftStatus, Flag, Founder, Investor, PartyKind } from "@/lib/ia/types";
+import { STASH_DAYS, dropStash, readStash, writeStash } from "./stash";
+import StashNote from "./StashNote";
+import AmountHint, { ReadAs } from "./AmountHint";
 import { useExitFeedback } from "./ExitFeedback";
 import SignButton from "./SignButton";
 
@@ -162,6 +165,8 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
   const progress = useDraftProgress(busy);
   const [error, setError] = useState<string | null>(null);
   const [paywalled, setPaywalled] = useState(false);
+  /* Opened onto answers kept from an earlier sitting (stash.ts): say so, and offer to start again. */
+  const [restored, setRestored] = useState(false);
   const [credits, setCredits] = useState(wallet?.credits ?? null);
 
   /* the draft */
@@ -235,7 +240,7 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
     const t = setTimeout(() => {
       try {
         const handoff = localStorage.getItem(IA_HANDOFF_KEY);
-        const raw = handoff ?? sessionStorage.getItem(STASH_KEY);
+        const raw = handoff ?? readStash(STASH_KEY, userEmail);
         if (!raw) return;
         const s = JSON.parse(raw) as { answers: Answers; company: Company; founders: Founder[]; investor?: Investor; settled?: Settled; msgs?: Msg[]; stage: Stage };
         if (!s || !s.answers || Object.keys(s.answers).length === 0) return;
@@ -245,6 +250,7 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
         setInvestor(s.investor ?? emptyInvestor());
         setSettled(s.settled ?? {});
         setMsgs(Array.isArray(s.msgs) ? s.msgs : []);
+        setRestored(!handoff);
         if (handoff && !guest) {
           localStorage.removeItem(IA_HANDOFF_KEY);
           setStage("review");
@@ -256,20 +262,20 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
       }
     }, 0);
     return () => clearTimeout(t);
-  }, [resume, guest]);
+  }, [resume, guest, userEmail]);
 
   useEffect(() => {
     if (resume || stage === "drafted") return;
     try {
-      sessionStorage.setItem(STASH_KEY, JSON.stringify({ answers, company, founders, investor, settled, msgs, stage }));
+      writeStash(STASH_KEY, userEmail, { answers, company, founders, investor, settled, msgs, stage });
     } catch {
       /* private mode */
     }
-  }, [answers, company, founders, investor, settled, msgs, stage, resume]);
+  }, [answers, company, founders, investor, settled, msgs, stage, resume, userEmail]);
 
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
-  }, [msgs.length, stage, error, fd.follow.length, fd.asking]);
+  }, [msgs.length, stage, error, fd.follow.length, fd.asking, busy, paywalled]);
 
   /* ── answering ──────────────────────────────────────────────────────── */
 
@@ -426,11 +432,7 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
         setHtml(null);
         setText("");
         setStage("drafted");
-        try {
-          sessionStorage.removeItem(STASH_KEY);
-        } catch {
-          /* fine */
-        }
+        dropStash(STASH_KEY, userEmail);
         track("draft_generated", { doc_type: "ia", words: 0, reason: "master_pending" });
         return;
       }
@@ -445,11 +447,7 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
       setDocOpen(true);
       setStage("drafted");
       if (typeof j.creditsLeft === "number") setCredits(j.creditsLeft);
-      try {
-        sessionStorage.removeItem(STASH_KEY);
-      } catch {
-        /* fine */
-      }
+      dropStash(STASH_KEY, userEmail);
       track("draft_generated", { doc_type: "ia", words: Number(j.words ?? 0) });
     } catch {
       setError("Could not reach FD AI. Check your connection and try again.");
@@ -688,6 +686,7 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
               }}
             />
             {problem && <p className="ts-refuse" role="alert">{problem}</p>}
+            {q.format === "amount" && !problem && <ReadAs value={typed} />}
             {backButton()}
             <button type="button" className="go" disabled={!typed.trim() || Boolean(problem)} onClick={() => commit(q, typed.trim())}>
               Continue
@@ -731,10 +730,12 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
             <label>
               Issued shares before the investment
               <input className="input" inputMode="numeric" value={company.issued_shares ?? ""} onChange={(e) => set({ issued_shares: e.target.value })} placeholder="e.g. 300,000" />
+              <AmountHint value={company.issued_shares} />
             </label>
             <label>
               Issued share capital
               <input className="input" value={company.issued_capital ?? ""} onChange={(e) => set({ issued_capital: e.target.value })} placeholder="e.g. S$3,000" />
+              <AmountHint value={company.issued_capital} lenient />
             </label>
           </div>
           {lead && (
@@ -866,10 +867,12 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
             <label>
               Shares subscribed
               <input className="input" inputMode="numeric" value={investor.shares ?? ""} onChange={(e) => setI({ shares: e.target.value })} placeholder="e.g. 6,597" />
+              <AmountHint value={investor.shares} />
             </label>
             <label>
               Investment amount ({cur})
               <input className="input" inputMode="decimal" value={investor.amount ?? ""} onChange={(e) => setI({ amount: e.target.value })} placeholder="e.g. 200,000" />
+              <AmountHint value={investor.amount} />
             </label>
           </div>
         </div>
@@ -1041,6 +1044,7 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
                   </div>
                 </div>
 
+                {restored && <StashNote stashKey={STASH_KEY} email={userEmail} />}
                 {msgs.map((m, k) =>
                   m.who === "fd" ? (
                     <div className="m" key={k}>
@@ -1120,8 +1124,8 @@ export default function Ia({ look = DEFAULT_LOOK, userEmail, guest, wallet, isAd
                     <div className="av">FD</div>
                     <div>
                       <div className="txt">
-                        <b style={{ fontWeight: 500 }}>You’ve used your free documents.</b>
-                        <p style={{ margin: "8px 0 0" }}>Your answers are still here. Add credits and the agreement is prepared straight away.</p>
+                        <b style={{ fontWeight: 500 }}>You have no drafting credits left.</b>
+                        <p style={{ margin: "8px 0 0" }}>Nothing is lost: your answers are saved on this device for {STASH_DAYS} days. Add credits, open this document again and press Generate draft — you will not be asked the questions again.</p>
                         <p style={{ margin: "14px 0 0", display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <a className="btn btn-gold" href="/billing">Add credits</a>
                           <a className="btn btn-white" href="/history">Past drafts</a>

@@ -4,6 +4,8 @@
  * "thirty (30) days", money as "USD 2,000,000". Pure functions.
  */
 
+import { parseAmount } from "../amount";
+
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
@@ -128,14 +130,11 @@ export function normaliseMoney(raw: string): { text: string; currency: string; a
     }
   }
   if (!currency) return null;
-  const m = /^\s*([\d,]+(?:\.\d+)?)\s*(k|m|mn|million|bn|billion)?\s*$/i.exec(rest);
-  if (!m) return null;
-  let amount = Number(m[1].replace(/,/g, ""));
+  /* The figure is read by lib/amount.ts (0241), so "1.000.000" is a million,
+     and "8.000" — eight, or eight thousand? — is not guessed: null, and the
+     words go in as typed for a person to check. It used to be read as 8. */
+  const amount = parseAmount(rest);
   if (!Number.isFinite(amount)) return null;
-  const mult = (m[2] ?? "").toLowerCase();
-  if (mult === "k") amount *= 1_000;
-  else if (mult === "m" || mult === "mn" || mult === "million") amount *= 1_000_000;
-  else if (mult === "bn" || mult === "billion") amount *= 1_000_000_000;
   const text = `${currency} ${amount.toLocaleString("en-GB", { maximumFractionDigits: 2 })}`;
   return { text, currency, amount };
 }
