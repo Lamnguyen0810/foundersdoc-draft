@@ -68,7 +68,7 @@ Open <http://localhost:3000/draft>. The mock provider needs no key and no networ
 | `src/lib/doctypes.ts` | Types over that data, plus the worked examples |
 | `src/lib/doctypes.server.ts` | Reads doc types from Supabase, falls back to the built-in catalogue |
 | `src/lib/supabase/` | Server, middleware and config clients. `config.ts` explains the key naming |
-| `src/middleware.ts` | Refreshes the session and blocks anonymous requests — including to `/api/generate` |
+| `src/proxy.ts` | Refreshes the session and blocks anonymous requests — including to `/api/generate` |
 | `supabase/001_schema.sql` | Tables, row-level security, policies, triggers |
 | `supabase/002_seed_doctypes.sql` | Generated seed. Run `node scripts/build-seed-sql.mjs` after editing a prompt |
 | `src/lib/prompt.ts` | Prompt assembly, required-field validation, drafter's-notes split |
@@ -203,6 +203,7 @@ If you are ever unsure, the rule is: `NEXT_PUBLIC_` means "printed on the front 
 ## ✅ What "done" looks like
 
 - [x] `npm run build` passes
+- [x] `npm test` passes: the SEO checks and FD Sign (send → code → sign → signed copy, the limits of each plan, and the signing-ready check). The FD Sign tests use an in-memory store with the network closed, so they can never email or message anyone (`src/lib/sign/test-guard.ts`)
 - [x] Required-field validation rejects an empty form before spending a request
 - [x] A missing API key produces a readable message, not a stack trace
 - [x] Rate limits and upstream errors are caught and explained

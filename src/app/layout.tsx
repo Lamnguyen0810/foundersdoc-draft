@@ -27,7 +27,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const user = configured ? await getUser() : null;
 
   return (
-    <html lang="en-GB">
+    /* suppressHydrationWarning (0243): the script below adds class "js" and data-theme to <html>
+       before React starts, so the server's <html> and the browser's always differ in those two
+       attributes, and React warned about it on every page. It covers this one element's own
+       attributes only; a mismatch anywhere inside the page is still reported. */
+    <html lang="en-GB" suppressHydrationWarning>
       <head>
         {/* Paints the theme before the first frame, so a visitor who chose dark
             never sees a white flash. Byte-for-byte the script foundersdoc.com
