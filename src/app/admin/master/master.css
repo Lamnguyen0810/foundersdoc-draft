@@ -1,0 +1,54 @@
+/* /admin/master (0244): the few things the Admin design does not already have. */
+.fdmaster .ms-block { margin-bottom: 16px; }
+.fdmaster .ms-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 26px 2px 12px; }
+.fdmaster .ms-title h2 { margin: 0; font-size: 20px; letter-spacing: -0.02em; color: var(--ink); }
+.fdmaster .ms-sub { font-size: 12px; color: var(--muted); }
+.fdmaster .hero p { max-width: 720px; }
+
+/* Needs action: two lines of text, then what kind it is and where to go */
+.fdmaster .ms-action { min-height: 54px; padding: 8px 12px; }
+.fdmaster .ms-action-text { display: grid; gap: 2px; min-width: 0; }
+.fdmaster .ms-action-text b { font-size: 13px; color: var(--ink); }
+.fdmaster .ms-action-text span { color: var(--muted); }
+.fdmaster .ms-action-end { display: flex; align-items: center; gap: 8px; }
+.fdmaster .ms-action .btn { height: 34px; padding: 0 12px; }
+.fdmaster .ms-private { font-size: 11px; color: var(--muted); padding: 0 6px; }
+
+/* ESOP: where a vesting stands */
+.fdmaster .ms-esop td { vertical-align: top; }
+.fdmaster .ms-esop b { color: var(--ink); }
+.fdmaster .ms-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.fdmaster .ms-steps { display: flex; flex-wrap: wrap; gap: 4px; }
+.fdmaster .ms-step { font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 999px; border: 1px solid var(--line); color: #9a9da5; background: #fff; }
+.fdmaster .ms-step.on { background: #edf8f2; border-color: #d8ebdd; color: var(--success); }
+.fdmaster .ms-stage { margin-top: 6px; font-size: 12px; color: var(--text); }
+.fdmaster .ms-open { text-align: right; white-space: nowrap; }
+.fdmaster .ms-open .btn { height: 34px; padding: 0 12px; }
+.fdmaster .muted-cell.bad { color: var(--danger); font-weight: 700; }
+
+.fdmaster .ms-test { background: var(--soft-2); }
+.fdmaster .ms-test-row { display: flex; flex-wrap: wrap; gap: 8px 28px; font-size: 13px; color: var(--muted); }
+.fdmaster .ms-test-row b { color: var(--ink); font-size: 15px; }
+.fdmaster .ms-foot { margin: 18px 2px 0; font-size: 11.5px; line-height: 1.6; color: var(--muted); max-width: 900px; }
+
+/* the Admin tables are made wide (920px at least); these three are small */
+.fdmaster .grid-2 table { min-width: 0; }
+.fdmaster .ms-esop { min-width: 0; }
+.fdmaster .ms-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 760px) {
+  .fdmaster .grid-2 th, .fdmaster .grid-2 td { padding: 10px 8px; }
+  /* each company becomes a card: nothing to scroll sideways on a phone */
+  .fdmaster .ms-esop thead { display: none; }
+  .fdmaster .ms-esop tr { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 14px; border-bottom: 1px solid #efeff1; }
+  .fdmaster .ms-esop tbody tr:last-child { border-bottom: 0; }
+  .fdmaster .ms-esop td { padding: 0; border: 0; }
+  .fdmaster .ms-esop td:first-child, .fdmaster .ms-esop td:nth-child(5) { grid-column: 1 / -1; }
+  .fdmaster .ms-esop td.ms-open { grid-column: 1 / -1; text-align: left; }
+  .fdmaster .ms-esop td:nth-child(2):empty, .fdmaster .ms-esop td:nth-child(4):empty { display: none; }
+}
+@media (max-width: 700px) {
+  .fdmaster .ms-action { grid-template-columns: auto 1fr; }
+  .fdmaster .ms-action-end { grid-column: 2; justify-content: flex-start; }
+  .fdmaster .ms-title { flex-wrap: wrap; }
+}

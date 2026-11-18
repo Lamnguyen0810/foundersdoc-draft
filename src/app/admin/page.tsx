@@ -874,6 +874,10 @@ export default async function AdminPage({
                     {t.label}
                   </Link>
                 ))}
+                {/* 0244: FD Sign and every ESOP dashboard on one page (its own address, /admin/master) */}
+                <Link href="/admin/master" className="tab" data-panel="master">
+                  FD Sign &amp; ESOP
+                </Link>
               </nav>
             </div>
           </aside>

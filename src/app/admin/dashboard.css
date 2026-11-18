@@ -698,6 +698,7 @@
 .fdadmin .tab[data-panel="credits"]::before{content:"●";}
 .fdadmin .tab[data-panel="ai-files"]::before{content:"▱";}
 .fdadmin .tab[data-panel="logs"]::before{content:"≡";}
+.fdadmin .tab[data-panel="master"]::before{content:"◆";}
 .fdadmin .tab:hover{background:#F7F7F8;
   color:#222;}
 .fdadmin .tab.active{background:var(--fd-yellow-soft);
