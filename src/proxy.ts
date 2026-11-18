@@ -1,7 +1,15 @@
 import type { NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-export async function middleware(request: NextRequest) {
+/**
+ * Runs before every route: refreshes the session and sends anonymous visitors
+ * away from the gated pages (lib/supabase/middleware.ts has the rules).
+ *
+ * 0243: this file was middleware.ts. Next.js 16 renamed the convention to
+ * "proxy" and warns on every start while the old name is used. Same code and
+ * same matcher; the one difference is that a proxy runs on the Node.js runtime.
+ */
+export async function proxy(request: NextRequest) {
   return updateSession(request);
 }
 

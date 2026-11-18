@@ -96,7 +96,7 @@ this stylesheet.
 | --- | --- |
 | `src/lib/**` | Prompts, the AI adapters, document types, Word export. Business logic, not design |
 | `src/app/api/**` | Server routes |
-| `src/middleware.ts` | Auth |
+| `src/proxy.ts` | Auth |
 | The class names listed above | They are shared with the live marketing site. Renaming them breaks the visual match, which is the whole point of this design |
 
 Restyle those classes freely. Just don't rename them.
