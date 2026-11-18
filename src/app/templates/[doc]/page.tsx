@@ -80,7 +80,7 @@ export default async function TemplateDocPage({ params }: { params: Promise<{ do
 
         {kinds.length > 0 && (
           <section className="tpl-section" aria-labelledby="tpl-kind">
-            <h2 id="tpl-kind">Mutual or one-way?</h2>
+            <h2 id="tpl-kind">{t.slug === "nda" ? "Mutual or one-way?" : `Popular kinds of ${inSentence(t)}`}</h2>
             <ul className="tpl-countries tpl-kinds">
               {kinds.map((c) => (
                 <li key={c.slug}>
@@ -139,7 +139,7 @@ export default async function TemplateDocPage({ params }: { params: Promise<{ do
         </section>
 
         <Steps docShort={inSentence(t)} />
-        <SignNext docShort={inSentence(t)} source={source} singapore />
+        <SignNext docShort={inSentence(t)} source={source} singapore note={t.signNote} />
         <Faqs items={t.faqs} />
         <RelatedTemplates items={t.related} />
         <Reading items={t.reading} />

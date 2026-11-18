@@ -34,6 +34,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   };
 }
 
+/** A page's own name inside a sentence: "director's loan agreement"; "SaaS agreement" keeps its capitals (0242). */
+const lower = (label: string) => (/^[A-Z]{2}|^[A-Z][a-z]+[A-Z]/.test(label) ? label : label.charAt(0).toLowerCase() + label.slice(1));
+
 export default async function TemplateCountryPage({ params }: { params: Params }) {
   const { doc, country } = await params;
   const found = countryPage(doc, country);
@@ -114,11 +117,11 @@ export default async function TemplateCountryPage({ params }: { params: Params }
         ) : null}
 
         <Steps docShort={inSentence(t)} />
-        <SignNext docShort={inSentence(t)} source={source} singapore={page.slug === "singapore"} />
+        <SignNext docShort={inSentence(t)} source={source} singapore={page.slug === "singapore"} note={t.signNote} />
         <Faqs items={faqs} />
 
         <section className="tpl-section" aria-labelledby="tpl-other">
-          <h2 id="tpl-other">More {t.short} templates</h2>
+          <h2 id="tpl-other">More {inSentence(t)} templates</h2>
           <ul className="tpl-chips">
             {others.map((c) => (
               <li key={c.slug}>
@@ -128,7 +131,7 @@ export default async function TemplateCountryPage({ params }: { params: Params }
               </li>
             ))}
             <li>
-              <Link href={`/templates/${t.slug}`}>All {t.short} templates</Link>
+              <Link href={`/templates/${t.slug}`}>All {inSentence(t)} templates</Link>
             </li>
           </ul>
         </section>
@@ -153,7 +156,7 @@ export default async function TemplateCountryPage({ params }: { params: Params }
           href={href}
           label={label}
           source={`${source}:end`}
-          title={page.kind === "type" ? `Draft your ${page.short.toLowerCase()} ${inSentence(t)} now` : `Draft your ${page.short} ${inSentence(t)} now`}
+          title={page.label ? `Draft your ${lower(page.label)} now` : page.kind === "type" ? `Draft your ${page.short.toLowerCase()} ${inSentence(t)} now` : `Draft your ${page.short} ${inSentence(t)} now`}
         />
         <Disclaimer />
       </div>

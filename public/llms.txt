@@ -13,19 +13,27 @@
 - [All templates](https://foundersdoc.com/templates)
 - [NDA template](https://foundersdoc.com/templates/nda): Keep what you share private — mutual or one-way, under the law you choose. Also: NDA for Singapore (https://foundersdoc.com/templates/nda/singapore), NDA for UK (https://foundersdoc.com/templates/nda/uk), NDA for US (https://foundersdoc.com/templates/nda/us), Mutual NDA (https://foundersdoc.com/templates/nda/mutual), One-way NDA (https://foundersdoc.com/templates/nda/one-way), NDA for Malaysia (https://foundersdoc.com/templates/nda/malaysia), NDA for Hong Kong (https://foundersdoc.com/templates/nda/hong-kong), NDA for Australia (https://foundersdoc.com/templates/nda/australia), NDA for India (https://foundersdoc.com/templates/nda/india)
 - [Employment contract template](https://foundersdoc.com/templates/employment-contract): Hire in any country: probation, notice, IP, confidentiality and restrictions. Also: Employment contract for Singapore (https://foundersdoc.com/templates/employment-contract/singapore)
-- [Loan agreement template](https://foundersdoc.com/templates/loan-agreement): Lend or borrow money with clear repayment, interest and security terms
+- [Loan agreement template](https://foundersdoc.com/templates/loan-agreement): Lend or borrow money with clear repayment, interest and security terms. Also: Personal loan agreement (https://foundersdoc.com/templates/loan-agreement/personal), Director's loan agreement (https://foundersdoc.com/templates/loan-agreement/director-loan)
 - [Shareholders' agreement template](https://foundersdoc.com/templates/shareholders-agreement): How the company is run, and what happens when shareholders join, sell or leave
-- [Contractor agreement template](https://foundersdoc.com/templates/contractor-agreement): Engage a freelancer or consultant: scope, fees, IP and how it ends
-- [Services agreement template](https://foundersdoc.com/templates/services-agreement): Sell or buy a software subscription or professional services
+- [Contractor agreement template](https://foundersdoc.com/templates/contractor-agreement): Engage a freelancer or consultant: scope, fees, IP and how it ends. Also: Freelance contract (https://foundersdoc.com/templates/contractor-agreement/freelance), Consulting agreement (https://foundersdoc.com/templates/contractor-agreement/consulting)
+- [Services agreement template](https://foundersdoc.com/templates/services-agreement): Sell or buy a software subscription or professional services. Also: SaaS agreement (https://foundersdoc.com/templates/services-agreement/saas)
 - [Term sheet template](https://foundersdoc.com/templates/term-sheet): Agree the main terms of an investment, loan, sale or partnership before the full documents. Also: Term sheet for Singapore (https://foundersdoc.com/templates/term-sheet/singapore)
 - [Share subscription agreement template](https://foundersdoc.com/templates/share-subscription-agreement): Bring an investor into your Singapore company: shares, completion and warranties
-- [Convertible loan agreement template](https://foundersdoc.com/templates/convertible-loan-agreement): Raise money now that turns into shares at the next round
+- [Convertible loan agreement template](https://foundersdoc.com/templates/convertible-loan-agreement): Raise money now that turns into shares at the next round. Also: Convertible note (https://foundersdoc.com/templates/convertible-loan-agreement/convertible-note)
+- [Co-founder agreement template](https://foundersdoc.com/templates/co-founder-agreement): Equity split, vesting, roles, decisions and what happens when a founder leaves
+- [Share purchase agreement template](https://foundersdoc.com/templates/share-purchase-agreement): Sell or buy existing shares in a Singapore company: price, conditions, Closing and warranties
+- [Investment agreement template](https://foundersdoc.com/templates/investment-agreement): A funding round in a Singapore company: new shares, conditions, warranties and completion
+- [IP assignment agreement template](https://foundersdoc.com/templates/ip-assignment-agreement): Move code, designs and content to your company, with moral rights and a licence back
+- [Joint venture agreement template](https://foundersdoc.com/templates/joint-venture-agreement): Two parties, one company: shares, the board, deadlock and how to leave
 
 ## Other Founders Doc tools
 
 - [FD Sign](https://foundersdoc.com/e-signature): send PDF or Word documents for e-signature; signers need no account (private link + email code), with an audit trail
 - [DocuSign alternatives compared](https://foundersdoc.com/e-signature/docusign-alternatives): DocuSign, Dropbox Sign (HelloSign), PandaDoc and FD Sign side by side: prices, sending limits and who each suits
 - [Is e-signature legal in Singapore?](https://foundersdoc.com/e-signature/is-e-signature-legal-in-singapore): what the Electronic Transactions Act 2010 says, the documents that still need wet ink (wills, trusts, powers of attorney, land), and a checklist before you e-sign
+- [How to sign a PDF online](https://foundersdoc.com/e-signature/how-to-sign-a-pdf-online): the four steps to send a PDF or Word file for signature and how the other person signs, with the real screens
+- [Electronic signature vs digital signature](https://foundersdoc.com/e-signature/electronic-signature-vs-digital-signature): what each one is, what Singapore's Electronic Transactions Act says about them, and which one a contract needs
+- [Do e-signatures need a witness in Singapore?](https://foundersdoc.com/e-signature/do-e-signatures-need-a-witness): most contracts need no witness; the documents that do (wills, deeds) and why those are signed in ink
 - [ESOP dashboard](https://foundersdoc.com/esop-software): track option holders, vesting dates and certificates, with approvals, vesting alerts and e-signing; any company can create one
 
 ## Talk to a lawyer

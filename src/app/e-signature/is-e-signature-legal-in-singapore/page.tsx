@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE } from "@/lib/seo";
 import { COMPARE_PATH, SIGN_LIVE } from "@/lib/products/compare";
+import { GUIDES, guidePath } from "@/lib/products/esign-guides";
 import { CHECKLIST, ETA_URL, EXCLUDED, FD_SIGN_RECORD, LAW, LAW_CHECKED, LAW_FAQS, LAW_PATH, RULES, TESTS } from "@/lib/products/esign-law";
 import { Breadcrumbs, Disclaimer, Faqs, TemplateLd } from "../../templates/parts";
 import TemplateCta from "../../templates/TemplateCta";
@@ -139,6 +140,11 @@ export default function ESignLawPage() {
             <li>
               <Link href="/e-signature">FD Sign: e-signature for PDF and Word</Link> — how sending for signature works, step by step
             </li>
+            {GUIDES.map((g) => (
+              <li key={g.slug}>
+                <Link href={guidePath(g)}>{g.h1}</Link>
+              </li>
+            ))}
             <li>
               <Link href={COMPARE_PATH}>Best DocuSign alternatives</Link> — DocuSign, Dropbox Sign, PandaDoc and FD Sign compared
             </li>

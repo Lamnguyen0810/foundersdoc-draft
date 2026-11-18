@@ -93,7 +93,7 @@ export function Steps({ docShort }: { docShort: string }) {
 }
 
 /** 0238: after drafting, the next step is signing. Each template leads to FD Sign (and, for Singapore, to the e-signature law page). */
-export function SignNext({ docShort, source, singapore = false }: { docShort: string; source: string; singapore?: boolean }) {
+export function SignNext({ docShort, source, singapore = false, note }: { docShort: string; source: string; singapore?: boolean; note?: string }) {
   return (
     <section className="tpl-section" aria-labelledby="tpl-sign">
       <h2 id="tpl-sign">Then send it for signing</h2>
@@ -101,11 +101,16 @@ export function SignNext({ docShort, source, singapore = false }: { docShort: st
         When your {docShort} is final, send the PDF or Word file for e-signature with <Link href="/e-signature">FD Sign</Link>. Signers need no account: a private link,
         a code sent to their email, and an audit trail on the signed copy.
       </p>
+      {note && <p className="tpl-small" style={{ marginBottom: 14 }}>{note}</p>}
       <div className="tpl-hero-actions">
         <TemplateCta href="/fd-sign/new" label="Send it for signing" source={`${source}:sign`} className="btn btn-black tpl-cta" />
-        {singapore && (
+        {singapore ? (
           <Link className="tpl-link" href="/e-signature/is-e-signature-legal-in-singapore">
             Is e-signature legal in Singapore? ›
+          </Link>
+        ) : (
+          <Link className="tpl-link" href="/e-signature/how-to-sign-a-pdf-online">
+            How to sign a PDF online ›
           </Link>
         )}
       </div>

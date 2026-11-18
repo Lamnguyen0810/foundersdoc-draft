@@ -62,6 +62,47 @@ const SEARCH_META: Record<string, { title: string; description: string }> = {
   cln: {
     title: "Convertible Loan Agreement — Draft Online Free | FD AI",
     description: "Draft a convertible loan agreement online: amount, interest, maturity, valuation cap, discount and conversion. Lawyer-backed, Word in minutes. Start free.",
+  },  /* 0242 (18 Nov): the other ten drafters, each with its own searchable title and a description that
+     names what the document covers (was one shared sentence with only the name changed). */
+  employment: {
+    title: "Employment Agreement — Draft One Online Free | FD AI",
+    description: "Draft an employment agreement online: role, pay, probation, notice, leave, IP and restrictions, for the country the employee works in. Word in minutes.",
+  },
+  contractor: {
+    title: "Contractor Agreement — Draft One Online Free | FD AI",
+    description: "Draft a contractor agreement online for a freelancer or consultant: scope, fees, IP, confidentiality and how it ends. Choose the law. Word in minutes.",
+  },
+  cofounder: {
+    title: "Co-Founder Agreement — Draft One Online Free | FD AI",
+    description: "Draft a co-founder agreement online: equity split, vesting, roles, decisions, deadlock and what happens when a founder leaves. Lawyer-backed. Start free.",
+  },
+  sha: {
+    title: "Shareholders' Agreement — Draft Online Free | FD AI",
+    description: "Draft a shareholders' agreement for a Singapore company: board, reserved matters, share transfers, tag- and drag-along, leavers and exits. Start free.",
+  },
+  spa: {
+    title: "Share Purchase Agreement — Draft Online Free | FD AI",
+    description: "Draft a share purchase agreement online for a sale of shares in a Singapore company: price, conditions, Closing, warranties and indemnities. Start free.",
+  },
+  ia: {
+    title: "Investment Agreement — Draft One Online Free | FD AI",
+    description: "Draft an investment agreement online for a Singapore company's funding round: new shares, conditions, warranties and completion. Word in minutes.",
+  },
+  services: {
+    title: "Services Agreement — Draft One Online Free | FD AI",
+    description: "Draft a services agreement online: a software subscription (SaaS) or professional services, fees, renewal and ending it. Provider or customer side.",
+  },
+  loan: {
+    title: "Loan Agreement — Draft One Online Free | FD AI",
+    description: "Draft a Singapore loan agreement online: one or several lenders, fixed, floating or no interest, repayment, security and default. Word in minutes.",
+  },
+  ipaa: {
+    title: "IP Assignment Agreement — Draft Online Free | FD AI",
+    description: "Draft an IP assignment agreement online: move code, designs and content to your company, with moral rights and a licence back. Choose the law. Free.",
+  },
+  jva: {
+    title: "Joint Venture Agreement — Draft Online Free | FD AI",
+    description: "Draft a joint venture agreement online: 50:50 or majority, shares and funding, the board, reserved matters, deadlock and exit. Choose the law. Free.",
   },
 };
 
