@@ -4,6 +4,7 @@ import { SITE, ORGANIZATION, ldJson } from "@/lib/seo";
 import type { Product } from "@/lib/products/data";
 import { COMPARE_PATH, TOOLS } from "@/lib/products/compare";
 import { LAW_PATH } from "@/lib/products/esign-law";
+import { GUIDES, guidePath } from "@/lib/products/esign-guides";
 import { Breadcrumbs, Disclaimer, Faqs, MoreTemplates, TemplateLd } from "../templates/parts";
 import TemplateCta from "../templates/TemplateCta";
 import "../templates/templates.css";
@@ -99,11 +100,16 @@ export default function ProductPage({ p }: { p: Product }) {
 
         {p.slug === "e-signature" && (
           <section className="tpl-section" aria-labelledby="pp-compare">
-            <h2 id="pp-compare">Compare FD Sign</h2>
+            <h2 id="pp-compare">Guides and comparisons</h2>
             <ul className="tpl-chips">
               <li>
                 <Link href={LAW_PATH}>Is e-signature legal in Singapore?</Link>
               </li>
+              {GUIDES.map((g) => (
+                <li key={g.slug}>
+                  <Link href={guidePath(g)}>{g.short}</Link>
+                </li>
+              ))}
               <li>
                 <Link href={COMPARE_PATH}>Best DocuSign alternatives</Link>
               </li>

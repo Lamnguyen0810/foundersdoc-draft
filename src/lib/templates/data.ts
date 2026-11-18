@@ -16,6 +16,7 @@
  */
 
 import { draftHref } from "@/lib/doc-links";
+import { MORE_TEMPLATES, MORE_VARIANTS } from "./more";
 
 export interface Faq {
   q: string;
@@ -35,6 +36,8 @@ export interface CountryPage {
   name: string;
   /** For headings and the menu: "Singapore", "UK". */
   short: string;
+  /** A "type" page with a name of its own: "Personal loan agreement", "SaaS agreement" (0242). Without it, "<short> <document>". */
+  label?: string;
   flag: string;
   /** The search this page answers; also the page title's start. */
   searchPhrase: string;
@@ -82,10 +85,12 @@ export interface TemplateDoc {
   reading: { title: string; href: string }[];
   /** Optional: the documents that usually come before or after this one, linked with a line on why. */
   related?: { title: string; href: string; text: string }[];
+  /** Optional: a caution shown with "Then send it for signing", e.g. a document signed as a deed (0242). */
+  signNote?: string;
   countries: CountryPage[];
 }
 
-export const TEMPLATES: TemplateDoc[] = [
+const BASE_TEMPLATES: TemplateDoc[] = [
   {
     slug: "nda",
     icon: "🔒",
@@ -123,6 +128,12 @@ export const TEMPLATES: TemplateDoc[] = [
       { title: "NDA vs Confidentiality Agreement", href: "/resources/nda-vs-confidentiality-agreement" },
       { title: "Can Breaching an NDA Be Expensive?", href: "/resources/can-breaching-an-nda-be-expensive" },
       { title: "How to Draft an NDA Online in Minutes", href: "/resources/how-to-draft-an-nda-online" },
+    ],
+    related: [
+      { title: "Contractor agreement template", href: "/templates/contractor-agreement", text: "Engaging a freelancer or consultant after the first talks? The contractor agreement has its own confidentiality and IP terms." },
+      { title: "Employment contract template", href: "/templates/employment-contract", text: "Hiring? Confidentiality after the first talks is covered in the employment contract." },
+      { title: "Joint venture agreement template", href: "/templates/joint-venture-agreement", text: "Talks about a partnership going well? Set up the joint venture company with its own agreement." },
+      { title: "Term sheet template", href: "/templates/term-sheet", text: "Talking to an investor or a buyer? Agree the main terms in a term sheet next." },
     ],
     countries: [
       {
@@ -379,6 +390,11 @@ export const TEMPLATES: TemplateDoc[] = [
       { q: "Can I edit the contract after FD AI drafts it?", a: "Yes. Change any wording before you download it as a Word document, and ask FD AI to explain any clause." },
     ],
     reading: [],
+    related: [
+      { title: "Contractor agreement template", href: "/templates/contractor-agreement", text: "Not an employee? Engage a freelancer or consultant under a contractor agreement instead." },
+      { title: "IP assignment agreement template", href: "/templates/ip-assignment-agreement", text: "Move IP created before the job started, or outside it, into the company." },
+      { title: "NDA template", href: "/templates/nda", text: "Keep talks private before an offer is made." },
+    ],
     /* Singapore page (0195, 6 Nov 2026): general Employment Act points, worded cautiously.
        A Founders Doc lawyer checks it before it goes live. */
     countries: [
@@ -495,6 +511,8 @@ export const TEMPLATES: TemplateDoc[] = [
       { title: "Term sheet template for Singapore start-ups", href: "/templates/term-sheet/singapore", text: "Agree valuation, board seats and investor rights in a term sheet before the shareholders' agreement is drafted." },
       { title: "Share subscription agreement template", href: "/templates/share-subscription-agreement", text: "The investor's new shares are issued under a share subscription agreement, usually signed with the shareholders' agreement." },
       { title: "Convertible loan agreement template", href: "/templates/convertible-loan-agreement", text: "Raising before a priced round? A convertible loan turns into shares later, when the shareholders' agreement is updated." },
+      { title: "Co-founder agreement template", href: "/templates/co-founder-agreement", text: "Only the founders so far, and no investors? A co-founder agreement is shorter and covers roles, shares and vesting." },
+      { title: "Share purchase agreement template", href: "/templates/share-purchase-agreement", text: "A shareholder selling their shares to someone else? The sale itself goes in a share purchase agreement." },
     ],
     countries: [],
   },
@@ -535,6 +553,13 @@ export const TEMPLATES: TemplateDoc[] = [
       { q: "Can I edit the agreement after FD AI drafts it?", a: "Yes. Change any wording before you download it as a Word document, and ask FD AI to explain any clause." },
     ],
     reading: [],
+    related: [
+      { title: "Freelance contract template", href: "/templates/contractor-agreement/freelance", text: "A short contract for one freelancer and one piece of work." },
+      { title: "Consulting agreement template", href: "/templates/contractor-agreement/consulting", text: "A fuller agreement for a consultant or adviser." },
+      { title: "IP assignment agreement template", href: "/templates/ip-assignment-agreement", text: "Work already done with no contract? Move the IP to your company with an IP assignment." },
+      { title: "Services agreement template", href: "/templates/services-agreement", text: "Buying from a company rather than a person? A services agreement may fit better." },
+      { title: "Employment contract template", href: "/templates/employment-contract", text: "If the person works like an employee, use an employment contract." },
+    ],
     countries: [],
   },
   {
@@ -572,6 +597,11 @@ export const TEMPLATES: TemplateDoc[] = [
       { q: "Can I edit the agreement after FD AI drafts it?", a: "Yes. Change any wording before you download it as a Word document, and ask FD AI to explain any clause." },
     ],
     reading: [],
+    related: [
+      { title: "SaaS agreement template", href: "/templates/services-agreement/saas", text: "Selling or buying a software subscription? See what the SaaS version covers." },
+      { title: "Contractor agreement template", href: "/templates/contractor-agreement", text: "Engaging one freelancer or consultant? A contractor agreement is shorter." },
+      { title: "NDA template", href: "/templates/nda", text: "Sign an NDA before you share plans, data or pricing with a supplier or customer." },
+    ],
     countries: [],
   },
   /* 0215 (SEO checks 9–11 Nov): the term sheet, share subscription and convertible loan pages.
@@ -623,6 +653,7 @@ export const TEMPLATES: TemplateDoc[] = [
       { title: "Share subscription agreement template", href: "/templates/share-subscription-agreement", text: "After an equity term sheet, the investor's new shares are issued under a share subscription agreement." },
       { title: "Shareholders' agreement template", href: "/templates/shareholders-agreement", text: "Board seats, reserved matters, vesting and transfer rights from the term sheet go into the shareholders' agreement." },
       { title: "Convertible loan agreement template", href: "/templates/convertible-loan-agreement", text: "Not ready to agree a valuation? A convertible loan turns into shares at the next round." },
+      { title: "Investment agreement template", href: "/templates/investment-agreement", text: "A larger round, or several closings? The investment agreement sets conditions, warranties and completion in full." },
     ],
     countries: [
       {
@@ -709,7 +740,8 @@ export const TEMPLATES: TemplateDoc[] = [
       { title: "Term Sheet Checklist", href: "/resources/term-sheet-checklist" },
     ],
     related: [
-      { title: "Share purchase agreement", href: draftHref("spa"), text: "Buying existing shares from a shareholder rather than new shares from the company? Draft a share purchase agreement instead." },
+      { title: "Share purchase agreement template", href: "/templates/share-purchase-agreement", text: "Buying existing shares from a shareholder rather than new shares from the company? Use a share purchase agreement instead." },
+      { title: "Investment agreement template", href: "/templates/investment-agreement", text: "A larger round with more investors, conditions or closings? The investment agreement goes further." },
       { title: "Term sheet template for Singapore start-ups", href: "/templates/term-sheet/singapore", text: "Agree the valuation and main terms in a term sheet first; the subscription agreement then follows it." },
       { title: "Shareholders' agreement template", href: "/templates/shareholders-agreement", text: "Usually signed with the subscription agreement, to set the board, investor rights and transfers." },
       { title: "Convertible loan agreement template", href: "/templates/convertible-loan-agreement", text: "Not ready to fix a valuation? Raise on a convertible loan that turns into shares later." },
@@ -761,14 +793,21 @@ export const TEMPLATES: TemplateDoc[] = [
       { title: "Term sheet template for Singapore start-ups", href: "/templates/term-sheet/singapore", text: "Agree the amount, discount, cap and maturity in a short term sheet before the loan agreement." },
       { title: "Share subscription agreement template", href: "/templates/share-subscription-agreement", text: "Prefer a priced round? Investors buy new shares now under a share subscription agreement." },
       { title: "Loan agreement template", href: "/templates/loan-agreement", text: "A plain loan that is repaid, not turned into shares." },
+      { title: "Investment agreement template", href: "/templates/investment-agreement", text: "When the loan converts in a priced round, the new shares are usually issued under an investment or subscription agreement." },
       { title: "Shareholders' agreement template", href: "/templates/shareholders-agreement", text: "When the loan converts, the investor usually signs up to the shareholders' agreement." },
     ],
     countries: [],
   },
 ];
 
-/** How a sub-page is named in links: "NDA for Singapore", "Mutual NDA". */
-export const pageLabel = (t: TemplateDoc, c: CountryPage) => (c.kind === "type" ? `${c.short} ${t.short}` : `${t.short} for ${c.short}`);
+/** Every template: the first nine, each with its extra pages (lib/templates/more.ts), then the five added in 0242. */
+export const TEMPLATES: TemplateDoc[] = [
+  ...BASE_TEMPLATES.map((t) => ({ ...t, countries: [...t.countries, ...(MORE_VARIANTS[t.slug] ?? [])] })),
+  ...MORE_TEMPLATES,
+];
+
+/** How a sub-page is named in links: "NDA for Singapore", "Mutual NDA", "Personal loan agreement". */
+export const pageLabel = (t: TemplateDoc, c: CountryPage) => c.label ?? (c.kind === "type" ? `${c.short} ${t.short}` : `${t.short} for ${c.short}`);
 
 export function templateBySlug(slug: string): TemplateDoc | undefined {
   return TEMPLATES.find((t) => t.slug === slug);
@@ -786,7 +825,7 @@ export const draftLink = (t: TemplateDoc) => draftHref(t.docSlug);
 export const inSentence = (t: TemplateDoc) => (/^[A-Z]{2}/.test(t.short) ? t.short : t.short.charAt(0).toLowerCase() + t.short.slice(1));
 
 /** When the template pages last changed (the sitemap tells search engines, so they read them again). */
-export const TEMPLATES_UPDATED = "2026-11-11";
+export const TEMPLATES_UPDATED = "2026-11-18";
 
 /** Every template address, for the sitemap. */
 export function templatePaths(): string[] {
