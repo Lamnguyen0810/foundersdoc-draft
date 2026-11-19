@@ -281,6 +281,16 @@ export const GUIDES: Guide[] = [
   },
 ];
 
+/** 0246: the guides as a block of their own near the top of the FD Sign page (/e-signature#guides), which the
+ *  menu's "E-signature guides", the Templates page and the Resources page all lead to. One line each. */
+export const GUIDE_CARDS: { href: string; title: string; text: string }[] = [
+  { href: "/e-signature/how-to-sign-a-pdf-online", title: "How to sign a PDF online", text: "Each step, with the real screens." },
+  { href: "/e-signature/electronic-signature-vs-digital-signature", title: "Electronic vs digital signature", text: "What each one is, and which you need." },
+  { href: "/e-signature/do-e-signatures-need-a-witness", title: "Do e-signatures need a witness?", text: "Which documents do, and why those are signed in ink." },
+  { href: LAW_PATH, title: "Is e-signature legal in Singapore?", text: "The Electronic Transactions Act in plain English." },
+  { href: COMPARE_PATH, title: "Best DocuSign alternatives", text: "DocuSign, Dropbox Sign, PandaDoc and FD Sign compared." },
+];
+
 export const guidePath = (g: Guide) => `/e-signature/${g.slug}`;
 export const guideBySlug = (slug: string): Guide | undefined => GUIDES.find((g) => g.slug === slug);
 

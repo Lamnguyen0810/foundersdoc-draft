@@ -4,7 +4,7 @@ import { SITE, ORGANIZATION, ldJson } from "@/lib/seo";
 import type { Product } from "@/lib/products/data";
 import { COMPARE_PATH, TOOLS } from "@/lib/products/compare";
 import { LAW_PATH } from "@/lib/products/esign-law";
-import { GUIDES, guidePath } from "@/lib/products/esign-guides";
+import { GUIDES, GUIDE_CARDS, guidePath } from "@/lib/products/esign-guides";
 import { Breadcrumbs, Disclaimer, Faqs, MoreTemplates, TemplateLd } from "../templates/parts";
 import TemplateCta from "../templates/TemplateCta";
 import "../templates/templates.css";
@@ -64,6 +64,22 @@ export default function ProductPage({ p }: { p: Product }) {
             </span>
           )}
         </header>
+
+        {p.slug === "e-signature" && (
+          <section className="tpl-section" id="guides" aria-labelledby="pp-guides">
+            <h2 id="pp-guides">Guides</h2>
+            <ul className="tpl-guides">
+              {GUIDE_CARDS.map((c) => (
+                <li key={c.href}>
+                  <Link href={c.href}>
+                    <b>{c.title}</b>
+                    <span>{c.text}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="tpl-section" aria-labelledby="pp-features">
           <h2 id="pp-features">What {p.inSentence ?? p.name} does</h2>

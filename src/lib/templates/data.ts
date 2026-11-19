@@ -807,6 +807,15 @@ export const TEMPLATES: TemplateDoc[] = [
 ];
 
 /** How a sub-page is named in links: "NDA for Singapore", "Mutual NDA", "Personal loan agreement". */
+/** 0246: the Templates page lists the documents by what a founder is doing, not in the order they were built.
+ *  Every template belongs to exactly one group (places.test.ts holds that), so a new one cannot be left off the page. */
+export const TEMPLATE_GROUPS: { id: string; title: string; text: string; slugs: string[] }[] = [
+  { id: "starting", title: "Starting the company", text: "Agree who owns what, and make sure the company owns its IP.", slugs: ["co-founder-agreement", "shareholders-agreement", "ip-assignment-agreement"] },
+  { id: "hiring", title: "Hiring", text: "Employees, freelancers and consultants.", slugs: ["employment-contract", "contractor-agreement"] },
+  { id: "fundraising", title: "Raising money", text: "From the first term sheet to the shares being issued or sold.", slugs: ["term-sheet", "share-subscription-agreement", "investment-agreement", "convertible-loan-agreement", "share-purchase-agreement"] },
+  { id: "deals", title: "Doing business", text: "Customers, suppliers, partners and lenders.", slugs: ["nda", "services-agreement", "loan-agreement", "joint-venture-agreement"] },
+];
+
 export const pageLabel = (t: TemplateDoc, c: CountryPage) => c.label ?? (c.kind === "type" ? `${c.short} ${t.short}` : `${t.short} for ${c.short}`);
 
 export function templateBySlug(slug: string): TemplateDoc | undefined {
