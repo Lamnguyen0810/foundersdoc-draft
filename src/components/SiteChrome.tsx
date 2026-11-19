@@ -269,6 +269,7 @@ export function AppNav({
         <div className="links r">
           <Dropdown label="Resources" {...sub("res")}>
             <a href="/resources">Blog</a>
+            <Link href="/e-signature#guides">E-signature guides</Link>
             <a href="/coming-soon?f=Courses">Courses</a>
             <a href="/podcast">Podcast</a>
           </Dropdown>
@@ -364,6 +365,7 @@ export function AppNav({
           <div className="menu-group">
             <span>Resources</span>
             <a href="/resources">Blog</a>
+            <Link href="/e-signature#guides">E-signature guides</Link>
             <a href="/coming-soon?f=Courses">Courses</a>
             <a href="/podcast">Podcast</a>
           </div>

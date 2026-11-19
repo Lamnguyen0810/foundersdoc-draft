@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE } from "@/lib/seo";
 import { TRIAL } from "@/lib/billing/plans";
-import { TEMPLATES, draftLink, pageLabel } from "@/lib/templates/data";
+import { TEMPLATES, TEMPLATE_GROUPS, draftLink, pageLabel } from "@/lib/templates/data";
 import { Breadcrumbs, CtaBand, Disclaimer, TemplateLd } from "./parts";
 import "./templates.css";
 
@@ -51,13 +51,27 @@ export default function TemplatesHub() {
           </p>
         </header>
 
-        <section className="tpl-section" aria-label="Documents">
+        {/* 0246: grouped by what the founder is doing, with a way to jump to each group */}
+        <nav className="tpl-jump" aria-label="Kinds of document">
+          <ul className="tpl-chips">
+            {TEMPLATE_GROUPS.map((g) => (
+              <li key={g.id}>
+                <a href={`#${g.id}`}>{g.title}</a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        {TEMPLATE_GROUPS.map((g) => (
+        <section className="tpl-section" aria-labelledby={g.id} key={g.id}>
+          <h2 id={g.id}>{g.title}</h2>
+          <p className="tpl-group-text">{g.text}</p>
           <div className="tpl-cards">
-            {TEMPLATES.map((t) => (
+            {g.slugs.map((slug) => TEMPLATES.find((t) => t.slug === slug)!).map((t) => (
               <article className="tpl-card" key={t.slug}>
-                <h2>
+                <h3>
                   <Link href={`/templates/${t.slug}`}>{t.name}</Link>
-                </h2>
+                </h3>
                 <p>{t.lead}</p>
                 <ul className="tpl-chips" aria-label={`${t.short} templates`}>
                   {t.countries.length === 0 && (
@@ -76,11 +90,12 @@ export default function TemplatesHub() {
               </article>
             ))}
           </div>
-          <p className="tpl-more">
-            More documents are on FD AI already — term sheets, share purchase and subscription, investment, convertible loan, IP assignment
-            and joint venture agreements. <Link href="/draft">See them all</Link>.
-          </p>
         </section>
+        ))}
+        <p className="tpl-more">
+          Every template here is drafted by FD AI. <Link href="/draft">Open FD AI</Link> to start any of them, or{" "}
+          <Link href="/e-signature#guides">read how to send the finished document for signing</Link>.
+        </p>
 
         <CtaBand
           href={draftLink(TEMPLATES[0])}
