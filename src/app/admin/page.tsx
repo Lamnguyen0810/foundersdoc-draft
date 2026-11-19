@@ -6,6 +6,7 @@ import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib
 import BlogAdmin, { type BlogRow } from "./BlogAdmin";
 import Videos from "./Videos";
 import SeoAgent from "./SeoAgent";
+import SeoRegions from "./SeoRegions";
 import type { VideoRow } from "@/lib/podcast/videos";
 import { retiredFieldKeys, tidyStepQuestion } from "@/lib/doctypes.server";
 import AiCreditPanel, { type AiCreditMeter } from "./AiCreditPanel";
@@ -1712,6 +1713,8 @@ export default async function AdminPage({
 
             {tab === "videos" && <Videos rows={videoRows} missing={videosMissing} />}
 
+            {/* 0247: where we show up in Google, region by region, from Search Console exports */}
+            {tab === "seo" && <SeoRegions />}
             {tab === "seo" && <SeoAgent />}
 
             {tab === "ai-files" && (
