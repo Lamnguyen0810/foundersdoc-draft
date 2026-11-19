@@ -180,7 +180,8 @@ export default function SeoRegions() {
             <h3>
               <span className="seo-reg-n">1</span>By region
             </h3>
-            <p>Where in the world we appear. &ldquo;Where we sit&rdquo; is the average over every search we appeared for in that region, so it is a health figure for the region, not our rank for one search.</p>
+            <p>Where in the world we appear. The average position is taken over every search we appeared for in that region, so it is a health figure for the region, not our rank for one search.</p>
+            <Legend />
             <div className="table-wrap">
               <table>
                 <thead>
@@ -189,7 +190,7 @@ export default function SeoRegions() {
                     <th>Showing?</th>
                     <th className="num">Times shown</th>
                     <th className="num">Visits</th>
-                    <th>Where we sit, on average</th>
+                    <th className="num">Average position</th>
                     <th>{view.compared ? `Times shown, since ${shortDay(view.compared.uploaded_at)}` : "Change"}</th>
                   </tr>
                 </thead>
@@ -204,7 +205,7 @@ export default function SeoRegions() {
                       <td>{r.showing ? <span className="badge green">Showing</span> : <span className="badge gray">Not showing</span>}</td>
                       <td className="num">{fmt(r.impressions)}</td>
                       <td className="num">{fmt(r.clicks)}</td>
-                      <td>
+                      <td className="num">
                         <Place position={r.position} />
                       </td>
                       <td className={r.change && r.change < 0 ? "bad" : r.change && r.change > 0 ? "good" : "muted-cell"}>
@@ -221,7 +222,7 @@ export default function SeoRegions() {
             <h3>
               <span className="seo-reg-n">2</span>What people searched when they saw us
             </h3>
-            <p>The real words, all regions together, in three groups. Page two is where a better title or a little more on the page most often pays off.</p>
+            <p>The real words, all regions together, in three groups by position. Page two is where a better title or a little more on the page most often pays off.</p>
             <Searches band="one" title="On page one" hint="People can see us. Keep these." rows={view.bands.one} />
             <Searches band="near" title="Nearly there: page two" hint="The quickest wins." rows={view.bands.near} />
             <Searches band="far" title="Further back: page three or later" hint="Seen by very few; worth a page of their own only if the search matters." rows={view.bands.far} />
@@ -272,8 +273,8 @@ export default function SeoRegions() {
           )}
 
           <p className="seo-reg-key">
-            <b>How to read it.</b> Times shown = how often a page of ours appeared in someone&rsquo;s Google results (Search Console calls this an impression). Visits = how often someone then clicked through. Where we sit = our place in
-            the results: page 1 is positions 1 to 10, page 2 is 11 to 20. Google hides very rare searches, so the search lists add up to less than the totals. Figures are about 3 days behind.
+            <b>How to read it.</b> Times shown = how often a page of ours appeared in someone&rsquo;s Google results (Search Console calls this an impression). Visits = how often someone then clicked through. Position = our place in the results, 1 being the
+            top: positions 1 to 10 are page one, 11 to 20 page two. Google hides very rare searches, so the search lists add up to less than the totals. Figures are about 3 days behind.
             {view.latest.uploaded_at ? ` Last updated ${shortDay(view.latest.uploaded_at)}${view.latest.uploaded_by ? ` (${view.latest.uploaded_by})` : ""}.` : ""}
           </p>
         </>
@@ -282,15 +283,15 @@ export default function SeoRegions() {
   );
 }
 
-/** A position, said as its page first: "Page 2" then "position 10.9". */
+/** A position: the number, with a small mark for how near the top it is (green = page one, amber = page two, grey = further back). */
 function Place({ position }: { position: number | null }) {
   const page = pageOf(position);
   if (page === null) return <span className="muted-cell">–</span>;
   return (
-    <>
-      <span className={`seo-place ${bandOf(position) ?? ""}`}>Page {page}</span>
-      <span className="seo-place-at">position {pos(position)}</span>
-    </>
+    <span className="seo-pos" title={`Page ${page} of Google's results`}>
+      <i className={`seo-dot ${bandOf(position) ?? ""}`} aria-hidden="true" />
+      {pos(position)}
+    </span>
   );
 }
 
@@ -317,7 +318,7 @@ function Searches({ rows, title, hint, band, most = 8, empty }: { rows: QueryRow
                 <th>Search</th>
                 <th className="num">Times shown</th>
                 <th className="num">Visits</th>
-                <th>Where we sit</th>
+                <th className="num">Position</th>
               </tr>
             </thead>
             <tbody>
@@ -333,7 +334,7 @@ function Searches({ rows, title, hint, band, most = 8, empty }: { rows: QueryRow
                   </td>
                   <td className="num">{fmt(q.impressions)}</td>
                   <td className="num">{fmt(q.clicks)}</td>
-                  <td>
+                  <td className="num">
                     <Place position={q.position || null} />
                   </td>
                 </tr>
@@ -344,5 +345,22 @@ function Searches({ rows, title, hint, band, most = 8, empty }: { rows: QueryRow
       )}
       {rows.length > shown.length && <p className="seo-reg-more">and {fmt(rows.length - shown.length)} more, less busy.</p>}
     </>
+  );
+}
+
+/** What the three marks beside a position mean. */
+function Legend() {
+  return (
+    <p className="seo-legend">
+      <span>
+        <i className="seo-dot one" aria-hidden="true" /> 1 to 10: page one
+      </span>
+      <span>
+        <i className="seo-dot near" aria-hidden="true" /> 11 to 20: page two
+      </span>
+      <span>
+        <i className="seo-dot far" aria-hidden="true" /> 21 and over: further back
+      </span>
+    </p>
   );
 }
