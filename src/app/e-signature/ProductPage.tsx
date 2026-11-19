@@ -55,6 +55,14 @@ export default function ProductPage({ p }: { p: Product }) {
             </Link>
           </div>
           <span className="tpl-small">{p.small}</span>
+          {p.returning && (
+            <span className="tpl-small" style={{ display: "block", marginTop: 6 }}>
+              {p.returning.text}{" "}
+              <Link className="tpl-link" href={p.returning.href}>
+                {p.returning.label}
+              </Link>
+            </span>
+          )}
         </header>
 
         <section className="tpl-section" aria-labelledby="pp-features">

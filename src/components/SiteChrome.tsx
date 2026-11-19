@@ -163,6 +163,10 @@ function AccountChip({
             way in but to type the URL. */}
         <Link href="/billing">Credits</Link>
         <Link href="/usage">Usage</Link>
+        {/* 0245: the way in to the person's own ESOP dashboard. /esop opens it straight away when they
+            have one, lists them when they have several, and offers to create one when they have none.
+            Before this the only ways in were a link in an email or a bookmark. */}
+        <Link href="/esop">ESOP dashboard</Link>
         <Link href="/settings">Settings</Link>
         <form action="/auth/signout" method="post" onSubmit={clearAllStashes}>
           <button type="submit">Log out</button>
@@ -377,6 +381,7 @@ export function AppNav({
               <span>{userEmail}</span>
               <Link href="/billing">Credits</Link>
               <Link href="/usage">Usage</Link>
+              <Link href="/esop">ESOP dashboard</Link>
               <Link href="/settings">Settings</Link>
               <form action="/auth/signout" method="post" onSubmit={clearAllStashes}>
                 <button type="submit" style={{ padding: "4px 0 4px 12px", fontSize: 15 }}>

@@ -23,6 +23,8 @@ export interface Product {
   lead: string;
   cta: { href: string; label: string };
   second: { href: string; label: string };
+  /** 0245: a line for people who already use it, under the buttons ("Already have a dashboard? Open it") */
+  returning?: { text: string; href: string; label: string };
   small: string;
   features: { label: string; text: string }[];
   stepsTitle: string;
@@ -97,8 +99,12 @@ export const PRODUCTS: Record<"sign" | "esop", Product> = {
       "Track option holders, vesting dates and certificates in one dashboard, with approvals, vesting alerts and e-signing built in. By Founders Doc's lawyers.",
     h1: "Run your employee share option plan in one place",
     lead: "Every option holder, grant, vesting date and certificate, kept up to date for you. The right people approve, the right people are reminded, and every document is one click away.",
-    cta: { href: "/esop?new=1", label: "Create your ESOP dashboard" },
+    /* 0245: /esop, not /esop?new=1. /esop takes someone who has a dashboard straight to it and shows the
+       create form to someone who has none, so one button is right for both. With ?new=1 a client's own
+       team landed on "create" and could not see how to reach the dashboard they already had. */
+    cta: { href: "/esop", label: "Create your ESOP dashboard" },
     second: { href: "/contact", label: "Or let Founders Doc set it up ›" },
+    returning: { text: "Already have a dashboard?", href: "/esop", label: "Open it ›" },
     small: "Free to start · invite your team after",
     features: [
       { label: "Register of option holders", text: "Each holder's grants, including top-ups, options per tranche, what has vested and what is next, for active holders and leavers." },
