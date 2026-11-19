@@ -1,0 +1,31 @@
+/* Admin → SEO, "Where we show up in Google" (0248): the few things the Admin design does not already have. */
+.fdadmin .seo-reg-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0 18px 18px; }
+.fdadmin .seo-reg-tile { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--soft-2); }
+.fdadmin .seo-reg-tile b { display: block; font-size: 26px; line-height: 1.1; letter-spacing: -0.03em; color: var(--ink); }
+.fdadmin .seo-reg-tile span { display: block; margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--text); }
+.fdadmin .seo-reg-tile small { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+.fdadmin .seo-reg-part { border-top: 1px solid var(--line); padding: 18px 18px 6px; }
+.fdadmin .seo-reg-part h3 { margin: 0 0 3px; font-size: 15px; color: var(--ink); }
+.fdadmin .seo-reg-part > p { margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: var(--muted); max-width: 78ch; }
+.fdadmin .seo-reg-n { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: 8px; border-radius: 50%; background: var(--ink); color: #fff; font-size: 11px; font-weight: 800; vertical-align: 1px; }
+.fdadmin .seo-reg table { min-width: 0; }
+.fdadmin .seo-reg td small { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); }
+.fdadmin .seo-reg .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* where we sit: page one is green, page two amber (nearly there), further back grey */
+.fdadmin .seo-place { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 800; border: 1px solid var(--line); background: #f3f4f5; color: #5e6269; white-space: nowrap; }
+.fdadmin .seo-place.one { background: #edf8f2; border-color: #d8ebdd; color: var(--success); }
+.fdadmin .seo-place.near { background: var(--fd-yellow-soft); border-color: #ebd692; color: #7a5a00; }
+.fdadmin .seo-place-at { margin-left: 8px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+.fdadmin .seo-reg-group { margin: 14px 0 6px; font-size: 12px; font-weight: 800; color: var(--ink); }
+.fdadmin .seo-reg-group small { margin-left: 8px; font-weight: 400; color: var(--muted); }
+.fdadmin .seo-reg-more { margin: 6px 0 0; font-size: 11.5px; color: var(--muted); }
+.fdadmin .seo-reg details { border-top: 1px solid #efeff1; }
+.fdadmin .seo-reg details:first-of-type { border-top: 0; }
+.fdadmin .seo-reg summary { padding: 11px 2px; cursor: pointer; font-size: 13px; color: var(--text); }
+.fdadmin .seo-reg summary b { color: var(--ink); }
+.fdadmin .seo-reg-key { padding: 14px 18px 18px; border-top: 1px solid var(--line); font-size: 11.5px; line-height: 1.6; color: var(--muted); }
+.fdadmin .seo-reg-key b { color: var(--text); }
+@media (max-width: 900px) { .fdadmin .seo-reg-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ExportError, OTHER_REGION, PHRASES, REGION_GROUPS, countryKey, csvRows, phraseTable, readExport, regionTable, type RegionUpload } from "./figures";
+import { ExportError, OTHER_REGION, PHRASES, REGION_GROUPS, bandOf, countryKey, csvRows, isBrand, isoDay, pageOf, phraseTable, readExport, regionTable, searchBands, topSearches, totals, type RegionUpload } from "./figures";
 
 /** SEO by region (0247): reading a Search Console export and working out where we show up. Sample figures only. */
 
@@ -39,6 +39,20 @@ test("an export is read: countries, searches, the period and a country filter", 
   assert.deepEqual(u.countries.find((c) => c.country === "United States"), { country: "United States", clicks: 2, impressions: 1200, position: 44.2 });
   assert.equal(u.queries[0].query, "term sheet", "searches are kept busiest first");
   assert.equal(upload().country, null, "no Filters file: every country");
+});
+
+test("the period is read however the export writes its dates", () => {
+  assert.deepEqual(["2026-11-18", "18 Nov 2026", "Nov 18, 2026", "November 18, 2026", "18/11/2026", "11/18/2026", "18.11.2026", "3/4/2026"].map(isoDay), [
+    "2026-11-18", "2026-11-18", "2026-11-18", "2026-11-18", "2026-11-18", "2026-11-18", "2026-11-18", "2026-04-03",
+  ]);
+  assert.deepEqual(["", "Date", "last 7 days", "32/13/2026"].map(isoDay), [null, null, null, null]);
+  const u = readExport({ "Countries.csv": COUNTRIES, "Dates.csv": "Date,Clicks\n\"Nov 14, 2026\",3\n\"Nov 12, 2026\",1\n\"Nov 18, 2026\",2\n" });
+  assert.deepEqual([u.date_from, u.date_to], ["2026-11-12", "2026-11-18"]);
+});
+
+test("the searches people really used are listed busiest first", () => {
+  assert.deepEqual(topSearches(upload(), 3).map((q) => [q.query, q.impressions]), [["term sheet", 500], ["nda template singapore", 300], ["founders doc", 200]]);
+  assert.equal(topSearches(upload()).length, 5);
 });
 
 test("something that is not an export is refused with how to make one", () => {
@@ -81,4 +95,27 @@ test("a followed search counts every search that holds all its words", () => {
   assert.deepEqual([rows["term sheet template Singapore"].impressions, rows["term sheet template Singapore"].position], [0, null], '"term sheet" alone is a different search');
   assert.deepEqual([rows["Founders Doc"].brand, rows["Founders Doc"].position, rows["Founders Doc"].clicks], [true, 1.2, 30]);
   assert.deepEqual([rows["mutual NDA template"].matches, rows["mutual NDA template"].position], [0, null]);
+});
+
+test("a position is said as a page: 1 to 10 is page one, 11 to 20 nearly there, the rest further back", () => {
+  assert.deepEqual([1, 3.7, 10, 10.9, 20, 20.1, 34].map(pageOf), [1, 1, 1, 2, 2, 3, 4]);
+  assert.deepEqual([3.7, 10.9, 34, null].map(bandOf), ["one", "near", "far", null]);
+  assert.deepEqual([pageOf(null), pageOf(0)], [null, null]);
+});
+
+test("a search for us by name is told apart from a search for a document", () => {
+  for (const q of ["founders doc", "Founder Doc singapore", "foundersdoc.com", "fd ai", "FD Sign login", "founders docs nda"]) assert.equal(isBrand(q), true, q);
+  for (const q of ["nda template singapore", "founders agreement template", "doc signing", "fd"]) assert.equal(isBrand(q), false, q);
+});
+
+test("the totals and the three groups count real searches, leaving our own name out of the page-one count", () => {
+  const u = upload();
+  assert.deepEqual(totals(u), { impressions: 2660, clicks: 48, regionsShowing: 5, regions: 7, pageOne: 1, nearly: 1 });
+  const b = searchBands(u);
+  /* page one: "founders doc" (1.2) and "nda template singapore" (9.0); nearly: "free nda template singapore" (15.0); far: 22 and 50 */
+  assert.deepEqual([b.one.map((q) => q.query), b.near.map((q) => q.query), b.far.map((q) => q.query)], [
+    ["nda template singapore", "founders doc"],
+    ["free nda template singapore"],
+    ["term sheet", "loan agreement template, singapore"],
+  ]);
 });
