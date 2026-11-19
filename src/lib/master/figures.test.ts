@@ -4,7 +4,7 @@ import { join } from "node:path";
 import assert from "node:assert/strict";
 import { ALL_COLUMNS } from "./columns";
 import { demoRows } from "./demo";
-import { hoursText, master, singaporeDay, singaporeMidnight, stageText, steps, testEnvelopes, vestings, type MasterRows, type MCompany, type MEnvelope, type MSigner } from "./figures";
+import { agoText, hoursText, master, singaporeDay, singaporeMidnight, stageText, steps, testEnvelopes, vestings, type MasterRows, type MCompany, type MEnvelope, type MSigner } from "./figures";
 
 /**
  * The master dashboard's figures (0244). Sample companies and names only.
@@ -24,7 +24,7 @@ const startFor = (daysFromNow: number) => {
 const MANAGED: MCompany = { id: "c-managed", slug: "sample-co", name: "Sample Company", plan: "premium", self_serve: false, simulation: false };
 const OWN: MCompany = { id: "c-own", slug: "example-co", name: "Example Consulting", plan: "free", self_serve: true, simulation: false };
 
-const empty = (): MasterRows => ({ envelopes: [], signers: [], companies: [], batches: [], holders: [], runs: [], certificates: [], alerts: [], requests: [], subscriptions: [] });
+const empty = (): MasterRows => ({ envelopes: [], signers: [], companies: [], batches: [], holders: [], runs: [], certificates: [], alerts: [], requests: [], subscriptions: [], reminders: [], approvalEmails: [] });
 let seq = 0;
 const env = (more: Partial<MEnvelope> = {}): MEnvelope => ({ id: `e${++seq}`, status: "sent", created_at: ago(1), completed_at: null, owner_id: "u1", owner_email: "alex.tan@example.com", owner_name: "Alex Tan", esop_holder_id: null, esop_tranche: null, ...more });
 const signer = (e: MEnvelope, position: number, more: Partial<MSigner> = {}): MSigner => ({ envelope_id: e.id, position, status: "waiting", invited_at: null, viewed_at: null, ...more });
@@ -197,7 +197,7 @@ test("signing: a signer waiting more than 2 days is raised, by the sender's acco
   r.signers.push(signer(stuck, 1, { status: "signed", invited_at: ago(9) }), signer(stuck, 2, { status: "invited", invited_at: ago(8), viewed_at: ago(7) }));
   const m = master(r, NOW);
   assert.equal(m.sign.stalledNow, 1);
-  assert.deepEqual(m.actions, [{ kind: "stalled", tone: "err", title: "Alex Tan's request · signer 2 of 2", detail: "opened, not signed · 8 days", href: null }]);
+  assert.deepEqual(m.actions, [{ kind: "stalled", tone: "err", title: "Alex Tan's request · signer 2 of 2", detail: "opened, not signed · 8 days", href: null, act: null }]);
   /* exactly 2 days is not yet "more than 2 days" */
   r.signers[0].invited_at = ago(2);
   assert.equal(master(r, NOW).sign.stalledNow, 1);
@@ -216,7 +216,7 @@ test("signing: certificates of one vesting waiting on the same signer are one li
   }
   const m = master(r, NOW);
   const lines = m.actions.filter((a) => a.kind === "stalled");
-  assert.deepEqual(lines, [{ kind: "stalled", tone: "warn", title: "Sample Company · B8-T1 certificates · signer 2 of 2", detail: "4 documents waiting, 1 opened · 4 days", href: "/admin/sign?tab=sent" }]);
+  assert.deepEqual(lines, [{ kind: "stalled", tone: "warn", title: "Sample Company · B8-T1 certificates · signer 2 of 2", detail: "4 documents waiting, 1 opened · 4 days", href: "/admin/sign?tab=sent", act: { type: "remind", envelopes: r.envelopes.map((e) => e.id) } }]);
   assert.equal(m.sign.stalledNow, 4);
   assert.equal(m.actions[0].kind, "unsigned", "the vesting itself comes before the reminder to chase signatures");
 });
@@ -301,6 +301,8 @@ test("every column the page reads exists in the database, as the SQL files in su
     ALERT_COLUMNS: ["esop_alerts", "esop_alert_log"],
     REQUEST_COLUMNS: ["esop_run_requests"],
     SUBSCRIPTION_COLUMNS: ["subscriptions"],
+    REMINDER_COLUMNS: ["sign_events"],
+    APPROVAL_EMAIL_COLUMNS: ["esop_approval_links"],
   };
   for (const [list, tables] of Object.entries(TABLES) as Array<[keyof typeof ALL_COLUMNS, string[]]>)
     for (const table of tables) {
@@ -309,14 +311,106 @@ test("every column the page reads exists in the database, as the SQL files in su
       for (const column of ALL_COLUMNS[list].split(",").map((c) => c.trim())) assert.ok(has.has(column), `${table} has no column "${column}"`);
     }
   /* and the columns the reads filter and sort by (load.ts) */
-  for (const [table, columns] of Object.entries({ sign_envelopes: ["id", "status", "created_at"], sign_signers: ["envelope_id", "position"], esop_documents: ["id", "kind", "holder_id"], esop_run_requests: ["resolved_at", "created_at"], esop_alert_log: ["days_before"], subscriptions: ["id", "status"] }))
+  for (const [table, columns] of Object.entries({ sign_envelopes: ["id", "status", "created_at"], sign_signers: ["envelope_id", "position"], esop_documents: ["id", "kind", "holder_id"], esop_run_requests: ["resolved_at", "created_at"], esop_alert_log: ["days_before"], subscriptions: ["id", "status"], sign_events: ["id", "event"] }))
     for (const column of columns) assert.ok(columnsOf(table).has(column), `${table} has no column "${column}"`);
+});
+
+/* ── what can be done from the page (0250) ─────────────────────────────────── */
+
+test("remind: offered for Founders Doc's own request, never for a person's own", () => {
+  const r = withBatch(MANAGED, -6);
+  r.runs.push({ company_id: MANAGED.id, ref: "B8-T1", approved_at: ago(9), sent_at: ago(9), paid_at: ago(8), simulation: false });
+  /* two certificates of the same vesting, both waiting on signer 2 */
+  const certs = [0, 1].map((i) => env({ owner_id: null, owner_email: null, owner_name: null, created_at: ago(7), esop_holder_id: `${MANAGED.id}-h${i}`, esop_tranche: 1 }));
+  for (const e of certs) {
+    r.envelopes.push(e);
+    r.signers.push(signer(e, 1, { status: "signed", invited_at: ago(7) }), signer(e, 2, { status: "invited", invited_at: ago(6) }));
+  }
+  /* a letter of Founders Doc's own, and a person's own request, both waiting 3 days */
+  const letter = env({ owner_id: null, owner_email: null, owner_name: null, created_at: ago(3) });
+  const theirs = env({ created_at: ago(3) });
+  for (const e of [letter, theirs]) {
+    r.envelopes.push(e);
+    r.signers.push(signer(e, 1, { status: "invited", invited_at: ago(3) }));
+  }
+
+  const stalled = master(r, NOW).actions.filter((a) => a.kind === "stalled");
+  assert.equal(stalled.length, 3);
+  const [cert, ours, own] = [stalled.find((a) => /certificates/.test(a.title))!, stalled.find((a) => /^Founders Doc request/.test(a.title))!, stalled.find((a) => /Alex Tan/.test(a.title))!];
+  assert.deepEqual(cert.act, { type: "remind", envelopes: certs.map((e) => e.id) }, "one reminder covers both certificates");
+  assert.deepEqual(ours.act, { type: "remind", envelopes: [letter.id] });
+  assert.equal(own.act, null, "a person's own request stays theirs to chase");
+  assert.equal(own.href, null);
+});
+
+test("remind: not offered before 2 days, and the line says when the last reminder went", () => {
+  const r = empty();
+  const fresh = env({ owner_id: null, owner_email: null, owner_name: null, created_at: ago(1, 20) });
+  const old = env({ owner_id: null, owner_email: null, owner_name: null, created_at: ago(5) });
+  r.envelopes.push(fresh, old);
+  r.signers.push(signer(fresh, 1, { status: "invited", invited_at: ago(1, 20) }), signer(old, 1, { status: "invited", invited_at: ago(5) }));
+  r.reminders.push({ envelope_id: old.id, at: ago(2) }, { envelope_id: old.id, at: ago(0, 5) });
+  const a = master(r, NOW).actions;
+  assert.equal(a.length, 1, "under 2 days is not raised at all");
+  assert.match(a[0].detail, /not opened · 5 days · reminded 5 hours ago$/);
+});
+
+test("approval email: for a coming vesting of a company Founders Doc runs, and it says if one was sent", () => {
+  const r = withBatch(MANAGED, 10);
+  let a = master(r, NOW).actions[0];
+  assert.deepEqual(a.act, { type: "approval-email", company: "sample-co", ref: "B8-T1", again: false, simulation: false });
+  r.approvalEmails.push({ company_id: MANAGED.id, ref: "B8-T1", created_at: ago(4) }, { company_id: MANAGED.id, ref: "B8-T1", created_at: ago(2, 1) }, { company_id: "another", ref: "B8-T1", created_at: ago(0, 1) });
+  a = master(r, NOW).actions[0];
+  assert.match(a.detail, /· approval email sent 2 days ago$/);
+  assert.deepEqual(a.act, { type: "approval-email", company: "sample-co", ref: "B8-T1", again: true, simulation: false });
+  assert.equal(vestings(MANAGED, r, NOW)[0].approvalEmailAt, ago(2, 1));
+});
+
+test("approval email: not from here for a self-serve company, nor for a vesting rehearsed in simulation", () => {
+  assert.equal(master(withBatch(OWN, 10), NOW).actions[0].act, null, "a self-serve company chases its own approver");
+  const sim = withBatch({ ...MANAGED, simulation: true }, 10);
+  assert.deepEqual(master(sim, NOW).actions[0].act, { type: "approval-email", company: "sample-co", ref: "B8-T1", again: false, simulation: true }, "in a simulation the page says where the email goes");
+  sim.runs.push({ company_id: MANAGED.id, ref: "B8-T1", approved_at: ago(1), sent_at: ago(1), paid_at: null, simulation: true });
+  const a = master(sim, NOW).actions[0];
+  assert.equal(a.kind, "unapproved");
+  assert.equal(a.act, null, "a rehearsed vesting is reset on its dashboard first");
+});
+
+test("mark as paid: for an approved, unpaid vesting of a company Founders Doc runs; nothing once paid", () => {
+  const r = withBatch(MANAGED, 5);
+  r.runs.push({ company_id: MANAGED.id, ref: "B8-T1", approved_at: ago(1), sent_at: ago(1), paid_at: null, simulation: false });
+  const a = master(r, NOW).actions[0];
+  assert.equal(a.kind, "unpaid");
+  assert.deepEqual(a.act, { type: "paid", company: "sample-co", ref: "B8-T1" });
+  r.runs[0].paid_at = ago(0, 2);
+  const after = master(r, NOW).actions[0];
+  assert.equal(after.kind, "unsigned");
+  assert.equal(after.act, null, "certificates are sent from FD Sign, not from here");
+  /* a self-serve dashboard has no payment step at all */
+  const own = withBatch(OWN, 5);
+  own.runs.push({ company_id: OWN.id, ref: "B8-T1", approved_at: ago(1), sent_at: ago(1), paid_at: null, simulation: false });
+  assert.ok(master(own, NOW).actions.every((x) => x.act === null));
+});
+
+test("how long ago: under an hour, hours, days", () => {
+  assert.equal(agoText(ago(0, 0.5), NOW), "less than an hour ago");
+  assert.equal(agoText(ago(0, 1), NOW), "1 hour ago");
+  assert.equal(agoText(ago(0, 23.9), NOW), "23 hours ago");
+  assert.equal(agoText(ago(1), NOW), "1 day ago");
+  assert.equal(agoText(ago(9, 5), NOW), "9 days ago");
+});
+
+test("privacy: what the page can do carries ids and vesting names only, never a person", () => {
+  const acts = master(demoRows(NOW), NOW).actions.map((a) => a.act).filter(Boolean);
+  assert.ok(acts.length >= 3);
+  for (const act of acts) assert.deepEqual(Object.keys(act!).filter((k) => !["type", "envelopes", "company", "ref", "again", "simulation"].includes(k)), []);
 });
 
 test("the preview's sample rows show every part of the page", () => {
   const m = master(demoRows(NOW), NOW);
-  assert.deepEqual([...new Set(m.actions.map((a) => a.kind))].sort(), ["stalled", "unapproved", "unsigned"]);
-  assert.equal(m.esop.length, 4);
+  assert.deepEqual([...new Set(m.actions.map((a) => a.kind))].sort(), ["stalled", "unapproved", "unpaid", "unsigned"]);
+  assert.deepEqual([...new Set(m.actions.map((a) => a.act?.type ?? "none"))].sort(), ["approval-email", "none", "paid", "remind"], "each thing the page can do is on show");
+  assert.equal(m.esop.length, 5);
   assert.ok(m.esop.some((c) => c.simulation) && m.esop.some((c) => !c.managed) && m.esop.some((c) => c.focus?.paid));
   assert.ok(m.sign.byPlan.length >= 3 && m.sign.timeToSign.count > 0 && m.test.sent30 === 2);
 });

@@ -16,6 +16,9 @@ export const CERTIFICATE_COLUMNS = "holder_id, tranche";
 export const ALERT_COLUMNS = "company_id, ref";
 export const REQUEST_COLUMNS = "company_id, ref, kind";
 export const SUBSCRIPTION_COLUMNS = "user_id, tier";
+/** 0250: when a reminder went out (sign_events) and when an approval email was made, never to whom. */
+export const REMINDER_COLUMNS = "envelope_id, at";
+export const APPROVAL_EMAIL_COLUMNS = "company_id, ref, created_at";
 
 /** Every list, for the test. */
-export const ALL_COLUMNS = { ENVELOPE_COLUMNS, SIGNER_COLUMNS, COMPANY_COLUMNS, BATCH_COLUMNS, HOLDER_COLUMNS, RUN_COLUMNS, CERTIFICATE_COLUMNS, ALERT_COLUMNS, REQUEST_COLUMNS, SUBSCRIPTION_COLUMNS };
+export const ALL_COLUMNS = { ENVELOPE_COLUMNS, SIGNER_COLUMNS, COMPANY_COLUMNS, BATCH_COLUMNS, HOLDER_COLUMNS, RUN_COLUMNS, CERTIFICATE_COLUMNS, ALERT_COLUMNS, REQUEST_COLUMNS, SUBSCRIPTION_COLUMNS, REMINDER_COLUMNS, APPROVAL_EMAIL_COLUMNS };

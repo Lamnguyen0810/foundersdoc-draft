@@ -1,7 +1,7 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { ALERT_COLUMNS, BATCH_COLUMNS, CERTIFICATE_COLUMNS, COMPANY_COLUMNS, ENVELOPE_COLUMNS, HOLDER_COLUMNS, REQUEST_COLUMNS, RUN_COLUMNS, SIGNER_COLUMNS, SUBSCRIPTION_COLUMNS } from "./columns";
-import type { MAlert, MBatch, MCertificate, MCompany, MEnvelope, MHolder, MRequest, MRun, MSigner, MSubscription, MasterRows } from "./figures";
+import { ALERT_COLUMNS, BATCH_COLUMNS, CERTIFICATE_COLUMNS, COMPANY_COLUMNS, ENVELOPE_COLUMNS, HOLDER_COLUMNS, REMINDER_COLUMNS, REQUEST_COLUMNS, RUN_COLUMNS, SIGNER_COLUMNS, SUBSCRIPTION_COLUMNS, APPROVAL_EMAIL_COLUMNS } from "./columns";
+import type { MApprovalEmail, MReminder, MAlert, MBatch, MCertificate, MCompany, MEnvelope, MHolder, MRequest, MRun, MSigner, MSubscription, MasterRows } from "./figures";
 
 /**
  * The rows behind the master dashboard (0244): /admin/master, Founders Doc admins only.
@@ -61,7 +61,7 @@ export async function loadMaster(now: Date = new Date()): Promise<Loaded> {
   type Company = Omit<MCompany, "simulation"> & { email_override: string | null };
   const requestsOf = () => db.from("sign_envelopes").select(ENVELOPE_COLUMNS);
 
-  const [recent, open, signedCertificates, companies, batches, holders, runs, certificates, slackAlerts, emailAlerts, requests] = await Promise.all([
+  const [recent, open, signedCertificates, companies, batches, holders, runs, certificates, slackAlerts, emailAlerts, requests, approvalEmails] = await Promise.all([
     read<MEnvelope>("signing requests", () => requestsOf().gte("created_at", since).order("id")),
     read<MEnvelope>("signing requests", () => requestsOf().eq("status", "sent").order("id")),
     /* ESOP certificates signed at any time: a vesting's certificates may have been signed before the 90 days */
@@ -74,6 +74,8 @@ export async function loadMaster(now: Date = new Date()): Promise<Loaded> {
     read<MAlert>("ESOP alerts", () => db.from("esop_alerts").select(ALERT_COLUMNS).order("company_id").order("ref")),
     read<MAlert>("ESOP alerts", () => db.from("esop_alert_log").select(ALERT_COLUMNS).order("company_id").order("ref").order("days_before")),
     read<MRequest>("ESOP change requests", () => db.from("esop_run_requests").select(REQUEST_COLUMNS).is("resolved_at", null).order("company_id").order("ref").order("created_at")),
+    /* when an approval email was made for a vesting (the button or the daily alert): shown as "sent 2 days ago" */
+    read<MApprovalEmail>("ESOP approval emails", () => db.from("esop_approval_links").select(APPROVAL_EMAIL_COLUMNS).gte("created_at", since).order("company_id").order("ref").order("created_at")),
   ]);
 
   const byId = new Map<string, MEnvelope>();
@@ -86,6 +88,10 @@ export async function loadMaster(now: Date = new Date()): Promise<Loaded> {
   const chunks = <T>(list: T[], n = 150) => Array.from({ length: Math.ceil(list.length / n) }, (_, i) => list.slice(i * n, (i + 1) * n));
   const signers: MSigner[] = [];
   for (const ids of chunks(openIds)) signers.push(...(await read<MSigner>("signers", () => db.from("sign_signers").select(SIGNER_COLUMNS).in("envelope_id", ids).order("envelope_id").order("position"))));
+  /* reminders already sent on Founders Doc's own open requests, so two admins don't both chase the same signer */
+  const ours = envelopes.filter((e) => e.status === "sent" && !e.owner_email).map((e) => e.id);
+  const reminders: MReminder[] = [];
+  for (const ids of chunks(ours)) reminders.push(...(await read<MReminder>("reminders", () => db.from("sign_events").select(REMINDER_COLUMNS).eq("event", "reminded").in("envelope_id", ids).order("envelope_id").order("at").order("id"))));
   const subscriptions: MSubscription[] = [];
   for (const ids of chunks(owners))
     subscriptions.push(...(await read<MSubscription>("plans", () => db.from("subscriptions").select(SUBSCRIPTION_COLUMNS).in("user_id", ids).in("status", ["trialing", "active", "past_due"]).order("id"))));
@@ -102,6 +108,8 @@ export async function loadMaster(now: Date = new Date()): Promise<Loaded> {
       alerts: [...slackAlerts, ...emailAlerts],
       requests,
       subscriptions,
+      reminders,
+      approvalEmails,
     },
     problems,
   };

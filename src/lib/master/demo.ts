@@ -18,6 +18,7 @@ export function demoRows(now: Date = new Date()): MasterRows {
       { id: "c2", slug: "example-consulting", name: "Example Consulting Pte. Ltd.", plan: "free", self_serve: true, simulation: false },
       { id: "c3", slug: "northwind-labs", name: "Northwind Labs Pte. Ltd.", plan: "free", self_serve: true, simulation: false },
       { id: "c4", slug: "rehearsal-co", name: "Rehearsal Co Pte. Ltd.", plan: "premium", self_serve: false, simulation: true },
+      { id: "c5", slug: "harbour-works", name: "Harbour Works Pte. Ltd.", plan: "premium", self_serve: false, simulation: false },
     ],
     batches: [
       { company_id: "c1", batch: 7, vesting_start: start(-6), tranches: 4 },
@@ -25,18 +26,22 @@ export function demoRows(now: Date = new Date()): MasterRows {
       { company_id: "c2", batch: 1, vesting_start: start(-2), tranches: 4 },
       { company_id: "c3", batch: 1, vesting_start: start(96), tranches: 3 },
       { company_id: "c4", batch: 2, vesting_start: start(11), tranches: 4 },
+      { company_id: "c5", batch: 3, vesting_start: start(4), tranches: 4 },
     ],
     holders: [],
     runs: [
       { company_id: "c1", ref: "B7-T1", approved_at: ago(9), sent_at: ago(9), paid_at: ago(7), simulation: false },
       { company_id: "c2", ref: "B1-T1", approved_at: ago(3), sent_at: ago(3), paid_at: null, simulation: false },
       { company_id: "c4", ref: "B2-T1", approved_at: ago(1), sent_at: ago(1), paid_at: ago(1), simulation: true },
+      /* approved, payment not in yet: "Mark as paid" */
+      { company_id: "c5", ref: "B3-T1", approved_at: ago(1), sent_at: ago(1), paid_at: null, simulation: false },
     ],
     certificates: [{ holder_id: "c2-b1-0", tranche: 1 }],
     alerts: [
       { company_id: "c1", ref: "B7-T1" },
       { company_id: "c1", ref: "B8-T2" },
       { company_id: "c2", ref: "B1-T1" },
+      { company_id: "c5", ref: "B3-T1" },
     ],
     requests: [],
     subscriptions: [
@@ -46,6 +51,8 @@ export function demoRows(now: Date = new Date()): MasterRows {
     ],
     envelopes: [],
     signers: [],
+    reminders: [],
+    approvalEmails: [{ company_id: "c1", ref: "B8-T2", created_at: ago(2, 3) }],
   };
   const people = (company: string, batch: number, active: number, leavers = 0) => {
     for (let i = 0; i < active; i++) rows.holders.push({ id: `${company}-b${batch}-${i}`, company_id: company, batch, status: "Active" });
@@ -56,6 +63,7 @@ export function demoRows(now: Date = new Date()): MasterRows {
   people("c2", 1, 3);
   people("c3", 1, 4);
   people("c4", 2, 5);
+  people("c5", 3, 4);
 
   let n = 0;
   const request = (more: Partial<MEnvelope>, signers: Array<Partial<MSigner>> = []): MEnvelope => {

@@ -7,6 +7,7 @@ import { getUser, isAdmin } from "@/lib/supabase/server";
 import { demoRows } from "@/lib/master/demo";
 import { LATE_DAYS, OPEN_DAYS, SOON_DAYS, STALLED_DAYS, hoursText, master, stageText, steps, type Action, type EsopRow, type Master } from "@/lib/master/figures";
 import { loadMaster } from "@/lib/master/load";
+import Act from "./Act";
 import "../dashboard.css";
 import "../admin.css";
 import "./master.css";
@@ -14,8 +15,10 @@ import "./master.css";
 /**
  * /admin/master (0244): FD Sign and every ESOP dashboard on one page, for Founders Doc admins.
  *
- * Read-only. It shows where things stand and links to the page where each is acted on; nothing
- * is approved, paid, reminded or changed from here.
+ * It shows where things stand and links to the page where each is acted on. Three things can be
+ * done from the page itself (0250, Act.tsx): remind the signer of one of Founders Doc's own
+ * requests, send the approval email for a coming vesting, and mark a vesting as paid. Each asks
+ * once first, and each route checks the admin again. Nothing else is changed from here.
  *
  * WHO SEES IT. Founders Doc admins only (is_admin(), the same check as /admin): everyone else is
  * sent away before a single row is read. Without Supabase (the local preview) it shows sample
@@ -73,7 +76,7 @@ export default async function MasterPage() {
         <section className="hero">
           <div>
             <h1>FD Sign and ESOP</h1>
-            <p>Everything in one place, to look at. As at {SGT.format(new Date(m.at))}, Singapore time.</p>
+            <p>Everything in one place, to look at and to act on. As at {SGT.format(new Date(m.at))}, Singapore time.</p>
           </div>
           <div className="hero-actions">
             <Link className="btn" href="/admin">
@@ -99,7 +102,7 @@ export default async function MasterPage() {
               <h2>Needs action</h2>
               <p>
                 {m.actions.length === 0 ? "Nothing is waiting on anyone." : `${num(m.actions.length)} to look at${urgent ? `, ${num(urgent)} late or urgent` : ""}.`} Vestings in the next {SOON_DAYS} days, and signers waiting more than{" "}
-                {STALLED_DAYS} days.
+                {STALLED_DAYS} days. Where a button is shown, it can be done from here.
               </p>
             </div>
           </div>
@@ -121,6 +124,7 @@ export default async function MasterPage() {
                   </span>
                   <span className="ms-action-end">
                     <span className={a.tone === "err" ? "badge red" : "badge gray"}>{KIND_TEXT[a.kind]}</span>
+                    {a.act && <Act act={a.act} preview={preview} />}
                     {a.href ? (
                       <Link className="btn" href={a.href}>
                         Open
@@ -285,7 +289,7 @@ export default async function MasterPage() {
 
         <p className="ms-foot">
           A vesting is listed under Needs action from {SOON_DAYS} days before it until it is finished: for {LATE_DAYS} days after its date if it was never approved, and {OPEN_DAYS} days if it was. People&apos;s own signing requests are shown by the sender&apos;s account
-          only; their titles, files and signers are not read for this page.
+          only; their titles, files and signers are not read for this page, and only the sender can remind their signers. A reminder goes out at most once an hour.
         </p>
       </div>
     </main>

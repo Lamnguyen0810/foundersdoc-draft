@@ -18,6 +18,14 @@ import { isQuietAccount } from "@/lib/quiet";
  *   2. Test activity is kept apart from real activity: the team's own test accounts
  *      (lib/quiet.ts) and ESOP simulations (a company with a simulation inbox, or a vesting
  *      approved in simulation). It is counted, in its own line, and never mixed in.
+ *
+ * WHAT CAN BE DONE FROM THE PAGE (0250). Three things, each decided here so the page and the
+ * tests agree (Action.act):
+ *   - remind the signer of one of Founders Doc's OWN requests who has waited more than 2 days.
+ *     Never for a person's own request: that stays theirs to chase;
+ *   - send the approval email for a coming vesting of a company Founders Doc runs;
+ *   - mark an approved vesting of such a company as paid.
+ * Everything else is still done on the page the row links to.
  */
 
 /* ── the rows ──────────────────────────────────────────────────────────────── */
@@ -91,6 +99,17 @@ export interface MSubscription {
   user_id: string;
   tier: string;
 }
+/** A reminder emailed to the signer of one of Founders Doc's open requests (when, never to whom). */
+export interface MReminder {
+  envelope_id: string;
+  at: string;
+}
+/** An approval email made for a vesting (by the dashboard's button or the daily alert): when, never to whom. */
+export interface MApprovalEmail {
+  company_id: string;
+  ref: string;
+  created_at: string;
+}
 
 export interface MasterRows {
   envelopes: MEnvelope[];
@@ -103,11 +122,21 @@ export interface MasterRows {
   alerts: MAlert[];
   requests: MRequest[];
   subscriptions: MSubscription[];
+  reminders: MReminder[];
+  approvalEmails: MApprovalEmail[];
 }
 
 /* ── the figures ───────────────────────────────────────────────────────────── */
 
 export type ActionKind = "stalled" | "request" | "unapproved" | "unpaid" | "unsigned";
+/** What the page can do about a line, there and then (0250). */
+export type ActionDo =
+  /** email the signer of Founders Doc's own request(s) again */
+  | { type: "remind"; envelopes: string[] }
+  /** email the company's approver the approval email; `again` = one was already sent */
+  | { type: "approval-email"; company: string; ref: string; again: boolean; simulation: boolean }
+  /** mark the vesting as paid */
+  | { type: "paid"; company: string; ref: string };
 export interface Action {
   kind: ActionKind;
   /** "err" = late or needs someone today; "warn" = coming up */
@@ -116,6 +145,8 @@ export interface Action {
   detail: string;
   /** where to act; none for people's own requests, which stay theirs */
   href: string | null;
+  /** what can be done from the page itself; null = open the page it links to */
+  act: ActionDo | null;
 }
 
 export interface SignWindow {
@@ -157,6 +188,8 @@ export interface VestingStatus {
   signed: number;
   done: boolean;
   request: "modify" | "cancel" | null;
+  /** when the latest approval email for it was made; null = none yet */
+  approvalEmailAt: string | null;
 }
 export interface EsopRow {
   slug: string;
@@ -207,6 +240,13 @@ export function singaporeMidnight(now: Date): number {
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 const when = (daysLeft: number) => (daysLeft === 0 ? "today" : daysLeft > 0 ? `in ${plural(daysLeft, "day")}` : `${plural(-daysLeft, "day")} ago`);
 const refOf = (batch: number, tranche: number) => `B${batch}-T${tranche}`;
+/** "less than an hour ago", "5 hours ago", "3 days ago": how long since something was sent. */
+export function agoText(iso: string, now: Date): string {
+  const ms = now.getTime() - Date.parse(iso);
+  if (!(ms >= HOUR)) return "less than an hour ago";
+  if (ms < DAY) return `${plural(Math.floor(ms / HOUR), "hour")} ago`;
+  return `${plural(Math.floor(ms / DAY), "day")} ago`;
+}
 
 /* ── ESOP ──────────────────────────────────────────────────────────────────── */
 
@@ -217,6 +257,8 @@ export function vestings(c: MCompany, rows: MasterRows, now: Date): VestingStatu
   const runs = new Map(rows.runs.filter((r) => r.company_id === c.id).map((r) => [r.ref, r]));
   const alerted = new Set(rows.alerts.filter((a) => a.company_id === c.id).map((a) => a.ref));
   const requests = new Map(rows.requests.filter((r) => r.company_id === c.id).map((r) => [r.ref, r.kind]));
+  const emailed = new Map<string, string>();
+  for (const a of rows.approvalEmails) if (a.company_id === c.id && a.created_at > (emailed.get(a.ref) ?? "")) emailed.set(a.ref, a.created_at);
   /* a holder's certificate for a tranche is in hand once FD Sign has it fully signed, or it is on their record */
   const have = new Set<string>();
   for (const e of rows.envelopes) if (e.status === "completed" && e.esop_holder_id && e.esop_tranche) have.add(`${e.esop_holder_id}|${e.esop_tranche}`);
@@ -251,6 +293,7 @@ export function vestings(c: MCompany, rows: MasterRows, now: Date): VestingStatu
            so a vesting from before the Paid step existed is not held open by it) */
         done: approved && active.length > 0 && signed >= active.length,
         request: requests.get(ref) ?? null,
+        approvalEmailAt: emailed.get(ref) ?? null,
       });
     }
   }
@@ -305,7 +348,7 @@ export function steps(v: VestingStatus, managed: boolean): Array<[string, boolea
   return out;
 }
 
-function esopActions(row: EsopRow, all: VestingStatus[]): Action[] {
+function esopActions(row: EsopRow, all: VestingStatus[], now: Date): Action[] {
   const out: Action[] = [];
   const href = `/esop/${row.slug}`;
   const sim = row.simulation ? " · simulation is on" : "";
@@ -315,7 +358,7 @@ function esopActions(row: EsopRow, all: VestingStatus[]): Action[] {
     const vests = `vests ${fmtDay(v.date)} (${when(v.daysLeft)})`;
     if (v.request === "cancel") continue;
     if (v.request === "modify") {
-      out.push({ kind: "request", tone: "err", title: `${head}: the approver asked for a change`, detail: `${plural(v.certificates, "certificate")} · ${vests}${sim}`, href });
+      out.push({ kind: "request", tone: "err", title: `${head}: the approver asked for a change`, detail: `${plural(v.certificates, "certificate")} · ${vests}${sim}`, href, act: null });
       continue;
     }
     if (!v.approved) {
@@ -324,11 +367,14 @@ function esopActions(row: EsopRow, all: VestingStatus[]): Action[] {
         kind: "unapproved",
         tone: v.daysLeft <= 3 ? "err" : "warn",
         title: `${head}: not approved yet`,
-        detail: `${plural(v.certificates, "certificate")} · ${vests}${v.rehearsed ? " · rehearsed in simulation only" : ""}${sim}`,
+        detail: `${plural(v.certificates, "certificate")} · ${vests}${v.rehearsed ? " · rehearsed in simulation only" : ""}${v.approvalEmailAt ? ` · approval email sent ${agoText(v.approvalEmailAt, now)}` : ""}${sim}`,
         href,
+        /* only where Founders Doc runs the dashboard (a self-serve company chases its own approver), and not
+           for a vesting rehearsed in simulation: that one has to be reset on its dashboard first */
+        act: row.managed && !v.rehearsed ? { type: "approval-email", company: row.slug, ref: v.ref, again: !!v.approvalEmailAt, simulation: row.simulation } : null,
       });
     } else if (row.managed && !v.paid) {
-      out.push({ kind: "unpaid", tone: v.daysLeft < 0 ? "err" : "warn", title: `${head}: approved, not paid`, detail: `${plural(v.certificates, "certificate")} wait for the payment · ${vests}${sim}`, href });
+      out.push({ kind: "unpaid", tone: v.daysLeft < 0 ? "err" : "warn", title: `${head}: approved, not paid`, detail: `${plural(v.certificates, "certificate")} wait for the payment · ${vests}${sim}`, href, act: { type: "paid", company: row.slug, ref: v.ref } });
     } else if (v.signed < v.certificates) {
       const left = v.certificates - v.signed;
       out.push({
@@ -337,6 +383,7 @@ function esopActions(row: EsopRow, all: VestingStatus[]): Action[] {
         title: `${head}: ${plural(left, "certificate")} still to ${row.managed ? "sign" : "file"}`,
         detail: `${v.signed} of ${v.certificates} ${row.managed ? "signed" : "on file"} · ${vests}${sim}`,
         href,
+        act: null,
       });
     }
   }
@@ -389,11 +436,13 @@ function waiting(rows: MasterRows, now: Date): Waiting[] {
   return out.sort((a, b) => b.days - a.days);
 }
 
-function signActions(list: Waiting[], rows: MasterRows): Action[] {
+function signActions(list: Waiting[], rows: MasterRows, now: Date): Action[] {
+  const reminded = new Map<string, string>();
+  for (const r of rows.reminders) if (r.at > (reminded.get(r.envelope_id) ?? "")) reminded.set(r.envelope_id, r.at);
   const holder = new Map(rows.holders.map((h) => [h.id, h]));
   const company = new Map(rows.companies.map((c) => [c.id, c]));
   /* certificates of one vesting waiting on the same signer are one line, not one each */
-  const groups = new Map<string, { title: string; href: string | null; items: Waiting[] }>();
+  const groups = new Map<string, { title: string; href: string | null; ours: boolean; items: Waiting[] }>();
   for (const w of list) {
     const e = w.envelope;
     const place = w.of > 1 ? `signer ${w.position} of ${w.of}` : "the signer";
@@ -415,7 +464,7 @@ function signActions(list: Waiting[], rows: MasterRows): Action[] {
         href = `/fd-sign/d/${e.id}`;
       }
     }
-    const g = groups.get(key) ?? { title, href, items: [] };
+    const g = groups.get(key) ?? { title, href, ours: !e.owner_email, items: [] };
     g.items.push(w);
     groups.set(key, g);
   }
@@ -423,7 +472,16 @@ function signActions(list: Waiting[], rows: MasterRows): Action[] {
     const days = Math.max(...g.items.map((i) => i.days));
     const opened = g.items.filter((i) => i.opened).length;
     const state = g.items.length === 1 ? (opened ? "opened, not signed" : "not opened") : `${plural(g.items.length, "document")} waiting, ${opened} opened`;
-    return { kind: "stalled" as const, tone: days >= 7 ? ("err" as const) : ("warn" as const), title: g.title, detail: `${state} · ${plural(days, "day")}`, href: g.href };
+    const last = g.items.map((i) => reminded.get(i.envelope.id) ?? "").sort().pop();
+    return {
+      kind: "stalled" as const,
+      tone: days >= 7 ? ("err" as const) : ("warn" as const),
+      title: g.title,
+      detail: `${state} · ${plural(days, "day")}${last ? ` · reminded ${agoText(last, now)}` : ""}`,
+      href: g.href,
+      /* Founders Doc's own requests only: a person's own request is theirs to chase */
+      act: g.ours ? { type: "remind" as const, envelopes: g.items.map((i) => i.envelope.id) } : null,
+    };
   });
 }
 
@@ -491,7 +549,7 @@ export function master(rows: MasterRows, now: Date = new Date()): Master {
     const all = vestings(c, rows, now);
     return { row: esopRow(c, rows, now, all), all };
   });
-  const actions = [...companies.flatMap((c) => esopActions(c.row, c.all)), ...signActions(realStalled, rows)].sort((a, b) => TONE[a.tone] - TONE[b.tone] || KIND[a.kind] - KIND[b.kind]);
+  const actions = [...companies.flatMap((c) => esopActions(c.row, c.all, now)), ...signActions(realStalled, rows, now)].sort((a, b) => TONE[a.tone] - TONE[b.tone] || KIND[a.kind] - KIND[b.kind]);
   const month = now.getTime() - 30 * DAY;
   const testRows = rows.envelopes.filter((e) => test.has(e.id));
   return {
