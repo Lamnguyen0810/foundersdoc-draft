@@ -51,6 +51,8 @@ const PUBLIC_PATHS = [
   // The daily website scan, called by Vercel Cron with CRON_SECRET (no
   // session); the route refuses anyone without it (app/api/seo-scan/cron).
   "/api/seo-scan/cron",
+  // 0248: the daily read of Search Console for Admin → SEO's region figures, Vercel Cron with CRON_SECRET (app/api/seo/regions/cron).
+  "/api/seo/regions/cron",
   // The daily ESOP vesting alerts (123), also Vercel Cron with CRON_SECRET (app/api/esop/alerts/cron).
   "/api/esop/alerts/cron",
   // 0221: the daily "waiting more than 2 days" FD Sign summary, Vercel Cron with CRON_SECRET (app/api/fd-sign/stalled).

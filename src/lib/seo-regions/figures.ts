@@ -66,6 +66,26 @@ export const countryKey = (name: string) => {
   return ALIASES[k] ?? k;
 };
 
+/** Search Console's own reading (0248) names a country by its three-letter code ("sgp"). The ones we group by get
+ *  their name; any other keeps its code, in capitals, and falls under "Everywhere else". */
+const CODES: Record<string, string> = {
+  sgp: "Singapore",
+  vnm: "Vietnam",
+  mys: "Malaysia",
+  idn: "Indonesia",
+  tha: "Thailand",
+  phl: "Philippines",
+  hkg: "Hong Kong",
+  gbr: "United Kingdom",
+  usa: "United States",
+  aus: "Australia",
+  ind: "India",
+};
+export const countryName = (code: string) => {
+  const k = code.trim().toLowerCase();
+  return CODES[k] ?? k.toUpperCase();
+};
+
 /** The searches we follow: the same list as the daily check. */
 export const PHRASES: { phrase: string; brand?: boolean }[] = [
   { phrase: "draft NDA online" },
@@ -181,6 +201,58 @@ export function phraseTable(upload: RegionUpload): PhraseRow[] {
   });
 }
 
+/** The searches people actually used when they saw us, busiest first: what the followed list should be drawn from. */
+export function topSearches(upload: RegionUpload, most = 20): QueryRow[] {
+  return [...upload.queries].sort((a, b) => b.impressions - a.impressions || b.clicks - a.clicks).slice(0, most);
+}
+
+/* ── saying it plainly (the redone tables) ──────────────────────────────────────── */
+
+/** Which page of Google's results a position is on: 1 to 10 is page one, 11 to 20 page two, and so on. */
+export const pageOf = (position: number | null) => (position === null || position <= 0 ? null : Math.max(1, Math.ceil(position / 10)));
+
+/** How close a search is to being seen: on page one, nearly there (page two), or further back. */
+export type Band = "one" | "near" | "far";
+export const bandOf = (position: number | null): Band | null => {
+  const page = pageOf(position);
+  return page === null ? null : page === 1 ? "one" : page === 2 ? "near" : "far";
+};
+
+/** A search for us by name, not for a document: kept apart, because it says nothing about new visitors. */
+export const isBrand = (query: string) => /\bfounders?\s*docs?\b|foundersdoc|\bfd\s*(ai|sign)\b/i.test(query);
+
+export interface Totals {
+  impressions: number;
+  clicks: number;
+  regionsShowing: number;
+  regions: number;
+  /** searches (not ours by name) sitting on page one, and on page two */
+  pageOne: number;
+  nearly: number;
+}
+export function totals(upload: RegionUpload): Totals {
+  const regions = regionTable(upload);
+  const real = upload.queries.filter((q) => q.impressions > 0 && !isBrand(q.query));
+  return {
+    impressions: upload.countries.reduce((n, c) => n + c.impressions, 0),
+    clicks: upload.countries.reduce((n, c) => n + c.clicks, 0),
+    regionsShowing: regions.filter((r) => r.showing).length,
+    regions: regions.length,
+    pageOne: real.filter((q) => bandOf(q.position) === "one").length,
+    nearly: real.filter((q) => bandOf(q.position) === "near").length,
+  };
+}
+
+/** The real searches in three groups, busiest first in each: on page one, nearly there, further back. */
+export function searchBands(upload: RegionUpload): Record<Band, QueryRow[]> {
+  const out: Record<Band, QueryRow[]> = { one: [], near: [], far: [] };
+  for (const q of topSearches(upload, upload.queries.length)) {
+    const band = q.impressions > 0 ? bandOf(q.position) : null;
+    if (band) out[band].push(q);
+  }
+  return out;
+}
+
 /* ── reading the export ─────────────────────────────────────────────────────────── */
 
 /** A CSV file as rows of cells (quotes, commas inside quotes and doubled quotes handled). */
@@ -236,6 +308,25 @@ function table(text: string): Array<{ name: string; clicks: number; impressions:
 
 export class ExportError extends Error {}
 
+const MONTH: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+const ymd = (y: number, m: number, d: number) => (y > 2000 && m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}` : null);
+
+/** A day as an export writes it → "2026-11-18". Search Console writes the date in the style of the account's
+ *  language, so several are read: 2026-11-18, 18 Nov 2026, Nov 18, 2026, 18/11/2026 and 11/18/2026 (a
+ *  number over 12 says which is the day; when both could be the month, day first, as in Singapore and the UK). */
+export function isoDay(v: string): string | null {
+  const s = v.trim();
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+  if (m) return ymd(+m[1], +m[2], +m[3]);
+  m = /^(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\.?,?\s+(\d{4})$/.exec(s);
+  if (m && MONTH[m[2].toLowerCase()]) return ymd(+m[3], MONTH[m[2].toLowerCase()], +m[1]);
+  m = /^([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(s);
+  if (m && MONTH[m[1].toLowerCase()]) return ymd(+m[3], MONTH[m[1].toLowerCase()], +m[2]);
+  m = /^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/.exec(s);
+  if (m) return +m[1] > 12 ? ymd(+m[3], +m[2], +m[1]) : +m[2] > 12 ? ymd(+m[3], +m[1], +m[2]) : ymd(+m[3], +m[2], +m[1]);
+  return null;
+}
+
 /**
  * The files of one export, by name (as unzipped, or dropped one by one) → what is stored.
  * Needs Countries.csv or Queries.csv; the period and the country filter are read when their files are there.
@@ -248,8 +339,8 @@ export function readExport(files: Record<string, string>): RegionUpload {
     throw new ExportError("This doesn't look like a Search Console export. In Search Console open Performance, press Export, choose Download CSV, and drop the zip file here.");
   const days = csvRows(find("dates") ?? "")
     .slice(1)
-    .map((r) => (r[0] ?? "").trim())
-    .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    .map((r) => isoDay((r[0] ?? "").trim()))
+    .filter((d): d is string => !!d)
     .sort();
   const filter = csvRows(find("filters") ?? "").find((r) => (r[0] ?? "").trim().toLowerCase() === "country");
   return {

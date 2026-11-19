@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { createClient, getUser, isAdmin } from "@/lib/supabase/server";
 import type { CountryRow, QueryRow, RegionUpload } from "@/lib/seo-regions/figures";
+import { gscConfigured } from "@/lib/seo-regions/gsc";
 
 /**
  * /api/seo/regions (0247): the Search Console exports uploaded on Admin → SEO.
@@ -43,15 +44,16 @@ async function admin(): Promise<{ email: string } | null> {
 
 export async function GET() {
   if (!(await admin())) return NextResponse.json({ error: "Not found." }, { status: 404 });
-  if (!isSupabaseConfigured()) return NextResponse.json({ ready: true, preview: true, uploads: preview.__seoRegions ?? [] });
+  if (!isSupabaseConfigured()) return NextResponse.json({ ready: true, preview: true, auto: gscConfigured(), uploads: preview.__seoRegions ?? [] });
   const supabase = await createClient();
-  const { data, error } = await supabase.from("seo_region_uploads").select(COLUMNS).order("uploaded_at", { ascending: false }).limit(24);
+  const { data, error } = await supabase.from("seo_region_uploads").select(COLUMNS).order("uploaded_at", { ascending: false }).limit(60);
   if (error) {
-    if (/seo_region_uploads|does not exist|schema cache/i.test(error.message)) return NextResponse.json({ ready: false, uploads: [] });
+    if (/seo_region_uploads|does not exist|schema cache/i.test(error.message)) return NextResponse.json({ ready: false, auto: gscConfigured(), uploads: [] });
     console.error("[seo regions] read failed:", error.message);
     return NextResponse.json({ error: "Could not read the uploads." }, { status: 500 });
   }
-  return NextResponse.json({ ready: true, uploads: data ?? [] });
+  /* auto = the key that lets the site read Search Console each morning is in Vercel (0248) */
+  return NextResponse.json({ ready: true, auto: gscConfigured(), uploads: data ?? [] });
 }
 
 export async function POST(req: NextRequest) {
