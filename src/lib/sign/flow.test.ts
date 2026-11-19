@@ -4,13 +4,14 @@ import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { signStore, type SignField, type SignStore } from "./store";
-import { LINK_DAYS, SignError, createSend, hashToken, isTokenShape, reissueLink, remind, signedPdf, submitSignature, tokenCanSee, viewForToken, voidEnvelope, type DocInput } from "./service";
+import { LINK_DAYS, SignError, createSend, hashToken, isTokenShape, reissueLink, remind, remindOurs, signedPdf, submitSignature, tokenCanSee, viewForToken, voidEnvelope, type DocInput } from "./service";
 import { codeRequired, isVerified, sendCode, verifyCode, CODE_COOKIE } from "./code";
 import { pageCount, sha256 } from "./pdf";
 import { POST as codeRoute } from "@/app/api/sign/code/route";
 import { POST as verifyRoute } from "@/app/api/sign/verify/route";
 import { POST as submitRoute } from "@/app/api/sign/submit/route";
 import { GET as fileRoute } from "@/app/api/sign/file/route";
+import { POST as remindRoute } from "@/app/api/sign/remind/route";
 
 /**
  * FD Sign, end to end (0243): send → open → code → sign → signed copy, and the rules in between.
@@ -301,6 +302,95 @@ test("reminders: the sender only, a fresh link, and at most one an hour", async 
   await assert.rejects(remind(s, OWNER.id, id, ORIGIN, WHO), fails(429, /less than an hour ago/));
   t.mock.timers.setTime(start + 61 * 60_000);
   assert.ok(await remind(s, OWNER.id, id, ORIGIN, WHO));
+});
+
+/* ── the master dashboard's "Remind" (0250): Founders Doc's own requests only ── */
+
+const TWO_DAYS = 2 * DAY;
+/** Make it look as if the person whose turn it is was invited this long ago. */
+async function waited(s: SignStore, envelopeId: string, ms: number): Promise<void> {
+  const now = (await s.signers(envelopeId)).find((x) => x.status === "invited")!;
+  await s.updateSigner(now.id, { invited_at: new Date(Date.now() - ms).toISOString() });
+}
+const reminders = async (s: SignStore, id: string) => (await s.events(id)).filter((e) => e.event === "reminded").length;
+
+test("Founders Doc reminder: its own request after 2 days, a fresh link, at most one an hour", async (t) => {
+  const s = store();
+  const { envelopeIds, links } = await send(s, [await doc()], { own: false });
+  const id = envelopeIds[0];
+  const old = tokenOf(links[0].link);
+
+  /* invited a moment ago: too early, nothing happens and the link still works */
+  assert.deepEqual(await remindOurs(s, [id], ORIGIN, WHO, TWO_DAYS), { people: 0, documents: 0, emailed: 0, skipped: { recent: 0, early: 1, expired: 0, closed: 0 } });
+  assert.ok(await viewForToken(s, old, null));
+
+  await waited(s, id, 3 * DAY);
+  const start = Date.now();
+  t.mock.timers.enable({ apis: ["Date"], now: start });
+  const r = await remindOurs(s, [id], ORIGIN, WHO, TWO_DAYS);
+  assert.deepEqual([r.people, r.documents], [1, 1]);
+  assert.equal(r.emailed, 0, "emails are switched off in tests, so none can have left");
+  assert.equal(await viewForToken(s, old, null), null, "the old link stops working");
+  assert.equal(await reminders(s, id), 1);
+  const after = (await s.signers(id)).find((x) => x.status === "invited")!;
+  assert.ok(Date.now() - Date.parse(after.invited_at!) >= 3 * DAY - 1000, "the wait is still counted from the first invitation");
+
+  assert.equal((await remindOurs(s, [id], ORIGIN, WHO, TWO_DAYS)).skipped.recent, 1);
+  assert.equal(await reminders(s, id), 1, "no second reminder inside the hour");
+  t.mock.timers.setTime(start + 61 * 60_000);
+  assert.equal((await remindOurs(s, [id], ORIGIN, WHO, TWO_DAYS)).people, 1);
+  assert.equal(network.length, 0);
+});
+
+test("Founders Doc reminder: a person's own request is refused, and then nothing in the call is sent", async () => {
+  const s = store();
+  const ours = (await send(s, [await doc()], { own: false })).envelopeIds[0];
+  const theirs = (await send(s, [await doc()])).envelopeIds[0];
+  await waited(s, ours, 5 * DAY);
+  await waited(s, theirs, 5 * DAY);
+  await assert.rejects(remindOurs(s, [ours, theirs], ORIGIN, WHO, TWO_DAYS), fails(403, /belongs to the person who sent it/));
+  assert.deepEqual([await reminders(s, ours), await reminders(s, theirs)], [0, 0]);
+  await assert.rejects(remindOurs(s, ["99999999-9999-4999-8999-999999999999"], ORIGIN, WHO, TWO_DAYS), fails(404, /Not found/));
+});
+
+test("Founders Doc reminder: two documents waiting on the same person are one email; finished and cancelled ones are left", async () => {
+  const s = store();
+  const one = [JAMIE];
+  const fields = [box(1, "signature", 0.8)];
+  const batch = await send(s, [await doc({ title: "Certificate A", signers: one, fields }), await doc({ title: "Certificate B", signers: one, fields })], { own: false, batch: true });
+  assert.equal(batch.links.length, 1, "one link for both");
+  const cancelled = (await send(s, [await doc({ signers: one, fields })], { own: false })).envelopeIds[0];
+  await voidEnvelope(s, cancelled, WHO, "test");
+  for (const id of batch.envelopeIds) await waited(s, id, 4 * DAY);
+
+  const r = await remindOurs(s, [...batch.envelopeIds, cancelled], ORIGIN, WHO, TWO_DAYS);
+  assert.deepEqual(r, { people: 1, documents: 2, emailed: 0, skipped: { recent: 0, early: 0, expired: 0, closed: 1 } });
+  /* asking for one of the two still covers both, and they keep sharing one link */
+  const [a, b] = await Promise.all(batch.envelopeIds.map(async (id) => (await s.signers(id))[0]));
+  assert.equal(a.token_hash, b.token_hash);
+  assert.notEqual(a.token_hash, hashToken(tokenOf(batch.links[0].link)));
+});
+
+test("Founders Doc reminder: the route answers with counts only, and says plainly why nothing went", async () => {
+  const s = store();
+  const id = (await send(s, [await doc()], { own: false })).envelopeIds[0];
+  const theirs = (await send(s, [await doc()])).envelopeIds[0];
+  const call = async (body: unknown) => {
+    const res = await remindRoute(new NextRequest(`${ORIGIN}/api/sign/remind`, { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json" } }));
+    return { status: res.status, body: (await res.json()) as Record<string, unknown> };
+  };
+  assert.equal((await call({ envelopeIds: [] })).status, 400);
+  assert.equal((await call({ envelopeIds: ["not-an-id"] })).status, 400);
+  assert.deepEqual(await call({ envelopeIds: [id] }), { status: 409, body: { error: "They have waited less than 2 days." } });
+  await waited(s, id, 3 * DAY);
+  await waited(s, theirs, 3 * DAY);
+  assert.equal((await call({ envelopeIds: [theirs] })).status, 403);
+  const ok = await call({ envelopeIds: [id] });
+  assert.deepEqual(ok, { status: 200, body: { ok: true, people: 1, documents: 1, emailed: 0 } });
+  const said = JSON.stringify(ok.body).toLowerCase();
+  for (const secret of ["alex", "jamie", "example.com", "/sign/", TITLE.toLowerCase()]) assert.ok(!said.includes(secret), `the answer carries "${secret}"`);
+  assert.deepEqual(await call({ envelopeIds: [id] }), { status: 409, body: { error: "A reminder went out less than an hour ago." } });
+  assert.equal(network.length, 0, "nothing left the machine");
 });
 
 test("privacy: Slack lines about someone's own request never carry the title, the file, or a signer's name or email", async () => {

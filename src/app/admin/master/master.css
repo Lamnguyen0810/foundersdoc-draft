@@ -13,6 +13,15 @@
 .fdmaster .ms-action-end { display: flex; align-items: center; gap: 8px; }
 .fdmaster .ms-action .btn { height: 34px; padding: 0 12px; }
 .fdmaster .ms-private { font-size: 11px; color: var(--muted); padding: 0 6px; }
+/* 0250: what can be done from the row. The question and the answer sit in the row itself, no pop-up. */
+.fdmaster .ms-action-end .btn, .fdmaster .ms-action-end .badge { flex: none; white-space: nowrap; }
+.fdmaster .ms-ask { display: flex; align-items: center; gap: 8px; }
+.fdmaster .ms-ask-text { width: 300px; font-size: 12px; line-height: 1.45; color: var(--ink); text-align: right; }
+.fdmaster .ms-said { font-size: 12px; line-height: 1.45; max-width: 300px; text-align: right; }
+.fdmaster .ms-said.ok { color: var(--success); font-weight: 700; }
+.fdmaster .ms-said.bad { color: var(--danger); font-weight: 700; }
+.fdmaster .ms-undo { margin-left: 8px; padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.fdmaster .ms-action .btn:disabled { opacity: 0.6; cursor: default; }
 
 /* ESOP: where a vesting stands */
 .fdmaster .ms-esop td { vertical-align: top; }
@@ -49,6 +58,9 @@
 }
 @media (max-width: 700px) {
   .fdmaster .ms-action { grid-template-columns: auto 1fr; }
-  .fdmaster .ms-action-end { grid-column: 2; justify-content: flex-start; }
+  .fdmaster .ms-action-end { grid-column: 2; justify-content: flex-start; flex-wrap: wrap; }
+  .fdmaster .ms-ask { flex-wrap: wrap; }
+  .fdmaster .ms-ask-text { width: 100%; }
+  .fdmaster .ms-ask-text, .fdmaster .ms-said { text-align: left; max-width: none; }
   .fdmaster .ms-title { flex-wrap: wrap; }
 }

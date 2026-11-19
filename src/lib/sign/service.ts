@@ -468,6 +468,80 @@ export async function remind(store: SignStore, ownerId: string, envelopeId: stri
   return invite(store, [now], [env.title], origin, env.message, who, "reminded");
 }
 
+/** What a round of Founders Doc reminders did (0250). Counts only: nobody is named. */
+export interface OursReminded {
+  /** people emailed again (one email covers every document waiting on the same person) */
+  people: number;
+  documents: number;
+  /** of "people": the emails that really left (0 when emails are switched off) */
+  emailed: number;
+  /** why the others were left alone */
+  skipped: { recent: number; early: number; expired: number; closed: number };
+}
+
+/**
+ * The master dashboard's "Remind" (0250), Founders Doc admins: email the person whose turn it is
+ * on Founders Doc's OWN requests again (ESOP certificates and the like).
+ *
+ * A person's own request is never reminded from here: it is theirs to chase (SQL 119), so one in
+ * the list refuses the whole call. Like the sender's own reminder: a fresh link (the old one stops
+ * working), the same 30 days, and at most one an hour. Only someone who has waited `minWaitMs`
+ * is reminded, so the rule on the page ("more than 2 days") is the server's rule too.
+ */
+export async function remindOurs(store: SignStore, envelopeIds: string[], origin: string, who: Who, minWaitMs: number): Promise<OursReminded> {
+  const out: OursReminded = { people: 0, documents: 0, emailed: 0, skipped: { recent: 0, early: 0, expired: 0, closed: 0 } };
+  const ids = [...new Set(envelopeIds)];
+  /* check every one first: nothing is sent if any of them is somebody's own */
+  const envs = new Map<string, Envelope>();
+  for (const id of ids) {
+    const env = await store.envelope(id);
+    if (!env) throw new SignError("Not found.", 404);
+    if (await store.ownerOf(id)) throw new SignError("That request belongs to the person who sent it. Only they can remind their signers.", 403);
+    envs.set(id, env);
+  }
+  const done = new Set<string>();
+  for (const id of ids) {
+    const env = envs.get(id)!;
+    const now = env.status === "sent" ? (await store.signers(id)).find((s) => s.status === "invited") : undefined;
+    if (!now) {
+      out.skipped.closed++;
+      continue;
+    }
+    if (done.has(now.id)) continue; /* already covered by the email for another of their documents */
+    if (isExpired(now)) {
+      out.skipped.expired++;
+      continue;
+    }
+    if (!now.invited_at || Date.now() - Date.parse(now.invited_at) < minWaitMs) {
+      out.skipped.early++;
+      continue;
+    }
+    const last = (await store.events(id)).filter((e) => e.event === "reminded" && e.signer_id === now.id).pop();
+    if (last && Date.now() - Date.parse(last.at) < 3_600_000) {
+      out.skipped.recent++;
+      continue;
+    }
+    /* the same person's other documents on the same link go in the same email, when they are ours and still open */
+    const rows: Signer[] = [now];
+    const titles: string[] = [env.title];
+    if (now.token_hash) {
+      for (const r of await store.signersByToken(now.token_hash)) {
+        if (r.id === now.id || r.status !== "invited" || done.has(r.id)) continue;
+        const other = envs.get(r.envelope_id) ?? (await store.envelope(r.envelope_id));
+        if (!other || other.status !== "sent" || (await store.ownerOf(r.envelope_id))) continue;
+        rows.push(r);
+        titles.push(other.title);
+      }
+    }
+    const sent = await invite(store, rows, titles, origin, env.message, who, "reminded");
+    for (const r of rows) done.add(r.id);
+    out.people++;
+    out.documents += rows.length;
+    if (sent.emailed) out.emailed++;
+  }
+  return out;
+}
+
 /**
  * "Sign now" in My documents, for a signed-in person whose turn it is.
  *   - my own request (I uploaded it): straight to a fresh signing page (the email code is still asked);
