@@ -9,19 +9,20 @@
  *   FD x HitPay ESOP: Your Options Have Vested | Vesting 1 Dec 2026
  *   FD x HitPay ESOP: Please Sign 3 Option Certificates | Vesting 1 Dec 2026
  *   FD x HitPay ESOP: Signed Option Certificate | Vesting 1 Dec 2026
+ *   FD x HitPay ESOP: Your Signing Code 123456 | Vesting 1 Dec 2026   (0258)
  *
  * No names in a subject (they are in the email), and the same words in a simulation and for real.
  * Pure, so it can be tested on its own.
  */
 
-export type EsopMail = "approval" | "payment" | "vested" | "sign" | "signed";
+export type EsopMail = "approval" | "payment" | "vested" | "sign" | "signed" | "code";
 
 const clean = (c?: string | null) => (c ?? "").replace(/\s*\(test\)\s*/i, "").trim();
 
 /** "FD x HitPay ESOP"; "Founders Doc ESOP" when the company's name is not known. */
 export const esopTag = (company?: string | null) => (clean(company) ? `FD x ${clean(company)} ESOP` : "Founders Doc ESOP");
 
-export function esopSubject(kind: EsopMail, p: { company?: string | null; vest_date_text: string; count?: number; reminder?: boolean }): string {
+export function esopSubject(kind: EsopMail, p: { company?: string | null; vest_date_text: string; count?: number; reminder?: boolean; code?: string }): string {
   const n = Math.max(1, Math.floor(p.count ?? 1));
   const what =
     kind === "approval"
@@ -34,7 +35,10 @@ export function esopSubject(kind: EsopMail, p: { company?: string | null; vest_d
             ? n === 1
               ? "Please Sign Your Option Certificate"
               : `Please Sign ${n} Option Certificates`
-            : "Signed Option Certificate";
+            : kind === "code"
+              ? /* the code stays in the subject, so it can be read off a phone's notification */
+                `Your Signing Code${p.code?.trim() ? ` ${p.code.trim()}` : ""}`
+              : "Signed Option Certificate";
   const when = (p.vest_date_text ?? "").trim();
   return `${kind === "sign" && p.reminder ? "Reminder: " : ""}${esopTag(p.company)}: ${what}${when && when !== "–" ? ` | Vesting ${when}` : ""}`;
 }

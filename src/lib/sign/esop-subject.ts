@@ -13,10 +13,11 @@ import type { Envelope } from "./store";
  *   FD x HitPay ESOP: Signed Option Certificate | Vesting 1 Dec 2026
  *
  * null = not an ESOP certificate (or the vesting cannot be read): the caller keeps FD Sign's own
- * subject. Every document in the email must be a certificate, else null. The code email keeps its
- * own subject, and so do people's own FD Sign requests.
+ * subject. Every document in the email must be a certificate, else null. People's own FD Sign
+ * requests keep their subjects. 0258: the code email of a certificate carries the line too
+ * ("… Your Signing Code 123456 | Vesting …"); any other code email stays "Your FD Sign code: 123456".
  */
-export async function certificateSubject(envelopes: Array<Envelope | null>, kind: "sign" | "signed", reminder = false): Promise<string | null> {
+export async function certificateSubject(envelopes: Array<Envelope | null>, kind: "sign" | "signed" | "code", reminder = false, code?: string): Promise<string | null> {
   const first = envelopes[0];
   if (!first || envelopes.some((e) => !e?.esop_holder_id || !e.esop_tranche)) return null;
   if (!isSupabaseConfigured() || !isAdminClientConfigured()) return null;
@@ -31,7 +32,7 @@ export async function certificateSubject(envelopes: Array<Envelope | null>, kind
     const company = (c.data as { name?: string | null } | null)?.name ?? null;
     const start = (b.data as { vesting_start?: string | null } | null)?.vesting_start ?? null;
     if (!company) return null;
-    return esopSubject(kind, { company, vest_date_text: start ? fmtDay(addYears(start, first.esop_tranche!)) : "", count: envelopes.length, reminder });
+    return esopSubject(kind, { company, vest_date_text: start ? fmtDay(addYears(start, first.esop_tranche!)) : "", count: envelopes.length, reminder, ...(code ? { code } : {}) });
   } catch {
     return null;
   }

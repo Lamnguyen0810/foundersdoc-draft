@@ -2,7 +2,8 @@ import "server-only";
 import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { hashToken, isTokenShape, SignError, type Who } from "./service";
 import { isHookConfigured, notify } from "./notify";
-import type { SignCode, SignStore, Signer } from "./store";
+import type { Envelope, SignCode, SignStore, Signer } from "./store";
+import { certificateSubject } from "./esop-subject";
 import { signerStep } from "./slack";
 import { phoneChannels, sendPhoneCode } from "./phone";
 import { CHANNEL_TEXT, maskPhone, type CodeChannel } from "./phone-format";
@@ -102,7 +103,12 @@ export async function sendCode(store: SignStore, token: string, origin: string, 
   });
   const me = open[0];
   const titles: string[] = [];
-  for (const r of open) titles.push((await store.envelope(r.envelope_id))?.title ?? "Document");
+  const envelopes: Array<Envelope | null> = [];
+  for (const r of open) {
+    const e = await store.envelope(r.envelope_id);
+    envelopes.push(e);
+    titles.push(e?.title ?? "Document");
+  }
   const t = await target(store, me, via);
   const log = (detail: string) => Promise.all(open.map((r) => store.addEvent({ envelope_id: r.envelope_id, signer_id: r.id, event: "code_sent", ip: who.ip, user_agent: who.ua, detail })));
   if (store.kind === "memory") {
@@ -117,7 +123,9 @@ export async function sendCode(store: SignStore, token: string, origin: string, 
     }
     fellBack = true; // WhatsApp / SMS didn't go: email it instead, so nobody is stuck
   }
-  const ok = await notify({ kind: "code", to: me.email, name: me.name, role: me.role, link: `${origin}/sign/${token}`, documents: titles, message: null, code });
+  /* 0258: for option certificates the code email carries the vesting's own subject line, with the code in it */
+  const subject = await certificateSubject(envelopes, "code", false, code);
+  const ok = await notify({ kind: "code", to: me.email, name: me.name, role: me.role, link: `${origin}/sign/${token}`, documents: titles, message: null, code, ...(subject ? { subject } : {}) });
   if (!ok) throw new SignError("We couldn't send the code just now. Please try again in a minute.", 502);
   await log(fellBack ? `${maskEmail(me.email)} by email (${CHANNEL_TEXT[t.channel]} didn't go through)` : maskEmail(me.email));
   return { to: maskEmail(me.email), channel: "email", ...(fellBack ? { fellBack } : {}) };

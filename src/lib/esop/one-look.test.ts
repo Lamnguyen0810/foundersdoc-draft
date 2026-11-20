@@ -182,6 +182,8 @@ test("every email of a vesting carries the same line: firm x client, what it is,
   assert.equal(esopSubject("sign", { ...v, count: 1 }), "FD x Sample Company ESOP: Please Sign Your Option Certificate | Vesting 1 Dec 2026");
   assert.equal(esopSubject("sign", { ...v, count: 1, reminder: true }), "Reminder: FD x Sample Company ESOP: Please Sign Your Option Certificate | Vesting 1 Dec 2026");
   assert.equal(esopSubject("signed", v), "FD x Sample Company ESOP: Signed Option Certificate | Vesting 1 Dec 2026");
+  assert.equal(esopSubject("code", { ...v, code: "123456" }), "FD x Sample Company ESOP: Your Signing Code 123456 | Vesting 1 Dec 2026");
+  assert.equal(esopSubject("code", v), "FD x Sample Company ESOP: Your Signing Code | Vesting 1 Dec 2026");
   assert.equal(esopSubject("payment", { ...v, count: 3, reminder: true }).startsWith("FD x "), true, "only a signing request is ever a reminder");
   /* the subject the approval email really uses is this one */
   const item: ApprovalItem = { ...base, holders, leavers: [], to_name: "Alex" };
@@ -190,14 +192,15 @@ test("every email of a vesting carries the same line: firm x client, what it is,
   assert.equal(esopTag("HitPay (TEST)"), "FD x HitPay ESOP");
   assert.equal(esopTag("  "), "Founders Doc ESOP");
   assert.equal(esopSubject("signed", { company: "Sample Company", vest_date_text: "" }), "FD x Sample Company ESOP: Signed Option Certificate");
-  for (const k of ["approval", "payment", "vested", "sign", "signed"] as const) assert.ok(!labelled(esopSubject(k, { ...v, count: 2 })));
+  for (const k of ["approval", "payment", "vested", "sign", "signed", "code"] as const) assert.ok(!labelled(esopSubject(k, { ...v, count: 2 })));
 });
 
 test("signing emails: certificates get the vesting's line, everything else keeps FD Sign's own subject", () => {
   const src = (f: string) => readFileSync(join(process.cwd(), "src/lib/sign", f), "utf8");
   const notify = src("notify.ts");
   assert.match(notify, /mail\.subject\?\.trim\(\) \|\|/, "a ready subject wins; without one the usual subject stands");
-  assert.match(notify, /subject: `Your FD Sign code: \$\{mail\.code\}`/, "the code email keeps its own subject");
+  assert.match(notify, /subject: mail\.subject\?\.trim\(\) \|\| `Your FD Sign code: \$\{mail\.code\}`/, "0258: a certificate's code email takes the vesting's line; any other code keeps its own subject");
+  assert.match(src("code.ts"), /certificateSubject\(envelopes, "code", false, code\)/);
   const lookup = src("esop-subject.ts");
   assert.match(lookup, /envelopes\.some\(\(e\) => !e\?\.esop_holder_id \|\| !e\.esop_tranche\)\) return null/, "only when every document is an option certificate");
   const service = src("service.ts");
