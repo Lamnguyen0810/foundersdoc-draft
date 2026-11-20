@@ -34,7 +34,7 @@ export async function sendHolderNotes(key: string, slug: string, ref: string, dr
   if (!holders.length) return { status: "no_holders" };
 
   const company = data?.company ?? slug;
-  const mail = holderNoteEmail({ company, slug });
+  const mail = holderNoteEmail({ company, slug, vest_date_text: item.vest_date_text });
   const ccOf = (to: string) => noteCc(to, item.contact_email, simulation);
   const shown = { ref: item.ref, simulation, to: holders.map((h) => maskEmail(h.email.trim())), cc: ccOf(holders[0].email).map(maskEmail) };
   if (dry) return { status: "dry", ...shown, sent: 0, failed: 0 };

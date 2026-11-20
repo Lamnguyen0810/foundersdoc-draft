@@ -12,6 +12,7 @@
  */
 
 import { ccEmails } from "./test-mode";
+import { esopSubject } from "./subjects";
 
 const ASSETS = "https://foundersdoc.com/email/hitpay-esop";
 const FONT = "Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
@@ -50,9 +51,9 @@ export function paymentCc(to: string, finance: string[], simulation: boolean): s
   return [...new Set(all)];
 }
 
+/** 0257: the same line as the approval email, so the whole vesting sits together in an inbox. */
 export function paymentSubject(it: PaymentItem): string {
-  const n = it.holders.length;
-  return `Upcoming ESOP vesting on ${it.vest_date_text}: ${n} option ${n === 1 ? "holder" : "holders"} · payment to issue certificates`;
+  return esopSubject("payment", { company: it.company, vest_date_text: it.vest_date_text, count: it.holders.length });
 }
 
 /** `copyFor`: a copy sent to the client's finance team (Settings → Finance copies). */
