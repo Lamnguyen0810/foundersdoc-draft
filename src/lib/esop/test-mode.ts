@@ -34,11 +34,15 @@ export function ccEmails(simulationTo: string | null | undefined): string {
 }
 
 /**
- * True CC (0254). ESOP_TRUE_CC=1 says the email Zap's CC field is mapped to the `cc` the website
- * sends, so copies go on the client's own email as a CC line. Until it is set they go as
- * separate "[Copy]" emails: a CC the Zap does not map would be dropped without anyone knowing.
+ * True CC (0254). The email Zap's CC field is mapped to the `cc` the website sends, so copies go on
+ * the client's own email as a CC line.
+ *
+ * 0257: this is now the rule, not a switch to turn on: the first real approval email (20 Nov 2026)
+ * went with separate "[Copy]" emails because the switch had not been set yet, and Rachel asked for
+ * a CC line from the start. ESOP_TRUE_CC=0 is the only way back to separate copies (for a day the
+ * Zap's CC field is not mapped).
  */
-export const trueCc = () => process.env.ESOP_TRUE_CC?.trim() === "1";
+export const trueCc = () => process.env.ESOP_TRUE_CC?.trim() !== "0";
 
 /** The fields every Zap payload carries. */
 export function testModeFields(simulationTo: string | null | undefined) {

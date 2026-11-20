@@ -4,6 +4,7 @@ import { buildSignedPdf, pageCount, sha256 } from "./pdf";
 import { autoFields } from "./place";
 import { signFonts } from "./certificate";
 import { notify } from "./notify";
+import { certificateSubject } from "./esop-subject";
 import { signerStep, slack, what } from "./slack";
 import type { Envelope, SignField, SignStore, Signer } from "./store";
 import { cleanText, signerSize } from "./fields";
@@ -81,8 +82,12 @@ async function invite(store: SignStore, rows: Signer[], titles: string[], origin
   const first = rows[0];
   const link = linkFor(origin, token);
   const sender = await senderOf(store, first.envelope_id);
+  /* 0257: option certificates carry the vesting's own subject line; anything else keeps FD Sign's */
+  const subject = reason !== "link" && !sender ? await certificateSubject(await Promise.all(rows.map((r) => store.envelope(r.envelope_id))), "sign", reason === "reminded") : null;
   const emailed =
-    reason !== "link" ? await notify({ kind: "invite", to: first.email, name: first.name, role: first.role, link, documents: titles, message, ...(sender ? { sender } : {}), ...(reason === "reminded" ? { reminder: true } : {}) }) : false;
+    reason !== "link"
+      ? await notify({ kind: "invite", to: first.email, name: first.name, role: first.role, link, documents: titles, message, ...(sender ? { sender } : {}), ...(reason === "reminded" ? { reminder: true } : {}), ...(subject ? { subject } : {}) })
+      : false;
   return { name: first.name, email: first.email, role: first.role, documents: titles, link, emailed };
 }
 
@@ -366,13 +371,16 @@ async function complete(store: SignStore, envelopeId: string, origin: string, wh
      one (only the hash of the old one was kept). */
   const all = await store.signers(envelopeId);
   const sender = await senderOf(store, envelopeId);
+  /* 0257: the signed copy of an option certificate carries the vesting's own subject line */
+  const signedSubject = sender ? null : await certificateSubject([env], "signed");
+  const titled = signedSubject ? { subject: signedSubject } : {};
   for (const s of all) {
     let token = current.token;
     if (!current.ids.has(s.id)) {
       token = newToken();
       await store.updateSigner(s.id, { token_hash: hashToken(token) });
     }
-    await notify({ kind: "completed", to: s.email, name: s.name, role: s.role, link: linkFor(origin, token), documents: [env.title], message: null, ...(sender ? { sender } : {}) });
+    await notify({ kind: "completed", to: s.email, name: s.name, role: s.role, link: linkFor(origin, token), documents: [env.title], message: null, ...(sender ? { sender } : {}), ...titled });
   }
   /* own request: the sender gets it too when they were not a signer (their copy is in My documents) */
   if (sender?.email && !all.some((s) => s.email.toLowerCase() === sender.email!.toLowerCase())) {
@@ -392,6 +400,7 @@ async function complete(store: SignStore, envelopeId: string, origin: string, wh
       documents: [env.title],
       message: null,
       ...(sender ? { sender } : {}),
+      ...titled,
     });
     await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "copy_sent", ip: null, user_agent: null, detail: v.email });
   }

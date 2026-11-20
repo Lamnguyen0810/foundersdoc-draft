@@ -1,4 +1,5 @@
 import { ccEmails } from "./test-mode";
+import { esopSubject } from "./subjects";
 
 /**
  * The note each option holder gets when their options vest (0256): "A Milestone Worth Celebrating".
@@ -25,10 +26,11 @@ export function noteCc(holderEmail: string, contactEmail: string | null | undefi
   return [...new Set(all)];
 }
 
-export function holderNoteEmail(p: { company?: string; slug?: string }) {
+export function holderNoteEmail(p: { company?: string; slug?: string; vest_date_text?: string }) {
   const company = (p.company ?? "").replace(/\s*\(test\)\s*/i, "").trim() || "Your company";
   const hitpay = (p.slug ?? "").toLowerCase() === "hitpay" || /hitpay/i.test(company);
-  const subject = `\u{1F389} A Milestone Worth Celebrating | ${company} ESOP`;
+  /* 0257: the same line as the other emails of the vesting (was "A Milestone Worth Celebrating | HitPay ESOP") */
+  const subject = esopSubject("vested", { company: p.company, vest_date_text: p.vest_date_text ?? "" });
   const lead = `Your ${company} ESOP options have vested. Here's what to expect next.`;
   const step = (n: 1 | 2, pad: number, title: string, body: string) => `<tr><td style="padding:${pad}px 32px 0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
 <td width="50" valign="top" style="width:50px;"><img src="${ASSETS}/step-${n}.png" width="34" height="34" alt="${n}" style="display:block;width:34px;height:34px;"></td>

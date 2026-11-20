@@ -21,6 +21,8 @@ export interface SignMail {
   sender?: { name: string; email: string | null };
   /** a reminder for the same request */
   reminder?: boolean;
+  /** 0257: a ready subject (ESOP option certificates carry the vesting's own line); absent = FD Sign's usual one */
+  subject?: string;
 }
 
 const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -110,7 +112,8 @@ export async function notify(mail: SignMail): Promise<boolean> {
       : "All parties have signed";
   const button = mail.kind === "invite" ? (n === 1 ? "Review & sign" : `Review & sign ${n} documents`) : mail.role === "Sender" ? "Open in FD Sign" : "Download the signed copy";
   const subject =
-    mail.kind === "invite" ? (from ? `${mail.reminder ? "Reminder: " : ""}${from} sent you a document to sign: ${what}` : `Please sign: ${what}`) : `Signed: ${what}`;
+    mail.subject?.trim() ||
+    (mail.kind === "invite" ? (from ? `${mail.reminder ? "Reminder: " : ""}${from} sent you a document to sign: ${what}` : `Please sign: ${what}`) : `Signed: ${what}`);
   const plain: Partial<SignMail> = { ...mail };
   delete plain.sender;
   delete plain.reminder;

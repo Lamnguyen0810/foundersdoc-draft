@@ -2,6 +2,8 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { sendEmail } from "@/lib/sign/notify";
 import { ccEmails, testModeFields, trueCc } from "./test-mode";
+import { esopSubject } from "./subjects";
+import { approvedSlackText } from "./approved-slack";
 
 /**
  * Approve from the email (SQL 117). Rachel (4 Nov): "the email itself says all
@@ -75,8 +77,7 @@ export function approvalEmail(it: ApprovalItem, link: string, copyFor?: "team") 
   /* 0251: the same email in a simulation and for real; only where it is sent differs */
   /* 0252 (Rachel, 20 Nov 2026): the firm and the client first, then how many option holders and the vesting date.
      The names are in the email itself; a subject listing them ran long and was cut off in inboxes. */
-  const holders = `${s.certificates} Option Holder${s.certificates === 1 ? "" : "s"}`;
-  const subject = `${copyFor ? "[Copy] " : ""}${it.company?.trim() ? `FD x ${company} ESOP` : "Founders Doc ESOP"}: Issuance of Option Certificates for ${holders} | Vesting ${it.vest_date_text}`;
+  const subject = `${copyFor ? "[Copy] " : ""}${esopSubject("approval", { company: it.company, vest_date_text: it.vest_date_text, count: s.certificates })}`;
   const hitpay = (it.slug ?? "").toLowerCase() === "hitpay" || /hitpay/i.test(company);
   const url = esc(link);
   /* 0217: Modify / Cancel open the same private page with the form (only its POST records anything) */
@@ -222,17 +223,16 @@ export function approvalCc(it: ApprovalItem): string[] {
 }
 
 /**
- * Send the approval email, then a copy to Founders Doc (0253: Rachel, 20 Nov 2026, "cc me and
- * administrator on the first email"). The copy is its own email, not a CC line, because the
- * approval button is personal: the copy is marked as one and its buttons open the dashboard, so
- * nobody at Founders Doc can approve in the client's name by a stray click. A copy that fails
- * never holds back the email itself.
+ * Send the approval email with Founders Doc on its CC line (Rachel, 20 Nov 2026: "cc me and
+ * administrator on the first email", then "Not possible to cc?" when the first one went as a
+ * separate copy). 0257: a CC line is the rule from the first email on; nobody in a simulation.
+ * Only with ESOP_TRUE_CC=0 do separate "[Copy]" emails go instead (their buttons open the
+ * dashboard), for a day the email Zap's CC field is not mapped.
  */
 export async function sendApprovalEmail(it: ApprovalItem, link: string): Promise<boolean> {
   if (!it.to) return false;
   const m = approvalEmail(it, link);
-  /* 0254 (Rachel, 20 Nov 2026): a true CC once the email Zap maps it, so the client sees who is copied
-     and a reply-all reaches them. Those on the CC line then hold the client's own approval button. */
+  /* the client sees who is copied and a reply-all reaches them; those on the CC line hold the client's own approval button */
   if (trueCc()) return sendEmail({ kind: "esop_approval", to: it.to, name: it.to_name ?? "", subject: m.subject, html: m.html, text: m.text, link, cc: approvalCc(it) });
   const sent = await sendEmail({ kind: "esop_approval", to: it.to, name: it.to_name ?? "", subject: m.subject, html: m.html, text: m.text, link });
   if (!sent) return false;
@@ -264,6 +264,9 @@ export async function handOver(item: Record<string, unknown> & { holders?: Array
     options_total: holders.reduce((s, h) => s + (Number(h.options_number ?? String(h.options ?? "").replace(/,/g, "")) || 0), 0),
     holder_names: holders.map((h) => h.name).join(", "),
     dashboard_url: `${origin}/esop/${slug}?ref=${ref}`,
+    /* 0257: the one Slack message for the approval, and the subject of the option holders' email, ready to map in the Zap */
+    slack_text: approvedSlackText(item, { origin, slug, ref, approvedBy }),
+    subject_vested: esopSubject("vested", { company: String(item.company ?? ""), vest_date_text: String(item.vest_date_text ?? "") }),
     /* 0199: Slack channel + email copies follow the simulation */
     ...testModeFields(item.simulation ? String(item.contact_email || "simulation") : null),
     holders: holders.map((h) => ({ ...h, ref, tranche: item.tranche, batch: item.batch, vest_date_text: item.vest_date_text })),
