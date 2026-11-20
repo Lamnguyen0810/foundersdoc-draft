@@ -18,6 +18,7 @@ const WHAT: Record<string, string> = {
   certificate: "A certificate link was NOT saved on the holder.",
   alert: "The alert's Slack thread was NOT saved.",
   due: "The daily vesting alert could NOT read the list, so no alert went out.",
+  notes: "The option holders' vesting emails were NOT sent.",
 };
 
 /** A Zap called with a key that does not match this company's. At most one alarm every 10 minutes for the same thing. */
