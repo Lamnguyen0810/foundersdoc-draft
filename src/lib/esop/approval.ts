@@ -202,6 +202,11 @@ ${step(3, "Review &amp; sign", "Sign the certificates online through a secure li
   return { subject, html, text };
 }
 
+/** 0255: for real (not a simulation), is this email about to go to one of our own addresses standing in for the client's? */
+export function ownStandIn(it: ApprovalItem): boolean {
+  return !it.simulation && /@foundersdoc\.com$/i.test((it.to ?? "").trim());
+}
+
 /** Who gets a Founders Doc copy of an approval email (0253): the ESOP_CC_EMAILS addresses; in a simulation, its own inbox only. */
 export function approvalCopies(it: ApprovalItem): string[] {
   const to = (it.to ?? "").trim().toLowerCase();

@@ -19,6 +19,8 @@ export const SUBSCRIPTION_COLUMNS = "user_id, tier";
 /** 0250: when a reminder went out (sign_events) and when an approval email was made, never to whom. */
 export const REMINDER_COLUMNS = "envelope_id, at";
 export const APPROVAL_EMAIL_COLUMNS = "company_id, ref, created_at";
+/** 0255: when a vesting's payment email went (a time, never an address). Read on its own, so an older database without it still shows the rest. */
+export const PAYMENT_EMAIL_COLUMNS = "company_id, ref, payment_email_sent_at";
 
 /** Every list, for the test. */
-export const ALL_COLUMNS = { ENVELOPE_COLUMNS, SIGNER_COLUMNS, COMPANY_COLUMNS, BATCH_COLUMNS, HOLDER_COLUMNS, RUN_COLUMNS, CERTIFICATE_COLUMNS, ALERT_COLUMNS, REQUEST_COLUMNS, SUBSCRIPTION_COLUMNS, REMINDER_COLUMNS, APPROVAL_EMAIL_COLUMNS };
+export const ALL_COLUMNS = { ENVELOPE_COLUMNS, SIGNER_COLUMNS, COMPANY_COLUMNS, BATCH_COLUMNS, HOLDER_COLUMNS, RUN_COLUMNS, CERTIFICATE_COLUMNS, ALERT_COLUMNS, REQUEST_COLUMNS, SUBSCRIPTION_COLUMNS, REMINDER_COLUMNS, APPROVAL_EMAIL_COLUMNS, PAYMENT_EMAIL_COLUMNS };

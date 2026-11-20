@@ -1,3 +1,4 @@
+import { wrongKeyAlarm } from "@/lib/esop/alarm";
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { record } from "@/lib/esop/zap";
@@ -44,7 +45,11 @@ export async function POST(req: NextRequest) {
   const { data, error } = await record(key, slug, payload);
   if (error) {
     const m = error.message ?? "";
-    if (/not allowed/.test(m)) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    if (/not allowed/.test(m)) {
+      /* 0255: a wrong key used to fail in silence; now the team is told at once */
+      await wrongKeyAlarm(slug, String(payload.action ?? "record").slice(0, 20), typeof payload.ref === "string" ? payload.ref : null);
+      return NextResponse.json({ error: "Not found." }, { status: 404 });
+    }
     if (/bad payload/.test(m)) return NextResponse.json({ error: "Bad payload." }, { status: 400 });
     console.error("[esop record] failed:", m);
     return NextResponse.json({ error: "Could not save." }, { status: 500 });

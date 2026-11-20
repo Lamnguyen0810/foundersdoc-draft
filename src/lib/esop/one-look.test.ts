@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { approvalCc, approvalCopies, approvalEmail, type ApprovalItem } from "./approval";
+import { approvalCc, approvalCopies, approvalEmail, ownStandIn, type ApprovalItem } from "./approval";
 import { trueCc } from "./test-mode";
 import { paymentCc, paymentEmail, paymentSubject, type PaymentItem } from "./payment-email";
 import { recipients, responseEmail, type Response } from "./respond";
@@ -124,4 +124,15 @@ test("true CC: off until ESOP_TRUE_CC=1; then the copy addresses go on the CC li
       else process.env[k] = v;
     }
   }
+});
+
+/* ── safety nets (0255) ────────────────────────────────────────────────────── */
+
+test("a real approval email never goes to one of our own addresses standing in for the client's", () => {
+  const item: ApprovalItem = { ...base, holders, leavers: [], to: "legal@foundersdoc.com", to_name: "Alex" };
+  assert.equal(ownStandIn(item), true);
+  assert.equal(ownStandIn({ ...item, to: " Legal@FoundersDoc.com " }), true);
+  assert.equal(ownStandIn({ ...item, to: "alex.tan@example.com" }), false, "the client's own address is fine");
+  assert.equal(ownStandIn({ ...item, simulation: true }), false, "a simulation is meant to go to our inbox");
+  assert.equal(ownStandIn({ ...item, to: undefined }), false);
 });
