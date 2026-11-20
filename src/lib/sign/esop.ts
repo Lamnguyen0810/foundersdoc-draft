@@ -1,4 +1,5 @@
 import "server-only";
+import { realNationality } from "./nationality";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -162,7 +163,8 @@ function supabaseSource(): EsopSource {
             email: r.email,
             sendTo: sim ?? r.email,
             idNo: r.id_no ?? "",
-            nationality: r.nationality ?? "",
+            /* 0259: a saved "[to be confirmed]" comes up as an empty box to fill in, not as a typed value */
+            nationality: realNationality(r.nationality),
             grantDate: longDate(r.grant_date),
             options: r.options_per_tranche,
             certificateNo: certs.find((x) => x.holder_id === r.id)?.number ?? null,
