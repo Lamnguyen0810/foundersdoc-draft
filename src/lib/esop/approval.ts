@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { sendEmail } from "@/lib/sign/notify";
-import { ccEmails, testModeFields } from "./test-mode";
+import { ccEmails, testModeFields, trueCc } from "./test-mode";
 
 /**
  * Approve from the email (SQL 117). Rachel (4 Nov): "the email itself says all
@@ -211,6 +211,11 @@ export function approvalCopies(it: ApprovalItem): string[] {
   return [...new Set(ccEmails(null).split(",").map((x) => x.trim().toLowerCase()).filter((x) => ok.test(x) && x !== to))];
 }
 
+/** The CC line of the approval email (0254): the same addresses, and nobody in a simulation (its inbox already has the email). */
+export function approvalCc(it: ApprovalItem): string[] {
+  return it.simulation ? [] : approvalCopies(it);
+}
+
 /**
  * Send the approval email, then a copy to Founders Doc (0253: Rachel, 20 Nov 2026, "cc me and
  * administrator on the first email"). The copy is its own email, not a CC line, because the
@@ -221,6 +226,9 @@ export function approvalCopies(it: ApprovalItem): string[] {
 export async function sendApprovalEmail(it: ApprovalItem, link: string): Promise<boolean> {
   if (!it.to) return false;
   const m = approvalEmail(it, link);
+  /* 0254 (Rachel, 20 Nov 2026): a true CC once the email Zap maps it, so the client sees who is copied
+     and a reply-all reaches them. Those on the CC line then hold the client's own approval button. */
+  if (trueCc()) return sendEmail({ kind: "esop_approval", to: it.to, name: it.to_name ?? "", subject: m.subject, html: m.html, text: m.text, link, cc: approvalCc(it) });
   const sent = await sendEmail({ kind: "esop_approval", to: it.to, name: it.to_name ?? "", subject: m.subject, html: m.html, text: m.text, link });
   if (!sent) return false;
   let origin = "https://foundersdoc.com";
