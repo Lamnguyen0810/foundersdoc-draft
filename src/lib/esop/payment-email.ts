@@ -39,7 +39,7 @@ const plain = (c?: string) => (c ?? "").replace(/\s*\(test\)\s*/i, "").trim() ||
 
 export function paymentSubject(it: PaymentItem): string {
   const n = it.holders.length;
-  return `${it.simulation ? "[SIMULATION] " : ""}Upcoming ESOP vesting on ${it.vest_date_text}: ${n} option ${n === 1 ? "holder" : "holders"} · payment to issue certificates`;
+  return `Upcoming ESOP vesting on ${it.vest_date_text}: ${n} option ${n === 1 ? "holder" : "holders"} · payment to issue certificates`;
 }
 
 /** `copyFor`: a copy sent to the client's finance team (Settings → Finance copies). */
@@ -67,7 +67,6 @@ export function paymentEmail(it: PaymentItem, link: string, copyFor?: "finance")
       `padding:10px 14px;background-color:${bg};border:1px solid ${border};border-radius:8px;font-size:13px;line-height:19px;color:${color};`,
       inner,
     )}</tr></table></td></tr>`;
-  const simNote = it.simulation ? note("#fff8e6", "#f0dfb0", "#5c4a14", "&#129514; <b>Simulation</b> &middot; a practice run. Every email goes to Founders Doc, not to the client.") : "";
   const copyNote = copyFor ? note("#f4f6fb", "#dfe5f2", "#2f3b57", `&#128188; <b>Copy for ${esc(company)} Finance.</b> The same email has gone to ${esc(it.contact_name || "the company's contact")}; only one payment is needed.`) : "";
 
   const stat = (big: string, small: string, last = false) =>
@@ -118,7 +117,7 @@ ${stat(String(n), n === 1 ? "Option holder" : "Option holders")}${stat(esc(fmt(t
 <p style="margin:8px 0 0 0;font-size:15px;line-height:22px;color:#bdbdb8;">Approved &#10003; &middot; one payment to issue the Option Certificates</p></td></tr>
 
 <tr><td style="padding:28px 0 0 0;"></td></tr>
-${simNote}${copyNote}
+${copyNote}
 <tr><td class="px" style="padding:0 32px;font-family:${FONT};font-size:15px;line-height:23px;color:#666666;">
 <p style="margin:0 0 14px 0;color:#161616;">Hi ${esc(first || (copyFor ? "Finance team" : "there"))},</p>
 <p style="margin:0;">Thank you for approving. ${esc(company)} ESOP options for <b style="color:#161616;">${n} option ${n === 1 ? "holder" : "holders"}</b> vest on <b style="color:#161616;">${esc(vest)}</b>. Please make the payment below so we can issue their Option Certificates on time.</p></td></tr>

@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured() || !isAdminClientConfigured()) return NextResponse.json({ error: "Not configured." }, { status: 503 });
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Please sign in." }, { status: 401 });
-  if (!canResetSimulation(user.email)) return NextResponse.json({ error: "Only Rachel can reset the simulation." }, { status: 403 });
+  if (!canResetSimulation(user.email)) return NextResponse.json({ error: "Only Rachel can reset a vesting." }, { status: 403 });
 
   let body: { company?: unknown; ref?: unknown; dry?: unknown };
   try {
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const { data, error } = await db.rpc("esop_reset_simulation", { p_slug: slug, p_ref: ref, p_dry: dry, p_by: user.email ?? null });
   if (error) {
     const m = error.message ?? "";
-    if (/simulation off/.test(m)) return NextResponse.json({ error: "Simulation is off, so nothing can be reset." }, { status: 409 });
+    if (/simulation off/.test(m)) return NextResponse.json({ error: "This vesting can't be reset now." }, { status: 409 });
     if (/not a simulation/.test(m)) return NextResponse.json({ error: `${ref} was approved for real, so it can't be reset.` }, { status: 409 });
     if (/not approved/.test(m)) return NextResponse.json({ error: `${ref} isn't approved, so there is nothing to reset.` }, { status: 404 });
     if (/bad ref|no company/.test(m)) return NextResponse.json({ error: "That vesting does not exist." }, { status: 400 });
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   }
   const who = (user.email ?? "").split("@")[0];
   await postToSlack(
-    `🔄 Simulation reset by ${who}: ready to approve again` +
+    `🔄 Reset by ${who}: ready to approve again` +
       (out.certificate_numbers.length ? ` · certificate numbers ${range(out.certificate_numbers)} freed, next No. ${out.next_certificate_no}` : ""),
     ref,
     out.slack_ts,

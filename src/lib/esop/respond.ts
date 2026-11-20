@@ -60,8 +60,7 @@ export function recipients(r: Response): { to: string[]; slack: boolean } {
 
 export function responseEmail(r: Response, dashboard: string) {
   const t = responseText(r);
-  const sim = r.email_override ? "[SIMULATION] " : "";
-  const subject = `${sim}${r.kind === "modify" ? "Change requested" : "Issuance cancelled"}: ${r.company} ${r.ref}`;
+  const subject = `${r.kind === "modify" ? "Change requested" : "Issuance cancelled"}: ${r.company} ${r.ref}`;
   const note = r.note
     ? `<p style="margin:14px 0 0 0;padding:12px 14px;background:#fafaf7;border:1px solid #ecebe6;border-radius:8px;color:#161616;white-space:pre-wrap;">${esc(r.note)}</p>`
     : "";

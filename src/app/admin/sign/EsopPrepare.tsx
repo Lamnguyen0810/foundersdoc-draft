@@ -203,11 +203,6 @@ export default function EsopPrepare({
       {busy === "load" && <p className="fs-hint">Loading the holders…</p>}
       {prep && (
         <>
-          {prep.simulation && (
-            <p className="fs-sim">
-              <b>Simulation on:</b> every email goes to <b>{prep.simulation}</b> instead of HitPay and the holders. Real addresses are shown greyed out.
-            </p>
-          )}
           {prep.paid === false && (
             <p className="fs-err">
               <b>Not paid yet.</b> Certificates go out for signing only once {prep.ref} is paid: mark it as paid on the ESOP dashboard when the payment is in.
@@ -233,7 +228,7 @@ export default function EsopPrepare({
                     <b>{h.name}</b>
                   </label>
                   <span className="fs-hint">
-                    Certificate No. <b>{h.certificateNo ?? "—"}</b> · {prep.simulation ? <s title="real address">{h.email || "no email"}</s> : h.email || "no email on the dashboard"}
+                    Certificate No. <b>{h.certificateNo ?? "—"}</b> · {prep.simulation ? `email goes to ${prep.simulation}` : h.email || "no email on the dashboard"}
                   </span>
                   <button className="dbtn" disabled={!h.hasLetter || !!busy} onClick={() => void readLetter(h)} title={h.hasLetter ? "Fill the details from the uploaded Letter of Grant" : "No Letter of Grant uploaded for this holder"}>
                     {h.hasLetter ? "Read Letter of Grant" : "No letter uploaded"}

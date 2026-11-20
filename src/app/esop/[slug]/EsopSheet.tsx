@@ -280,7 +280,7 @@ export default function EsopSheet(props: Props) {
       ? `Send ${ref} to the automation again? Certificate numbers stay the same.`
       : props.settings?.self_serve
         ? `Approve ${ref}?\n\n${certificates} Option Certificate(s) will be approved and numbered, and your approval recorded with the date.${leavers ? ` ${leavers} leaver(s) are skipped.` : ""}\n\nThen upload each signed certificate on the holder, or send it for signing in FD Sign.`
-        : `Approve ${ref}?\n\n${certificates} Option Certificate(s) and email(s) will be prepared, plus one payment link for ${certificates} certificate(s).${leavers ? ` ${leavers} leaver(s) are skipped.` : ""}${props.simulation ? `\n\nSimulation is on: every email goes to ${props.simulation}.` : ""}`;
+        : `Approve ${ref}?\n\n${certificates} Option Certificate(s) and email(s) will be prepared, plus one payment link for ${certificates} certificate(s).${leavers ? ` ${leavers} leaver(s) are skipped.` : ""}${props.simulation ? `\n\nEvery email goes to ${props.simulation}.` : ""}`;
     if (!window.confirm(msg)) return;
     if (!client) {
       setRuns((l) => [...l.filter((r) => r.ref !== ref), { ref, approved_by: props.viewer, approved_at: new Date().toISOString(), sent_at: new Date().toISOString(), payment_link: null }]);
@@ -320,7 +320,7 @@ export default function EsopSheet(props: Props) {
       }
       const nums = p.certificate_numbers ?? [];
       const lines = [
-        `Reset the ${ref} simulation?`,
+        `Reset ${ref}?`,
         "",
         'This puts it back to "not approved", so you can run it again from the start:',
         `• the approval is removed`,
@@ -330,7 +330,7 @@ export default function EsopSheet(props: Props) {
         p.signing_requests ? `• ${p.signing_requests} FD Sign request(s) cancelled and removed` : "",
         p.documents ? `• ${p.documents} certificate(s) removed from the dashboard` : "",
         "",
-        "Kept: holders and their details, Letters of Grant, emails already in your inbox, the test payment in Stripe.",
+        "Kept: holders and their details, Letters of Grant, emails already in your inbox, any payment already made in Stripe.",
       ].filter((l, i, a) => l !== "" || (a[i - 1] ?? "") !== "");
       if (!window.confirm(lines.join("\n"))) return;
       if (client) {
@@ -407,8 +407,8 @@ export default function EsopSheet(props: Props) {
     const req = r?.sent_at ? null : requestTag(ref);
     const resetBtn =
       props.reset && (resettable.includes(ref) || !client) ? (
-        <button type="button" className="ev-link" disabled={resetting === ref} onClick={() => void resetSim(ref)} title="Put this vesting back to not approved, to try the simulation again">
-          {resetting === ref ? "Resetting…" : "↺ Reset simulation"}
+        <button type="button" className="ev-link" disabled={resetting === ref} onClick={() => void resetSim(ref)} title="Put this vesting back to not approved, to run it again from the start">
+          {resetting === ref ? "Resetting…" : "↺ Reset"}
         </button>
       ) : null;
     const emailBtn = props.emailApproval ? (
@@ -475,7 +475,7 @@ export default function EsopSheet(props: Props) {
       <span className="ev-acts">
         {req}
         <button className="ev-btn sm gold" disabled={approving === ref} onClick={() => void approve(ref, certificates, leavers, false)}>
-          {approving === ref ? "Approving…" : early ? "Approve (simulation)" : "Approve"}
+          {approving === ref ? "Approving…" : "Approve"}
         </button>
         {emailBtn}
       </span>
@@ -486,7 +486,7 @@ export default function EsopSheet(props: Props) {
 
   async function sendHolderLink(h: EsopHolder) {
     if (!h.email) return say(`${h.name} has no email address. Add it with Edit grant first.`);
-    if (!window.confirm(`Email ${h.name} a private link to see their own share options?${props.simulation ? `\n\nSimulation is on: it goes to ${props.simulation}.` : ""}`)) return;
+    if (!window.confirm(`Email ${h.name} a private link to see their own share options?${props.simulation ? `\n\nIt goes to ${props.simulation}.` : ""}`)) return;
     setBusy("link");
     try {
       const res = await fetch("/api/esop/holder-link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company: company.slug, holderId: h.id }) });
@@ -837,7 +837,6 @@ export default function EsopSheet(props: Props) {
   }
 
   const sel = panel?.kind === "holder" ? (rows.find((r) => r.h.id === panel.id) ?? null) : null;
-  const simTo = props.reset?.to ?? props.simulation ?? null;
 
   /* ── layout ─────────────────────────────────────────────────────────── */
 
@@ -1527,11 +1526,6 @@ export default function EsopSheet(props: Props) {
                 </div>
               </div>
               <div className="ev-dbody">
-                {simTo && (
-                  <div className="ev-simbar">
-                    🧪 <b>Simulation is on</b>: every email goes to {simTo}. After a try, press <b>↺ Reset simulation</b> to start that vesting again.
-                  </div>
-                )}
                 {panel.ref &&
                   (() => {
                     const x = sched.find((s) => `B${s.batch}-T${s.tranche}` === panel.ref);
