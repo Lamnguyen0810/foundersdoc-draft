@@ -91,7 +91,8 @@ export async function notify(mail: SignMail): Promise<boolean> {
       ...mail,
       documents_text: mail.documents.join("\n"),
       count: n,
-      subject: `Your FD Sign code: ${mail.code}`,
+      /* 0258: an option certificate's code carries the vesting's own line; any other code keeps FD Sign's */
+      subject: mail.subject?.trim() || `Your FD Sign code: ${mail.code}`,
       heading: "Your signing code",
       button: "",
       from_name: "Founders Doc",
