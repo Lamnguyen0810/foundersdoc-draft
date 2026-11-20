@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { approvalEmail, type ApprovalItem } from "./approval";
+import { approvalCopies, approvalEmail, type ApprovalItem } from "./approval";
 import { paymentEmail, paymentSubject, type PaymentItem } from "./payment-email";
 import { recipients, responseEmail, type Response } from "./respond";
 
@@ -63,5 +63,36 @@ test("no screen in the flow carries a mode label: the dashboard, Settings, the a
       .replace(/\/\*[\s\S]*?\*\//g, "") /* comments may say it; the screen may not */
       .replace(/^\s*\/\/.*$/gm, "");
     for (const words of [/Simulation (is )?on/i, /\(simulation\)/i, /Reset simulation/i, /practice run/i, /during a simulation/i, /🧪/]) assert.ok(!words.test(code), `${f} shows ${words}`);
+  }
+});
+
+/* ── the Founders Doc copy of the approval email (0253) ─────────────────────── */
+
+test("the Founders Doc copy: marked as a copy, and it cannot approve anything", () => {
+  const item: ApprovalItem = { ...base, holders, leavers: [], to: "alex.tan@example.com", to_name: "Alex", share_class: "Class B" };
+  const real = approvalEmail(item, LINK);
+  const copy = approvalEmail(item, "https://foundersdoc.com/esop/sample-company?ref=B8-T2", "team");
+  assert.equal(copy.subject, `[Copy] ${real.subject}`);
+  assert.match(copy.html, /Copy for Founders Doc\./);
+  assert.ok(!/\/approve\//.test(copy.html) && !/\/approve\//.test(copy.text), "no approval link in the copy");
+  assert.ok(!/do=modify|do=cancel/.test(copy.html + copy.text), "nor a Modify or Cancel link");
+  assert.equal((copy.html.match(/href="https:\/\/foundersdoc\.com\/esop\/sample-company\?ref=B8-T2"/g) ?? []).length, 3, "all three buttons open the dashboard");
+  /* the client's own email is untouched */
+  assert.ok(!/Copy for Founders Doc/.test(real.html) && real.html.includes(`href="${LINK}"`) && real.html.includes(`href="${LINK}?do=modify"`));
+});
+
+test("who gets the copy: the ESOP_CC_EMAILS addresses for real, the simulation inbox alone in a simulation", () => {
+  const item: ApprovalItem = { ...base, holders, leavers: [], to: "Alex.Tan@example.com", to_name: "Alex" };
+  const before = process.env.ESOP_CC_EMAILS;
+  try {
+    process.env.ESOP_CC_EMAILS = " one@foundersdoc.com, Two@foundersdoc.com ,not-an-address, alex.tan@example.com, one@foundersdoc.com";
+    assert.deepEqual(approvalCopies(item), ["one@foundersdoc.com", "two@foundersdoc.com"], "each once, never the client again");
+    assert.deepEqual(approvalCopies({ ...item, simulation: true, to: "inbox@foundersdoc.com" }), ["inbox@foundersdoc.com"], "a simulation never reaches the real copy addresses");
+    delete process.env.ESOP_CC_EMAILS;
+    assert.deepEqual(approvalCopies(item), [], "no setting, no copies");
+    assert.deepEqual(approvalCopies({ ...item, to: undefined }), []);
+  } finally {
+    if (before === undefined) delete process.env.ESOP_CC_EMAILS;
+    else process.env.ESOP_CC_EMAILS = before;
   }
 });
