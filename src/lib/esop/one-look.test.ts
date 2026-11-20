@@ -6,6 +6,7 @@ import { approvalCc, approvalCopies, approvalEmail, ownStandIn, type ApprovalIte
 import { trueCc } from "./test-mode";
 import { esopSubject, esopTag } from "./subjects";
 import { approvedSlackText, certificateNumbers, sgTime } from "./approved-slack";
+import { realNationality, TBC } from "../sign/nationality";
 import { holderNoteEmail, noteCc } from "./holder-note";
 import { paymentCc, paymentEmail, paymentSubject, type PaymentItem } from "./payment-email";
 import { recipients, responseEmail, type Response } from "./respond";
@@ -165,6 +166,11 @@ test("who is copied on a holder's note: Founders Doc, then the client's contact;
     assert.deepEqual(noteCc("alex.tan@example.com", "alex.tan@example.com", false), ["one@foundersdoc.com", "two@foundersdoc.com"], "a holder who is also the contact is not copied on their own note");
     assert.deepEqual(noteCc("jamie.lee@example.com", null, false), ["one@foundersdoc.com", "two@foundersdoc.com"]);
     assert.deepEqual(noteCc("inbox@foundersdoc.com", "inbox@foundersdoc.com", true), [], "a rehearsal copies nobody");
+    /* 0260: for one send the caller may narrow the CC line, never widen it */
+    assert.deepEqual(noteCc("jamie.lee@example.com", "Alex.Tan@example.com", false, "client"), ["alex.tan@example.com"], "the client's contact only");
+    assert.deepEqual(noteCc("jamie.lee@example.com", "Alex.Tan@example.com", false, "none"), []);
+    assert.deepEqual(noteCc("alex.tan@example.com", "alex.tan@example.com", false, "client"), [], "never the holder themself");
+    assert.deepEqual(noteCc("inbox@foundersdoc.com", "inbox@foundersdoc.com", true, "all"), []);
   } finally {
     if (before === undefined) delete process.env.ESOP_CC_EMAILS;
     else process.env.ESOP_CC_EMAILS = before;
@@ -246,4 +252,17 @@ test("the approval in Slack: who approved first and in bold, when, then what hap
   assert.equal(certificateNumbers([{ certificate_no: "48" }, { certificate_no: "50" }]), "No. 48, 50");
   assert.equal(certificateNumbers([{ certificate_no: "48" }, { certificate_no: "" }]), "", "not all numbered yet: say nothing");
   assert.equal(sgTime("not a date", new Date("2026-12-01T00:05:00Z")), "Tue, 1 Dec 2026 at 8:05 am SGT");
+});
+
+/* ── a real certificate never prints the placeholder (0259) ────────────────── */
+
+test("nationality: the placeholder is never a typed value, however it is spelt or wherever it was saved", () => {
+  for (const v of [TBC, " [To Be Confirmed] ", "to be confirmed", "(TBC)", "tbc", "N/A", "-", "", null, undefined]) assert.equal(realNationality(v), "", String(v));
+  assert.equal(realNationality("  Singapore   citizen "), "Singapore citizen");
+  assert.equal(realNationality("Vietnamese citizenship"), "Vietnamese citizenship");
+  const src = (f: string) => readFileSync(join(process.cwd(), f), "utf8");
+  const route = src("src/app/api/sign/esop/certificates/route.ts");
+  assert.match(route, /const typedNationality = realNationality\(v\.nationality\)/, "the real-mode check sees the placeholder as empty, so it asks for a nationality or to leave it out");
+  assert.match(route, /!omitNationality && !typedNationality && !prep\.simulation/);
+  assert.match(src("src/lib/sign/esop.ts"), /nationality: realNationality\(r\.nationality\)/, "a saved placeholder comes up as an empty box");
 });

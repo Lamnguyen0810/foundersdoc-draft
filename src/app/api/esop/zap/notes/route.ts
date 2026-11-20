@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { wrongKeyAlarm } from "@/lib/esop/alarm";
 import { sendHolderNotes } from "@/lib/esop/notes";
+import { noteCcChoice } from "@/lib/esop/holder-note";
 
 /**
  * POST /api/esop/zap/notes   { "company": "hitpay", "ref": "B8-T2", "dry": true }
@@ -11,6 +12,8 @@ import { sendHolderNotes } from "@/lib/esop/notes";
  * `Authorization: Bearer <company key>`, like the other /api/esop/zap routes; a wrong key gets a
  * 404 (and an alarm in Slack). "dry": true only shows who would be emailed. Once per vesting:
  * a second call answers "already_sent" and sends nothing.
+ * 0260: "cc": "client" copies the client's contact only, "none" copies nobody (for one send);
+ * left out, Founders Doc and the client's contact are copied as usual.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,12 +23,14 @@ export async function POST(req: NextRequest) {
   if (!isSupabaseConfigured()) return NextResponse.json({ error: "Not configured." }, { status: 503 });
   const key = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
   if (key.length < 24) return NextResponse.json({ error: "Not found." }, { status: 404 });
-  const body = (await req.json().catch(() => ({}))) as { company?: unknown; ref?: unknown; dry?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { company?: unknown; ref?: unknown; dry?: unknown; cc?: unknown };
   const slug = String(body.company ?? "").toLowerCase();
   const ref = String(body.ref ?? "").toUpperCase();
   if (!/^[a-z0-9-]{2,40}$/.test(slug) || !/^B\d{1,3}-T\d{1,2}$/.test(ref)) return NextResponse.json({ error: "Give \"company\" and \"ref\" (like B8-T2)." }, { status: 400 });
 
-  const out = await sendHolderNotes(key, slug, ref, body.dry === true || body.dry === "true");
+  /* a spelling that is not understood must not quietly copy everyone */
+  if (body.cc !== undefined && !["all", "client", "none"].includes(String(body.cc))) return NextResponse.json({ error: 'For "cc" give "all", "client" or "none".' }, { status: 400 });
+  const out = await sendHolderNotes(key, slug, ref, body.dry === true || body.dry === "true", noteCcChoice(body.cc));
   if (out.status === "not_allowed") {
     await wrongKeyAlarm(slug, "notes", ref);
     return NextResponse.json({ error: "Not found." }, { status: 404 });

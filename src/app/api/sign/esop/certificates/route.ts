@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { esopSource, isoFromLong } from "@/lib/sign/esop";
 import { buildCertificatePdf } from "@/lib/sign/certificate";
 import { adminEmail } from "@/lib/sign/http";
+import { realNationality, TBC } from "@/lib/sign/nationality";
 
 /**
  * POST /api/sign/esop/certificates — admin: make the Option Certificates for
@@ -14,7 +15,6 @@ import { adminEmail } from "@/lib/sign/http";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const TBC = "[to be confirmed]";
 const clean = (v: unknown, max: number) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, max);
 
 export async function POST(req: NextRequest) {
@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
       options: Number.parseInt(String(r.options ?? "").replace(/,/g, ""), 10),
     };
     /* nationality is optional: empty = "[to be confirmed]", or left out altogether */
-    const typedNationality = v.nationality;
+    /* 0259: the placeholder itself (typed, or saved on the holder's row) is not a nationality */
+    const typedNationality = realNationality(v.nationality).slice(0, 80);
     /* a signed certificate can't be "filled in later": outside a simulation, ask for it or leave it out */
     if (!omitNationality && !typedNationality && !prep.simulation)
       return NextResponse.json({ error: `${h.name}: type the nationality, or choose "Leave it out" for nationality.` }, { status: 400 });
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
     if (body.save)
       await src.saveHolder(
         h.id,
-        { legal_name: v.legalName, id_no: v.idNo, ...(typedNationality && typedNationality !== TBC ? { nationality: typedNationality } : {}), grant_date: isoFromLong(v.grantDate) },
+        { legal_name: v.legalName, id_no: v.idNo, ...(typedNationality ? { nationality: typedNationality } : {}), grant_date: isoFromLong(v.grantDate) },
         admin,
       );
     const pdf = await buildCertificatePdf(
