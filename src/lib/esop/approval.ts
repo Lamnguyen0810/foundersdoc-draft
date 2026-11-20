@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { sendEmail } from "@/lib/sign/notify";
-import { testModeFields } from "./test-mode";
+import { ccEmails, testModeFields } from "./test-mode";
 
 /**
  * Approve from the email (SQL 117). Rachel (4 Nov): "the email itself says all
@@ -68,7 +68,7 @@ const HEAD = "Geist,Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Hel
  * header, hero, step circles, sign-off and notice): everything Aditya needs
  * to decide, then one button.
  */
-export function approvalEmail(it: ApprovalItem, link: string) {
+export function approvalEmail(it: ApprovalItem, link: string, copyFor?: "team") {
   const s = approvalSummary(it);
   const company = plainCompany(it);
   const first = (it.to_name ?? "").trim().split(/\s+/)[0] || "there";
@@ -76,12 +76,16 @@ export function approvalEmail(it: ApprovalItem, link: string) {
   /* 0252 (Rachel, 20 Nov 2026): the firm and the client first, then how many option holders and the vesting date.
      The names are in the email itself; a subject listing them ran long and was cut off in inboxes. */
   const holders = `${s.certificates} Option Holder${s.certificates === 1 ? "" : "s"}`;
-  const subject = `${it.company?.trim() ? `FD x ${company} ESOP` : "Founders Doc ESOP"}: Issuance of Option Certificates for ${holders} | Vesting ${it.vest_date_text}`;
+  const subject = `${copyFor ? "[Copy] " : ""}${it.company?.trim() ? `FD x ${company} ESOP` : "Founders Doc ESOP"}: Issuance of Option Certificates for ${holders} | Vesting ${it.vest_date_text}`;
   const hitpay = (it.slug ?? "").toLowerCase() === "hitpay" || /hitpay/i.test(company);
   const url = esc(link);
   /* 0217: Modify / Cancel open the same private page with the form (only its POST records anything) */
-  const modifyUrl = esc(`${link}?do=modify`);
-  const cancelUrl = esc(`${link}?do=cancel`);
+  /* 0253: a Founders Doc copy carries no approval link at all: its `link` is the dashboard, for all three buttons */
+  const modifyUrl = copyFor ? url : esc(`${link}?do=modify`);
+  const cancelUrl = copyFor ? url : esc(`${link}?do=cancel`);
+  const copyNote = copyFor
+    ? `<tr><td class="px" style="padding:0 32px 18px 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding:10px 14px;background-color:#f4f6fb;border:1px solid #dfe5f2;border-radius:8px;font-family:${FONT};font-size:13px;line-height:19px;color:#2f3b57;">&#128203; <b>Copy for Founders Doc.</b> This email has gone to ${esc((it.to_name ?? "").trim() || "the client's contact")}. Only their email can approve: the buttons in this copy open the dashboard.</td></tr></table></td></tr>`
+    : "";
 
   const logos = `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
 <td valign="middle"><img src="${ASSETS}/fd-logo.png" width="150" height="28" alt="Founders Doc" style="display:block;width:150px;height:28px;"></td>${
@@ -136,7 +140,7 @@ ${stat(String(s.certificates), s.certificates === 1 ? "Certificate" : "Certifica
 <img src="${ASSETS}/approve-hero.png" width="600" alt="Approval needed. Please approve. Option Certificates are ready to be issued." style="display:block;width:100%;max-width:600px;height:auto;"></td></tr>
 
 <tr><td style="padding:28px 32px 0 32px;"></td></tr>
-<tr><td class="px" style="padding:0 32px;font-family:${FONT};font-size:15px;line-height:23px;color:#666666;">
+${copyNote}<tr><td class="px" style="padding:0 32px;font-family:${FONT};font-size:15px;line-height:23px;color:#666666;">
 <p style="margin:0 0 14px 0;color:#161616;">Hi ${esc(first)},</p>
 <p style="margin:0;">${esc(company)} ESOP options vest on <b style="color:#161616;">${esc(s.vest)}</b>. Please approve the issuance of the Option Certificates below.</p></td></tr>
 
@@ -175,6 +179,7 @@ ${step(3, "Review &amp; sign", "Sign the certificates online through a secure li
 </table></td></tr></table></body></html>`;
 
   const text = [
+    ...(copyFor ? [`COPY FOR FOUNDERS DOC. This email has gone to ${(it.to_name ?? "").trim() || "the client's contact"}. Only their email can approve; the links here open the dashboard.`, ""] : []),
     `Hi ${first},`,
     "",
     `${company} ESOP options vest on ${s.vest}. Please approve the issuance of these Option Certificates:`,
@@ -185,8 +190,7 @@ ${step(3, "Review &amp; sign", "Sign the certificates online through a secure li
     "",
     `${s.button}: ${link}`,
     "(Opens a confirmation page. No login needed.)",
-    `Modify (ask for a change): ${link}?do=modify`,
-    `Cancel this issuance: ${link}?do=cancel`,
+    ...(copyFor ? [] : [`Modify (ask for a change): ${link}?do=modify`, `Cancel this issuance: ${link}?do=cancel`]),
     "",
     "What happens next: 1. Approve  2. Payment link  3. Review & sign online",
     "",
@@ -198,10 +202,39 @@ ${step(3, "Review &amp; sign", "Sign the certificates online through a secure li
   return { subject, html, text };
 }
 
+/** Who gets a Founders Doc copy of an approval email (0253): the ESOP_CC_EMAILS addresses; in a simulation, its own inbox only. */
+export function approvalCopies(it: ApprovalItem): string[] {
+  const to = (it.to ?? "").trim().toLowerCase();
+  if (!to) return [];
+  if (it.simulation) return [to];
+  const ok = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  return [...new Set(ccEmails(null).split(",").map((x) => x.trim().toLowerCase()).filter((x) => ok.test(x) && x !== to))];
+}
+
+/**
+ * Send the approval email, then a copy to Founders Doc (0253: Rachel, 20 Nov 2026, "cc me and
+ * administrator on the first email"). The copy is its own email, not a CC line, because the
+ * approval button is personal: the copy is marked as one and its buttons open the dashboard, so
+ * nobody at Founders Doc can approve in the client's name by a stray click. A copy that fails
+ * never holds back the email itself.
+ */
 export async function sendApprovalEmail(it: ApprovalItem, link: string): Promise<boolean> {
   if (!it.to) return false;
   const m = approvalEmail(it, link);
-  return sendEmail({ kind: "esop_approval", to: it.to, name: it.to_name ?? "", subject: m.subject, html: m.html, text: m.text, link });
+  const sent = await sendEmail({ kind: "esop_approval", to: it.to, name: it.to_name ?? "", subject: m.subject, html: m.html, text: m.text, link });
+  if (!sent) return false;
+  let origin = "https://foundersdoc.com";
+  try {
+    origin = new URL(link).origin;
+  } catch {
+    /* keep the site's own address */
+  }
+  const dashboard = it.slug ? `${origin}/esop/${it.slug}?ref=${it.ref}` : origin;
+  const c = approvalEmail(it, dashboard, "team");
+  for (const to of approvalCopies(it))
+    /* the same kind as the email itself, so whatever the email Zap does for one it does for the other */
+    await sendEmail({ kind: "esop_approval", to, name: "", subject: c.subject, html: c.html, text: c.text, link: dashboard }).catch(() => false);
+  return true;
 }
 
 /**
