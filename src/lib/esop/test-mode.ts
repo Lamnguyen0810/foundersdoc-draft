@@ -33,6 +33,13 @@ export function ccEmails(simulationTo: string | null | undefined): string {
   return list(process.env.ESOP_CC_EMAILS).join(", ");
 }
 
+/**
+ * True CC (0254). ESOP_TRUE_CC=1 says the email Zap's CC field is mapped to the `cc` the website
+ * sends, so copies go on the client's own email as a CC line. Until it is set they go as
+ * separate "[Copy]" emails: a CC the Zap does not map would be dropped without anyone knowing.
+ */
+export const trueCc = () => process.env.ESOP_TRUE_CC?.trim() === "1";
+
 /** The fields every Zap payload carries. */
 export function testModeFields(simulationTo: string | null | undefined) {
   const simulation = Boolean((simulationTo ?? "").trim());

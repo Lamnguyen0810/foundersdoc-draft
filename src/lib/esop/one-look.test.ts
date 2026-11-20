@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { approvalCopies, approvalEmail, type ApprovalItem } from "./approval";
-import { paymentEmail, paymentSubject, type PaymentItem } from "./payment-email";
+import { approvalCc, approvalCopies, approvalEmail, type ApprovalItem } from "./approval";
+import { trueCc } from "./test-mode";
+import { paymentCc, paymentEmail, paymentSubject, type PaymentItem } from "./payment-email";
 import { recipients, responseEmail, type Response } from "./respond";
 
 /**
@@ -94,5 +95,33 @@ test("who gets the copy: the ESOP_CC_EMAILS addresses for real, the simulation i
   } finally {
     if (before === undefined) delete process.env.ESOP_CC_EMAILS;
     else process.env.ESOP_CC_EMAILS = before;
+  }
+});
+
+/* ── a true CC line (0254) ─────────────────────────────────────────────────── */
+
+test("true CC: off until ESOP_TRUE_CC=1; then the copy addresses go on the CC line, and nobody in a simulation", () => {
+  const item: ApprovalItem = { ...base, holders, leavers: [], to: "alex.tan@example.com", to_name: "Alex" };
+  const before = { cc: process.env.ESOP_CC_EMAILS, on: process.env.ESOP_TRUE_CC };
+  try {
+    process.env.ESOP_CC_EMAILS = "one@foundersdoc.com,two@foundersdoc.com";
+    delete process.env.ESOP_TRUE_CC;
+    assert.equal(trueCc(), false, "separate copies are the default");
+    process.env.ESOP_TRUE_CC = "yes";
+    assert.equal(trueCc(), false, "only the exact value 1 switches it on");
+    process.env.ESOP_TRUE_CC = " 1 ";
+    assert.equal(trueCc(), true);
+    assert.deepEqual(approvalCc(item), ["one@foundersdoc.com", "two@foundersdoc.com"]);
+    assert.deepEqual(approvalCc({ ...item, simulation: true, to: "inbox@foundersdoc.com" }), [], "a rehearsal copies nobody");
+    assert.deepEqual(approvalCc({ ...item, to: "one@foundersdoc.com" }), ["two@foundersdoc.com"], "never the person it is already addressed to");
+    /* the payment email: the client's finance team first, then Founders Doc's own, each once */
+    assert.deepEqual(paymentCc("alex.tan@example.com", ["Finance@example.com", "alex.tan@example.com"], false), ["finance@example.com", "one@foundersdoc.com", "two@foundersdoc.com"]);
+    assert.deepEqual(paymentCc("alex.tan@example.com", ["one@foundersdoc.com"], false), ["one@foundersdoc.com", "two@foundersdoc.com"]);
+    assert.deepEqual(paymentCc("inbox@foundersdoc.com", ["finance@example.com"], true), [], "a rehearsal copies nobody");
+  } finally {
+    for (const [k, v] of [["ESOP_CC_EMAILS", before.cc], ["ESOP_TRUE_CC", before.on]] as const) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
   }
 });

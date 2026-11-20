@@ -11,6 +11,8 @@
  * Pure (no server code), so it can be previewed and tested on its own.
  */
 
+import { ccEmails } from "./test-mode";
+
 const ASSETS = "https://foundersdoc.com/email/hitpay-esop";
 const FONT = "Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const HEAD = "Geist,Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
@@ -36,6 +38,17 @@ export function longDate(iso: string): string {
   return y && m && d ? `${d} ${MONTHS[m - 1]} ${y}` : iso;
 }
 const plain = (c?: string) => (c ?? "").replace(/\s*\(test\)\s*/i, "").trim() || "the company";
+
+/**
+ * The CC line of the payment email (0254): the client's finance addresses, then Founders Doc's own
+ * (ESOP_CC_EMAILS), each once and never the person it is addressed to. Nobody in a simulation.
+ */
+export function paymentCc(to: string, finance: string[], simulation: boolean): string[] {
+  if (simulation) return [];
+  const ok = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+  const all = [...finance.slice(0, 5), ...ccEmails(null).split(",")].map((x) => x.trim().toLowerCase()).filter((x) => ok.test(x) && x !== to.trim().toLowerCase());
+  return [...new Set(all)];
+}
 
 export function paymentSubject(it: PaymentItem): string {
   const n = it.holders.length;

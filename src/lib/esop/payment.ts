@@ -4,7 +4,8 @@ import { sendEmail } from "@/lib/sign/notify";
 import { maskEmail } from "@/lib/sign/code";
 import { postToSlack } from "@/lib/sign/slack";
 import { loadDue } from "./zap";
-import { paymentEmail, type PaymentItem } from "./payment-email";
+import { paymentCc, paymentEmail, type PaymentItem } from "./payment-email";
+import { trueCc } from "./test-mode";
 
 /**
  * Send the payment email from the website (0202), instead of the Zap's plain one.
@@ -44,12 +45,15 @@ export async function sendPaymentEmail(key: string, slug: string, ref: string, l
 
   const it: PaymentItem = { ...item, company: data?.company ?? item.company, slug };
   const main = paymentEmail(it, link);
-  const ok = await sendEmail({ kind: "esop_payment", to, name: it.contact_name ?? "", subject: main.subject, html: main.html, text: main.text, link });
+  /* the finance team: never in a simulation. 0254: on the CC line once the email Zap maps it, else a copy each */
+  const financeTo = it.simulation ? [] : finance.filter((e) => e.toLowerCase() !== to.toLowerCase()).slice(0, 5);
+  const cc = trueCc() ? paymentCc(to, financeTo, Boolean(it.simulation)) : [];
+  const ok = await sendEmail({ kind: "esop_payment", to, name: it.contact_name ?? "", subject: main.subject, html: main.html, text: main.text, link, cc });
   if (!ok) return { status: "failed", to: maskEmail(to) };
 
-  let copies = 0;
-  if (!it.simulation)
-    for (const f of finance.filter((e) => e.toLowerCase() !== to.toLowerCase()).slice(0, 5)) {
+  let copies = trueCc() ? financeTo.length : 0;
+  if (!trueCc())
+    for (const f of financeTo) {
       const copy = paymentEmail(it, link, "finance");
       if (await sendEmail({ kind: "esop_payment_copy", to: f, name: "", subject: copy.subject, html: copy.html, text: copy.text, link })) copies++;
     }

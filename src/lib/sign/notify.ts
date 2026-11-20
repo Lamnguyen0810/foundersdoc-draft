@@ -94,6 +94,7 @@ export async function notify(mail: SignMail): Promise<boolean> {
       button: "",
       from_name: "Founders Doc",
       reply_to: "legal@foundersdoc.com",
+      cc: "",
       html: codeHtml({ name: mail.name, code: mail.code ?? "", documents: mail.documents }),
     });
   }
@@ -122,6 +123,8 @@ export async function notify(mail: SignMail): Promise<boolean> {
     button,
     from_name: from ? `${from} via FD Sign` : "Founders Doc",
     reply_to: (from && mail.sender?.email) || "legal@foundersdoc.com",
+    /* 0254: signing emails are never copied to anyone; the field is always there so the Zap can map it */
+    cc: "",
     /* the finished email: the Gmail step's Body is just this field */
     html: emailHtml({ heading, documents: mail.documents, message: mail.message, link: mail.link, button, ...(from ? { from } : {}) }),
   };
@@ -129,7 +132,7 @@ export async function notify(mail: SignMail): Promise<boolean> {
 }
 
 /** Any other finished email (e.g. the ESOP approval email) through the same Zap: To / Subject / Html. */
-export async function sendEmail(p: { kind: string; to: string; name: string; subject: string; html: string; text: string; link: string }): Promise<boolean> {
+export async function sendEmail(p: { kind: string; to: string; name: string; subject: string; html: string; text: string; link: string; cc?: string[] }): Promise<boolean> {
   const hook = process.env.SIGN_HOOK_URL?.trim();
   if (!hook || !isHookConfigured()) return false;
   return post(hook, {
@@ -143,6 +146,8 @@ export async function sendEmail(p: { kind: string; to: string; name: string; sub
     button: "",
     from_name: "Founders Doc",
     reply_to: "legal@foundersdoc.com",
+    /* 0254: the CC line, as one comma-separated field for the Zap's email step ("" = nobody) */
+    cc: (p.cc ?? []).join(", "),
   });
 }
 
