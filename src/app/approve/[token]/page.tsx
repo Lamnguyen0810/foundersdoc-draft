@@ -76,9 +76,6 @@ export default async function ApprovePage({ params, searchParams }: { params: Pr
           <b>Founders Doc</b>
           <span>ESOP Administration</span>
         </div>
-        {v.simulation && status !== "invalid" && (
-          <p className="apv-sim">🧪 <b>Simulation</b>: a practice run. Nothing goes to the client or holders.</p>
-        )}
 
         {status === "invalid" && (
           <section className="apv-body">

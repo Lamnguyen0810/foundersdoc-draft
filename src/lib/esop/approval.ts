@@ -72,14 +72,13 @@ export function approvalEmail(it: ApprovalItem, link: string) {
   const s = approvalSummary(it);
   const company = plainCompany(it);
   const first = (it.to_name ?? "").trim().split(/\s+/)[0] || "there";
-  const sim = it.simulation ? "[SIMULATION] " : "";
-  const subject = `${sim}Please approve: issuance of Option Certificates for ${s.names} (vesting ${it.vest_date_text})`;
+  /* 0251: the same email in a simulation and for real; only where it is sent differs */
+  const subject = `Please approve: issuance of Option Certificates for ${s.names} (vesting ${it.vest_date_text})`;
   const hitpay = (it.slug ?? "").toLowerCase() === "hitpay" || /hitpay/i.test(company);
   const url = esc(link);
   /* 0217: Modify / Cancel open the same private page with the form (only its POST records anything) */
   const modifyUrl = esc(`${link}?do=modify`);
   const cancelUrl = esc(`${link}?do=cancel`);
-  const td = (css: string, inner: string) => `<td style="font-family:${FONT};${css}">${inner}</td>`;
 
   const logos = `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
 <td valign="middle"><img src="${ASSETS}/fd-logo.png" width="150" height="28" alt="Founders Doc" style="display:block;width:150px;height:28px;"></td>${
@@ -89,12 +88,6 @@ export function approvalEmail(it: ApprovalItem, link: string) {
       : ""
   }</tr></table>`;
 
-  const simNote = it.simulation
-    ? `<tr><td class="px" style="padding:0 32px 18px 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${td(
-        "padding:10px 14px;background-color:#fff8e6;border:1px solid #f0dfb0;border-radius:8px;font-size:13px;line-height:19px;color:#5c4a14;",
-        "&#129514; <b>Simulation</b> &middot; a practice run. Every email goes to Founders Doc, not to the client or holders.",
-      )}</tr></table></td></tr>`
-    : "";
 
   /* three figures at a glance */
   const stat = (big: string, small: string, last = false) =>
@@ -140,7 +133,6 @@ ${stat(String(s.certificates), s.certificates === 1 ? "Certificate" : "Certifica
 <img src="${ASSETS}/approve-hero.png" width="600" alt="Approval needed. Please approve. Option Certificates are ready to be issued." style="display:block;width:100%;max-width:600px;height:auto;"></td></tr>
 
 <tr><td style="padding:28px 32px 0 32px;"></td></tr>
-${simNote}
 <tr><td class="px" style="padding:0 32px;font-family:${FONT};font-size:15px;line-height:23px;color:#666666;">
 <p style="margin:0 0 14px 0;color:#161616;">Hi ${esc(first)},</p>
 <p style="margin:0;">${esc(company)} ESOP options vest on <b style="color:#161616;">${esc(s.vest)}</b>. Please approve the issuance of the Option Certificates below.</p></td></tr>

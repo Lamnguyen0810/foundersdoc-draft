@@ -94,7 +94,6 @@ export default function SignAdmin({
   const [message, setMessage] = useState("");
   const [source, setSource] = useState<"esop" | "upload">("esop");
   const [cc, setCc] = useState("rachel.wong@foundersdoc.com");
-  const [simulation, setSimulation] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [sent, setSent] = useState<Sent[] | null>(null);
@@ -177,7 +176,6 @@ export default function SignAdmin({
     setDir(d);
     setRows((r) => [...r, ...made]);
     setMode(made.length > 1 ? "batch" : "each");
-    setSimulation(p.simulation);
     /* 0199: in a simulation the signed copy goes to the simulation inbox, not to Rachel */
     if (p.simulation) setCc(p.simulation);
     if (!message.trim()) setMessage(`Option Certificate${made.length > 1 ? "s" : ""} for ${p.label}.`);
@@ -373,11 +371,6 @@ export default function SignAdmin({
                   </button>
                 </div>
                 {source === "esop" && <EsopPrepare onCreate={addPrepared} initialRef={params.get("ref")} />}
-                {simulation && source === "upload" && n > 0 && (
-                  <p className="fs-sim">
-                    <b>Simulation on:</b> the Director&rsquo;s and holders&rsquo; emails go to <b>{simulation}</b>.
-                  </p>
-                )}
                 {source === "upload" && (
                 <div
                   className={`fs-drop ${over ? "over" : ""}`}

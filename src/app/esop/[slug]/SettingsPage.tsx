@@ -415,7 +415,7 @@ export default function SettingsPage(p: {
         <section className="ev-card ev-set">
           <div className="ev-seth">
             <h2>Finance copies</h2>
-            <span>Who also gets each payment email with the Stripe link, e.g. your finance team. Not sent during a simulation.</span>
+            <span>Who also gets each payment email with the Stripe link, e.g. your finance team.</span>
           </div>
           <ul className="ev-setlist">
             {finance.length === 0 && (
