@@ -166,6 +166,11 @@ test("who is copied on a holder's note: Founders Doc, then the client's contact;
     assert.deepEqual(noteCc("alex.tan@example.com", "alex.tan@example.com", false), ["one@foundersdoc.com", "two@foundersdoc.com"], "a holder who is also the contact is not copied on their own note");
     assert.deepEqual(noteCc("jamie.lee@example.com", null, false), ["one@foundersdoc.com", "two@foundersdoc.com"]);
     assert.deepEqual(noteCc("inbox@foundersdoc.com", "inbox@foundersdoc.com", true), [], "a rehearsal copies nobody");
+    /* 0260: for one send the caller may narrow the CC line, never widen it */
+    assert.deepEqual(noteCc("jamie.lee@example.com", "Alex.Tan@example.com", false, "client"), ["alex.tan@example.com"], "the client's contact only");
+    assert.deepEqual(noteCc("jamie.lee@example.com", "Alex.Tan@example.com", false, "none"), []);
+    assert.deepEqual(noteCc("alex.tan@example.com", "alex.tan@example.com", false, "client"), [], "never the holder themself");
+    assert.deepEqual(noteCc("inbox@foundersdoc.com", "inbox@foundersdoc.com", true, "all"), []);
   } finally {
     if (before === undefined) delete process.env.ESOP_CC_EMAILS;
     else process.env.ESOP_CC_EMAILS = before;

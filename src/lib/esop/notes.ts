@@ -3,7 +3,7 @@ import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/sign/notify";
 import { maskEmail } from "@/lib/sign/code";
 import { postToSlack } from "@/lib/sign/slack";
-import { holderNoteEmail, noteCc } from "./holder-note";
+import { holderNoteEmail, noteCc, type NoteCc } from "./holder-note";
 import { loadDue } from "./zap";
 
 /**
@@ -23,7 +23,7 @@ export type NotesResult =
   | { status: "not_allowed" | "not_found" | "not_approved" | "no_holders" | "already_sent" | "unavailable" }
   | { status: "dry" | "sent"; ref: string; simulation: boolean; to: string[]; cc: string[]; sent: number; failed: number };
 
-export async function sendHolderNotes(key: string, slug: string, ref: string, dry: boolean): Promise<NotesResult> {
+export async function sendHolderNotes(key: string, slug: string, ref: string, dry: boolean, cc: NoteCc = "all"): Promise<NotesResult> {
   const { data, error } = await loadDue(key, slug, 0, ref);
   if (error) return { status: /not allowed/.test(error.message ?? "") ? "not_allowed" : "not_found" };
   const item = data?.items?.[0] as (NonNullable<typeof data>["items"][number] & { contact_email?: string; simulation?: boolean }) | undefined;
@@ -35,7 +35,7 @@ export async function sendHolderNotes(key: string, slug: string, ref: string, dr
 
   const company = data?.company ?? slug;
   const mail = holderNoteEmail({ company, slug, vest_date_text: item.vest_date_text });
-  const ccOf = (to: string) => noteCc(to, item.contact_email, simulation);
+  const ccOf = (to: string) => noteCc(to, item.contact_email, simulation, cc);
   const shown = { ref: item.ref, simulation, to: holders.map((h) => maskEmail(h.email.trim())), cc: ccOf(holders[0].email).map(maskEmail) };
   if (dry) return { status: "dry", ...shown, sent: 0, failed: 0 };
 

@@ -18,11 +18,16 @@ const FONT = "Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica
 const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-/** The CC line: Founders Doc's own addresses, then the client's contact; never the holder themself; nobody in a simulation. */
-export function noteCc(holderEmail: string, contactEmail: string | null | undefined, simulation: boolean): string[] {
-  if (simulation) return [];
+/** Who is copied on a holder's note. "all": Founders Doc, then the client's contact. "client": the client's contact only. "none": nobody. */
+export type NoteCc = "all" | "client" | "none";
+export const noteCcChoice = (v: unknown): NoteCc => (v === "client" || v === "none" ? v : "all");
+
+/** The CC line: Founders Doc's own addresses, then the client's contact; never the holder themself; nobody in a simulation.
+ *  0260: `who` narrows it for one send (the caller's choice), it never adds anyone. */
+export function noteCc(holderEmail: string, contactEmail: string | null | undefined, simulation: boolean, who: NoteCc = "all"): string[] {
+  if (simulation || who === "none") return [];
   const to = holderEmail.trim().toLowerCase();
-  const all = [...ccEmails(null).split(","), contactEmail ?? ""].map((x) => x.trim().toLowerCase()).filter((x) => EMAIL.test(x) && x !== to);
+  const all = [...(who === "all" ? ccEmails(null).split(",") : []), contactEmail ?? ""].map((x) => x.trim().toLowerCase()).filter((x) => EMAIL.test(x) && x !== to);
   return [...new Set(all)];
 }
 
