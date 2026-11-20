@@ -26,7 +26,10 @@ test("the approval email is the same in a simulation and for real", () => {
   const real = approvalEmail(item, LINK);
   const sim = approvalEmail({ ...item, simulation: true }, LINK);
   assert.deepEqual(sim, real);
-  assert.equal(real.subject, "Please approve: issuance of Option Certificates for Alex Tan and Jamie Lee (vesting 1 Dec 2026)");
+  assert.equal(real.subject, "FD x Sample Company ESOP: Issuance of Option Certificates for 2 Option Holders | Vesting 1 Dec 2026");
+  assert.equal(approvalEmail({ ...item, holders: holders.slice(0, 1) }, LINK).subject, "FD x Sample Company ESOP: Issuance of Option Certificates for 1 Option Holder | Vesting 1 Dec 2026");
+  assert.equal(approvalEmail({ ...item, company: "HitPay (TEST)" }, LINK).subject.startsWith("FD x HitPay ESOP: "), true, "a test label in the name never reaches the subject");
+  assert.ok(!/Alex|Jamie/.test(real.subject), "holders are named in the email, not in the subject");
   assert.ok(!labelled(sim.subject) && !labelled(sim.html) && !labelled(sim.text));
 });
 

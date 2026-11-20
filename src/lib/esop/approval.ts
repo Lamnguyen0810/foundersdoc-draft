@@ -73,7 +73,10 @@ export function approvalEmail(it: ApprovalItem, link: string) {
   const company = plainCompany(it);
   const first = (it.to_name ?? "").trim().split(/\s+/)[0] || "there";
   /* 0251: the same email in a simulation and for real; only where it is sent differs */
-  const subject = `Please approve: issuance of Option Certificates for ${s.names} (vesting ${it.vest_date_text})`;
+  /* 0252 (Rachel, 20 Nov 2026): the firm and the client first, then how many option holders and the vesting date.
+     The names are in the email itself; a subject listing them ran long and was cut off in inboxes. */
+  const holders = `${s.certificates} Option Holder${s.certificates === 1 ? "" : "s"}`;
+  const subject = `${it.company?.trim() ? `FD x ${company} ESOP` : "Founders Doc ESOP"}: Issuance of Option Certificates for ${holders} | Vesting ${it.vest_date_text}`;
   const hitpay = (it.slug ?? "").toLowerCase() === "hitpay" || /hitpay/i.test(company);
   const url = esc(link);
   /* 0217: Modify / Cancel open the same private page with the form (only its POST records anything) */
