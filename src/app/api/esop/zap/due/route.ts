@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { alertText, confirmText, loadDue, newApprovalLink, optionsOf } from "@/lib/esop/zap";
-import { sendApprovalEmail } from "@/lib/esop/approval";
+import { ownStandIn, sendApprovalEmail } from "@/lib/esop/approval";
+import { standInAlarm, wrongKeyAlarm } from "@/lib/esop/alarm";
 import { testModeFields } from "@/lib/esop/test-mode";
 
 /**
@@ -44,7 +45,10 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await loadDue(key, slug, days, ref);
   if (error) {
-    if (/not allowed/.test(error.message ?? "")) return NextResponse.json({ error: "Not found." }, { status: 404 });
+    if (/not allowed/.test(error.message ?? "")) {
+      await wrongKeyAlarm(slug, "due", ref);
+      return NextResponse.json({ error: "Not found." }, { status: 404 });
+    }
     console.error("[esop due] failed:", error.message);
     return NextResponse.json({ error: "Could not read the list." }, { status: 500 });
   }
@@ -61,7 +65,11 @@ export async function GET(req: NextRequest) {
         console.error("[esop due] approval link failed:", made.error);
         approvalEmail = "failed";
       } else if (made.item?.skipped) approvalEmail = "already_sent";
-      else if (made.item) approvalEmail = (await sendApprovalEmail(made.item, `${req.nextUrl.origin}/approve/${made.token}`)) ? "sent" : "failed";
+      else if (made.item && ownStandIn(made.item)) {
+        /* 0255: never "send to the client" when the contact is still one of our own addresses */
+        await standInAlarm(slug, first.ref);
+        approvalEmail = "failed";
+      } else if (made.item) approvalEmail = (await sendApprovalEmail(made.item, `${req.nextUrl.origin}/approve/${made.token}`)) ? "sent" : "failed";
     }
   }
 

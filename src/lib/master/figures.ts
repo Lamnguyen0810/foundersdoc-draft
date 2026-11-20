@@ -78,6 +78,8 @@ export interface MRun {
   sent_at: string | null;
   paid_at: string | null;
   simulation: boolean;
+  /** 0255: when the payment email went to the client; null = not yet; undefined = could not be read */
+  payment_email_sent_at?: string | null;
 }
 /** A certificate on a holder's record (uploaded, or filed by FD Sign). */
 export interface MCertificate {
@@ -190,6 +192,8 @@ export interface VestingStatus {
   request: "modify" | "cancel" | null;
   /** when the latest approval email for it was made; null = none yet */
   approvalEmailAt: string | null;
+  /** 0255: approved for real, more than PAYMENT_EMAIL_GRACE_MIN ago, and the payment email has still not gone */
+  paymentEmailMissing: boolean;
 }
 export interface EsopRow {
   slug: string;
@@ -224,6 +228,8 @@ export const SOON_DAYS = 14;
 export const LATE_DAYS = 30;
 /** How far back a vesting that was approved, but not finished, is still raised. */
 export const OPEN_DAYS = 60;
+/** The payment email follows an approval within a minute or so; after this long without one, something broke on the way. */
+export const PAYMENT_EMAIL_GRACE_MIN = 10;
 
 /** Today's date in Singapore, as a local midnight (what lib/esop/vesting's day arithmetic works in). */
 export function singaporeDay(now: Date): Date {
@@ -294,6 +300,7 @@ export function vestings(c: MCompany, rows: MasterRows, now: Date): VestingStatu
         done: approved && active.length > 0 && signed >= active.length,
         request: requests.get(ref) ?? null,
         approvalEmailAt: emailed.get(ref) ?? null,
+        paymentEmailMissing: !c.self_serve && approved && !run.paid_at && run.payment_email_sent_at === null && now.getTime() - Date.parse(run.approved_at) > PAYMENT_EMAIL_GRACE_MIN * 60_000,
       });
     }
   }
@@ -373,6 +380,9 @@ function esopActions(row: EsopRow, all: VestingStatus[], now: Date): Action[] {
            for a vesting rehearsed in simulation: that one has to be reset on its dashboard first */
         act: row.managed && !v.rehearsed ? { type: "approval-email", company: row.slug, ref: v.ref, again: !!v.approvalEmailAt, simulation: row.simulation } : null,
       });
+    } else if (row.managed && !v.paid && v.paymentEmailMissing) {
+      /* 0255: the client approved and was never sent the link to pay: the worst kind of silence */
+      out.push({ kind: "unpaid", tone: "err", title: `${head}: approved, but the payment email has NOT gone`, detail: `The client has no payment link yet. Check the latest run of the Approved Zap · ${vests}${sim}`, href, act: null });
     } else if (row.managed && !v.paid) {
       out.push({ kind: "unpaid", tone: v.daysLeft < 0 ? "err" : "warn", title: `${head}: approved, not paid`, detail: `${plural(v.certificates, "certificate")} wait for the payment · ${vests}${sim}`, href, act: { type: "paid", company: row.slug, ref: v.ref } });
     } else if (v.signed < v.certificates) {

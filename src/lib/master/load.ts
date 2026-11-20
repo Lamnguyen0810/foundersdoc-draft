@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { ALERT_COLUMNS, BATCH_COLUMNS, CERTIFICATE_COLUMNS, COMPANY_COLUMNS, ENVELOPE_COLUMNS, HOLDER_COLUMNS, REMINDER_COLUMNS, REQUEST_COLUMNS, RUN_COLUMNS, SIGNER_COLUMNS, SUBSCRIPTION_COLUMNS, APPROVAL_EMAIL_COLUMNS } from "./columns";
+import { ALERT_COLUMNS, BATCH_COLUMNS, CERTIFICATE_COLUMNS, COMPANY_COLUMNS, ENVELOPE_COLUMNS, HOLDER_COLUMNS, PAYMENT_EMAIL_COLUMNS, REMINDER_COLUMNS, REQUEST_COLUMNS, RUN_COLUMNS, SIGNER_COLUMNS, SUBSCRIPTION_COLUMNS, APPROVAL_EMAIL_COLUMNS } from "./columns";
 import type { MApprovalEmail, MReminder, MAlert, MBatch, MCertificate, MCompany, MEnvelope, MHolder, MRequest, MRun, MSigner, MSubscription, MasterRows } from "./figures";
 
 /**
@@ -61,7 +61,7 @@ export async function loadMaster(now: Date = new Date()): Promise<Loaded> {
   type Company = Omit<MCompany, "simulation"> & { email_override: string | null };
   const requestsOf = () => db.from("sign_envelopes").select(ENVELOPE_COLUMNS);
 
-  const [recent, open, signedCertificates, companies, batches, holders, runs, certificates, slackAlerts, emailAlerts, requests, approvalEmails] = await Promise.all([
+  const [recent, open, signedCertificates, companies, batches, holders, runs, certificates, slackAlerts, emailAlerts, requests, approvalEmails, paymentEmails] = await Promise.all([
     read<MEnvelope>("signing requests", () => requestsOf().gte("created_at", since).order("id")),
     read<MEnvelope>("signing requests", () => requestsOf().eq("status", "sent").order("id")),
     /* ESOP certificates signed at any time: a vesting's certificates may have been signed before the 90 days */
@@ -76,7 +76,10 @@ export async function loadMaster(now: Date = new Date()): Promise<Loaded> {
     read<MRequest>("ESOP change requests", () => db.from("esop_run_requests").select(REQUEST_COLUMNS).is("resolved_at", null).order("company_id").order("ref").order("created_at")),
     /* when an approval email was made for a vesting (the button or the daily alert): shown as "sent 2 days ago" */
     read<MApprovalEmail>("ESOP approval emails", () => db.from("esop_approval_links").select(APPROVAL_EMAIL_COLUMNS).gte("created_at", since).order("company_id").order("ref").order("created_at")),
+    /* 0255: when each payment email went. Its own read: if the column is not there, only this part is incomplete */
+    read<{ company_id: string; ref: string; payment_email_sent_at: string | null }>("payment emails", () => db.from("esop_tranche_runs").select(PAYMENT_EMAIL_COLUMNS).order("company_id").order("ref")),
   ]);
+  const paymentEmailAt = new Map(paymentEmails.map((p) => [`${p.company_id}|${p.ref}`, p.payment_email_sent_at ?? null]));
 
   const byId = new Map<string, MEnvelope>();
   for (const e of [...recent, ...open, ...signedCertificates]) byId.set(e.id, e);
@@ -103,7 +106,8 @@ export async function loadMaster(now: Date = new Date()): Promise<Loaded> {
       companies: companies.map(({ email_override, ...c }) => ({ ...c, plan: c.plan === "premium" ? "premium" : "free", self_serve: !!c.self_serve, simulation: !!email_override?.trim() })),
       batches,
       holders,
-      runs: runs.map((r) => ({ ...r, simulation: !!r.simulation })),
+      /* undefined (not null) when the payment-email read failed: "unknown" raises no alarm */
+      runs: runs.map((r) => ({ ...r, simulation: !!r.simulation, ...(paymentEmailAt.has(`${r.company_id}|${r.ref}`) ? { payment_email_sent_at: paymentEmailAt.get(`${r.company_id}|${r.ref}`) ?? null } : {}) })),
       certificates,
       alerts: [...slackAlerts, ...emailAlerts],
       requests,

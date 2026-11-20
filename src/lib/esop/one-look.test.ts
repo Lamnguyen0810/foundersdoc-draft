@@ -2,8 +2,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { approvalCc, approvalCopies, approvalEmail, type ApprovalItem } from "./approval";
+import { approvalCc, approvalCopies, approvalEmail, ownStandIn, type ApprovalItem } from "./approval";
 import { trueCc } from "./test-mode";
+import { holderNoteEmail, noteCc } from "./holder-note";
 import { paymentCc, paymentEmail, paymentSubject, type PaymentItem } from "./payment-email";
 import { recipients, responseEmail, type Response } from "./respond";
 
@@ -123,5 +124,45 @@ test("true CC: off until ESOP_TRUE_CC=1; then the copy addresses go on the CC li
       if (v === undefined) delete process.env[k];
       else process.env[k] = v;
     }
+  }
+});
+
+/* ── safety nets (0255) ────────────────────────────────────────────────────── */
+
+test("a real approval email never goes to one of our own addresses standing in for the client's", () => {
+  const item: ApprovalItem = { ...base, holders, leavers: [], to: "legal@foundersdoc.com", to_name: "Alex" };
+  assert.equal(ownStandIn(item), true);
+  assert.equal(ownStandIn({ ...item, to: " Legal@FoundersDoc.com " }), true);
+  assert.equal(ownStandIn({ ...item, to: "alex.tan@example.com" }), false, "the client's own address is fine");
+  assert.equal(ownStandIn({ ...item, simulation: true }), false, "a simulation is meant to go to our inbox");
+  assert.equal(ownStandIn({ ...item, to: undefined }), false);
+});
+
+/* ── the option holders' note, sent by the website (0256) ──────────────────── */
+
+test("the holders' note: the approved words, the company's name, and no mode label", () => {
+  const m = holderNoteEmail({ company: "HitPay (TEST)", slug: "hitpay" });
+  assert.equal(m.subject, "\u{1F389} A Milestone Worth Celebrating | HitPay ESOP");
+  assert.match(m.html, /Hi there,/);
+  assert.match(m.html, /We&#39;re pleased|We're pleased to share that your HitPay ESOP options have vested\./);
+  assert.match(m.html, /Signing request/);
+  assert.match(m.html, /hitpay-logo\.png/);
+  assert.ok(!labelled(m.subject) && !labelled(m.html) && !labelled(m.text));
+  const other = holderNoteEmail({ company: "Sample Company", slug: "sample-company" });
+  assert.equal(other.subject, "\u{1F389} A Milestone Worth Celebrating | Sample Company ESOP");
+  assert.ok(!/hitpay-logo/.test(other.html), "another company does not get HitPay's logo");
+});
+
+test("who is copied on a holder's note: Founders Doc, then the client's contact; nobody in a simulation", () => {
+  const before = process.env.ESOP_CC_EMAILS;
+  try {
+    process.env.ESOP_CC_EMAILS = "one@foundersdoc.com, two@foundersdoc.com";
+    assert.deepEqual(noteCc("jamie.lee@example.com", "Alex.Tan@example.com", false), ["one@foundersdoc.com", "two@foundersdoc.com", "alex.tan@example.com"]);
+    assert.deepEqual(noteCc("alex.tan@example.com", "alex.tan@example.com", false), ["one@foundersdoc.com", "two@foundersdoc.com"], "a holder who is also the contact is not copied on their own note");
+    assert.deepEqual(noteCc("jamie.lee@example.com", null, false), ["one@foundersdoc.com", "two@foundersdoc.com"]);
+    assert.deepEqual(noteCc("inbox@foundersdoc.com", "inbox@foundersdoc.com", true), [], "a rehearsal copies nobody");
+  } finally {
+    if (before === undefined) delete process.env.ESOP_CC_EMAILS;
+    else process.env.ESOP_CC_EMAILS = before;
   }
 });

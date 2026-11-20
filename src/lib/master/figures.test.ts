@@ -271,6 +271,8 @@ test("privacy: the page reads no title, no file and no signer's or holder's name
       if (["owner_email", "owner_name"].includes(column) || (list === "COMPANY_COLUMNS" && column === "name")) continue;
       /* a company's simulation inbox is read only to know that a simulation is on; the loader keeps a yes or no, not the address */
       if (list === "COMPANY_COLUMNS" && column === "email_override") continue;
+      /* when a payment email went: a time, not an address */
+      if (list === "PAYMENT_EMAIL_COLUMNS" && column === "payment_email_sent_at") continue;
       assert.ok(!/title|file|name|email|phone|message|typed|png|original|ip$|user_agent|note|id_no|nationality/.test(column), `${list} reads "${column}"`);
     }
   }
@@ -303,6 +305,7 @@ test("every column the page reads exists in the database, as the SQL files in su
     SUBSCRIPTION_COLUMNS: ["subscriptions"],
     REMINDER_COLUMNS: ["sign_events"],
     APPROVAL_EMAIL_COLUMNS: ["esop_approval_links"],
+    PAYMENT_EMAIL_COLUMNS: ["esop_tranche_runs"],
   };
   for (const [list, tables] of Object.entries(TABLES) as Array<[keyof typeof ALL_COLUMNS, string[]]>)
     for (const table of tables) {
@@ -390,6 +393,32 @@ test("mark as paid: for an approved, unpaid vesting of a company Founders Doc ru
   const own = withBatch(OWN, 5);
   own.runs.push({ company_id: OWN.id, ref: "B8-T1", approved_at: ago(1), sent_at: ago(1), paid_at: null, simulation: false });
   assert.ok(master(own, NOW).actions.every((x) => x.act === null));
+});
+
+test("payment email missing: raised as urgent once an approval is 10 minutes old with no payment email", () => {
+  const minutesAgo = (m: number) => new Date(NOW.getTime() - m * 60_000).toISOString();
+  const r = withBatch(MANAGED, 5);
+  r.runs.push({ company_id: MANAGED.id, ref: "B8-T1", approved_at: minutesAgo(45), sent_at: minutesAgo(45), paid_at: null, simulation: false, payment_email_sent_at: null });
+  let a = master(r, NOW).actions[0];
+  assert.equal(a.title, "Sample Company · B8-T1: approved, but the payment email has NOT gone");
+  assert.deepEqual([a.kind, a.tone, a.act], ["unpaid", "err", null]);
+  /* inside the grace time it is the usual "approved, not paid" */
+  r.runs[0].approved_at = minutesAgo(4);
+  assert.equal(master(r, NOW).actions[0].title, "Sample Company · B8-T1: approved, not paid");
+  /* once the email has gone, or when the time could not be read (unknown), no alarm */
+  r.runs[0].approved_at = minutesAgo(45);
+  r.runs[0].payment_email_sent_at = minutesAgo(40);
+  assert.equal(master(r, NOW).actions[0].title, "Sample Company · B8-T1: approved, not paid");
+  delete r.runs[0].payment_email_sent_at;
+  a = master(r, NOW).actions[0];
+  assert.equal(a.title, "Sample Company · B8-T1: approved, not paid");
+  assert.deepEqual(a.act, { type: "paid", company: "sample-co", ref: "B8-T1" });
+  /* a self-serve dashboard has no payment step, and a rehearsal is not an approval */
+  const own = withBatch(OWN, 5);
+  own.runs.push({ company_id: OWN.id, ref: "B8-T1", approved_at: minutesAgo(45), sent_at: null, paid_at: null, simulation: false, payment_email_sent_at: null });
+  assert.ok(master(own, NOW).actions.every((x) => !/payment email/.test(x.title)));
+  r.runs[0] = { ...r.runs[0], simulation: true, payment_email_sent_at: null };
+  assert.ok(master(r, NOW).actions.every((x) => !/payment email/.test(x.title)));
 });
 
 test("how long ago: under an hour, hours, days", () => {

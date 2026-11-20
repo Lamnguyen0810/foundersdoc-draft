@@ -3,7 +3,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { getUser, isAdmin } from "@/lib/supabase/server";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { canResetSimulation } from "@/lib/esop/sim-reset";
-import { hashApprovalToken, newApprovalToken, sendApprovalEmail, type ApprovalItem } from "@/lib/esop/approval";
+import { hashApprovalToken, newApprovalToken, ownStandIn, sendApprovalEmail, type ApprovalItem } from "@/lib/esop/approval";
 
 /**
  * POST /api/esop/approval-email  { "company": "hitpay", "ref": "B8-T2" }
@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Could not prepare the email." }, { status: 500 });
   }
   const item = data as ApprovalItem;
+  /* 0255: in real mode the email must go to the client. On 20 Nov 2026 the contact was still our own
+     address from set-up, and "sent to the client" would have reached nobody at the client. */
+  if (ownStandIn(item)) return NextResponse.json({ error: "Not sent: the client's contact email is still a Founders Doc address. Put the client's own email on the dashboard first." }, { status: 409 });
   const link = `${req.nextUrl.origin}/approve/${token}`;
   const sent = await sendApprovalEmail(item, link);
   /* emails off (SIGN_HOOK_URL not set): give the admin the link to try or copy */
