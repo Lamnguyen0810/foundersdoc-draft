@@ -237,7 +237,7 @@ test("the approval in Slack: who approved first and in bold, when, then what hap
   assert.equal(lines[2], ":scroll: 3 option certificates (No. 48 to 50) · vesting 1 Dec 2026");
   assert.equal(lines[4], "*What happens next*");
   assert.match(lines[5], /^:one: \*Payment\.\* The payment email goes to Alex now\./);
-  assert.match(lines[6], /<https:\/\/foundersdoc\.com\/admin\/sign\?ref=B8-T2\|Admin → Sign>$/);
+  assert.equal(lines[6], ":two: *To send for signing.* Once paid, we send the 3 certificates here: <https://foundersdoc.com/admin/sign?ref=B8-T2|Admin → Sign>");
   assert.equal(lines.length, 8, "one short message, nothing per holder");
   assert.ok(!/Jamie|Sam Wong|Robin/.test(t), "no option holder is named: the message is about the approval");
   assert.ok(!labelled(t));

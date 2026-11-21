@@ -53,7 +53,8 @@ export function approvedSlackText(item: Item, p: { origin: string; slug: string;
     "",
     "*What happens next*",
     `:one: *Payment.* The payment email goes to ${payer} now. We wait for payment.`,
-    `:two: *Signing.* Once paid, we send the certificate${n === 1 ? "" : "s"} for signing: <${p.origin}/admin/sign?ref=${p.ref}|Admin → Sign>`,
+    /* 0261 (Rachel, 20 Nov 2026): named as what we have to do, "To send for signing" */
+    `:two: *To send for signing.* Once paid, we send the ${n === 1 ? "certificate" : `${n} certificates`} here: <${p.origin}/admin/sign?ref=${p.ref}|Admin → Sign>`,
     `:three: *Filing.* ${first || "The Director"} signs, then each option holder signs. The signed copies are filed on the dashboard.`,
   ].join("\n");
 }
