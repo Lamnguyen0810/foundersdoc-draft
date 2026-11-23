@@ -65,6 +65,26 @@ export default async function EsopPage({
           access={{ role: "ceo", canEdit: true, canManage: true }}
         />
       );
+    /* 0262 preview (?demo=client): the dashboard exactly as a client's own login sees it (View only, may approve):
+       no Founders Doc buttons, no simulation, one vesting approved and waiting for payment */
+    if (sp.demo === "client")
+      return (
+        <EsopSheet
+          company={DEMO_COMPANY}
+          batches={DEMO_BATCHES}
+          holders={DEMO_HOLDERS}
+          documents={DEMO_DOCUMENTS}
+          role="ceo"
+          viewer="director@example.com"
+          runs={[{ ...DEMO_LOCKIN.runs[0], ref: "B8-T2" }]}
+          canApprove
+          focusRef={focusRef}
+          supabaseUrl={null}
+          supabaseKey={null}
+          settings={{ self_serve: false, holder_access: false, alert_days: [], alert_emails: [], finance_emails: [], plan: "free", ready: true }}
+          access={{ role: "viewer", canEdit: false, canManage: false }}
+        />
+      );
     return (
       <EsopSheet
         company={DEMO_COMPANY}
@@ -220,7 +240,8 @@ export default async function EsopPage({
       settings={settings}
       access={access}
       batches={(batchesRes.data ?? []) as EsopBatch[]}
-      holders={(holdersRes.data ?? []) as EsopHolder[]}
+      /* 0262: Founders Doc's working notes on a dashboard it keeps for a client never reach the client's browser */
+      holders={((holdersRes.data ?? []) as EsopHolder[]).map((h) => (admin || settings.self_serve ? h : { ...h, notes: null }))}
       documents={(docsRes.data ?? []) as EsopDocument[]}
       role={admin ? "admin" : "ceo"}
       viewer={user.email ?? ""}

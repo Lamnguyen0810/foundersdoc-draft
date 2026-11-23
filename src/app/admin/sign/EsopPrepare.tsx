@@ -64,7 +64,7 @@ export default function EsopPrepare({
   initialRef,
 }: {
   initialRef?: string | null;
-  onCreate: (p: { files: Prepared[]; director: { name: string; email: string; realEmail: string | null }; simulation: string | null; label: string }) => void;
+  onCreate: (p: { files: Prepared[]; director: { name: string; email: string; realEmail: string | null }; simulation: string | null; copies?: string; label: string }) => void;
 }) {
   const [runs, setRuns] = useState<Run[] | null>(null);
   const [ref, setRef] = useState("");
@@ -172,9 +172,9 @@ export default function EsopPrepare({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ref: prep.ref, save, nationality: nat, rows: chosen.map((h) => ({ holderId: h.id, ...edit[h.id] })) }),
       });
-      const j = (await res.json()) as { error?: string; files?: Prepared[]; director?: { name: string; email: string; realEmail: string | null }; simulation?: string | null };
+      const j = (await res.json()) as { error?: string; files?: Prepared[]; director?: { name: string; email: string; realEmail: string | null }; simulation?: string | null; copies?: string };
       if (!res.ok || !j.files || !j.director) throw new Error(j.error || "Could not create the certificates.");
-      onCreate({ files: j.files, director: j.director, simulation: j.simulation ?? null, label: `Batch ${prep.batch}, Tranche ${prep.tranche}${prep.vestDate ? ` (vesting ${prep.vestDate})` : ""}` });
+      onCreate({ files: j.files, director: j.director, simulation: j.simulation ?? null, copies: j.copies ?? "", label: `Batch ${prep.batch}, Tranche ${prep.tranche}${prep.vestDate ? ` (vesting ${prep.vestDate})` : ""}` });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not create the certificates.");
     } finally {

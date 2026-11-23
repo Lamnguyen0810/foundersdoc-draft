@@ -3,6 +3,7 @@ import { esopSource, isoFromLong } from "@/lib/sign/esop";
 import { buildCertificatePdf } from "@/lib/sign/certificate";
 import { adminEmail } from "@/lib/sign/http";
 import { realNationality, TBC } from "@/lib/sign/nationality";
+import { ccEmails } from "@/lib/esop/test-mode";
 
 /**
  * POST /api/sign/esop/certificates — admin: make the Option Certificates for
@@ -91,5 +92,8 @@ export async function POST(req: NextRequest) {
     files,
     director: { name: prep.company.director || prep.company.contactName, email: prep.company.sendTo ?? "", realEmail: prep.company.contactEmail },
     simulation: prep.simulation,
+    /* 0262: who gets the signed copies, ready in the Copies box: Founders Doc's own list (ESOP_CC_EMAILS), or
+       the simulation inbox. Before this the box came up with one address typed into the page. */
+    copies: ccEmails(prep.simulation),
   });
 }
