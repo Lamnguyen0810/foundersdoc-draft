@@ -410,3 +410,16 @@ body:has(.esop.ev) { margin: 0; background: #f4f4f4; }
 .ev-req { display: inline-block; max-width: 100%; padding: 3px 9px; border-radius: 8px; background: #fbeec9; color: #6b4e00; font-size: 12.5px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
 .ev-req.stop { background: #f3f3f1; color: #555; }
 .ev-lock { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #eef3f0; color: #2f6e4a; font-size: 12px; font-weight: 600; }
+
+/* 0263: a free client login views only; opening, downloading and exporting are paid */
+.esop.ev .ev-viewonly { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; padding: 10px 14px; border: 1px solid #ecd9a6; background: #fbf6e9; border-radius: 8px; font-size: 13.5px; line-height: 1.45; color: var(--ink); }
+.esop.ev .ev-viewonly > span:nth-child(2) { flex: 1; }
+.esop.ev .ev-scrim.top { z-index: 60; }
+.esop.ev .ev-pay { position: fixed; z-index: 61; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 460px; max-width: calc(100% - 32px); background: #fff; border-radius: 12px; padding: 26px 26px 22px; box-shadow: 0 24px 60px rgba(0, 0, 0, .28); color: var(--ink); }
+.esop.ev .ev-pay h2 { margin: 12px 0 8px; font-size: 21px; letter-spacing: -.01em; }
+.esop.ev .ev-pay p { margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: #555; }
+.esop.ev .ev-pay ul { margin: 0 0 12px; padding: 0; list-style: none; display: grid; gap: 8px; }
+.esop.ev .ev-pay li { padding: 10px 12px; border: 1px solid #e6e6e2; border-radius: 8px; font-size: 14px; line-height: 1.5; color: #444; }
+.esop.ev .ev-pay li b { color: var(--blk); }
+.esop.ev .ev-payb { display: flex; gap: 10px; margin-top: 16px; }
+.esop.ev .ev-payb a { text-decoration: none; }
