@@ -24,7 +24,8 @@ export interface Snapshot {
   today: string;
 }
 
-type View = "dashboard" | "deadlines" | "reminders" | "clients" | "sources";
+type View = "dashboard" | "deadlines" | "calendar" | "reminders" | "clients" | "sources" | "billing";
+const VIEWS: View[] = ["dashboard", "deadlines", "calendar", "reminders", "clients", "sources", "billing"];
 const PAGE = 50;
 const DEFAULT_LOGO = "/onpoint/logo.png";
 const shortType = (d: Pick<Deadline, "type" | "label">) => (d.type === "CORP_SEC_EXPIRY" || d.type === "RECURRING_JOB" ? d.label || TYPE_PICK[d.type] : d.type === "FS" ? "FS" : d.type);
@@ -60,6 +61,22 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
   const live = useMemo(() => s.deadlines.filter((d) => d.status === "active"), [s.deadlines]);
   const overdue = live.filter((d) => d.due_date < s.today);
   const company = s.ws.custom_name || s.ws.name;
+
+  /* coming back from Stripe (?billing=done&session_id=…) or a link to a view (?view=billing) */
+  const [stripeReturn, setStripeReturn] = useState<{ sessionId: string | null; cancelled: boolean } | null>(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const v = q.get("view") as View | null;
+    const billing = q.get("billing");
+    if (!billing && !(v && VIEWS.includes(v))) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- read once from the address bar after the first render */
+    if (billing) {
+      setView("billing");
+      setStripeReturn({ sessionId: q.get("session_id"), cancelled: billing === "cancelled" });
+    } else if (v) setView(v);
+    /* eslint-enable react-hooks/set-state-in-effect */
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   const go = (v: View) => {
     setView(v);
@@ -112,6 +129,7 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
               <div className="ev-h">Overview</div>
               {nav("dashboard", "overview", "Dashboard")}
               {nav("deadlines", "esop", "Deadlines", overdue.length)}
+              {nav("calendar", "calendar", "Calendar")}
             </div>
             <div className="ev-grp">
               <div className="ev-h">Automation</div>
@@ -122,6 +140,12 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
               {nav("clients", "folder", "Clients")}
               {nav("sources", "upload", "Excel sources")}
             </div>
+            {isAdmin && (
+              <div className="ev-grp">
+                <div className="ev-h">Account</div>
+                {nav("billing", "card", "Billing & plan")}
+              </div>
+            )}
           </nav>
           <div className="ev-foot">
             <div className="op-sending">
@@ -151,6 +175,8 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
           <div className="ev-wrap">
             {view === "dashboard" && <Dashboard s={s} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} />}
             {view === "deadlines" && <Deadlines s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} onPreview={openPreview} />}
+            {view === "calendar" && <Calendar s={s} byId={byId} onPreview={openPreview} />}
+            {view === "billing" && isAdmin && <Billing preview={preview} say={say} back={stripeReturn} />}
             {view === "reminders" && <Reminders s={s} setS={setS} byId={byId} live={live} canEdit={canEdit} preview={preview} say={say} reload={reload} focus={focus} />}
             {view === "clients" && <Clients s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} />}
             {view === "sources" && <Sources s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} />}
@@ -306,6 +332,10 @@ function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean
               ))}
             </select>
           </label>
+          <button className="ev-btn op-push" onClick={() => downloadCsv(rows, p.byId, `OnPoint deadlines ${s.today}.csv`)} disabled={!rows.length}>
+            <Ic n="download" s={14} />
+            Export CSV
+          </button>
         </div>
         <div className="ev-chips" role="group" aria-label="Filter">
           {chips.map(([k, label]) => (
@@ -1048,6 +1078,360 @@ function LogoModal(p: { current: string; name: string; preview: boolean; onClose
           </button>
         </div>
       </div>
+    </>
+  );
+}
+
+/* ── Export (0269) ─────────────────────────────────────────────────────── */
+
+/** the deadlines on screen as a CSV for Excel; a cell starting with = + - @ is quoted so Excel never runs it */
+function downloadCsv(rows: Deadline[], byId: Map<string, Client>, name: string) {
+  const cell = (v: unknown) => {
+    let x = v == null ? "" : String(v);
+    if (/^[=+\-@\t\r]/.test(x)) x = `'${x}`;
+    return /[",\n]/.test(x) ? `"${x.replace(/"/g, '""')}"` : x;
+  };
+  const head = ["Client", "UEN", "Deadline", "Due date", "Status", "Done on", "Contact", "Email", "Source"];
+  const body = rows.map((d) => {
+    const c = byId.get(d.client_id);
+    return [c?.name, c?.uen, d.label || TYPE_PICK[d.type], d.due_date, d.status === "active" ? "open" : d.status.replace("_", " "), d.done_on, c?.contact_name, c?.contact_email, d.source];
+  });
+  const csv = "﻿" + [head, ...body].map((r) => r.map(cell).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/* ── Calendar (0269) ───────────────────────────────────────────────────── */
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const CAL_TAG: Record<ReminderType, string> = { AR: "AR", ECI: "ECI", AGM: "AGM", FS: "FS", CORP_SEC_EXPIRY: "Corp-sec", RECURRING_JOB: "Jobs" };
+const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: Deadline) => void }) {
+  const { s } = p;
+  const [ym, setYm] = useState(() => s.today.slice(0, 7));
+  const [type, setType] = useState<"" | ReminderType>("");
+  const [day, setDay] = useState<string | null>(s.today);
+  const [y, m] = ym.split("-").map(Number) as [number, number];
+  const days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const lead = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7;
+  const byDay = useMemo(() => {
+    const map = new Map<string, Deadline[]>();
+    for (const d of s.deadlines) {
+      if (d.status === "cancelled" || !d.due_date.startsWith(ym) || (type && d.type !== type)) continue;
+      map.set(d.due_date, [...(map.get(d.due_date) ?? []), d]);
+    }
+    return map;
+  }, [s.deadlines, ym, type]);
+  const move = (n: number) => {
+    const t = y * 12 + (m - 1) + n;
+    setYm(`${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, "0")}`);
+    setDay(null);
+  };
+  const cells: Array<string | null> = [...Array(lead).fill(null), ...Array.from({ length: days }, (_, i) => iso(y, m, i + 1))];
+  while (cells.length % 7) cells.push(null);
+  const list = day ? (byDay.get(day) ?? []) : [];
+  const monthTotal = [...byDay.values()].reduce((n, l) => n + l.filter((d) => d.status === "active").length, 0);
+  return (
+    <>
+      <header className="ev-title">
+        <h1>Calendar</h1>
+        <span>One view of every date</span>
+      </header>
+      <section className="ev-card op-pad">
+        <div className="op-tools">
+          <button className="ev-btn sm" aria-label="Previous month" onClick={() => move(-1)}>
+            <Ic n="back" s={12} />
+          </button>
+          <h2 className="op-h2 op-month">
+            {MONTHS[m - 1]} {y}
+          </h2>
+          <button className="ev-btn sm" aria-label="Next month" onClick={() => move(1)}>
+            <Ic n="chev" s={12} />
+          </button>
+          <button className="ev-btn sm" onClick={() => (setYm(s.today.slice(0, 7)), setDay(s.today))}>
+            Today
+          </button>
+          <span className="ev-sub">{monthTotal} open this month</span>
+          <label className="ev-select op-push">
+            <span className="ev-sr">Type</span>
+            <select value={type} onChange={(e) => setType(e.target.value as ReminderType | "")}>
+              <option value="">All types</option>
+              {TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {TYPE_PICK[t]}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="op-cal" role="grid" aria-label={`${MONTHS[m - 1]} ${y}`}>
+          {WEEK.map((w) => (
+            <div key={w} className="op-calh" role="columnheader">
+              {w}
+            </div>
+          ))}
+          {cells.map((c, i) => {
+            if (!c) return <div key={`x${i}`} className="op-cald empty" aria-hidden="true" />;
+            const l = byDay.get(c) ?? [];
+            const open = l.filter((d) => d.status === "active");
+            const late = c < s.today && open.length > 0;
+            const types = new Map<string, number>();
+            for (const d of open) {
+              const k = CAL_TAG[d.type];
+              types.set(k, (types.get(k) ?? 0) + 1);
+            }
+            return (
+              <button
+                key={c}
+                role="gridcell"
+                aria-selected={day === c}
+                aria-label={`${fmtDate(c)}: ${open.length} open`}
+                className={`op-cald ${day === c ? "on" : ""} ${c === s.today ? "today" : ""} ${late ? "late" : ""}`}
+                onClick={() => setDay(c)}
+              >
+                <span className="op-caln">{Number(c.slice(8))}</span>
+                {[...types].slice(0, 3).map(([k, n]) => (
+                  <span key={k} className="op-calt">
+                    {k} <b>{n}</b>
+                  </span>
+                ))}
+                {types.size > 3 && <span className="ev-sub">+{types.size - 3} more</span>}
+                {!open.length && l.length > 0 && <span className="ev-sub">{l.length} done</span>}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+      {day && (
+        <section className="ev-card op-pad">
+          <h2 className="op-h2">{fmtDate(day)}</h2>
+          {list.length === 0 && <p className="ev-sub">Nothing due on this day.</p>}
+          {list
+            .slice()
+            .sort((a, b) => (p.byId.get(a.client_id)?.name ?? "").localeCompare(p.byId.get(b.client_id)?.name ?? ""))
+            .map((d) => (
+              <div key={d.id} className="op-dayrow">
+                <span className="op-name">{p.byId.get(d.client_id)?.name ?? "—"}</span>
+                <span className="op-tag">{shortType(d)}</span>
+                <span className={d.status !== "active" ? "ev-sub" : d.due_date < s.today ? "op-late" : "op-soon"}>{d.status === "active" ? countdown(d.due_date, s.today) : d.status.replace("_", " ")}</span>
+                {d.status === "active" ? (
+                  <button className="ev-btn sm" onClick={() => p.onPreview(d)}>
+                    <Ic n="mail" s={13} />
+                    Preview email
+                  </button>
+                ) : (
+                  <span />
+                )}
+              </div>
+            ))}
+        </section>
+      )}
+    </>
+  );
+}
+
+/* ── Billing & plan (0269) ─────────────────────────────────────────────── */
+
+interface BillingData {
+  configured: boolean;
+  mode: "test" | "live" | "unset";
+  price: { name: string; amount: number; currency: string; interval: string; tax: boolean } | null;
+  sub: { status: string; cancel_at_period_end: boolean; renews_on: string | null; started_on: string; amount: number | null; currency: string; email: string | null } | null;
+  card: { brand: string; last4: string; exp: string } | null;
+  invoices: Array<{ id: string; number: string | null; date: string; amount: number; currency: string; status: string; url: string | null; pdf: string | null }>;
+  linked?: boolean;
+}
+
+const money = (cents: number, cur: string) => `${cur.toLowerCase() === "sgd" ? "S$" : `${cur.toUpperCase()} `}${(cents / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const STATUS: Record<string, [string, string]> = {
+  active: ["Active", "ok"],
+  trialing: ["Trial", "ok"],
+  past_due: ["Payment failed: update the card", "bad"],
+  unpaid: ["Unpaid", "bad"],
+  incomplete: ["Waiting for payment", "warn"],
+  canceled: ["Ended", "off"],
+  paused: ["Paused", "off"],
+};
+const SAMPLE_BILLING: BillingData = {
+  configured: true,
+  mode: "test",
+  price: { name: "OnPoint Workflows", amount: 18000, currency: "sgd", interval: "month", tax: true },
+  sub: { status: "active", cancel_at_period_end: false, renews_on: "2026-12-24", started_on: "2026-11-24", amount: 18000, currency: "sgd", email: "accounts@example.com" },
+  card: { brand: "visa", last4: "4242", exp: "12/29" },
+  invoices: [{ id: "in_sample", number: "SAMPLE-0001", date: "2026-11-24", amount: 19620, currency: "sgd", status: "paid", url: null, pdf: null }],
+};
+
+function Billing(p: { preview: boolean; say: (t: string) => void; back: { sessionId: string | null; cancelled: boolean } | null }) {
+  const [b, setB] = useState<BillingData | null>(p.preview ? SAMPLE_BILLING : null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState("");
+  const { preview, say, back } = p;
+  useEffect(() => {
+    if (preview) return;
+    let gone = false;
+    const q = back?.sessionId ? `?session_id=${encodeURIComponent(back.sessionId)}` : "";
+    void api(`/api/onpoint/billing${q}`).then((r) => {
+      if (gone) return;
+      if (!r.ok) return setErr(String(r.j.error ?? "Could not load billing."));
+      const data = r.j as unknown as BillingData;
+      setB(data);
+      if (data.linked) say("Monthly card payment set up. Thank you!");
+    });
+    return () => {
+      gone = true;
+    };
+  }, [preview, say, back]);
+  async function open(action: "checkout" | "portal", copy = false) {
+    if (preview) return say("Preview: Stripe is not opened.");
+    setBusy(action + (copy ? "-copy" : ""));
+    const r = await api("/api/onpoint/billing", { method: "POST", body: JSON.stringify({ action }) });
+    setBusy("");
+    if (!r.ok || !r.j.url) return say(String(r.j.error ?? "Stripe could not be opened."));
+    const url = String(r.j.url);
+    if (copy) {
+      await navigator.clipboard.writeText(url).then(
+        () => say("Payment link copied. It works for 24 hours."),
+        () => say("Could not copy: open it instead."),
+      );
+      return;
+    }
+    window.location.href = url;
+  }
+  const st = b?.sub ? (STATUS[b.sub.status] ?? [b.sub.status, "off"]) : null;
+  const amount = b?.sub?.amount ?? b?.price?.amount ?? null;
+  const cur = b?.sub?.currency ?? b?.price?.currency ?? "sgd";
+  return (
+    <>
+      <header className="ev-title">
+        <h1>Billing &amp; plan</h1>
+        <span>Monthly subscription, paid by card</span>
+      </header>
+      {back?.cancelled && <div className="op-warn">Payment not completed. Nothing was charged.</div>}
+      {b?.mode === "test" && <div className="op-warn">Stripe test mode: no real card is charged here.</div>}
+      {err && <div className="op-warn">{err}</div>}
+      {!b && !err && <div className="ev-card op-pad ev-sub">Loading…</div>}
+      {b && !b.configured && <div className="ev-card op-pad">Card payments are not switched on yet.</div>}
+      {b?.configured && (
+        <>
+          <div className="op-grid2">
+            <section className="ev-card op-pad op-plan">
+              <div className="op-planh">
+                <div>
+                  <span className="op-lab">Current plan</span>
+                  <b className="op-planname">{b.price?.name ?? "OnPoint Workflows"}</b>
+                  {st ? <span className={`op-pill ${st[1]}`}>{b.sub?.cancel_at_period_end ? "Ends at period end" : st[0]}</span> : <span className="op-pill off">Not set up</span>}
+                </div>
+                {amount != null && (
+                  <div className="op-price">
+                    <b>{money(amount, cur)}</b>
+                    <span>per {b.price?.interval ?? "month"}{b.price?.tax ? " + GST" : ""}</span>
+                  </div>
+                )}
+              </div>
+              {b.sub ? (
+                <div className="op-meta">
+                  <div>
+                    Renews on<b>{b.sub.renews_on ? fmtDate(b.sub.renews_on) : "–"}</b>
+                  </div>
+                  <div>
+                    Since<b>{fmtDate(b.sub.started_on)}</b>
+                  </div>
+                  <div>
+                    Receipts to<b>{b.sub.email ?? "–"}</b>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="ev-sub">Pay once on Stripe&rsquo;s secure page. After that the card is charged automatically every month, and Stripe emails the receipt.</p>
+                  {!b.price && <p className="op-late">The monthly price is not set up in Stripe yet.</p>}
+                  <div className="op-chiprow">
+                    <button className="ev-btn gold" disabled={!b.price || !!busy} onClick={() => void open("checkout")}>
+                      <Ic n="card" s={15} />
+                      {busy === "checkout" ? "Opening…" : "Set up monthly card payment"}
+                    </button>
+                    <button className="ev-btn" disabled={!b.price || !!busy} onClick={() => void open("checkout", true)}>
+                      {busy === "checkout-copy" ? "Copying…" : "Copy payment link"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+            <section className="ev-card op-pad">
+              <h2 className="op-h2">Payment method</h2>
+              {b.card ? (
+                <div className="op-cardrow">
+                  <span className="op-brand2">{b.card.brand.toUpperCase()}</span>
+                  <div>
+                    <b>•••• {b.card.last4}</b>
+                    <span className="ev-sub">Expires {b.card.exp}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="ev-sub">No card on file yet.</p>
+              )}
+              {b.sub && (
+                <button className="ev-btn" disabled={!!busy} onClick={() => void open("portal")}>
+                  {busy === "portal" ? "Opening…" : "Update card, email or address"}
+                </button>
+              )}
+              <p className="ev-sub">🔒 The card is entered on Stripe&rsquo;s secure page. Card numbers never reach this system or your Excel sheets.</p>
+            </section>
+          </div>
+          <section className="ev-card op-pad">
+            <h2 className="op-h2">Invoices</h2>
+            {b.invoices.length === 0 ? (
+              <p className="ev-sub">No invoices yet.</p>
+            ) : (
+              <div className="ev-tablewrap">
+                <table className="ev-table op-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Invoice</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                      <th className="op-right" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {b.invoices.map((i) => (
+                      <tr key={i.id}>
+                        <td>{fmtDate(i.date)}</td>
+                        <td>{i.number ?? "–"}</td>
+                        <td>{money(i.amount, i.currency)}</td>
+                        <td>
+                          <span className={`op-pill ${i.status === "paid" ? "ok" : i.status === "open" ? "warn" : "off"}`}>{i.status === "paid" ? "Paid" : i.status === "open" ? "Due" : i.status}</span>
+                        </td>
+                        <td className="op-right">
+                          <span className="op-acts">
+                            {i.url && (
+                              <a className="ev-link" href={i.url} target="_blank" rel="noopener noreferrer">
+                                View
+                              </a>
+                            )}
+                            {i.pdf && (
+                              <a className="ev-link" href={i.pdf} target="_blank" rel="noopener noreferrer">
+                                PDF
+                              </a>
+                            )}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="ev-sub">Figures are in Singapore dollars. To change the plan or cancel, just let us know in writing.</p>
+          </section>
+        </>
+      )}
     </>
   );
 }
