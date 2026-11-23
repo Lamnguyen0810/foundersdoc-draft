@@ -81,3 +81,26 @@ test("a client's login never gets Founders Doc's working notes, and a View only 
   assert.match(sheet, /\["vesting", "Still vesting", \(r\) => r\.vesting/);
   assert.match(sheet, /\["long", "Still vesting · 3\+ years", \(r\) => r\.longVesting/);
 });
+
+/* ── view only: opening, downloading and exporting are paid (0263) ─────────── */
+
+test("a free client login views only: the page, the server and the database all hold the files back", () => {
+  const src = (f: string) => readFileSync(join(process.cwd(), f), "utf8");
+  const page = src("src/app/esop/[slug]/page.tsx");
+  assert.match(page, /const canDownload = admin \|\| settings\.self_serve \|\| settings\.plan === "premium" \|\| \(!passRes\.error && passRes\.data === true\);/);
+  assert.match(page, /canDownload \? d : \{ \.\.\.d, path: null, url: null \}/, "a locked login is never told where a file is");
+  const sheet = src("src/app/esop/[slug]/EsopSheet.tsx");
+  assert.match(sheet, /const locked = props\.canDownload === false;/, "absent means open: Founders Doc and own dashboards are never locked by accident");
+  for (const fn of ["async function openDoc(d: EsopDocument) {", "async function downloadZip(list: EsopDocument[], name: string) {", "function downloadExcel(only?: Set<string>) {"]) {
+    const at = sheet.indexOf(fn);
+    assert.ok(at > 0, fn);
+    assert.match(sheet.slice(at, at + fn.length + 80), /if \(locked\) return void setPaywall\(true\);/, `${fn} stops at the paywall first`);
+  }
+  assert.match(sheet, /Monthly subscription\./);
+  assert.match(sheet, /Pay to download\./);
+  /* the lock itself: the storage rule, so a login cannot fetch a file around the page */
+  const sql = src("supabase/135_esop_download_lock.sql");
+  assert.match(sql, /create policy "esop-docs: read" on storage\.objects\s+for select to authenticated using \(bucket_id = 'esop-docs' and public\.esop_can_read_path\(name\)\);/);
+  assert.match(sql, /c\.self_serve or c\.plan = 'premium' or \(c\.downloads_until is not null and c\.downloads_until > now\(\)\)/);
+  assert.match(sql, /select public\.is_admin\(\)\s+or \(\s+public\.esop_can\(p_company\)/, "Founders Doc always; a member only with a plan or a pass");
+});

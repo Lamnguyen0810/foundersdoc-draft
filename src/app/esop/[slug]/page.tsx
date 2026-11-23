@@ -83,6 +83,7 @@ export default async function EsopPage({
           supabaseKey={null}
           settings={{ self_serve: false, holder_access: false, alert_days: [], alert_emails: [], finance_emails: [], plan: "free", ready: true }}
           access={{ role: "viewer", canEdit: false, canManage: false }}
+          canDownload={false}
         />
       );
     return (
@@ -177,6 +178,11 @@ export default async function EsopPage({
     canEdit: admin || !settings.ready || myRole !== "viewer",
     canManage: admin || myRole === "ceo",
   };
+  /* 0263 (SQL 135): on a dashboard Founders Doc keeps for a client, opening, downloading and exporting are paid:
+     Premium, or a paid pass that runs until downloads_until. Founders Doc and a company's own dashboard are never locked. */
+  /* the database decides (its own clock, the same rule as the files themselves); before 135 is run there is no pass yet */
+  const passRes = await supabase.rpc("esop_can_download", { p_company: company.id });
+  const canDownload = admin || settings.self_serve || settings.plan === "premium" || (!passRes.error && passRes.data === true);
   /* Option pool (121). Before 121 is run the column is missing: the card then says "not set". */
   const poolRes = await supabase.from("esop_companies").select("option_pool").eq("id", company.id).maybeSingle();
   const option_pool = poolRes.error ? null : ((poolRes.data as { option_pool?: number | null } | null)?.option_pool ?? null);
@@ -242,7 +248,9 @@ export default async function EsopPage({
       batches={(batchesRes.data ?? []) as EsopBatch[]}
       /* 0262: Founders Doc's working notes on a dashboard it keeps for a client never reach the client's browser */
       holders={((holdersRes.data ?? []) as EsopHolder[]).map((h) => (admin || settings.self_serve ? h : { ...h, notes: null }))}
-      documents={(docsRes.data ?? []) as EsopDocument[]}
+      /* a locked login sees that a document is on file (name, date), never where the file is */
+      documents={((docsRes.data ?? []) as EsopDocument[]).map((d) => (canDownload ? d : { ...d, path: null, url: null }))}
+      canDownload={canDownload}
       role={admin ? "admin" : "ceo"}
       viewer={user.email ?? ""}
       runs={runs}

@@ -87,6 +87,8 @@ interface Props {
   settings?: EsopSettings;
   /** this person: may they change holders (not View only), and the settings (Admin)? */
   access?: { role: MemberRole | null; canEdit: boolean; canManage: boolean };
+  /** 0263: may this login open, download or export? Absent = yes (Founders Doc, Premium, a paid pass, or the company's own dashboard). */
+  canDownload?: boolean;
 }
 
 const BUCKET = "esop-docs";
@@ -139,6 +141,11 @@ export default function EsopSheet(props: Props) {
   const [emailing, setEmailing] = useState("");
   const [resettable, setResettable] = useState<string[]>(props.reset?.refs ?? []);
   const [toast, setToast] = useState("");
+  /* 0263 (Rachel, 23 Nov 2026): on a dashboard Founders Doc keeps for a client, a free login views only. Opening a
+     document, downloading and exporting are paid: a monthly subscription, or a payment for the download. The files
+     themselves are held back by the database (SQL 135), not just by this page. */
+  const locked = props.canDownload === false;
+  const [paywall, setPaywall] = useState(false);
   /* the register */
   const [section, setSection] = useState<Section>("esop");
   const [tab, setTab] = useState<Tab>("active");
@@ -582,6 +589,7 @@ export default function EsopSheet(props: Props) {
   }
 
   async function openDoc(d: EsopDocument) {
+    if (locked) return void setPaywall(true);
     if (!client && !d.url) return say("Preview: files are not stored, so there is nothing to open.");
     const u = await docUrl(d);
     if (!u) return say("Could not open the file.");
@@ -590,6 +598,7 @@ export default function EsopSheet(props: Props) {
 
   /* Several files as one zip ("Download all", "Download documents") */
   async function downloadZip(list: EsopDocument[], name: string) {
+    if (locked) return void setPaywall(true);
     if (!list.length) return say("No files to download.");
     if (!client && !list.some((d) => d.url)) return say("Preview: files are not stored, so there is nothing to download.");
     setBusy("zip");
@@ -632,6 +641,7 @@ export default function EsopSheet(props: Props) {
   /* ── Excel and CSV ──────────────────────────────────────────────────── */
 
   function downloadExcel(only?: Set<string>) {
+    if (locked) return void setPaywall(true);
     const docCount = (h: EsopHolder, k: DocKind) => docs.filter((d) => d.holder_id === h.id && d.kind === k).length;
     const list = only?.size ? holders.filter((h) => only.has(h.id)) : holders;
     const sheets: XSheet[] = [
@@ -959,6 +969,17 @@ export default function EsopSheet(props: Props) {
                     {props.settings?.self_serve ? "" : " · maintained by Founders Doc"}
                   </span>
                 </header>
+                {locked && (
+                  <div className="ev-viewonly" role="note">
+                    <span aria-hidden="true">🔒</span>
+                    <span>
+                      <b>View only.</b> You can see every option holder, their vesting and which documents are on file. Opening, downloading and exporting are paid.
+                    </span>
+                    <button type="button" className="ev-link" onClick={() => setPaywall(true)}>
+                      See the options
+                    </button>
+                  </div>
+                )}
 
                 <section aria-label="Summary" className="ev-summary">
                   <div className="ev-left">
@@ -1133,9 +1154,9 @@ export default function EsopSheet(props: Props) {
                 <div className="ev-oh" ref={registerRef}>
                   <h2>Option holders</h2>
                   <div className="ev-ohb">
-                    <button className="ev-btn" onClick={() => downloadExcel()}>
+                    <button className="ev-btn" onClick={() => downloadExcel()} title={locked ? "Exporting is a paid feature" : undefined}>
                       <Ic n="download" />
-                      Export
+                      Export{locked ? " 🔒" : ""}
                     </button>
                     {role === "admin" && (
                       <BulkUpload holders={holders} docs={docs} onUpload={uploadFor} className="ev-btn">
@@ -1720,6 +1741,39 @@ export default function EsopSheet(props: Props) {
           e.currentTarget.value = "";
         }}
       />
+      {paywall && (
+        <>
+          <button className="ev-scrim top" onClick={() => setPaywall(false)} aria-label="Close" />
+          <div role="dialog" aria-modal="true" aria-label="Downloads are a paid feature" className="ev-pay">
+            <span className="ev-goldp ev-tagp">Paid feature</span>
+            <h2>Open, download and export</h2>
+            <p>
+              Your dashboard is free to view: every option holder, their tranches and vesting dates, and which documents are on file. To open or download a
+              document, or export the register, choose one:
+            </p>
+            <ul>
+              <li>
+                <b>Monthly subscription.</b> Every document and export, whenever you need them.
+              </li>
+              <li>
+                <b>Pay to download.</b> A one-off payment for the documents you need now.
+              </li>
+            </ul>
+            <p className="ev-sub">Signed Option Certificates are also emailed to each signer when the last person signs.</p>
+            <div className="ev-payb">
+              <a
+                className="ev-btn gold"
+                href={`mailto:legal@foundersdoc.com?subject=${encodeURIComponent(`ESOP dashboard downloads · ${company.name.replace(/\s*\(TEST\)\s*$/i, "")}`)}`}
+              >
+                Ask Founders Doc
+              </a>
+              <button type="button" className="ev-btn" onClick={() => setPaywall(false)}>
+                Not now
+              </button>
+            </div>
+          </div>
+        </>
+      )}
       <div className={`e-toast ${toast ? "on" : ""}`} role="status" aria-live="polite">
         {toast}
       </div>
