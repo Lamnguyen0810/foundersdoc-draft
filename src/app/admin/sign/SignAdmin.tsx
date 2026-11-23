@@ -155,7 +155,7 @@ export default function SignAdmin({
     });
   }
   /* certificates made from the ESOP dashboard: holder, tranche, signer and Director already known */
-  function addPrepared(p: { files: Prepared[]; director: { name: string; email: string; realEmail: string | null }; simulation: string | null; label: string }) {
+  function addPrepared(p: { files: Prepared[]; director: { name: string; email: string; realEmail: string | null }; simulation: string | null; copies?: string; label: string }) {
     setErr("");
     setSent(null);
     const made: Row[] = p.files.map((f, i) => {
@@ -178,6 +178,8 @@ export default function SignAdmin({
     setMode(made.length > 1 ? "batch" : "each");
     /* 0199: in a simulation the signed copy goes to the simulation inbox, not to Rachel */
     if (p.simulation) setCc(p.simulation);
+    /* 0262: for real, Founders Doc's own copy list (Rachel and administrator), so nobody has to remember to type it */
+    else if (p.copies?.trim()) setCc(p.copies.trim());
     if (!message.trim()) setMessage(`Option Certificate${made.length > 1 ? "s" : ""} for ${p.label}.`);
     setSource("upload");
     say(`${plural(made.length, "certificate")} added`);

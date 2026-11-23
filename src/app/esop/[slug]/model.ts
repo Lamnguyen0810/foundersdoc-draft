@@ -53,6 +53,12 @@ export interface Row {
   granted: number;
   vested: number;
   since: string;
+  /** 0262: active, every grant's dates are known and nothing is left to vest */
+  full: boolean;
+  /** 0262: active and something is still to vest (or a schedule is not recorded yet) */
+  vesting: boolean;
+  /** 0262: granted three or more years ago (by grant date, else vesting start; not the joining date) and not fully vested yet */
+  longVesting: boolean;
   initials: string;
   /** the full name on the documents (legal_name, else name), as in Rachel's design */
   display: string;
@@ -137,6 +143,12 @@ export function buildRows(holders: EsopHolder[], docs: EsopDocument[], batches: 
     /* a leaver shows what had vested by the last day (as the register does); what they keep is c.kept */
     const vested = c.vested;
     const certMissing = active && grants[0].certDue !== null;
+    /* 0262 (Aditya, 21 Nov 2026: "who have already vested and yet to be vested? Especially those who have been in
+       HitPay for more than 3 years"). The dashboard knows grant dates, not joining dates, so "3 years" is by grant. */
+    const full = active && granted > 0 && grants.every((g) => g.known && !g.next);
+    const vesting = active && !full;
+    const threeYearsAgo = new Date(now.getFullYear() - 3, now.getMonth(), now.getDate());
+    const longVesting = vesting && !!startDay && startDay <= threeYearsAgo;
     return {
       h,
       c,
@@ -155,6 +167,9 @@ export function buildRows(holders: EsopHolder[], docs: EsopDocument[], batches: 
       granted,
       vested,
       since: startDay ? `${MON[startDay.getMonth()]} ${startDay.getFullYear()}` : "no start date",
+      full,
+      vesting,
+      longVesting,
       ...names(h),
     };
   });

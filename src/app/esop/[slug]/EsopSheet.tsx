@@ -55,7 +55,7 @@ import { buildRows, fileSize, nf, shortNames, type Grant, type Row } from "./mod
 type Role = "admin" | "ceo";
 type Tab = "active" | "alumni";
 type Section = "esop" | "letter_of_grant" | "certificate" | "esop_rules" | "resolution" | "all" | "settings";
-type Chip = "all" | "soon" | "behind" | "certs" | "multi" | "good" | "bad" | "unvested";
+type Chip = "all" | "soon" | "behind" | "certs" | "multi" | "good" | "bad" | "unvested" | "full" | "vesting" | "long";
 type SortKey = "name" | "vested" | "next";
 type Panel = { kind: "holder"; id: string; edit?: boolean } | { kind: "vesting"; ref: string | null } | null;
 
@@ -170,6 +170,10 @@ export default function EsopSheet(props: Props) {
   const canEdit = props.access?.canEdit ?? true;
   /* batch dates, CSV import and the pool: Founders Doc, or the client's Admin on a dashboard they made themselves */
   const canSetup = role === "admin" || (!!props.access?.canManage && !!props.settings?.self_serve);
+  /* 0262: on a dashboard Founders Doc keeps for a client, a holder's Note is Founders Doc's own working note
+     (it often holds a link to our Slack thread). The client's logins neither see, export nor edit it.
+     On a dashboard a company made itself, the notes are the company's own. */
+  const notesMine = role === "admin" || !!props.settings?.self_serve;
   /* FD Sign's certificate maker is built for HitPay's certificate; other companies upload theirs */
   const fdSignEsop = role === "admin" && company.slug === "hitpay";
 
@@ -642,7 +646,7 @@ export default function EsopSheet(props: Props) {
               const c = calcHolder(h, batchMap, now);
               const tr = (n: number) => (c.start && n <= c.tranches ? fmtDay(addYears(c.start, n)) : "");
               const status = st === "Active" ? (c.vestedTranches ? `Tranche ${c.vestedTranches}` : "In progress") : `Leaver [${h.leaver_type ?? "Good"}]`;
-              return [h.name, `Batch ${h.batch}`, fmtDay(c.start), tr(1), tr(2), tr(3), docCount(h, "letter_of_grant"), tr(4), h.email, c.vested, c.total - c.vested, status, h.notes, h.top_ups ? `${h.top_ups} Top Up` : "", docCount(h, "certificate"), h.id_no, h.nationality, h.grant_date ? fmtDay(h.grant_date) : "", h.options_per_tranche];
+              return [h.name, `Batch ${h.batch}`, fmtDay(c.start), tr(1), tr(2), tr(3), docCount(h, "letter_of_grant"), tr(4), h.email, c.vested, c.total - c.vested, status, notesMine ? h.notes : "", h.top_ups ? `${h.top_ups} Top Up` : "", docCount(h, "certificate"), h.id_no, h.nationality, h.grant_date ? fmtDay(h.grant_date) : "", h.options_per_tranche];
             }),
         ],
       })),
@@ -746,12 +750,15 @@ export default function EsopSheet(props: Props) {
       gold: q.kind === "modify",
       go: () => setPanel({ kind: "vesting", ref }),
     });
+  /* 0262: keeping the register (figures, top-up dates, missing files) is for whoever can edit it; a View only
+     login sees the vesting itself (approve, waiting for payment), not a to-do list it cannot act on */
+  const upkeep = canEdit;
   const behindN = activeR.filter((r) => r.behind).length;
-  if (behindN) tasks.push({ title: "Update vested figures", sub: `${behindN} people are behind their schedule`, action: "Review", go: () => goActive("behind") });
-  if (topMissing.length)
+  if (upkeep && behindN) tasks.push({ title: "Update vested figures", sub: `${behindN} people are behind their schedule`, action: "Review", go: () => goActive("behind") });
+  if (upkeep && topMissing.length)
     tasks.push({ title: "Record top-up schedules", sub: `${topMissing.slice(0, 3).map((r) => r.known?.split(/\s+/)[0] ?? r.h.name.split(/\s+/)[0]).join(", ")}${topMissing.length > 3 ? ` + ${topMissing.length - 3} more` : ""} · no dates on file`, action: "Review", go: () => goActive("multi") });
-  if (certN) tasks.push({ title: "Add missing option certificates", sub: `${certN} ${certN === 1 ? "person" : "people"} · latest tranche not on file`, action: "Review", go: () => goActive("certs") });
-  if (noLetterN) {
+  if (upkeep && certN) tasks.push({ title: "Add missing option certificates", sub: `${certN} ${certN === 1 ? "person" : "people"} · latest tranche not on file`, action: "Review", go: () => goActive("certs") });
+  if (upkeep && noLetterN) {
     const first = activeR.find((r) => r.noLetter)!;
     tasks.push({ title: "Add missing Letters of Grant", sub: `${noLetterN} ${noLetterN === 1 ? "person" : "people"} · no Letter of Grant on file`, action: "Review", go: () => setPanel({ kind: "holder", id: first.h.id }) });
   }
@@ -772,10 +779,14 @@ export default function EsopSheet(props: Props) {
     if (tab === "active" && useBatches && batch && String(r.h.batch) !== batch) return false;
     return true;
   });
-  const chipDefs: Array<[Chip, string, (r: Row) => boolean]> =
+  const chipDefs: Array<[Chip, string, (r: Row) => boolean, string?]> =
     tab === "active"
       ? [
           ["all", "All", () => true],
+          /* 0262: who has fully vested and who has not, at a glance (the count is on each chip) */
+          ["full", "Fully vested", (r) => r.full, "Every tranche has vested"],
+          ["vesting", "Still vesting", (r) => r.vesting, "At least one tranche is still to vest"],
+          ["long", "Still vesting · 3+ years", (r) => r.longVesting, "Granted three or more years ago (by grant date, not joining date) and not fully vested yet"],
           ["soon", "Vesting in 30 days", (r) => r.soon],
           ["behind", "Behind schedule", (r) => r.behind],
           ["certs", "Missing certificates", (r) => r.certMissing],
@@ -1207,9 +1218,10 @@ export default function EsopSheet(props: Props) {
                   </div>
 
                   <div role="group" aria-label="Quick filters" className="ev-chips">
-                    {chipDefs.map(([key, label, fn]) => (
+                    {chipDefs.map(([key, label, fn, hint]) => (
                       <button
                         key={key}
+                        title={hint}
                         aria-pressed={chipNow === key}
                         className={chipNow === key ? "on" : ""}
                         onClick={() => {
@@ -1487,6 +1499,7 @@ export default function EsopSheet(props: Props) {
               batches={batches}
               useBatches={useBatches}
               canEdit={canEdit}
+              showNotes={notesMine}
               fdSignEsop={fdSignEsop}
               editing={!!panel.edit && canEdit}
               busy={busy === "zip"}
@@ -1741,6 +1754,8 @@ function HolderDrawer(p: {
   busy: boolean;
   live: boolean;
   canEdit: boolean;
+  /** 0262: the Note is shown (and edited) only by whoever it belongs to */
+  showNotes: boolean;
   fdSignEsop: boolean;
   onEdit: (on: boolean) => void;
   onClose: () => void;
@@ -1756,7 +1771,7 @@ function HolderDrawer(p: {
   const { r } = p;
   const h = r.h;
   const lv = LEAVER[r.active ? "Active" : (h.leaver_type ?? "Good")];
-  const noteParts = (h.notes ?? "").split(/(https?:\/\/\S+)/).filter(Boolean);
+  const noteParts = (p.showNotes ? (h.notes ?? "") : "").split(/(https?:\/\/\S+)/).filter(Boolean);
   const due = r.grants[0].certDue ?? (r.c.vestedTranches || null);
   const issueRef = due ? `B${h.batch}-T${due}` : null;
   return (
@@ -1783,7 +1798,7 @@ function HolderDrawer(p: {
       </div>
 
       {p.editing ? (
-        <EditForm r={r} batches={p.batches} role={p.role} live={p.live} onCancel={() => p.onEdit(false)} onSave={p.onSave} say={p.say} />
+        <EditForm r={r} batches={p.batches} role={p.role} live={p.live} showNotes={p.showNotes} onCancel={() => p.onEdit(false)} onSave={p.onSave} say={p.say} />
       ) : (
         <div className="ev-dbody">
           {noteParts.length > 0 && (
@@ -1973,7 +1988,7 @@ function GrantCard({ g, r, canEdit, onOpen, onUpload, onSchedule }: { g: Grant; 
 }
 
 /* "Edit grant": every field the sheet had, in one form */
-function EditForm({ r, batches, role, live, onCancel, onSave, say }: { r: Row; batches: EsopBatch[]; role: Role; live: boolean; onCancel: () => void; onSave: (patch: Partial<EsopHolder>, msg?: string) => Promise<boolean>; say: (t: string) => false }) {
+function EditForm({ r, batches, role, live, showNotes, onCancel, onSave, say }: { r: Row; batches: EsopBatch[]; role: Role; live: boolean; showNotes: boolean; onCancel: () => void; onSave: (patch: Partial<EsopHolder>, msg?: string) => Promise<boolean>; say: (t: string) => false }) {
   const h = r.h;
   const [f, setF] = useState({
     name: h.name,
@@ -2035,7 +2050,8 @@ function EditForm({ r, batches, role, live, onCancel, onSave, say }: { r: Row; b
       grant_date: f.grant_date || null,
       options_per_tranche: per,
       top_ups: tops ?? 0,
-      notes: f.notes.trim() || null,
+      /* a note that was never shown is never saved over */
+      ...(showNotes ? { notes: f.notes.trim() || null } : {}),
       status: leaving ? "Leaver" : "Active",
       leaver_type: leaving ? f.leaver_type : null,
       last_day: leaving ? f.last_day || isoDay(today()) : null,
@@ -2157,10 +2173,12 @@ function EditForm({ r, batches, role, live, onCancel, onSave, say }: { r: Row; b
         </div>
       </div>
 
-      <label className="ev-notes">
-        Note
-        <textarea value={f.notes} onChange={set("notes")} rows={3} placeholder="Anything to remember, e.g. a Slack thread link" />
-      </label>
+      {showNotes && (
+        <label className="ev-notes">
+          Note
+          <textarea value={f.notes} onChange={set("notes")} rows={3} placeholder="Anything to remember, e.g. a Slack thread link" />
+        </label>
+      )}
 
       <div className="ev-dfoot">
         <button className="ev-btn lg" onClick={onCancel} disabled={saving}>
