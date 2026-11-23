@@ -131,6 +131,30 @@ export async function activity(text: string, senderEmail?: string | null): Promi
   }
 }
 
+/**
+ * 0266: a line in a given Slack channel (e.g. #hitpay-esop) for something that is not an FD Sign step, such as
+ * "the client opened their dashboard". Through the ESOP progress hook when it is set (SIGN_SLACK_HOOK_URL), else
+ * through FD Sign's activity Zap, which posts to the channel in the payload when its Slack step maps slack_channel.
+ */
+export async function teamNotice(text: string, channel: string): Promise<boolean> {
+  if (!text || !channel) return false;
+  if (process.env.SIGN_SLACK_PREVIEW === "1" && !isSupabaseConfigured()) return void console.log(`[slack:${channel}]`, text), true;
+  const hook = isSlackConfigured() ? (process.env.SIGN_SLACK_HOOK_URL?.trim() ?? "") : await activityHook().catch(() => "");
+  if (!hook) return false;
+  try {
+    const res = await fetch(hook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, ref: "", thread_ts: "", slack_channel: channel, test_mode: false }),
+      signal: AbortSignal.timeout(8000),
+    });
+    return res.ok;
+  } catch (e) {
+    console.error("[slack] notice hand-over failed:", e);
+    return false;
+  }
+}
+
 const WHO = (name: string | null | undefined, email: string | null | undefined) => (name?.trim() || (email ?? "").split("@")[0] || "Someone").slice(0, 80);
 
 /** A signer's step on someone's own request: "👀 Ann Lee's request · signer 1 of 2 opened it". FD's own requests use slack() instead. */
