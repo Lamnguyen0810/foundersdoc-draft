@@ -86,6 +86,10 @@ const PUBLIC_PATHS = [
   "/onpoint/login",
   "/api/onpoint/access",
   "/api/onpoint/cron",
+  // 0270: the client's "connect your email" page and its Microsoft sign-in (a signed 7-day link).
+  "/onpoint/connect",
+  "/api/onpoint/mail/start",
+  "/api/onpoint/mail/callback",
   // The public price list (app/pricing). /billing stays the account's page.
   "/pricing",
   // The published blog posts, for the cards on the public blog page (055).

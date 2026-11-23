@@ -939,6 +939,7 @@ function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
           ))}
         </section>
       </div>
+      {s.me.founder && <MailboxCard preview={p.preview} say={p.say} reload={p.reload} defaultEmail={s.ws.sender_email ?? ""} />}
       {s.me.founder && (
         <section className="ev-card op-pad">
           <h2 className="op-h2">Sending · Founders Doc only</h2>
@@ -1433,5 +1434,98 @@ function Billing(p: { preview: boolean; say: (t: string) => void; back: { sessio
         </>
       )}
     </>
+  );
+}
+
+/* ── Sending mailbox (0270): the client connects their own Microsoft 365 email ─ */
+
+interface MailboxData {
+  configured: boolean;
+  connected: boolean;
+  address: string | null;
+  name: string | null;
+  connected_at: string | null;
+  error: string | null;
+}
+
+function MailboxCard(p: { preview: boolean; say: (t: string) => void; reload: () => Promise<void>; defaultEmail: string }) {
+  const { preview, say } = p;
+  const [mb, setMb] = useState<MailboxData | null>(preview ? { configured: true, connected: false, address: null, name: null, connected_at: null, error: null } : null);
+  const [email, setEmail] = useState(p.defaultEmail);
+  const [link, setLink] = useState<{ url: string; expires: string } | null>(null);
+  const [busy, setBusy] = useState("");
+  const [tick, setTick] = useState(0);
+  const load = () => setTick((n) => n + 1);
+  useEffect(() => {
+    if (preview) return;
+    let gone = false;
+    void api("/api/onpoint/mail").then((r) => {
+      if (!gone && r.ok) setMb(r.j as unknown as MailboxData);
+    });
+    return () => {
+      gone = true;
+    };
+  }, [preview, tick]);
+  async function makeLink() {
+    if (preview) return say("Preview: no link is made.");
+    setBusy("link");
+    const r = await api("/api/onpoint/mail", { method: "POST", body: JSON.stringify({ action: "link", email }) });
+    setBusy("");
+    if (!r.ok) return say(String(r.j.error ?? "No link made."));
+    setLink(r.j as unknown as { url: string; expires: string });
+    await navigator.clipboard.writeText(String(r.j.url)).then(
+      () => say("Connect link copied: send it to the client."),
+      () => say("Link ready: copy it below."),
+    );
+  }
+  async function unlink() {
+    if (preview || !window.confirm("Disconnect this mailbox? Reminders will stop until it is connected again.")) return;
+    setBusy("off");
+    const r = await api("/api/onpoint/mail", { method: "POST", body: JSON.stringify({ action: "disconnect" }) });
+    setBusy("");
+    say(r.ok ? "Mailbox disconnected" : String(r.j.error ?? "Not changed."));
+    load();
+    await p.reload();
+  }
+  return (
+    <section className="ev-card op-pad">
+      <h2 className="op-h2">Sending mailbox · Founders Doc only</h2>
+      {!mb ? (
+        <p className="ev-sub">Loading…</p>
+      ) : !mb.configured ? (
+        <p className="ev-sub">Microsoft sending is not set up on the server yet (ONPOINT_MS_CLIENT_ID, ONPOINT_MS_CLIENT_SECRET, ONPOINT_TOKEN_KEY). Until then reminders go through the Zapier hook.</p>
+      ) : mb.connected ? (
+        <>
+          <p>
+            <span className="op-pill ok">Connected</span> Reminders are sent from <b>{mb.address}</b>
+            {mb.name ? ` (${mb.name})` : ""}
+            {mb.connected_at ? `, since ${fmtDate(mb.connected_at.slice(0, 10))}` : ""}.
+          </p>
+          {mb.error && <p className="op-late">{mb.error}</p>}
+          <div className="op-chiprow">
+            <button className="ev-btn" disabled={!!busy} onClick={() => void unlink()}>
+              Disconnect
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="ev-sub">Send the client a link. They sign in to Microsoft with their own password and approve once; reminders then go out from their own email. Work (Microsoft 365) accounts only.</p>
+          {mb.error && <p className="op-late">{mb.error}</p>}
+          <div className="op-chiprow">
+            <input className="op-in" type="email" value={email} placeholder="name@company.com" onChange={(e) => setEmail(e.target.value)} />
+            <button className="ev-btn gold" disabled={!email.trim() || !!busy} onClick={() => void makeLink()}>
+              {busy === "link" ? "Making…" : "Create connect link"}
+            </button>
+          </div>
+        </>
+      )}
+      {link && (
+        <div className="op-field">
+          <span className="op-lab">Connect link (copied · valid until {fmtDate(link.expires.slice(0, 10))})</span>
+          <input className="op-in sm" readOnly value={link.url} onFocus={(e) => e.currentTarget.select()} />
+        </div>
+      )}
+    </section>
   );
 }
