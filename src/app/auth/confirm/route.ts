@@ -69,6 +69,8 @@ export async function GET(req: NextRequest) {
   if (error) {
     // Expired, already used, or tampered with. Say which, without saying whether
     // the address exists.
+    /* 0264: an ESOP dashboard link goes back to "type your email" for a new one, not to a password form */
+    if (next.startsWith("/esop/")) return NextResponse.redirect(new URL("/esop/access?error=link-expired", req.url));
     return fail(req, "link-expired");
   }
 
