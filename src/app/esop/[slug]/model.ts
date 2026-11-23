@@ -189,3 +189,6 @@ export function andList(items: string[]): string {
 
 export const nf = (n: number) => Math.round(n || 0).toLocaleString("en-GB");
 export const fileSize = (b: number | null | undefined) => (!b ? "" : b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+
+/** 0265 (Rachel, 23 Nov 2026): "Ask Founders Doc" about a paid feature also copies the person who sets it up */
+export const ASK_CC = "hong.lam@foundersdoc.com";
