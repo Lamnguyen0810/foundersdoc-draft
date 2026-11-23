@@ -82,6 +82,10 @@ const PUBLIC_PATHS = [
   // address that is on a dashboard, and answers the same either way (lib/esop/access.ts).
   "/esop/access",
   "/api/esop/access",
+  // 0267: OnPoint Workflows' own sign-in (an emailed code, members only) and its daily run (CRON_SECRET).
+  "/onpoint/login",
+  "/api/onpoint/access",
+  "/api/onpoint/cron",
   // The public price list (app/pricing). /billing stays the account's page.
   "/pricing",
   // The published blog posts, for the cards on the public blog page (055).

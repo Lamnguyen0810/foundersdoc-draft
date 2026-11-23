@@ -1,0 +1,111 @@
+/* OnPoint Workflows (0267): only what the ESOP dashboard styles (esop.css + overview.css) do not already cover. */
+
+.esop.ev.op { display: flex; flex-direction: column; }
+.op-preview { background: var(--blk); color: var(--acc); font-size: 12px; font-weight: 600; text-align: center; padding: 6px 16px; letter-spacing: .02em; }
+.op-test { background: #fff8e6; border-bottom: 1px solid #f0dfb0; color: #5c4a14; font-size: 13px; padding: 8px 24px; text-align: center; }
+
+/* Sidebar brand: the swappable logo */
+.op-brand { display: flex; align-items: center; gap: 10px; padding: 4px 6px 10px; border-bottom: 1px solid #2a2a2a; }
+.op-brand > div { display: flex; flex-direction: column; min-width: 0; }
+.op-brand b { font-size: 13.5px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.op-brand > div span { font-size: 11px; color: #a8a8a8; }
+.esop.ev .op-logo { position: relative; width: 60px; height: 44px; padding: 3px; flex: none; border: 1px solid #2a2a2a; border-radius: 8px; background: #fff; overflow: hidden; display: grid; place-items: center; cursor: default; }
+.esop.ev .op-logo.edit { cursor: pointer; }
+.op-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.op-logo span { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(15, 15, 15, .72); color: var(--acc); font-size: 10px; font-weight: 700; letter-spacing: .04em; opacity: 0; transition: opacity .15s; }
+.op-logo.edit:hover span, .op-logo.edit:focus-visible span { opacity: 1; }
+.op-sending { font-size: 11px; color: #a8a8a8; padding: 4px 10px 6px; display: flex; flex-direction: column; gap: 2px; }
+.op-sending b { color: #fff; font-weight: 600; }
+.esop.ev .op-signout { margin: 0 10px; height: 30px; border-radius: 6px; border: 1px solid #2a2a2a; background: transparent; color: #c9c9c9; font-size: 12px; width: calc(100% - 20px); }
+.esop.ev .op-signout:hover { background: rgba(255, 255, 255, .06); }
+
+/* Cards and lists */
+.op-stat b { font-family: Geist, Inter, sans-serif; font-size: 28px; font-weight: 500; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.op-stat > span:first-child { font-size: 12px; color: #666; font-weight: 500; }
+.op-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.op-grid2.wide { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.op-grid2 > .ev-card { min-width: 0; }
+.esop.ev .op-pad { padding: 18px 20px; gap: 10px; }
+.op-list { padding: 16px 18px; gap: 2px; }
+.op-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.op-h h2, .op-h2 { margin: 0; font-family: Geist, Inter, sans-serif; font-size: 16px; font-weight: 600; }
+.op-h3 { margin: 14px 0 2px; font-size: 13px; font-weight: 600; color: #4a4a4a; }
+.esop.ev .op-h a { font-size: 12px; color: var(--ink); }
+.esop.ev .op-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 12px; align-items: center; width: 100%; padding: 8px 8px; border: 0; border-radius: 6px; background: none; text-align: left; font-size: 13px; }
+.esop.ev .op-row:hover, .esop.ev .op-row.on { background: var(--goldL); }
+.ev-card section .op-row, .op-pad .op-row { grid-template-columns: auto 1fr auto; }
+.op-row .op-tag { justify-self: start; }
+.op-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.op-tag { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; background: var(--g1); border: 1px solid var(--g2); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.op-late { color: #b42318; font-weight: 500; }
+.op-soon { color: #4a4a4a; }
+.op-act { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 4px; font-size: 13px; border-bottom: 1px solid var(--g1); }
+.op-act:last-child { border-bottom: 0; }
+.op-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--g4); }
+.op-dot.sent { background: #12a150; }
+.op-dot.failed { background: #b42318; }
+.op-dot.queued { background: var(--acc); }
+.op-warn { background: #fff8e6; border: 1px solid #f0dfb0; color: #5c4a14; border-radius: 8px; padding: 10px 14px; font-size: 13px; }
+.esop.ev .op-warn a { color: inherit; font-weight: 600; }
+.op-empty { padding: 18px 20px; font-size: 14px; display: block; }
+.esop.ev .op-empty a { color: var(--ink); font-weight: 600; }
+
+/* Tables */
+.op-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.op-table td { vertical-align: top; }
+.op-table td input { width: 100%; min-width: 140px; }
+.op-right { text-align: right; }
+.op-acts { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 10px; }
+.op-pager { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding-top: 6px; }
+
+/* Forms */
+.op-field { display: flex; flex-direction: column; gap: 6px; }
+.op-field > .ev-btn { align-self: flex-start; }
+.op-lab { font-size: 12px; font-weight: 600; color: #4a4a4a; }
+.esop.ev .op-in { width: 100%; min-height: 38px; padding: 8px 12px; border: 1px solid #d6d6d6; border-radius: 6px; background: #fff; font: 400 14px Inter, sans-serif; color: var(--ink); }
+.esop.ev textarea.op-in { resize: vertical; line-height: 1.5; font-size: 13.5px; }
+.esop.ev .op-in.sm { min-height: 32px; padding: 5px 9px; font-size: 13px; }
+.esop.ev .op-in:focus { outline: 2px solid var(--acc); outline-offset: 0; border-color: var(--acc); }
+.esop.ev .op-in:disabled { background: var(--g1); color: #4a4a4a; }
+.op-chiprow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.op-chiprow .op-in { flex: 1 1 200px; width: auto; }
+.op-mt { margin-top: 6px; }
+.op-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 6px 0 11px; border-radius: 999px; background: var(--goldS); font-size: 12px; font-weight: 600; }
+.esop.ev .op-chip button { width: 18px; height: 18px; padding: 0; border: 0; border-radius: 50%; background: rgba(15, 15, 15, .08); display: grid; place-items: center; }
+.esop.ev .op-num { width: 70px; height: 32px; padding: 0 8px; border: 1px solid #d6d6d6; border-radius: 6px; font: 400 13px Inter, sans-serif; }
+.esop.ev .op-token { height: 26px; padding: 0 9px; border-radius: 5px; border: 1px dashed #c9c9c9; background: var(--g1); font: 500 12px ui-monospace, Menlo, Consolas, monospace; }
+.esop.ev .op-token:hover { border-color: var(--acc); background: var(--goldL); }
+
+/* The email preview */
+.op-mail { border: 1px solid var(--g2); border-radius: 8px; overflow: hidden; }
+.op-mail > div { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--g1); font-size: 13px; }
+.op-mail > div span { color: #666; }
+.op-mail > div b { font-weight: 500; overflow-wrap: anywhere; }
+.op-mail pre { margin: 0; padding: 16px 14px; white-space: pre-wrap; overflow-wrap: anywhere; font: 400 14px/1.6 Arial, Helvetica, sans-serif; color: #222; background: #fff; }
+
+/* Excel sources */
+.op-drop { align-items: center; text-align: center; gap: 8px; padding: 26px 20px; border: 2px dashed #d6d6d6; background: #fcfcfb; }
+.op-drop.on { border-color: var(--acc); background: var(--goldL); }
+.op-drop > span { font-size: 13px; color: #666; max-width: 560px; }
+.op-drop.small { display: flex; flex-direction: column; padding: 16px; border-radius: 8px; cursor: pointer; margin: 10px 0 12px; }
+.op-rule { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--g1); font-size: 12.5px; }
+.op-rule:last-child { border-bottom: 0; }
+.op-rule span { color: #4a4a4a; }
+
+/* Brand identity modal */
+.esop.ev .op-modal { width: 440px; }
+.op-modal h2 { margin: 0 0 4px; font-family: Geist, Inter, sans-serif; font-size: 20px; font-weight: 600; }
+.op-modal > p { margin: 0 0 12px; font-size: 13px; color: #666; }
+.op-logoprev { width: 96px; height: 96px; margin: 0 auto; border: 1px solid var(--g2); border-radius: 12px; display: grid; place-items: center; overflow: hidden; background: #fff; }
+.op-logoprev img { width: 100%; height: 100%; object-fit: contain; }
+.op-modal .op-lab { display: block; margin-bottom: 6px; }
+
+@media (max-width: 980px) {
+  .op-grid2, .op-grid2.wide { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .op-rule { grid-template-columns: 1fr; gap: 2px; }
+  .esop.ev .op-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .op-act { grid-template-columns: auto minmax(0, 1fr); }
+  .op-act > .ev-sub { grid-column: 2; }
+}
