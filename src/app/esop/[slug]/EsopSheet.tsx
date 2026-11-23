@@ -28,7 +28,7 @@ import BulkUpload from "./BulkUpload";
 import SettingsPage from "./SettingsPage";
 import "./overview.css";
 import { Ic, type IconName } from "./icons";
-import { buildRows, fileSize, nf, shortNames, type Grant, type Row } from "./model";
+import { ASK_CC, buildRows, fileSize, nf, shortNames, type Grant, type Row } from "./model";
 
 /**
  * The ESOP dashboard, in Rachel's design (overview v23, 5 Nov 2026), followed
@@ -1763,7 +1763,7 @@ export default function EsopSheet(props: Props) {
             <div className="ev-payb">
               <a
                 className="ev-btn gold"
-                href={`mailto:legal@foundersdoc.com?subject=${encodeURIComponent(`ESOP dashboard downloads · ${company.name.replace(/\s*\(TEST\)\s*$/i, "")}`)}`}
+                href={`mailto:legal@foundersdoc.com?cc=${ASK_CC}&subject=${encodeURIComponent(`ESOP dashboard downloads · ${company.name.replace(/\s*\(TEST\)\s*$/i, "")}`)}`}
               >
                 Ask Founders Doc
               </a>

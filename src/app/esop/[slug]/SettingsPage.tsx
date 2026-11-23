@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ASK_CC } from "./model";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EsopCompany, EsopMember, EsopSettings, MemberRole } from "@/lib/esop/vesting";
 import { Ic } from "./icons";
@@ -321,7 +322,7 @@ export default function SettingsPage(p: {
             <span />
           </span>
         </button>
-        {!premium && <div className="ev-sub">Part of Premium{price ? ` (${price})` : ""}. <a href="mailto:legal@foundersdoc.com?subject=ESOP%20Premium">Ask Founders Doc</a> to switch it on.</div>}
+        {!premium && <div className="ev-sub">Part of Premium{price ? ` (${price})` : ""}. <a href={`mailto:legal@foundersdoc.com?cc=${ASK_CC}&subject=ESOP%20Premium`}>Ask Founders Doc</a> to switch it on.</div>}
         {premium && p.settings.holder_access && (
           <div className="ev-setadd">
             <button className="ev-btn" disabled={!can || busy === "links"} onClick={() => void sendAll()}>

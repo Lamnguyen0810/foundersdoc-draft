@@ -104,3 +104,10 @@ test("a free client login views only: the page, the server and the database all 
   assert.match(sql, /c\.self_serve or c\.plan = 'premium' or \(c\.downloads_until is not null and c\.downloads_until > now\(\)\)/);
   assert.match(sql, /select public\.is_admin\(\)\s+or \(\s+public\.esop_can\(p_company\)/, "Founders Doc always; a member only with a plan or a pass");
 });
+
+test("Ask Founders Doc about a paid feature goes to legal, with the person who sets it up copied (0265)", () => {
+  const sheet = readFileSync(join(process.cwd(), "src/app/esop/[slug]/EsopSheet.tsx"), "utf8");
+  assert.match(readFileSync(join(process.cwd(), "src/app/esop/[slug]/model.ts"), "utf8"), /export const ASK_CC = "hong\.lam@foundersdoc\.com";/);
+  assert.match(sheet, /mailto:legal@foundersdoc\.com\?cc=\$\{ASK_CC\}&subject=/);
+  assert.match(readFileSync(join(process.cwd(), "src/app/esop/[slug]/SettingsPage.tsx"), "utf8"), /mailto:legal@foundersdoc\.com\?cc=\$\{ASK_CC\}&subject=ESOP%20Premium/);
+});
