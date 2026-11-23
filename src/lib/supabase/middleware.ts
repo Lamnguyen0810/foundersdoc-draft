@@ -78,6 +78,10 @@ const PUBLIC_PATHS = [
   // their email plus a code to that email is the key (lib/esop/holder.ts).
   "/my-options",
   "/api/my-options",
+  // 0264: "type your email, get a sign-in link" for people on a client's ESOP dashboard. Emails only an
+  // address that is on a dashboard, and answers the same either way (lib/esop/access.ts).
+  "/esop/access",
+  "/api/esop/access",
   // The public price list (app/pricing). /billing stays the account's page.
   "/pricing",
   // The published blog posts, for the cards on the public blog page (055).
