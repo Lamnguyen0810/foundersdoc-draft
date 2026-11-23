@@ -107,15 +107,15 @@ export default function SettingsPage(p: {
     p.say(done);
   }
 
-  /* 0264: Founders Doc emails a person on this dashboard a button that opens it with one press */
+  /* 0264/0266: Founders Doc emails a person on this dashboard an invitation (its button opens the sign-in page) */
   async function emailLink(m: EsopMember) {
-    if (!client) return p.say(`Preview: a sign-in link would be emailed to ${m.email}`);
-    if (!window.confirm(`Email ${m.email} a sign-in link to this dashboard?\n\nThe button signs them in as ${m.email}, so it goes to that address only.`)) return;
+    if (!client) return p.say(`Preview: an invitation would be emailed to ${m.email}`);
+    if (!window.confirm(`Email ${m.email} an invitation to this dashboard?\n\nThey sign in with a 6-digit code sent to that address.`)) return;
     setBusy(`link:${m.email}`);
     const res = await fetch("/api/esop/access-invite", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company: company.slug, email: m.email }) }).catch(() => null);
     setBusy("");
     const j = (await res?.json().catch(() => ({}))) as { message?: string; error?: string } | undefined;
-    p.say(res?.ok ? `Sign-in link emailed to ${m.email}` : (j?.error ?? "Could not send it just now."));
+    p.say(res?.ok ? `Invitation emailed to ${m.email}` : (j?.error ?? "Could not send it just now."));
   }
 
   async function remove(m: EsopMember) {
@@ -247,9 +247,9 @@ export default function SettingsPage(p: {
                 </select>
               </label>
               {p.isAdmin && (
-                <button type="button" className="ev-btn sm" disabled={busy === `link:${m.email}`} onClick={() => void emailLink(m)} title="Email them a button that opens this dashboard, no password needed">
+                <button type="button" className="ev-btn sm" disabled={busy === `link:${m.email}`} onClick={() => void emailLink(m)} title="Email them an invitation; they sign in with a code sent to their email">
                   <Ic n="mail" s={13} />
-                  {busy === `link:${m.email}` ? "Sending…" : "Email sign-in link"}
+                  {busy === `link:${m.email}` ? "Sending…" : "Email access"}
                 </button>
               )}
               {can && (
