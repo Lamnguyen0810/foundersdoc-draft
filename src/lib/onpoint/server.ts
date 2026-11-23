@@ -120,34 +120,23 @@ export async function snapshot(m: Me) {
 export async function applyImport(m: Me, fileName: string, d: Derived) {
   const id = m.ws.id;
   const now = new Date().toISOString();
-  /* clients: add new ones; fill in UEN / FYE / services from the Master List; never wipe a contact */
-  const existing = (await all<{ id: string; key: string }>((f, t) => db().from("onpoint_clients").select("id, key").eq("workspace_id", id).range(f, t))) ?? [];
+  /* clients: add new ones; fill in UEN / FYE / services from the Master List; never wipe a contact.
+     Every row in one request carries the same columns: a missing one would be sent as null. */
+  const existing = (await all<{ id: string; key: string; uen: string | null }>((f, t) => db().from("onpoint_clients").select("id, key, uen").eq("workspace_id", id).range(f, t))) ?? [];
   const idOf = new Map(existing.map((c) => [c.key, c.id]));
-  const rows = d.clients.map((c) => ({
-    workspace_id: id,
-    key: c.key,
-    name: c.name,
-    ...(c.uen ? { uen: c.uen } : {}),
-    ...(c.fye ? { fye: c.fye } : {}),
-    ...(c.services?.length ? { services: c.services } : {}),
-    updated_at: now,
-  }));
-  for (let i = 0; i < rows.length; i += 500) {
-    const chunk = rows.slice(i, i + 500);
-    /* new clients first (with every column), then update the known ones without touching contacts */
-    const fresh = chunk.filter((r) => !idOf.has(r.key));
-    if (fresh.length) {
-      const ins = must(await db().from("onpoint_clients").insert(fresh).select("id, key")) as Array<{ id: string; key: string }>;
-      for (const c of ins) idOf.set(c.key, c.id);
-    }
-    for (const r of chunk.filter((x) => !fresh.includes(x))) {
-      const patch: Record<string, unknown> = { updated_at: now };
-      if ("uen" in r) patch.uen = r.uen;
-      if ("fye" in r) patch.fye = r.fye;
-      if ("services" in r) patch.services = r.services;
-      if (Object.keys(patch).length > 1) must(await db().from("onpoint_clients").update(patch).eq("id", idOf.get(r.key)!));
-    }
+  const uenOf = new Map(existing.map((c) => [c.key, c.uen]));
+  const fresh = d.clients
+    .filter((c) => !idOf.has(c.key))
+    .map((c) => ({ workspace_id: id, key: c.key, name: c.name, uen: c.uen ?? null, fye: c.fye ?? null, services: c.services ?? [], updated_at: now }));
+  for (let i = 0; i < fresh.length; i += 500) {
+    const ins = must(await db().from("onpoint_clients").insert(fresh.slice(i, i + 500)).select("id, key")) as Array<{ id: string; key: string }>;
+    for (const c of ins) idOf.set(c.key, c.id);
   }
+  /* known clients seen in a Master List (it has the FYE): refresh UEN / FYE / services, contacts untouched */
+  const known = d.clients
+    .filter((c) => c.fye && uenOf.has(c.key))
+    .map((c) => ({ workspace_id: id, key: c.key, name: c.name, uen: c.uen ?? uenOf.get(c.key) ?? null, fye: c.fye!, services: c.services ?? [], updated_at: now }));
+  for (let i = 0; i < known.length; i += 500) must(await db().from("onpoint_clients").upsert(known.slice(i, i + 500), { onConflict: "workspace_id,key" }));
   /* contacts */
   let contacts = 0;
   for (const c of d.contacts) {
@@ -161,12 +150,19 @@ export async function applyImport(m: Me, fileName: string, d: Derived) {
     .filter((x) => idOf.has(x.client_key))
     .map((x) => ({ workspace_id: id, client_id: idOf.get(x.client_key)!, type: x.type, label: x.label, due_date: x.due_date, source: x.source, source_key: x.source_key, derived: x.derived, status: x.status, done_on: x.done_on, synced_at: now }));
   const keys = dl.map((x) => x.source_key);
-  const manual = new Map<string, string>();
+  /* marked done / waived / not applicable in the app: kept while the sheet still shows the item open */
+  const manual = new Map<string, { status: string; done_on: string | null }>();
   for (let i = 0; i < keys.length; i += 300) {
-    const got = (must(await db().from("onpoint_deadlines").select("source_key, status").eq("workspace_id", id).in("source_key", keys.slice(i, i + 300))) ?? []) as Array<{ source_key: string; status: string }>;
-    for (const g of got) if (g.status === "waived" || g.status === "not_applicable") manual.set(g.source_key, g.status);
+    const got = (must(await db().from("onpoint_deadlines").select("source_key, status, done_on").eq("workspace_id", id).in("source_key", keys.slice(i, i + 300))) ?? []) as Array<{ source_key: string; status: string; done_on: string | null }>;
+    for (const g of got) if (g.status === "completed" || g.status === "waived" || g.status === "not_applicable") manual.set(g.source_key, g);
   }
-  for (const x of dl) if (manual.has(x.source_key) && x.status === "active") x.status = manual.get(x.source_key) as typeof x.status;
+  for (const x of dl) {
+    const k = manual.get(x.source_key);
+    if (k && x.status === "active") {
+      x.status = k.status as typeof x.status;
+      x.done_on = k.done_on;
+    }
+  }
   for (let i = 0; i < dl.length; i += 500) must(await db().from("onpoint_deadlines").upsert(dl.slice(i, i + 500), { onConflict: "workspace_id,source_key" }));
 
   /* a newer Master List supersedes an older one: per client and type, only the latest due date stays live */
