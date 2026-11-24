@@ -4,7 +4,8 @@ import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { getUser, isAdmin } from "@/lib/supabase/server";
 import { sgToday, daysBetween } from "./dates";
 import type { Derived } from "./derive";
-import { DEFAULT_LEADS, DEFAULT_TEMPLATES, bodyHtml, render } from "./templates";
+import { DEFAULT_LEADS, DEFAULT_TEMPLATES, emailHtml, logoUrl, render } from "./templates";
+import { siteUrl } from "@/lib/billing/stripe";
 import { sendFromMailbox, usesMailbox } from "./mailbox";
 import { TYPES, type Client, type Deadline, type ReminderType, type Template, type Workspace } from "./types";
 
@@ -246,7 +247,13 @@ export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "
   const hook = process.env.ONPOINT_HOOK_URL?.trim() ?? "";
   let ok = false;
   let error: string | null = null;
-  const html = bodyHtml(r.body, test ? `Test: this reminder would have gone to ${to}.` : undefined);
+  /* 0271: the designed email (logo, deadline card, footer) */
+  const html = emailHtml(r.body, {
+    logoUrl: logoUrl(siteUrl("https://foundersdoc.com"), ws.logo_data),
+    sender: ws.custom_name || ws.sender_name,
+    deadline: { type: r.typeName, company: c.name, uen: c.uen, due: d.due_date, today },
+    banner: test ? `Test: this reminder would have gone to ${to}.` : undefined,
+  });
   /* 0270: the client's own connected Microsoft mailbox first; the Zapier hook otherwise */
   if (await usesMailbox(ws.id)) ({ ok, error } = await sendFromMailbox(ws.id, { to: test ? ws.test_inbox!.trim() : to, subject: r.subject, html }));
   else if (!/^https:\/\/hooks\.zapier\.com\//.test(hook)) error = "Sending is not set up yet: connect the mailbox (or set ONPOINT_HOOK_URL).";

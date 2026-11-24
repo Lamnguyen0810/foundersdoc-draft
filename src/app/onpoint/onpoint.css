@@ -150,3 +150,6 @@
   .op-price { text-align: left; }
 }
 .esop.ev .op-pad > .ev-btn { align-self: flex-start; }
+
+/* 0271: the designed email in the preview */
+.op-mailframe { display: block; width: 100%; height: 760px; border: 0; background: #f3f4f1; }

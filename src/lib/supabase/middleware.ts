@@ -90,6 +90,8 @@ const PUBLIC_PATHS = [
   "/onpoint/connect",
   "/api/onpoint/mail/start",
   "/api/onpoint/mail/callback",
+  // 0271: the logo in OnPoint's reminder emails (mail apps load it without signing in).
+  "/api/onpoint/logo",
   // The public price list (app/pricing). /billing stays the account's page.
   "/pricing",
   // The published blog posts, for the cards on the public blog page (055).

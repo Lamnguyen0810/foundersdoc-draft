@@ -158,3 +158,24 @@ test("email HTML escapes the words it is given", () => {
   assert.ok(!h.includes("<b>Alex"));
   assert.equal((h.match(/<p /g) ?? []).length, 3);
 });
+
+test("designed email: logo, deadline card, escaped words, footer", async () => {
+  const { emailHtml, logoUrl } = await import("./templates");
+  const h = emailHtml("Hi <b>Alex</b>,\n\nPlease reply.", {
+    logoUrl: "https://foundersdoc.com/api/onpoint/logo?v=default",
+    sender: "Sample & Co",
+    deadline: { type: "Annual Return (ACRA)", company: "Sample Company Pte. Ltd.", uen: "SAMPLE-UEN-1", due: "2026-12-24", today: "2026-11-24" },
+    banner: "Test: would have gone to someone",
+  });
+  assert.ok(h.includes('src="https://foundersdoc.com/api/onpoint/logo?v=default"'));
+  assert.ok(h.includes("Annual Return (ACRA) due 24 Dec 2026"));
+  assert.ok(h.includes("in 30 days"));
+  assert.ok(h.includes("SAMPLE-UEN-1"));
+  assert.ok(h.includes("Hi &lt;b&gt;Alex&lt;/b&gt;,") && !h.includes("<b>Alex"));
+  assert.ok(h.includes("Sample &amp; Co"));
+  assert.ok(h.includes("Test: would have gone to someone"));
+  const late = emailHtml("x", { logoUrl: "https://x/l.png", sender: "S", deadline: { type: "ECI", company: "C", uen: null, due: "2026-11-20", today: "2026-11-24" } });
+  assert.ok(late.includes("4 days overdue") && !late.includes(">UEN<"));
+  assert.match(logoUrl("https://foundersdoc.com/", null), /^https:\/\/foundersdoc\.com\/api\/onpoint\/logo\?v=default$/);
+  assert.notEqual(logoUrl("https://a", "data:image/png;base64,AAAA"), logoUrl("https://a", "data:image/png;base64,BBBB"));
+});
