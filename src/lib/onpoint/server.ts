@@ -258,11 +258,12 @@ export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "
       deadline: { type: r.typeName, company: c.name, uen: c.uen, due: d.due_date, today },
       banner: test ? `Test: this reminder would have gone to ${to}.` : undefined,
     });
-  const html = look(logoUrl(siteUrl("https://foundersdoc.com"), ws.logo_data));
+  /* 0274: no uploaded logo → the name as text (sharp everywhere); an uploaded logo is shown as a picture */
+  const html = look(ws.logo_data ? logoUrl(siteUrl("https://foundersdoc.com"), ws.logo_data) : "");
   /* 0270: the client's own connected Microsoft mailbox first; the Zapier hook otherwise.
      0272: from the mailbox the logo travels inside the email, so it shows without "Show content". */
   if (await usesMailbox(ws.id)) {
-    const inline = await logoImage(ws.logo_data);
+    const inline = ws.logo_data ? await logoImage(ws.logo_data) : null;
     ({ ok, error } = await sendFromMailbox(ws.id, { to: test ? ws.test_inbox!.trim() : to, subject: r.subject, html: inline ? look(`cid:${inline.cid}`) : html, inline }));
   }
   else if (!/^https:\/\/hooks\.zapier\.com\//.test(hook)) error = "Sending is not set up yet: connect the mailbox (or set ONPOINT_HOOK_URL).";
