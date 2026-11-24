@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Ic, type IconName } from "../esop/[slug]/icons";
 import { countdown, daysBetween, fmtDate } from "@/lib/onpoint/dates";
 import { emailHtml, render, TOKENS, unknownTokens } from "@/lib/onpoint/templates";
@@ -28,6 +28,9 @@ type View = "dashboard" | "deadlines" | "calendar" | "reminders" | "clients" | "
 const VIEWS: View[] = ["dashboard", "deadlines", "calendar", "reminders", "clients", "sources", "billing"];
 const PAGE = 50;
 const DEFAULT_LOGO = "/onpoint/logo.png";
+/* 0276: one calm colour per filing type, used wherever a deadline is shown */
+const TAG: Record<ReminderType, string> = { AR: "t-ar", ECI: "t-eci", AGM: "t-agm", FS: "t-fs", CORP_SEC_EXPIRY: "t-cs", RECURRING_JOB: "t-job" };
+const tagClass = (type: ReminderType) => `op-tag ${TAG[type] ?? ""}`;
 const shortType = (d: Pick<Deadline, "type" | "label">) => (d.type === "CORP_SEC_EXPIRY" || d.type === "RECURRING_JOB" ? d.label || TYPE_PICK[d.type] : d.type === "FS" ? "FS" : d.type);
 
 async function api(url: string, init?: RequestInit) {
@@ -80,6 +83,7 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
     window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
+  const [chip, setChip] = useState<DChip>("overdue");
   const go = (v: View) => {
     setView(v);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -174,9 +178,9 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
         </aside>
 
         <main className="ev-main">
-          <div className="ev-wrap">
-            {view === "dashboard" && <Dashboard s={s} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} />}
-            {view === "deadlines" && <Deadlines s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} onPreview={openPreview} />}
+          <div className="ev-wrap op-view" key={view}>
+            {view === "dashboard" && <Dashboard s={s} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} openDeadlines={(c) => (setChip(c), go("deadlines"))} />}
+            {view === "deadlines" && <Deadlines s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} onPreview={openPreview} initialChip={chip} />}
             {view === "calendar" && <Calendar s={s} byId={byId} onPreview={openPreview} />}
             {view === "billing" && isAdmin && <Billing preview={preview} say={say} back={stripeReturn} />}
             {view === "reminders" && <Reminders s={s} setS={setS} byId={byId} live={live} canEdit={canEdit} preview={preview} say={say} reload={reload} focus={focus} />}
@@ -195,29 +199,71 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
 
 /* ── Dashboard ─────────────────────────────────────────────────────────── */
 
-function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]; overdue: Deadline[]; company: string; onPreview: (d: Deadline) => void; go: (v: View) => void }) {
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const longDate = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
+  return `${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}, ${d} ${MONTHS_LONG[m - 1]} ${y}`;
+};
+/** "11d overdue" · "due today" · "in 3d": the short form for badges */
+const shortCount = (due: string, today: string) => {
+  const n = daysBetween(today, due);
+  return n === 0 ? "due today" : n < 0 ? `${-n}d overdue` : `in ${n}d`;
+};
+const dueClass = (due: string, today: string) => {
+  const n = daysBetween(today, due);
+  return n < 0 ? "op-due late" : n <= 7 ? "op-due soon" : "op-due";
+};
+
+/** a number that counts up once when it first appears (0276); still for anyone who prefers less motion */
+function useCountUp(target: number) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const still = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    let raf = 0;
+    const t0 = performance.now();
+    const step = (t: number) => {
+      const k = still ? 1 : Math.min(1, (t - t0) / 700);
+      setN(Math.round(target * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return n;
+}
+
+function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]; overdue: Deadline[]; company: string; onPreview: (d: Deadline) => void; go: (v: View) => void; openDeadlines: (c: DChip) => void }) {
   const { s } = p;
   const fortnight = p.live.filter((d) => d.due_date >= s.today && daysBetween(s.today, d.due_date) <= 14);
   const month = s.today.slice(0, 7);
   const sent = s.deliveries.filter((d) => d.status === "sent" && d.requested_at.slice(0, 7) === month);
   const next = [...p.overdue.slice(-5).reverse(), ...p.live.filter((d) => d.due_date >= s.today).slice(0, 8)];
   const noEmail = s.clients.filter((c) => !c.contact_email && p.live.some((d) => d.client_id === c.id)).length;
+  const sheets = new Set(s.imports.map((x) => x.kind)).size;
   return (
     <>
-      <header className="ev-title">
-        <h1>Dashboard</h1>
-        <span>{fmtDate(s.today)} · every filing deadline, from your Excel sheets</span>
+      <header className="op-hero">
+        <p className="op-eyebrow">Overview · {longDate(s.today)}</p>
+        <h1>Welcome back, {p.company.replace(/,?\s+(pte\.?\s*ltd\.?|private limited)$/i, "")}</h1>
+        <p>
+          Here is where your filings stand today, worked out from your <b>Master List</b>, <b>Job Schedule</b> and <b>Nominee Service</b> sheets. Reminders go to your clients on your behalf before each due date.
+        </p>
       </header>
       {s.clients.length === 0 && (
         <div className="ev-card op-empty">
-          <b>No clients yet.</b> Import the Master List, Nominee Service and Job Schedule sheets on <a href="#sources" onClick={(e) => (e.preventDefault(), p.go("sources"))}>Excel sources</a>, and every deadline appears here.
+          <b>No clients yet.</b> Import the Master List, Nominee Service and Job Schedule sheets on{" "}
+          <a href="#sources" onClick={(e) => (e.preventDefault(), p.go("sources"))}>
+            Excel sources
+          </a>
+          , and every deadline appears here.
         </div>
       )}
-      <div className="ev-cards">
-        <Stat label="Deadlines tracked" value={p.live.length} sub={`${s.clients.length} clients`} />
-        <Stat label="Due this fortnight" value={fortnight.length} sub={fortnight[0] ? `Next due ${fmtDate(fortnight[0].due_date)}` : "Nothing due"} />
-        <Stat label="Overdue" value={p.overdue.length} sub="Requires attention" warn={p.overdue.length > 0} />
-        <Stat label="Reminders sent" value={sent.length} sub="This month" />
+      <div className="op-stats">
+        <Stat icon="clipboard" tone="gold" label="Deadlines tracked" value={p.live.length} sub={<><i className="op-live" aria-hidden="true" /> Live · {sheets || 0} sheet{sheets === 1 ? "" : "s"} imported</>} onClick={() => p.openDeadlines("upcoming")} />
+        <Stat icon="hourglass" tone="blue" label="Due this fortnight" value={fortnight.length} sub={fortnight[0] ? `Next due ${fmtDate(fortnight[0].due_date)}` : "Nothing due"} onClick={() => p.openDeadlines("30")} />
+        <Stat icon="alert" tone="red" label="Overdue" value={p.overdue.length} sub={p.overdue.length ? "Requires attention" : "All on time"} warn={p.overdue.length > 0} onClick={() => p.openDeadlines("overdue")} />
+        <Stat icon="sent" tone="green" label="Reminders sent" value={sent.length} sub="This month, on your behalf" onClick={() => p.go("reminders")} />
       </div>
       {noEmail > 0 && (
         <div className="op-warn" role="note">
@@ -227,21 +273,26 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
           </a>
         </div>
       )}
-      <div className="op-grid2">
+      <div className="op-grid2 op-dash">
         <section className="ev-card op-list">
           <div className="op-h">
-            <h2>Next deadlines</h2>
+            <h2>
+              Next deadlines <span className="ev-sub">across the portfolio</span>
+            </h2>
             <a href="#deadlines" onClick={(e) => (e.preventDefault(), p.go("deadlines"))}>
               View all →
             </a>
           </div>
           {next.length === 0 && <p className="ev-sub">Nothing to show yet.</p>}
           {next.map((d) => (
-            <button key={d.id} className="op-row" onClick={() => p.onPreview(d)}>
-              <span className="op-name">{p.byId.get(d.client_id)?.name ?? "—"}</span>
-              <span className="op-tag">{shortType(d)}</span>
-              <span>{fmtDate(d.due_date)}</span>
-              <span className={d.due_date < s.today ? "op-late" : "op-soon"}>{countdown(d.due_date, s.today)}</span>
+            <button key={d.id} className="op-row op-next" onClick={() => p.onPreview(d)}>
+              <span className="op-name op-namechev">
+                <span>{p.byId.get(d.client_id)?.name ?? "—"}</span>
+                <Ic n="chev" s={11} />
+              </span>
+              <span className={tagClass(d.type)}>{shortType(d)}</span>
+              <span className="op-date">{fmtDate(d.due_date)}</span>
+              <span className={dueClass(d.due_date, s.today)}>{shortCount(d.due_date, s.today)}</span>
             </button>
           ))}
         </section>
@@ -249,16 +300,20 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
           <div className="op-h">
             <h2>Reminder activity</h2>
           </div>
-          {s.deliveries.length === 0 && <p className="ev-sub">No reminders sent yet.</p>}
+          {s.deliveries.length === 0 && <p className="ev-sub">No reminders sent yet. They appear here as they go out.</p>}
           {s.deliveries.slice(0, 10).map((x) => (
-            <div key={x.id} className="op-act">
-              <span className={`op-dot ${x.status}`} aria-hidden="true" />
-              <span>
-                {x.status === "sent" ? "Sent" : x.status === "failed" ? "Failed" : x.status === "queued" ? "Sending" : "Skipped"}: {TYPE_NAME[x.type as ReminderType] ?? x.type} to {p.byId.get(x.client_id ?? "")?.name ?? "a client"}
-                {x.test ? " (test)" : ""}
-                {x.error ? ` · ${x.error}` : ""}
+            <div key={x.id} className="op-act2">
+              <span className={`op-acticon ${x.status}`} aria-hidden="true">
+                <Ic n={x.status === "sent" ? "sent" : x.status === "failed" ? "bang" : "clock"} s={15} />
               </span>
-              <span className="ev-sub">{new Date(x.requested_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+              <div>
+                <div>
+                  {x.status === "sent" ? "Reminder sent" : x.status === "failed" ? "Not sent" : x.status === "queued" ? "Sending" : "Skipped"} to <b>{p.byId.get(x.client_id ?? "")?.name ?? "a client"}</b>: {TYPE_NAME[x.type as ReminderType] ?? x.type}
+                  {x.test ? <span className="op-testtag">test</span> : null}
+                </div>
+                {x.error ? <div className="op-late op-small">{x.error}</div> : null}
+                <div className="ev-sub op-small">{new Date(x.requested_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+              </div>
             </div>
           ))}
         </section>
@@ -267,13 +322,19 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
   );
 }
 
-function Stat({ label, value, sub, warn }: { label: string; value: number; sub: string; warn?: boolean }) {
+function Stat({ icon, tone, label, value, sub, warn, onClick }: { icon: IconName; tone: "gold" | "blue" | "red" | "green"; label: string; value: number; sub: ReactNode; warn?: boolean; onClick?: () => void }) {
+  const n = useCountUp(value);
   return (
-    <div className="ev-card op-stat">
-      <span>{label}</span>
-      <b className={warn ? "op-late" : ""}>{value.toLocaleString("en-GB")}</b>
-      <span className="ev-sub">{sub}</span>
-    </div>
+    <button type="button" className="ev-card op-stat2" onClick={onClick}>
+      <span className={`op-badge ${tone}`} aria-hidden="true">
+        <Ic n={icon} s={20} />
+      </span>
+      <span className="op-statbody">
+        <span className="op-statlabel">{label}</span>
+        <b className={warn ? "op-late" : ""}>{n.toLocaleString("en-GB")}</b>
+        <span className={`op-statsub ${warn ? "op-late" : ""}`}>{sub}</span>
+      </span>
+    </button>
   );
 }
 
@@ -281,9 +342,9 @@ function Stat({ label, value, sub, warn }: { label: string; value: number; sub: 
 
 type DChip = "overdue" | "30" | "upcoming" | "done" | "all";
 
-function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; onPreview: (d: Deadline) => void }) {
+function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; onPreview: (d: Deadline) => void; initialChip?: DChip }) {
   const { s } = p;
-  const [chip, setChip] = useState<DChip>("overdue");
+  const [chip, setChip] = useState<DChip>(p.initialChip ?? "overdue");
   const [type, setType] = useState<"" | ReminderType>("");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
@@ -374,7 +435,7 @@ function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean
                       <div className="ev-sub">{d.derived ? "Worked out from FYE" : "From the sheet"} · {d.source.split(" · ").pop()}</div>
                     </td>
                     <td>
-                      <span className="op-tag">{shortType(d)}</span>
+                      <span className={tagClass(d.type)}>{shortType(d)}</span>
                     </td>
                     <td>
                       {fmtDate(d.due_date)}
@@ -734,7 +795,7 @@ function Reminders(p: {
                 setDeadlineId(d.id);
               }}
             >
-              <span className="op-tag">{shortType(d)}</span>
+              <span className={tagClass(d.type)}>{shortType(d)}</span>
               <span>{fmtDate(d.due_date)}</span>
               <span className={d.due_date < s.today ? "op-late" : "op-soon"}>{countdown(d.due_date, s.today)}</span>
             </button>
@@ -1200,11 +1261,8 @@ function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: De
             const l = byDay.get(c) ?? [];
             const open = l.filter((d) => d.status === "active");
             const late = c < s.today && open.length > 0;
-            const types = new Map<string, number>();
-            for (const d of open) {
-              const k = CAL_TAG[d.type];
-              types.set(k, (types.get(k) ?? 0) + 1);
-            }
+            const types = new Map<ReminderType, number>();
+            for (const d of open) types.set(d.type, (types.get(d.type) ?? 0) + 1);
             return (
               <button
                 key={c}
@@ -1216,8 +1274,8 @@ function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: De
               >
                 <span className="op-caln">{Number(c.slice(8))}</span>
                 {[...types].slice(0, 3).map(([k, n]) => (
-                  <span key={k} className="op-calt">
-                    {k} <b>{n}</b>
+                  <span key={k} className={`op-calt ${TAG[k]}`}>
+                    {CAL_TAG[k]} <b>{n}</b>
                   </span>
                 ))}
                 {types.size > 3 && <span className="ev-sub">+{types.size - 3} more</span>}
@@ -1237,7 +1295,7 @@ function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: De
             .map((d) => (
               <div key={d.id} className="op-dayrow">
                 <span className="op-name">{p.byId.get(d.client_id)?.name ?? "—"}</span>
-                <span className="op-tag">{shortType(d)}</span>
+                <span className={tagClass(d.type)}>{shortType(d)}</span>
                 <span className={d.status !== "active" ? "ev-sub" : d.due_date < s.today ? "op-late" : "op-soon"}>{d.status === "active" ? countdown(d.due_date, s.today) : d.status.replace("_", " ")}</span>
                 {d.status === "active" ? (
                   <button className="ev-btn sm" onClick={() => p.onPreview(d)}>
