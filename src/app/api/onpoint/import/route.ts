@@ -30,7 +30,13 @@ export async function POST(req: NextRequest) {
       }
       const label = f.name.replace(/\.xlsx$/i, "").replace(/_/g, " ");
       const d = derive(label, sheets, sgToday());
-      results.push({ file: f.name, ...(await applyImport(m, f.name, d)) });
+      try {
+        results.push({ file: f.name, ...(await applyImport(m, f.name, d)) });
+      } catch (e) {
+        /* 0275: say which file and why, instead of a bare "not imported" */
+        console.error("[onpoint import]", f.name, e);
+        throw new OpError(`${f.name} was not imported: ${e instanceof Error ? e.message : "unknown error"}`, e instanceof OpError ? e.status : 500);
+      }
     }
     return NextResponse.json({ ok: true, results });
   } catch (e) {
