@@ -1,5 +1,6 @@
 import { addMonths, sgToday } from "@/lib/onpoint/dates";
 import { DEFAULT_LEADS, DEFAULT_TEMPLATES } from "@/lib/onpoint/templates";
+import type { Invoice } from "@/lib/onpoint/payments";
 import { TYPES, type Client, type Deadline, type ReminderType, type Template } from "@/lib/onpoint/types";
 
 /* The local preview (no Supabase): SAMPLE companies only, never OnPoint's real clients. */
@@ -50,3 +51,27 @@ export const DEMO_DEADLINES: Deadline[] = [
 ];
 export const DEMO_TEMPLATES = Object.fromEntries(TYPES.map((t) => [t, { type: t, version: 0, ...DEFAULT_TEMPLATES[t] }])) as Record<ReminderType, Template>;
 export const DEMO_LEADS = Object.fromEntries(TYPES.map((t) => [t, [...DEFAULT_LEADS[t]]])) as Record<ReminderType, number[]>;
+
+/* 0280: sample unpaid invoices (sample companies, made-up numbers) */
+let k = 0;
+const v = (client: string, days: number, amount: number, number: string | null, description: string | null, status: Invoice["status"] = "open"): Invoice => ({
+  id: `v${++k}`,
+  client_id: client,
+  number,
+  description,
+  amount_cents: amount * 100,
+  currency: "SGD",
+  issue_date: null,
+  due_date: new Date(Date.parse(T) + days * 86_400_000).toISOString().slice(0, 10),
+  status,
+  paid_on: status === "paid" ? T : null,
+  source: "Sample data",
+});
+export const DEMO_INVOICES: Invoice[] = [
+  v("c1", -12, 523.2, "INV-SAMPLE-0386", "Corporate secretarial fee"),
+  v("c2", -3, 1308, "INV-SAMPLE-0391", "Accounts and tax filing FY2025"),
+  v("c3", 4, 327, "INV-SAMPLE-0402", "Registered address renewal"),
+  v("c4", 9, 1962, "INV-SAMPLE-0405", "Monthly bookkeeping (Oct–Dec)"),
+  v("c5", 25, 654, null, "Nominee director renewal"),
+  v("c2", -40, 218, "INV-SAMPLE-0350", "AGM documents", "paid"),
+];

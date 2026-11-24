@@ -346,3 +346,27 @@
 .esop.ev .op-quick .op-in.sm { flex: 1 1 150px; width: auto; min-width: 0; }
 .esop.ev .op-addmail { cursor: pointer; border-style: dashed; }
 .esop.ev .op-addmail:hover { background: #fbdcd8; }
+
+/* 0280 · payment reminders */
+.op-amt { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.op-clip { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.op-soonbar { display: flex; gap: 12px; align-items: center; padding: 11px 16px; border: 1px dashed #d9c48a; background: #fffbf0; border-radius: 10px; font-size: 13px; color: #4a4130; }
+.op-soontag { flex: none; display: inline-block; padding: 3px 9px; border-radius: 999px; background: #f3bf4b; color: #1d1d1d; font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; }
+.op-soontag.muted { background: #ecece8; color: #555; }
+.op-addinv { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 12px; margin-top: 14px; padding: 16px; border: 1px solid var(--g2); border-radius: 10px; background: #fcfcfa; animation: op-pop .22s cubic-bezier(.2, .8, .2, 1); }
+.op-addinv label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.op-addinv .op-lab { font-size: 12px; }
+.op-addinv .op-span2 { grid-column: span 2; }
+.esop.ev .op-modal.wide { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow: auto; }
+.op-modal.wide .op-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.esop.ev .op-mt2 { margin-top: 14px; flex: none; }
+.op-fold { all: unset; cursor: pointer; display: flex; width: 100%; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
+.op-fold:focus-visible { outline: 2px solid var(--acc); outline-offset: 4px; border-radius: 4px; }
+.esop.ev .op-optional { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px; }
+.esop.ev .op-optional > div { margin: 0; padding: 0; }
+.op-optional p { margin: 4px 0 0; }
+@media (max-width: 900px) {
+  .op-addinv { grid-template-columns: 1fr 1fr; }
+  .op-soonbar { flex-direction: column; align-items: flex-start; }
+  .esop.ev .op-optional { grid-template-columns: 1fr; }
+}
