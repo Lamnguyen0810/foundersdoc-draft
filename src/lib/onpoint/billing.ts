@@ -19,6 +19,12 @@ import { OpError, type Me } from "./server";
  */
 
 export const PRICE_KEY = () => process.env.ONPOINT_PRICE_LOOKUP?.trim() || "onpoint_monthly";
+/* 0281: the fee proposal: S$280 one-off setup (early-adopter, normally S$1,088), S$80/month for the first
+   3 months, then S$180/month; GST not included. In Stripe: the monthly price (above), a one-off setup price
+   and a coupon of S$100 off the monthly plan for 3 months. "Create prices in Stripe" makes all three. */
+export const SETUP_KEY = () => process.env.ONPOINT_SETUP_LOOKUP?.trim() || "onpoint_setup";
+export const COUPON_ID = () => process.env.ONPOINT_INTRO_COUPON?.trim() || "onpoint_intro";
+export const PLAN = { setup: 28_000, setup_was: 108_800, intro: 8_000, intro_months: 3, monthly: 18_000, currency: "sgd" } as const;
 const TAX_RATE = () => process.env.ONPOINT_TAX_RATE_ID?.trim() || "";
 const PORTAL_MARKER = "onpoint_portal_v1";
 const LIVE = new Set(["active", "trialing", "past_due", "unpaid", "incomplete"]);
@@ -36,6 +42,20 @@ async function ids(wsId: string): Promise<Ids> {
   return (r.data as Ids | null) ?? { stripe_customer_id: null, stripe_subscription_id: null };
 }
 
+/** 0281: card payment is "opening soon" until Founders Doc opens it; until then everything is free */
+export async function billingOpen(wsId: string): Promise<boolean> {
+  const r = await db().from("onpoint_workspaces").select("billing_open").eq("id", wsId).maybeSingle();
+  return !r.error && (r.data as { billing_open?: boolean } | null)?.billing_open === true;
+}
+export async function setBillingOpen(m: Me, on: boolean) {
+  if (!m.founder) throw new OpError("Only Founders Doc can open billing.", 403);
+  const r = await db().from("onpoint_workspaces").update({ billing_open: on, updated_at: new Date().toISOString() }).eq("id", m.ws.id);
+  if (r.error) {
+    const missing = /billing_open/.test(r.error.message);
+    throw new OpError(missing ? "Run supabase/140_onpoint_billing_open.sql first." : r.error.message, missing ? 503 : 500);
+  }
+}
+
 async function remember(wsId: string, customer: string | null, sub: string | null) {
   const r = await db()
     .from("onpoint_workspaces")
@@ -46,9 +66,42 @@ async function remember(wsId: string, customer: string | null, sub: string | nul
 
 const idOf = (v: string | { id: string } | null | undefined) => (v == null ? null : typeof v === "string" ? v : v.id);
 
-async function thePrice(): Promise<Stripe.Price | null> {
-  const r = await stripe().prices.list({ lookup_keys: [PRICE_KEY()], active: true, limit: 1, expand: ["data.product"] });
+async function thePrice(key = PRICE_KEY()): Promise<Stripe.Price | null> {
+  const r = await stripe().prices.list({ lookup_keys: [key], active: true, limit: 1, expand: ["data.product"] });
   return r.data[0] ?? null;
+}
+async function theCoupon(): Promise<Stripe.Coupon | null> {
+  try {
+    const c = await stripe().coupons.retrieve(COUPON_ID());
+    return c.valid ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Founders Doc: make the proposal's prices in Stripe (in the mode of the key set: test or live). Safe twice. */
+export async function setupStripe(m: Me) {
+  if (!m.founder) throw new OpError("Only Founders Doc can set up prices.", 403);
+  if (!isStripeConfigured()) throw new OpError("Stripe is not set up on this site.", 503);
+  const s = stripe();
+  const made: string[] = [];
+  let monthly = await thePrice();
+  if (!monthly) {
+    const prod = await s.products.create({ name: "OnPoint Workflows", description: "Reminder system: unlimited users, hosting, updates, support and maintenance", metadata: { product: "onpoint" } });
+    monthly = await s.prices.create({ product: prod.id, currency: PLAN.currency, unit_amount: PLAN.monthly, recurring: { interval: "month" }, lookup_key: PRICE_KEY(), nickname: "OnPoint monthly", tax_behavior: "exclusive", metadata: { product: "onpoint" } });
+    made.push("monthly price S$180");
+  }
+  if (!(await thePrice(SETUP_KEY()))) {
+    const prod = await s.products.create({ name: "OnPoint Workflows · one-off setup", description: "Workspace configuration, white-labelling, schedule migration and onboarding (early-adopter price)", metadata: { product: "onpoint" } });
+    await s.prices.create({ product: prod.id, currency: PLAN.currency, unit_amount: PLAN.setup, lookup_key: SETUP_KEY(), nickname: "OnPoint setup", tax_behavior: "exclusive", metadata: { product: "onpoint" } });
+    made.push("setup price S$280");
+  }
+  if (!(await theCoupon())) {
+    const product = typeof monthly.product === "string" ? monthly.product : monthly.product.id;
+    await s.coupons.create({ id: COUPON_ID(), name: "Early adopter: S$80/month for 3 months", amount_off: PLAN.monthly - PLAN.intro, currency: PLAN.currency, duration: "repeating", duration_in_months: PLAN.intro_months, applies_to: { products: [product] }, metadata: { product: "onpoint" } });
+    made.push("first-3-months coupon (S$100 off)");
+  }
+  return { made };
 }
 
 /** the subscription on file, or found again by its metadata (after a checkout whose return page was closed) */
@@ -80,6 +133,10 @@ async function findSubscription(wsId: string): Promise<Stripe.Subscription | nul
 export interface BillingView {
   configured: boolean;
   mode: "test" | "live" | "unset";
+  /** 0281: opening soon until Founders Doc opens it; the plan from the fee proposal; what is ready in Stripe */
+  open: boolean;
+  plan: typeof PLAN;
+  ready: { monthly: boolean; setup: boolean; coupon: boolean; tax: boolean };
   price: { name: string; amount: number; currency: string; interval: string; tax: boolean } | null;
   sub: {
     status: string;
@@ -97,10 +154,21 @@ export interface BillingView {
 const day = (unix: number | null | undefined) => (unix ? new Date(unix * 1000 + 8 * 3_600_000).toISOString().slice(0, 10) : null);
 
 export async function billingView(m: Me): Promise<BillingView> {
-  const base: BillingView = { configured: isStripeConfigured(), mode: stripeMode(), price: null, sub: null, card: null, invoices: [] };
+  const base: BillingView = {
+    configured: isStripeConfigured(),
+    mode: stripeMode(),
+    open: await billingOpen(m.ws.id),
+    plan: PLAN,
+    ready: { monthly: false, setup: false, coupon: false, tax: !!TAX_RATE() },
+    price: null,
+    sub: null,
+    card: null,
+    invoices: [],
+  };
   if (!base.configured) return base;
   const s = stripe();
-  const [price, sub] = await Promise.all([thePrice(), findSubscription(m.ws.id)]);
+  const [price, sub, setup, coupon] = await Promise.all([thePrice(), findSubscription(m.ws.id), thePrice(SETUP_KEY()), theCoupon()]);
+  base.ready = { monthly: !!price, setup: !!setup, coupon: !!coupon, tax: !!TAX_RATE() };
   if (price) {
     const product = typeof price.product === "object" && price.product && "name" in price.product ? price.product.name : "OnPoint Workflows";
     base.price = { name: product, amount: price.unit_amount ?? 0, currency: price.currency, interval: price.recurring?.interval ?? "month", tax: !!TAX_RATE() };
@@ -139,19 +207,23 @@ export async function startCheckout(m: Me, origin: string): Promise<string> {
   const s = stripe();
   const existing = await findSubscription(m.ws.id);
   if (existing && LIVE.has(existing.status) && existing.status !== "incomplete") throw new OpError("OnPoint already has a monthly plan. Use “Update card” to change the card.", 409);
-  const price = await thePrice();
+  /* 0281: opening soon: OnPoint cannot pay yet (Founders Doc can, to test) */
+  if (!m.founder && !(await billingOpen(m.ws.id))) throw new OpError("Card payment is opening soon. Until then, OnPoint Workflows is free to use.", 403);
+  const [price, setup, coupon] = await Promise.all([thePrice(), thePrice(SETUP_KEY()), theCoupon()]);
   if (!price) throw new OpError(`The monthly price is not set up in Stripe yet (lookup key “${PRICE_KEY()}”).`, 503);
   const have = await ids(m.ws.id);
   const meta = { product: "onpoint", onpoint_workspace: m.ws.id };
   const tax = TAX_RATE();
+  const taxed = tax ? { tax_rates: [tax] } : {};
   const session = await s.checkout.sessions.create({
     mode: "subscription",
-    line_items: [{ price: price.id, quantity: 1, ...(tax ? { tax_rates: [tax] } : {}) }],
+    /* the one-off setup goes on the first invoice only; the coupon makes the first 3 months S$80 */
+    line_items: [{ price: price.id, quantity: 1, ...taxed }, ...(setup ? [{ price: setup.id, quantity: 1, ...taxed }] : [])],
+    ...(coupon ? { discounts: [{ coupon: coupon.id }] } : { allow_promotion_codes: true }),
     ...(have.stripe_customer_id ? { customer: have.stripe_customer_id } : m.founder ? {} : { customer_email: m.email }),
     subscription_data: { metadata: meta, description: "OnPoint Workflows · monthly subscription" },
     metadata: meta,
     billing_address_collection: "auto",
-    allow_promotion_codes: true,
     success_url: `${origin}/onpoint?billing=done&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/onpoint?billing=cancelled`,
   });

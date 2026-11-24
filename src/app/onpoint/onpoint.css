@@ -370,3 +370,21 @@
   .op-soonbar { flex-direction: column; align-items: flex-start; }
   .esop.ev .op-optional { grid-template-columns: 1fr; }
 }
+
+/* 0281 · plan from the fee proposal, opening soon */
+.op-fees { list-style: none; margin: 6px 0 2px; padding: 0; border: 1px solid var(--g2); border-radius: 10px; overflow: hidden; }
+.op-fees li { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 11px 14px; border-bottom: 1px solid var(--g1); }
+.op-fees li:last-child { border-bottom: 0; }
+.op-fees li > span:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.op-fees i { font-style: normal; font-size: 12px; color: #777; }
+.op-fee { font-weight: 700; font-size: 16px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.op-fee s { font-weight: 400; font-size: 12px; color: #999; margin-right: 4px; }
+.op-fee em { font-style: normal; font-weight: 400; font-size: 12px; color: #777; margin-left: 2px; }
+.esop.ev .op-founder { border-style: dashed; flex: none; }
+.op-checks { list-style: none; margin: 4px 0 6px; padding: 0; display: grid; gap: 6px; font-size: 13px; }
+.esop.ev .op-checks li { position: relative; padding: 0 0 0 24px; border: 0; background: none; min-height: 0; }
+.op-checks li::before { position: absolute; left: 0; top: 0; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+.op-checks li.c-ok::before { content: "✓"; background: #e6f2e0; color: #2f6b1f; }
+.op-checks li.c-no::before { content: "!"; background: #fdecea; color: #a3271b; }
+.op-checks li.c-opt::before { content: "–"; background: #efefec; color: #666; }
+.op-linkbar { border-style: solid; background: #fff; }

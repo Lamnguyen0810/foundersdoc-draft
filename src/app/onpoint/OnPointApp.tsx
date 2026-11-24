@@ -196,10 +196,10 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
             {view === "dashboard" && filing && <Dashboard s={s} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} openDeadlines={(c) => (setChip(c), go("deadlines"))} />}
             {view === "deadlines" && <Deadlines s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} onPreview={openPreview} initialChip={chip} />}
             {view === "calendar" && <Calendar s={s} byId={byId} onPreview={openPreview} />}
-            {view === "billing" && isAdmin && <Billing preview={preview} say={say} back={stripeReturn} />}
+            {view === "billing" && isAdmin && <Billing preview={preview} founder={s.me.founder} say={say} back={stripeReturn} />}
             {view === "reminders" && <Reminders s={s} setS={setS} byId={byId} live={live} canEdit={canEdit} preview={preview} say={say} reload={reload} focus={focus} />}
-            {view === "clients" && <Clients s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} />}
-            {view === "sources" && <Sources s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} />}
+            {view === "clients" && <Clients s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={(id) => openPay("open", id)} />}
+            {view === "sources" && <Sources s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={() => openPay("open")} />}
           </div>
         </main>
       </div>
@@ -338,7 +338,7 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
               </span>
               <div>
                 <div>
-                  {x.status === "sent" ? "Reminder sent" : x.status === "failed" ? "Not sent" : x.status === "queued" ? "Sending" : "Skipped"} to <b>{p.byId.get(x.client_id ?? "")?.name ?? "a client"}</b>: {TYPE_NAME[x.type as ReminderType] ?? x.type}
+                  {x.status === "sent" ? "Reminder sent" : x.status === "failed" ? "Not sent" : x.status === "queued" ? "Sending" : "Skipped"} to <b>{p.byId.get(x.client_id ?? "")?.name ?? "a client"}</b>: {x.type === "PAYMENT" ? "payment reminder" : (TYPE_NAME[x.type as ReminderType] ?? x.type)}
                   {x.test ? <span className="op-testtag">test</span> : null}
                 </div>
                 {x.error ? <div className="op-late op-small">{x.error}</div> : null}
@@ -887,7 +887,7 @@ function Reminders(p: {
 
 /* ── Clients ───────────────────────────────────────────────────────────── */
 
-function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; openPay: (invoiceId?: string) => void }) {
   const { s } = p;
   const [q, setQ] = useState("");
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -899,6 +899,19 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
     for (const d of s.deadlines) if (d.status === "active") m.set(d.client_id, (m.get(d.client_id) ?? 0) + 1);
     return m;
   }, [s.deadlines]);
+  /* 0281: what each client owes (unpaid invoices), linked to Payments */
+  const owed = useMemo(() => {
+    const m = new Map<string, { cents: number; n: number; first: string }>();
+    for (const v of s.invoices) {
+      if (v.status !== "open") continue;
+      const x = m.get(v.client_id);
+      if (x) {
+        x.cents += v.amount_cents;
+        x.n++;
+      } else m.set(v.client_id, { cents: v.amount_cents, n: 1, first: v.id });
+    }
+    return m;
+  }, [s.invoices]);
   const rows = s.clients.filter((c) => (!onlyMissing || !c.contact_email) && (!q.trim() || c.name.toLowerCase().includes(q.trim().toLowerCase()) || (c.uen ?? "").toLowerCase().includes(q.trim().toLowerCase())));
   const pages = Math.max(1, Math.ceil(rows.length / PAGE));
   const shown = rows.slice(page * PAGE, page * PAGE + PAGE);
@@ -922,7 +935,7 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
   return (
     <>
       <PageHead icon="folder" eyebrow="Records" title="Clients">
-        Who each reminder goes to. A reminder only goes to an email address saved here.
+        Who each reminder goes to, and what they owe. A reminder only goes to an email address saved here.
       </PageHead>
       <section className="ev-card op-pad">
         <div className="op-tools">
@@ -946,7 +959,8 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
             <thead>
               <tr>
                 <th>Client</th>
-                <th>Live deadlines</th>
+                {s.ws.filing_enabled && <th>Live deadlines</th>}
+                <th>Unpaid</th>
                 <th>Contact name</th>
                 <th>Email</th>
                 <th className="op-right" />
@@ -971,8 +985,22 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
                       </div>
                       </div>
                     </td>
+                    {s.ws.filing_enabled && (
+                      <td>
+                        <span className={`op-count ${count.get(c.id) ? "" : "zero"}`}>{count.get(c.id) ?? 0}</span>
+                      </td>
+                    )}
                     <td>
-                      <span className={`op-count ${count.get(c.id) ? "" : "zero"}`}>{count.get(c.id) ?? 0}</span>
+                      {(() => {
+                        const u = owed.get(c.id);
+                        return u ? (
+                          <button className="ev-link op-amt" onClick={() => p.openPay(u.first)} title={`${u.n} unpaid invoice${u.n === 1 ? "" : "s"}`}>
+                            {money(u.cents)}
+                          </button>
+                        ) : (
+                          <span className="ev-sub">–</span>
+                        );
+                      })()}
                     </td>
                     <td>
                       <input className="op-in sm" value={e.contact_name} disabled={!p.canEdit} placeholder="e.g. Alex Tan" onChange={(x) => setEdit((m) => ({ ...m, [c.id]: { ...e, contact_name: x.target.value } }))} />
@@ -1001,7 +1029,7 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
 
 /* ── Excel sources ─────────────────────────────────────────────────────── */
 
-function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; openPay: () => void }) {
   const { s } = p;
   const [busy, setBusy] = useState("");
   const [drag, setDrag] = useState(false);
@@ -1046,6 +1074,17 @@ function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
       <PageHead icon="upload" eyebrow="Records" title="Excel sources">
         The sheets this system reads. Upload them again any time; your files are never changed.
       </PageHead>
+      {/* 0281: the invoice list (payment reminders) is imported on Payments; these sheets add clients and their emails */}
+      <div className="op-soonbar op-linkbar" role="note">
+        <Ic n="card" s={16} />
+        <span>
+          <b>Unpaid invoices</b> are imported on{" "}
+          <a href="#payments" onClick={(e) => (e.preventDefault(), p.openPay())}>
+            Payments → Import invoice list
+          </a>
+          . The sheets below add your clients and their contact emails{p.s.ws.filing_enabled ? ", and the filing deadlines" : ""}.
+        </span>
+      </div>
       {p.canEdit && (
         <section
           className={`ev-card op-drop ${drag ? "on" : ""}`}
@@ -1435,6 +1474,9 @@ function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: De
 interface BillingData {
   configured: boolean;
   mode: "test" | "live" | "unset";
+  open: boolean;
+  plan: typeof PLAN_FALLBACK;
+  ready: { monthly: boolean; setup: boolean; coupon: boolean; tax: boolean };
   price: { name: string; amount: number; currency: string; interval: string; tax: boolean } | null;
   sub: { status: string; cancel_at_period_end: boolean; renews_on: string | null; started_on: string; amount: number | null; currency: string; email: string | null } | null;
   card: { brand: string; last4: string; exp: string } | null;
@@ -1451,35 +1493,42 @@ const STATUS: Record<string, [string, string]> = {
   canceled: ["Ended", "off"],
   paused: ["Paused", "off"],
 };
+/* 0281: the fee proposal (shown even before Stripe is set up; the server sends the same) */
+const PLAN_FALLBACK = { setup: 28_000, setup_was: 108_800, intro: 8_000, intro_months: 3, monthly: 18_000, currency: "sgd" };
+/* the preview: opening soon, nothing paid (sample only) */
 const SAMPLE_BILLING: BillingData = {
   configured: true,
   mode: "test",
-  price: { name: "OnPoint Workflows", amount: 18000, currency: "sgd", interval: "month", tax: true },
-  sub: { status: "active", cancel_at_period_end: false, renews_on: "2026-12-24", started_on: "2026-11-24", amount: 18000, currency: "sgd", email: "accounts@example.com" },
-  card: { brand: "visa", last4: "4242", exp: "12/29" },
-  invoices: [{ id: "in_sample", number: "SAMPLE-0001", date: "2026-11-24", amount: 19620, currency: "sgd", status: "paid", url: null, pdf: null }],
+  open: false,
+  plan: PLAN_FALLBACK,
+  ready: { monthly: true, setup: true, coupon: true, tax: false },
+  price: { name: "OnPoint Workflows", amount: 18000, currency: "sgd", interval: "month", tax: false },
+  sub: null,
+  card: null,
+  invoices: [],
 };
 
-function Billing(p: { preview: boolean; say: (t: string) => void; back: { sessionId: string | null; cancelled: boolean } | null }) {
+function Billing(p: { preview: boolean; founder: boolean; say: (t: string) => void; back: { sessionId: string | null; cancelled: boolean } | null }) {
   const [b, setB] = useState<BillingData | null>(p.preview ? SAMPLE_BILLING : null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState("");
+  const [tick, setTick] = useState(0);
   const { preview, say, back } = p;
   useEffect(() => {
     if (preview) return;
     let gone = false;
-    const q = back?.sessionId ? `?session_id=${encodeURIComponent(back.sessionId)}` : "";
+    const q = back?.sessionId && tick === 0 ? `?session_id=${encodeURIComponent(back.sessionId)}` : "";
     void api(`/api/onpoint/billing${q}`).then((r) => {
       if (gone) return;
       if (!r.ok) return setErr(String(r.j.error ?? "Could not load billing."));
       const data = r.j as unknown as BillingData;
       setB(data);
-      if (data.linked) say("Monthly card payment set up. Thank you!");
+      if (data.linked) say("Card payment set up. Thank you!");
     });
     return () => {
       gone = true;
     };
-  }, [preview, say, back]);
+  }, [preview, say, back, tick]);
   async function open(action: "checkout" | "portal", copy = false) {
     if (preview) return say("Preview: Stripe is not opened.");
     setBusy(action + (copy ? "-copy" : ""));
@@ -1496,36 +1545,84 @@ function Billing(p: { preview: boolean; say: (t: string) => void; back: { sessio
     }
     window.location.href = url;
   }
+  /* Founders Doc only: make the prices in Stripe, open or close card payment */
+  async function admin(action: "setup" | "open", on?: boolean) {
+    if (preview) {
+      if (action === "open" && b) setB({ ...b, open: !!on });
+      return say("Preview: not saved.");
+    }
+    setBusy(action);
+    const r = await api("/api/onpoint/billing", { method: "POST", body: JSON.stringify({ action, on }) });
+    setBusy("");
+    if (!r.ok) return say(String(r.j.error ?? "Not done."));
+    const made = (r.j.made as string[] | undefined) ?? [];
+    say(action === "setup" ? (made.length ? `Created in Stripe: ${made.join(", ")}` : "Everything was already in Stripe") : on ? "Billing is open: OnPoint can now pay by card" : "Billing closed: opening soon");
+    setTick((t) => t + 1);
+  }
   const st = b?.sub ? (STATUS[b.sub.status] ?? [b.sub.status, "off"]) : null;
-  const amount = b?.sub?.amount ?? b?.price?.amount ?? null;
-  const cur = b?.sub?.currency ?? b?.price?.currency ?? "sgd";
+  const plan = b?.plan ?? PLAN_FALLBACK;
+  const canPay = !!b?.configured && !!b.ready.monthly && (b.open || p.founder);
+  const gst = b?.ready.tax ? "+ GST" : "excl. GST";
   return (
     <>
       <PageHead icon="card" eyebrow="Account" title="Billing & plan">
-        Your monthly subscription, paid by card and charged automatically each month.
+        Your plan, as in the fee proposal: a one-off setup, then a monthly subscription paid by card.
       </PageHead>
       {back?.cancelled && <div className="op-warn">Payment not completed. Nothing was charged.</div>}
+      {b && !b.open && !b.sub && (
+        <div className="op-soonbar" role="note">
+          <span className="op-soontag">Opening soon</span>
+          <span>
+            <b>Card payment opens soon.</b> Until then, everything in OnPoint Workflows is free to use. Nothing is charged.
+          </span>
+        </div>
+      )}
       {b?.mode === "test" && <div className="op-warn">Stripe test mode: no real card is charged here.</div>}
       {err && <div className="op-warn">{err}</div>}
       {!b && !err && <div className="ev-card op-pad ev-sub">Loading…</div>}
-      {b && !b.configured && <div className="ev-card op-pad">Card payments are not switched on yet.</div>}
-      {b?.configured && (
+      {b && (
         <>
           <div className="op-grid2">
             <section className="ev-card op-pad op-plan">
               <div className="op-planh">
                 <div>
-                  <span className="op-lab">Current plan</span>
+                  <span className="op-lab">Your plan</span>
                   <b className="op-planname">{b.price?.name ?? "OnPoint Workflows"}</b>
-                  {st ? <span className={`op-pill ${st[1]}`}>{b.sub?.cancel_at_period_end ? "Ends at period end" : st[0]}</span> : <span className="op-pill off">Not set up</span>}
+                  {st ? <span className={`op-pill ${st[1]}`}>{b.sub?.cancel_at_period_end ? "Ends at period end" : st[0]}</span> : <span className={`op-pill ${b.open ? "warn" : "off"}`}>{b.open ? "Not paid yet" : "Opening soon · free for now"}</span>}
                 </div>
-                {amount != null && (
-                  <div className="op-price">
-                    <b>{money(amount, cur)}</b>
-                    <span>per {b.price?.interval ?? "month"}{b.price?.tax ? " + GST" : ""}</span>
-                  </div>
-                )}
               </div>
+              <ul className="op-fees">
+                <li>
+                  <span>
+                    <b>Setup</b>
+                    <i>One-off · configuration, branding, migration and onboarding</i>
+                  </span>
+                  <span className="op-fee">
+                    <s>{money(plan.setup_was, plan.currency)}</s> {money(plan.setup, plan.currency)}
+                  </span>
+                </li>
+                <li>
+                  <span>
+                    <b>First {plan.intro_months} months</b>
+                    <i>Early-adopter price</i>
+                  </span>
+                  <span className="op-fee">
+                    {money(plan.intro, plan.currency)}
+                    <em>/month</em>
+                  </span>
+                </li>
+                <li>
+                  <span>
+                    <b>After that</b>
+                    <i>Unlimited users, hosting, updates, support and maintenance</i>
+                  </span>
+                  <span className="op-fee">
+                    {money(plan.monthly, plan.currency)}
+                    <em>/month</em>
+                  </span>
+                </li>
+              </ul>
+              <p className="ev-sub op-small">Prices in Singapore dollars, {gst}. Billed by card through Stripe: the first payment covers the setup and the first month.</p>
               {b.sub ? (
                 <div className="op-meta">
                   <div>
@@ -1539,19 +1636,18 @@ function Billing(p: { preview: boolean; say: (t: string) => void; back: { sessio
                   </div>
                 </div>
               ) : (
-                <>
-                  <p className="ev-sub">Pay once on Stripe&rsquo;s secure page. After that the card is charged automatically every month, and Stripe emails the receipt.</p>
-                  {!b.price && <p className="op-late">The monthly price is not set up in Stripe yet.</p>}
-                  <div className="op-chiprow">
-                    <button className="ev-btn gold" disabled={!b.price || !!busy} onClick={() => void open("checkout")}>
-                      <Ic n="card" s={15} />
-                      {busy === "checkout" ? "Opening…" : "Set up monthly card payment"}
-                    </button>
-                    <button className="ev-btn" disabled={!b.price || !!busy} onClick={() => void open("checkout", true)}>
+                <div className="op-chiprow">
+                  <button className="ev-btn gold" disabled={!canPay || !!busy} onClick={() => void open("checkout")}>
+                    <Ic n="card" s={15} />
+                    {!b.open && !p.founder ? "Opening soon" : busy === "checkout" ? "Opening…" : "Set up card payment"}
+                  </button>
+                  {canPay && (
+                    <button className="ev-btn" disabled={!!busy} onClick={() => void open("checkout", true)}>
                       {busy === "checkout-copy" ? "Copying…" : "Copy payment link"}
                     </button>
-                  </div>
-                </>
+                  )}
+                  {p.founder && !b.open && b.ready.monthly && <span className="ev-sub op-small">Founders Doc can test this before it opens.</span>}
+                </div>
               )}
             </section>
             <section className="ev-card op-pad">
@@ -1575,6 +1671,29 @@ function Billing(p: { preview: boolean; say: (t: string) => void; back: { sessio
               <p className="ev-sub">🔒 The card is entered on Stripe&rsquo;s secure page. Card numbers never reach this system or your Excel sheets.</p>
             </section>
           </div>
+          {p.founder && (
+            <section className="ev-card op-pad op-founder">
+              <h2 className="op-h2">
+                Founders Doc only <span className="ev-sub">· OnPoint does not see this</span>
+              </h2>
+              <ul className="op-checks">
+                <li className={b.configured ? "c-ok" : "c-no"}>Stripe connected{b.configured ? ` (${b.mode} mode)` : ": set STRIPE keys on Vercel"}</li>
+                <li className={b.ready.monthly ? "c-ok" : "c-no"}>Monthly price S$180 (lookup key onpoint_monthly)</li>
+                <li className={b.ready.setup ? "c-ok" : "c-no"}>One-off setup S$280 (lookup key onpoint_setup)</li>
+                <li className={b.ready.coupon ? "c-ok" : "c-no"}>First 3 months at S$80 (coupon onpoint_intro, S$100 off)</li>
+                <li className={b.ready.tax ? "c-ok" : "c-opt"}>GST {b.ready.tax ? "added to each invoice" : "not added (optional: ONPOINT_TAX_RATE_ID on Vercel)"}</li>
+                <li className={b.open ? "c-ok" : "c-opt"}>{b.open ? "Billing open: OnPoint can pay" : "Opening soon: OnPoint sees the plan and uses everything free"}</li>
+              </ul>
+              <div className="op-chiprow">
+                <button className="ev-btn" disabled={!b.configured || !!busy || (b.ready.monthly && b.ready.setup && b.ready.coupon)} onClick={() => void admin("setup")}>
+                  {busy === "setup" ? "Creating…" : b.ready.monthly && b.ready.setup && b.ready.coupon ? "Prices are in Stripe" : "Create prices in Stripe"}
+                </button>
+                <button className={`ev-btn ${b.open ? "" : "gold"}`} disabled={!!busy || (!b.open && !b.ready.monthly)} onClick={() => window.confirm(b.open ? "Close card payment again (opening soon)?" : "Open card payment? OnPoint's administrators can then pay by card.") && void admin("open", !b.open)}>
+                  {busy === "open" ? "Saving…" : b.open ? "Close billing (opening soon)" : "Open billing"}
+                </button>
+              </div>
+            </section>
+          )}
           <section className="ev-card op-pad">
             <h2 className="op-h2">Invoices</h2>
             {b.invoices.length === 0 ? (
