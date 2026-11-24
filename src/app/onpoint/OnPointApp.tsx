@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Ic, type IconName } from "../esop/[slug]/icons";
 import { countdown, daysBetween, fmtDate } from "@/lib/onpoint/dates";
 import { emailHtml, render, TOKENS, unknownTokens } from "@/lib/onpoint/templates";
@@ -28,6 +28,9 @@ type View = "dashboard" | "deadlines" | "calendar" | "reminders" | "clients" | "
 const VIEWS: View[] = ["dashboard", "deadlines", "calendar", "reminders", "clients", "sources", "billing"];
 const PAGE = 50;
 const DEFAULT_LOGO = "/onpoint/logo.png";
+/* 0276: one calm colour per filing type, used wherever a deadline is shown */
+const TAG: Record<ReminderType, string> = { AR: "t-ar", ECI: "t-eci", AGM: "t-agm", FS: "t-fs", CORP_SEC_EXPIRY: "t-cs", RECURRING_JOB: "t-job" };
+const tagClass = (type: ReminderType) => `op-tag ${TAG[type] ?? ""}`;
 const shortType = (d: Pick<Deadline, "type" | "label">) => (d.type === "CORP_SEC_EXPIRY" || d.type === "RECURRING_JOB" ? d.label || TYPE_PICK[d.type] : d.type === "FS" ? "FS" : d.type);
 
 async function api(url: string, init?: RequestInit) {
@@ -80,6 +83,7 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
     window.history.replaceState(null, "", window.location.pathname);
   }, []);
 
+  const [chip, setChip] = useState<DChip>("overdue");
   const go = (v: View) => {
     setView(v);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -174,9 +178,9 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
         </aside>
 
         <main className="ev-main">
-          <div className="ev-wrap">
-            {view === "dashboard" && <Dashboard s={s} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} />}
-            {view === "deadlines" && <Deadlines s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} onPreview={openPreview} />}
+          <div className="ev-wrap op-view" key={view}>
+            {view === "dashboard" && <Dashboard s={s} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} openDeadlines={(c) => (setChip(c), go("deadlines"))} />}
+            {view === "deadlines" && <Deadlines s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} onPreview={openPreview} initialChip={chip} />}
             {view === "calendar" && <Calendar s={s} byId={byId} onPreview={openPreview} />}
             {view === "billing" && isAdmin && <Billing preview={preview} say={say} back={stripeReturn} />}
             {view === "reminders" && <Reminders s={s} setS={setS} byId={byId} live={live} canEdit={canEdit} preview={preview} say={say} reload={reload} focus={focus} />}
@@ -195,29 +199,87 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
 
 /* ── Dashboard ─────────────────────────────────────────────────────────── */
 
-function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]; overdue: Deadline[]; company: string; onPreview: (d: Deadline) => void; go: (v: View) => void }) {
+/** 0277: the same calm heading on every page: an icon, a small gold line, the title and one sentence */
+function PageHead({ icon, eyebrow, title, children }: { icon: IconName; eyebrow: string; title: string; children?: ReactNode }) {
+  return (
+    <header className="op-head">
+      <span className="op-headicon" aria-hidden="true">
+        <Ic n={icon} s={20} />
+      </span>
+      <div>
+        <p className="op-eyebrow">{eyebrow}</p>
+        <h1>{title}</h1>
+        {children ? <p className="op-headsub">{children}</p> : null}
+      </div>
+    </header>
+  );
+}
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const longDate = (iso: string) => {
+  const [y, m, d] = iso.split("-").map(Number) as [number, number, number];
+  return `${WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}, ${d} ${MONTHS_LONG[m - 1]} ${y}`;
+};
+/** "11d overdue" · "due today" · "in 3d": the short form for badges */
+const shortCount = (due: string, today: string) => {
+  const n = daysBetween(today, due);
+  return n === 0 ? "due today" : n < 0 ? `${-n}d overdue` : `in ${n}d`;
+};
+const dueClass = (due: string, today: string) => {
+  const n = daysBetween(today, due);
+  return n < 0 ? "op-due late" : n <= 7 ? "op-due soon" : "op-due";
+};
+
+/** a number that counts up once when it first appears (0276); still for anyone who prefers less motion */
+function useCountUp(target: number) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const still = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    let raf = 0;
+    const t0 = performance.now();
+    const step = (t: number) => {
+      const k = still ? 1 : Math.min(1, (t - t0) / 700);
+      setN(Math.round(target * (1 - Math.pow(1 - k, 3))));
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [target]);
+  return n;
+}
+
+function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]; overdue: Deadline[]; company: string; onPreview: (d: Deadline) => void; go: (v: View) => void; openDeadlines: (c: DChip) => void }) {
   const { s } = p;
   const fortnight = p.live.filter((d) => d.due_date >= s.today && daysBetween(s.today, d.due_date) <= 14);
   const month = s.today.slice(0, 7);
   const sent = s.deliveries.filter((d) => d.status === "sent" && d.requested_at.slice(0, 7) === month);
   const next = [...p.overdue.slice(-5).reverse(), ...p.live.filter((d) => d.due_date >= s.today).slice(0, 8)];
   const noEmail = s.clients.filter((c) => !c.contact_email && p.live.some((d) => d.client_id === c.id)).length;
+  const sheets = new Set(s.imports.map((x) => x.kind)).size;
   return (
     <>
-      <header className="ev-title">
-        <h1>Dashboard</h1>
-        <span>{fmtDate(s.today)} · every filing deadline, from your Excel sheets</span>
+      <header className="op-hero">
+        <p className="op-eyebrow">Overview · {longDate(s.today)}</p>
+        <h1>Welcome back, {p.company.replace(/,?\s+(pte\.?\s*ltd\.?|private limited)$/i, "")}</h1>
+        <p>
+          Here is where your filings stand today, worked out from your <b>Master List</b>, <b>Job Schedule</b> and <b>Nominee Service</b> sheets. Reminders go to your clients on your behalf before each due date.
+        </p>
       </header>
       {s.clients.length === 0 && (
         <div className="ev-card op-empty">
-          <b>No clients yet.</b> Import the Master List, Nominee Service and Job Schedule sheets on <a href="#sources" onClick={(e) => (e.preventDefault(), p.go("sources"))}>Excel sources</a>, and every deadline appears here.
+          <b>No clients yet.</b> Import the Master List, Nominee Service and Job Schedule sheets on{" "}
+          <a href="#sources" onClick={(e) => (e.preventDefault(), p.go("sources"))}>
+            Excel sources
+          </a>
+          , and every deadline appears here.
         </div>
       )}
-      <div className="ev-cards">
-        <Stat label="Deadlines tracked" value={p.live.length} sub={`${s.clients.length} clients`} />
-        <Stat label="Due this fortnight" value={fortnight.length} sub={fortnight[0] ? `Next due ${fmtDate(fortnight[0].due_date)}` : "Nothing due"} />
-        <Stat label="Overdue" value={p.overdue.length} sub="Requires attention" warn={p.overdue.length > 0} />
-        <Stat label="Reminders sent" value={sent.length} sub="This month" />
+      <div className="op-stats">
+        <Stat icon="clipboard" tone="gold" label="Deadlines tracked" value={p.live.length} sub={<><i className="op-live" aria-hidden="true" /> Live · {sheets || 0} sheet{sheets === 1 ? "" : "s"} imported</>} onClick={() => p.openDeadlines("upcoming")} />
+        <Stat icon="hourglass" tone="blue" label="Due this fortnight" value={fortnight.length} sub={fortnight[0] ? `Next due ${fmtDate(fortnight[0].due_date)}` : "Nothing due"} onClick={() => p.openDeadlines("30")} />
+        <Stat icon="alert" tone="red" label="Overdue" value={p.overdue.length} sub={p.overdue.length ? "Requires attention" : "All on time"} warn={p.overdue.length > 0} onClick={() => p.openDeadlines("overdue")} />
+        <Stat icon="sent" tone="green" label="Reminders sent" value={sent.length} sub="This month, on your behalf" onClick={() => p.go("reminders")} />
       </div>
       {noEmail > 0 && (
         <div className="op-warn" role="note">
@@ -227,21 +289,26 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
           </a>
         </div>
       )}
-      <div className="op-grid2">
+      <div className="op-grid2 op-dash">
         <section className="ev-card op-list">
           <div className="op-h">
-            <h2>Next deadlines</h2>
+            <h2>
+              Next deadlines <span className="ev-sub">across the portfolio</span>
+            </h2>
             <a href="#deadlines" onClick={(e) => (e.preventDefault(), p.go("deadlines"))}>
               View all →
             </a>
           </div>
           {next.length === 0 && <p className="ev-sub">Nothing to show yet.</p>}
           {next.map((d) => (
-            <button key={d.id} className="op-row" onClick={() => p.onPreview(d)}>
-              <span className="op-name">{p.byId.get(d.client_id)?.name ?? "—"}</span>
-              <span className="op-tag">{shortType(d)}</span>
-              <span>{fmtDate(d.due_date)}</span>
-              <span className={d.due_date < s.today ? "op-late" : "op-soon"}>{countdown(d.due_date, s.today)}</span>
+            <button key={d.id} className="op-row op-next" onClick={() => p.onPreview(d)}>
+              <span className="op-name op-namechev">
+                <span>{p.byId.get(d.client_id)?.name ?? "—"}</span>
+                <Ic n="chev" s={11} />
+              </span>
+              <span className={tagClass(d.type)}>{shortType(d)}</span>
+              <span className="op-date">{fmtDate(d.due_date)}</span>
+              <span className={dueClass(d.due_date, s.today)}>{shortCount(d.due_date, s.today)}</span>
             </button>
           ))}
         </section>
@@ -249,16 +316,20 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
           <div className="op-h">
             <h2>Reminder activity</h2>
           </div>
-          {s.deliveries.length === 0 && <p className="ev-sub">No reminders sent yet.</p>}
+          {s.deliveries.length === 0 && <p className="ev-sub">No reminders sent yet. They appear here as they go out.</p>}
           {s.deliveries.slice(0, 10).map((x) => (
-            <div key={x.id} className="op-act">
-              <span className={`op-dot ${x.status}`} aria-hidden="true" />
-              <span>
-                {x.status === "sent" ? "Sent" : x.status === "failed" ? "Failed" : x.status === "queued" ? "Sending" : "Skipped"}: {TYPE_NAME[x.type as ReminderType] ?? x.type} to {p.byId.get(x.client_id ?? "")?.name ?? "a client"}
-                {x.test ? " (test)" : ""}
-                {x.error ? ` · ${x.error}` : ""}
+            <div key={x.id} className="op-act2">
+              <span className={`op-acticon ${x.status}`} aria-hidden="true">
+                <Ic n={x.status === "sent" ? "sent" : x.status === "failed" ? "bang" : "clock"} s={15} />
               </span>
-              <span className="ev-sub">{new Date(x.requested_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+              <div>
+                <div>
+                  {x.status === "sent" ? "Reminder sent" : x.status === "failed" ? "Not sent" : x.status === "queued" ? "Sending" : "Skipped"} to <b>{p.byId.get(x.client_id ?? "")?.name ?? "a client"}</b>: {TYPE_NAME[x.type as ReminderType] ?? x.type}
+                  {x.test ? <span className="op-testtag">test</span> : null}
+                </div>
+                {x.error ? <div className="op-late op-small">{x.error}</div> : null}
+                <div className="ev-sub op-small">{new Date(x.requested_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+              </div>
             </div>
           ))}
         </section>
@@ -267,13 +338,19 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
   );
 }
 
-function Stat({ label, value, sub, warn }: { label: string; value: number; sub: string; warn?: boolean }) {
+function Stat({ icon, tone, label, value, sub, warn, onClick }: { icon: IconName; tone: "gold" | "blue" | "red" | "green"; label: string; value: number; sub: ReactNode; warn?: boolean; onClick?: () => void }) {
+  const n = useCountUp(value);
   return (
-    <div className="ev-card op-stat">
-      <span>{label}</span>
-      <b className={warn ? "op-late" : ""}>{value.toLocaleString("en-GB")}</b>
-      <span className="ev-sub">{sub}</span>
-    </div>
+    <button type="button" className="ev-card op-stat2" onClick={onClick}>
+      <span className={`op-badge ${tone}`} aria-hidden="true">
+        <Ic n={icon} s={20} />
+      </span>
+      <span className="op-statbody">
+        <span className="op-statlabel">{label}</span>
+        <b className={warn ? "op-late" : ""}>{n.toLocaleString("en-GB")}</b>
+        <span className={`op-statsub ${warn ? "op-late" : ""}`}>{sub}</span>
+      </span>
+    </button>
   );
 }
 
@@ -281,9 +358,9 @@ function Stat({ label, value, sub, warn }: { label: string; value: number; sub: 
 
 type DChip = "overdue" | "30" | "upcoming" | "done" | "all";
 
-function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; onPreview: (d: Deadline) => void }) {
+function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; onPreview: (d: Deadline) => void; initialChip?: DChip }) {
   const { s } = p;
-  const [chip, setChip] = useState<DChip>("overdue");
+  const [chip, setChip] = useState<DChip>(p.initialChip ?? "overdue");
   const [type, setType] = useState<"" | ReminderType>("");
   const [q, setQ] = useState("");
   const [page, setPage] = useState(0);
@@ -312,10 +389,9 @@ function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean
   }
   return (
     <>
-      <header className="ev-title">
-        <h1>Deadlines</h1>
-        <span>Every filing date, worked out from your sheets</span>
-      </header>
+      <PageHead icon="esop" eyebrow="Overview" title="Deadlines">
+        Every filing for every client, worked out from your sheets. Mark one done and its reminders stop.
+      </PageHead>
       <section className="ev-card op-pad">
         <div className="op-tools">
           <label className="ev-search wide">
@@ -361,7 +437,13 @@ function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean
               {shown.length === 0 && (
                 <tr>
                   <td colSpan={5} className="ev-empty">
-                    Nothing here.
+                    <div className="op-emptystate">
+                      <span aria-hidden="true">
+                        <Ic n="check" s={22} />
+                      </span>
+                      <b>{chip === "overdue" ? "Nothing overdue" : "Nothing here"}</b>
+                      <span className="ev-sub">{chip === "overdue" ? "Every deadline is on time." : "Try another filter or search."}</span>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -374,13 +456,20 @@ function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean
                       <div className="ev-sub">{d.derived ? "Worked out from FYE" : "From the sheet"} · {d.source.split(" · ").pop()}</div>
                     </td>
                     <td>
-                      <span className="op-tag">{shortType(d)}</span>
+                      <span className={tagClass(d.type)}>{shortType(d)}</span>
                     </td>
                     <td>
-                      {fmtDate(d.due_date)}
-                      <div className={d.status !== "active" ? "ev-sub" : d.due_date < s.today ? "op-late" : "op-soon"}>{d.status === "active" ? countdown(d.due_date, s.today) : d.status === "completed" ? `Done${d.done_on ? ` ${fmtDate(d.done_on)}` : ""}` : d.status.replace("_", " ")}</div>
+                      <div className="op-date2">{fmtDate(d.due_date)}</div>
+                      {d.status === "active" ? (
+                        <span className={dueClass(d.due_date, s.today)}>{countdown(d.due_date, s.today)}</span>
+                      ) : (
+                        <span className="op-due done">
+                          <Ic n="check" s={11} w={2.4} />
+                          {d.status === "completed" ? `Done${d.done_on ? ` ${fmtDate(d.done_on)}` : ""}` : d.status.replace("_", " ")}
+                        </span>
+                      )}
                     </td>
-                    <td>{c?.contact_email ? <span>{c.contact_email}</span> : <span className="op-late">No email</span>}</td>
+                    <td>{c?.contact_email ? <span>{c.contact_email}</span> : <span className="op-due late">No email</span>}</td>
                     <td className="op-right">
                       <span className="op-acts">
                         {d.status === "active" && (
@@ -391,7 +480,8 @@ function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean
                         )}
                         {p.canEdit && d.status === "active" && (
                           <>
-                            <button className="ev-link" disabled={busy === d.id} onClick={() => void mark(d, "completed")}>
+                            <button className="ev-btn sm op-done" disabled={busy === d.id} onClick={() => void mark(d, "completed")}>
+                              <Ic n="check" s={12} w={2.2} />
                               Done
                             </button>
                             <button className="ev-link" disabled={busy === d.id} onClick={() => void mark(d, "not_applicable")}>
@@ -543,16 +633,15 @@ function Reminders(p: {
 
   return (
     <>
-      <header className="ev-title">
-        <h1>Reminder emails</h1>
-        <span>Sent to clients on {s.ws.sender_name}&rsquo;s behalf</span>
-      </header>
+      <PageHead icon="mail" eyebrow="Automation" title="Reminder emails">
+        The emails your clients receive, sent on {s.ws.sender_name}&rsquo;s behalf. Each filing type has its own wording and timing.
+      </PageHead>
       {missingClient && <div className="op-warn">That client or deadline is no longer there. Pick another below.</div>}
       <div className="op-grid2 wide">
         <section className="ev-card op-pad">
           <h2 className="op-h2">Template</h2>
           <div className="op-field">
-            <span className="op-lab">Which deadline is this reminder for?</span>
+            <span className="op-lab op-step"><i>1</i>Which deadline is this reminder for?</span>
             <div className="ev-chips" role="radiogroup" aria-label="Deadline type">
               {(["AR", "ECI"] as ReminderType[]).map((t) => (
                 <button key={t} role="radio" aria-checked={type === t} className={type === t ? "on" : ""} onClick={() => pickType(t)}>
@@ -577,7 +666,7 @@ function Reminders(p: {
             )}
           </div>
           <div className="op-field">
-            <span className="op-lab">Preview for client</span>
+            <span className="op-lab op-step"><i>2</i>Preview for client</span>
             {withDeadlines.length === 0 ? (
               <p className="ev-sub">No clients yet: import your sheets on Excel sources.</p>
             ) : (
@@ -594,7 +683,7 @@ function Reminders(p: {
             )}
           </div>
           <div className="op-field">
-            <span className="op-lab">Send automatically</span>
+            <span className="op-lab op-step"><i>3</i>Send automatically</span>
             <div className="op-chiprow">
               {leads.length === 0 && <span className="ev-sub">No automatic reminders for this type.</span>}
               {leads.map((n) => (
@@ -623,8 +712,8 @@ function Reminders(p: {
             )}
           </div>
           <div className="op-field">
-            <label className="op-lab" htmlFor="op-subject">
-              Subject
+            <label className="op-lab op-step" htmlFor="op-subject">
+              <i>4</i>Subject and wording
             </label>
             <input id="op-subject" className="op-in" value={draft.subject} disabled={!p.canEdit} onChange={(e) => setDraft({ subject: e.target.value })} />
           </div>
@@ -734,7 +823,7 @@ function Reminders(p: {
                 setDeadlineId(d.id);
               }}
             >
-              <span className="op-tag">{shortType(d)}</span>
+              <span className={tagClass(d.type)}>{shortType(d)}</span>
               <span>{fmtDate(d.due_date)}</span>
               <span className={d.due_date < s.today ? "op-late" : "op-soon"}>{countdown(d.due_date, s.today)}</span>
             </button>
@@ -781,10 +870,9 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
   }
   return (
     <>
-      <header className="ev-title">
-        <h1>Clients</h1>
-        <span>Who each reminder goes to</span>
-      </header>
+      <PageHead icon="folder" eyebrow="Records" title="Clients">
+        Who each reminder goes to. A reminder only goes to an email address saved here.
+      </PageHead>
       <section className="ev-card op-pad">
         <div className="op-tools">
           <label className="ev-search wide">
@@ -819,15 +907,22 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
                 const changed = !!edit[c.id];
                 return (
                   <tr key={c.id}>
-                    <td>
+                    <td className={`op-clientcell ${changed ? "changed" : ""}`}>
+                      <span className={`op-avatar ${c.contact_email ? "" : "none"}`} aria-hidden="true">
+                        {initials(c.name)}
+                      </span>
+                      <div>
                       <b>{c.name}</b>
                       <div className="ev-sub">
                         {c.uen ? `UEN ${c.uen}` : "No UEN"}
                         {c.fye ? ` · FYE ${fmtDate(c.fye)}` : ""}
                         {c.services.length ? ` · ${c.services.map((x) => (x === "acc" ? "Accounts" : x === "fs_tax" ? "FS & tax" : "Corp-sec")).join(", ")}` : ""}
                       </div>
+                      </div>
                     </td>
-                    <td>{count.get(c.id) ?? 0}</td>
+                    <td>
+                      <span className={`op-count ${count.get(c.id) ? "" : "zero"}`}>{count.get(c.id) ?? 0}</span>
+                    </td>
                     <td>
                       <input className="op-in sm" value={e.contact_name} disabled={!p.canEdit} placeholder="e.g. Alex Tan" onChange={(x) => setEdit((m) => ({ ...m, [c.id]: { ...e, contact_name: x.target.value } }))} />
                     </td>
@@ -897,10 +992,9 @@ function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
   ];
   return (
     <>
-      <header className="ev-title">
-        <h1>Excel sources</h1>
-        <span>The sheets this system reads. It never changes them.</span>
-      </header>
+      <PageHead icon="upload" eyebrow="Records" title="Excel sources">
+        The sheets this system reads. Upload them again any time; your files are never changed.
+      </PageHead>
       {p.canEdit && (
         <section
           className={`ev-card op-drop ${drag ? "on" : ""}`}
@@ -912,6 +1006,9 @@ function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
             void upload(e.dataTransfer.files);
           }}
         >
+          <span className="op-dropicon" aria-hidden="true">
+            <Ic n="upload" s={24} />
+          </span>
           <b>Import Excel sheets</b>
           <span>Drop the Master List, Nominee Service, Job Schedule or a contacts sheet (.xlsx) here. Re-import any time: dates move with the sheet, nothing is entered twice.</span>
           <button className="ev-btn gold" disabled={busy === "import"} onClick={() => input.current?.click()}>
@@ -925,11 +1022,31 @@ function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
         <section className="ev-card op-pad">
           <h2 className="op-h2">Just imported</h2>
           {last.map((x, i) => (
-            <p key={i} className="ev-sub">
-              <b>{String(x.file)}</b>: {String((x.kinds as string[] | undefined)?.join(", ") || "not recognised")} · {String(x.clients)} clients · {String(x.deadlines)} deadlines · {String(x.contacts)} emails
-              {Number(x.superseded) ? ` · ${String(x.superseded)} older items superseded` : ""}
-              {(x.skipped as string[] | undefined)?.length ? ` · not read: ${(x.skipped as string[]).join(", ")}` : ""}
-            </p>
+            <div key={i} className="op-result">
+              <span className="op-acticon sent" aria-hidden="true">
+                <Ic n="check" s={15} w={2.2} />
+              </span>
+              <div>
+                <b>{String(x.file)}</b> <span className="ev-sub">· {String((x.kinds as string[] | undefined)?.join(", ") || "not recognised")}</span>
+                <div className="op-resultnums">
+                  <span>
+                    <b>{String(x.clients)}</b> clients
+                  </span>
+                  <span>
+                    <b>{String(x.deadlines)}</b> deadlines
+                  </span>
+                  <span>
+                    <b>{String(x.contacts)}</b> emails
+                  </span>
+                  {Number(x.superseded) ? (
+                    <span>
+                      <b>{String(x.superseded)}</b> older items replaced
+                    </span>
+                  ) : null}
+                </div>
+                {(x.skipped as string[] | undefined)?.length ? <div className="ev-sub op-small">Not read: {(x.skipped as string[]).join(", ")}</div> : null}
+              </div>
+            </div>
           ))}
         </section>
       )}
@@ -947,10 +1064,13 @@ function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
           <h2 className="op-h2">Imports</h2>
           {s.imports.length === 0 && <p className="ev-sub">Nothing imported yet.</p>}
           {s.imports.map((x, i) => (
-            <div key={i} className="op-act">
-              <span className="op-dot sent" aria-hidden="true" />
+            <div key={i} className="op-act op-imp">
+              <span className="op-acticon file" aria-hidden="true">
+                <Ic n="folder" s={14} />
+              </span>
               <span>
-                {x.file_name} · {x.kind}
+                <b>{x.file_name}</b>
+                <span className="ev-sub"> · {x.kind}</span>
               </span>
               <span className="ev-sub">{new Date(x.imported_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
             </div>
@@ -1129,6 +1249,14 @@ function downloadCsv(rows: Deadline[], byId: Map<string, Client>, name: string) 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const CAL_TAG: Record<ReminderType, string> = { AR: "AR", ECI: "ECI", AGM: "AGM", FS: "FS", CORP_SEC_EXPIRY: "Corp-sec", RECURRING_JOB: "Jobs" };
+const initials = (name: string) =>
+  name
+    .replace(/\b(pte|ltd|private|limited|llp|the)\b\.?/gi, "")
+    .split(/[\s&.,()-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("") || "·";
 const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
 function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: Deadline) => void }) {
@@ -1158,10 +1286,9 @@ function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: De
   const monthTotal = [...byDay.values()].reduce((n, l) => n + l.filter((d) => d.status === "active").length, 0);
   return (
     <>
-      <header className="ev-title">
-        <h1>Calendar</h1>
-        <span>One view of every date</span>
-      </header>
+      <PageHead icon="calendar" eyebrow="Overview" title="Calendar">
+        One view of every date, month by month. Click a day to see who is due.
+      </PageHead>
       <section className="ev-card op-pad">
         <div className="op-tools">
           <button className="ev-btn sm" aria-label="Previous month" onClick={() => move(-1)}>
@@ -1200,11 +1327,8 @@ function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: De
             const l = byDay.get(c) ?? [];
             const open = l.filter((d) => d.status === "active");
             const late = c < s.today && open.length > 0;
-            const types = new Map<string, number>();
-            for (const d of open) {
-              const k = CAL_TAG[d.type];
-              types.set(k, (types.get(k) ?? 0) + 1);
-            }
+            const types = new Map<ReminderType, number>();
+            for (const d of open) types.set(d.type, (types.get(d.type) ?? 0) + 1);
             return (
               <button
                 key={c}
@@ -1216,8 +1340,8 @@ function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: De
               >
                 <span className="op-caln">{Number(c.slice(8))}</span>
                 {[...types].slice(0, 3).map(([k, n]) => (
-                  <span key={k} className="op-calt">
-                    {k} <b>{n}</b>
+                  <span key={k} className={`op-calt ${TAG[k]}`}>
+                    {CAL_TAG[k]} <b>{n}</b>
                   </span>
                 ))}
                 {types.size > 3 && <span className="ev-sub">+{types.size - 3} more</span>}
@@ -1237,7 +1361,7 @@ function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: De
             .map((d) => (
               <div key={d.id} className="op-dayrow">
                 <span className="op-name">{p.byId.get(d.client_id)?.name ?? "—"}</span>
-                <span className="op-tag">{shortType(d)}</span>
+                <span className={tagClass(d.type)}>{shortType(d)}</span>
                 <span className={d.status !== "active" ? "ev-sub" : d.due_date < s.today ? "op-late" : "op-soon"}>{d.status === "active" ? countdown(d.due_date, s.today) : d.status.replace("_", " ")}</span>
                 {d.status === "active" ? (
                   <button className="ev-btn sm" onClick={() => p.onPreview(d)}>
@@ -1327,10 +1451,9 @@ function Billing(p: { preview: boolean; say: (t: string) => void; back: { sessio
   const cur = b?.sub?.currency ?? b?.price?.currency ?? "sgd";
   return (
     <>
-      <header className="ev-title">
-        <h1>Billing &amp; plan</h1>
-        <span>Monthly subscription, paid by card</span>
-      </header>
+      <PageHead icon="card" eyebrow="Account" title="Billing & plan">
+        Your monthly subscription, paid by card and charged automatically each month.
+      </PageHead>
       {back?.cancelled && <div className="op-warn">Payment not completed. Nothing was charged.</div>}
       {b?.mode === "test" && <div className="op-warn">Stripe test mode: no real card is charged here.</div>}
       {err && <div className="op-warn">{err}</div>}
