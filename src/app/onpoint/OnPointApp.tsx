@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Ic, type IconName } from "../esop/[slug]/icons";
 import { countdown, daysBetween, fmtDate } from "@/lib/onpoint/dates";
-import { render, TOKENS, unknownTokens } from "@/lib/onpoint/templates";
+import { emailHtml, render, TOKENS, unknownTokens } from "@/lib/onpoint/templates";
 import { OTHERS, TYPE_NAME, TYPE_PICK, TYPES, type Client, type Deadline, type Delivery, type ReminderType, type Template } from "@/lib/onpoint/types";
 
 /**
@@ -688,7 +688,22 @@ function Reminders(p: {
                 <span>Subject</span>
                 <b>{r.subject}</b>
               </div>
-              <pre>{r.body}</pre>
+              {/* 0271: the designed email, exactly as it is sent (no scripts can run in it) */}
+              <iframe
+                className="op-mailframe"
+                title="Email preview"
+                sandbox="allow-same-origin"
+                srcDoc={emailHtml(r.body, {
+                  logoUrl: s.ws.logo || "/onpoint/logo.png",
+                  sender: s.ws.custom_name || s.ws.sender_name,
+                  deadline: { type: r.typeName, company: client.name, uen: client.uen, due: shownDl!.due_date, today: s.today },
+                })}
+                onLoad={(e) => {
+                  const f = e.currentTarget;
+                  const h = f.contentDocument?.documentElement.scrollHeight;
+                  if (h) f.style.height = `${h}px`;
+                }}
+              />
             </div>
           )}
           {r?.missing.length ? <p className="op-late">Missing for this client: {r.missing.join(", ")}. Add it, or remove the token.</p> : null}
@@ -968,7 +983,7 @@ function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
             </button>
           </div>
           <div className="op-field">
-            <span className="op-lab">Shown as the sender (the mailbox itself is the one connected in the Zap)</span>
+            <span className="op-lab">Sender name in the email footer (a connected mailbox always sends as itself)</span>
             <div className="op-chiprow">
               <input className="op-in" value={sender.name} onChange={(e) => setSender({ ...sender, name: e.target.value })} />
               <input className="op-in" value={sender.email} placeholder="sadiq@…" onChange={(e) => setSender({ ...sender, email: e.target.value })} />
