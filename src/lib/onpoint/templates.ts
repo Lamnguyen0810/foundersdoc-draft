@@ -106,6 +106,8 @@ export interface EmailLook {
   logoUrl: string;
   /** who the email is from, shown in the footer, e.g. "OnPoint Consulting" */
   sender: string;
+  /** shown as text beside the logo when the logo is only a mark (no uploaded logo), so the name is sharp (0273) */
+  brandName?: string;
   /** the deadline in a summary card */
   deadline: { type: string; company: string; uen: string | null; due: string; today: string };
   banner?: string;
@@ -143,7 +145,11 @@ export function emailHtml(body: string, look: EmailLook): string {
 ${banner}
 <tr><td style="padding:22px 32px 18px 32px;border-bottom:1px solid #eef0eb;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
-    <td style="vertical-align:middle;"><img src="${esc(look.logoUrl)}" alt="${esc(look.sender)}" height="46" style="display:block;height:46px;width:auto;max-width:160px;border:0;"></td>
+    <td style="vertical-align:middle;">${
+      look.brandName
+        ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="vertical-align:middle;padding-right:12px;"><img src="${esc(look.logoUrl)}" alt="" width="29" height="42" style="display:block;width:29px;height:42px;border:0;"></td><td style="vertical-align:middle;font-size:18px;line-height:22px;font-weight:bold;color:${GREEN};letter-spacing:-0.2px;">${esc(look.brandName)}</td></tr></table>`
+        : `<img src="${esc(look.logoUrl)}" alt="${esc(look.sender)}" height="46" style="display:block;height:46px;width:auto;max-width:180px;border:0;">`
+    }</td>
     <td align="right" style="vertical-align:middle;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:${GREEN};font-weight:bold;">Filing reminder</td>
   </tr></table>
 </td></tr>

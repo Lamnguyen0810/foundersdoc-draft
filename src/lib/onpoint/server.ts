@@ -252,6 +252,8 @@ export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "
     emailHtml(r.body, {
       logoUrl: logo,
       sender: ws.custom_name || ws.sender_name,
+      /* 0273: no uploaded logo → the sharp "P" mark with the name as text, instead of the small, blurry picture */
+      brandName: ws.logo_data ? undefined : ws.custom_name || ws.sender_name,
       deadline: { type: r.typeName, company: c.name, uen: c.uen, due: d.due_date, today },
       banner: test ? `Test: this reminder would have gone to ${to}.` : undefined,
     });
@@ -333,9 +335,9 @@ export async function logoImage(logoData: string | null | undefined): Promise<In
   if (m) return { cid: "onpoint-logo", name: `logo.${m[2] === "jpeg" ? "jpg" : "png"}`, contentType: m[1], base64: m[3] };
   if (defaultLogo) return defaultLogo;
   try {
-    const res = await fetch(`${siteUrl("https://foundersdoc.com")}/onpoint/logo.png`, { signal: AbortSignal.timeout(8_000) });
+    const res = await fetch(`${siteUrl("https://foundersdoc.com")}/onpoint/logo-mark.png`, { signal: AbortSignal.timeout(8_000) });
     if (!res.ok || !(res.headers.get("content-type") ?? "").startsWith("image/png")) return null;
-    defaultLogo = { cid: "onpoint-logo", name: "logo.png", contentType: "image/png", base64: Buffer.from(await res.arrayBuffer()).toString("base64") };
+    defaultLogo = { cid: "onpoint-logo", name: "logo-mark.png", contentType: "image/png", base64: Buffer.from(await res.arrayBuffer()).toString("base64") };
     return defaultLogo;
   } catch {
     return null;
