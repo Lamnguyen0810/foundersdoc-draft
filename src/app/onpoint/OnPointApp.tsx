@@ -33,6 +33,8 @@ const shortType = (d: Pick<Deadline, "type" | "label">) => (d.type === "CORP_SEC
 async function api(url: string, init?: RequestInit) {
   const res = await fetch(url, { ...init, headers: init?.body instanceof FormData ? undefined : { "Content-Type": "application/json", ...(init?.headers ?? {}) } });
   const j = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  /* 0275: an answer that is not ours (a timeout or a gateway page) still says what happened */
+  if (!res.ok && !j.error) j.error = `The server answered ${res.status}${res.status === 504 ? ": it took too long. Try one file at a time." : res.status === 413 ? ": the file is too large." : "."}`;
   return { ok: res.ok, status: res.status, j };
 }
 

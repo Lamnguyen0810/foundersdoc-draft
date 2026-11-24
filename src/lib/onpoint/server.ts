@@ -154,8 +154,9 @@ export async function applyImport(m: Me, fileName: string, d: Derived) {
   const keys = dl.map((x) => x.source_key);
   /* marked done / waived / not applicable in the app: kept while the sheet still shows the item open */
   const manual = new Map<string, { status: string; done_on: string | null }>();
-  for (let i = 0; i < keys.length; i += 300) {
-    const got = (must(await db().from("onpoint_deadlines").select("source_key, status, done_on").eq("workspace_id", id).in("source_key", keys.slice(i, i + 300))) ?? []) as Array<{ source_key: string; status: string; done_on: string | null }>;
+  /* 0275: 100 at a time, so the request address stays well under the gateway's limit (300 came close to 16 KB) */
+  for (let i = 0; i < keys.length; i += 100) {
+    const got = (must(await db().from("onpoint_deadlines").select("source_key, status, done_on").eq("workspace_id", id).in("source_key", keys.slice(i, i + 100))) ?? []) as Array<{ source_key: string; status: string; done_on: string | null }>;
     for (const g of got) if (g.status === "completed" || g.status === "waived" || g.status === "not_applicable") manual.set(g.source_key, g);
   }
   for (const x of dl) {
@@ -177,7 +178,7 @@ export async function applyImport(m: Me, fileName: string, d: Derived) {
     if (!newest.has(k) || newest.get(k)! < x.due_date) newest.set(k, x.due_date);
   }
   const old = live.filter((x) => newest.get(`${x.client_id}|${x.type}`)! > x.due_date).map((x) => x.id);
-  for (let i = 0; i < old.length; i += 300) must(await db().from("onpoint_deadlines").update({ status: "cancelled" }).in("id", old.slice(i, i + 300)));
+  for (let i = 0; i < old.length; i += 100) must(await db().from("onpoint_deadlines").update({ status: "cancelled" }).in("id", old.slice(i, i + 100)));
 
   const summary = { kinds: d.kinds, clients: d.clients.length, deadlines: dl.length, contacts, superseded: old.length, skipped: d.skipped };
   must(await db().from("onpoint_imports").insert({ workspace_id: id, file_name: fileName.slice(0, 200), kind: d.kinds.join(", ") || "Not recognised", summary, imported_by: m.email }));
