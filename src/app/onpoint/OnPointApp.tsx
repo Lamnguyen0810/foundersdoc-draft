@@ -469,7 +469,17 @@ function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean
                         </span>
                       )}
                     </td>
-                    <td>{c?.contact_email ? <span>{c.contact_email}</span> : <span className="op-due late">No email</span>}</td>
+                    <td>
+                      {c?.contact_email ? (
+                        <span>{c.contact_email}</span>
+                      ) : d.status === "active" && p.canEdit ? (
+                        <button className="op-due late op-addmail" onClick={() => p.onPreview(d)} title="Add the email and send">
+                          + Add email
+                        </button>
+                      ) : (
+                        <span className="op-due late">No email</span>
+                      )}
+                    </td>
                     <td className="op-right">
                       <span className="op-acts">
                         {d.status === "active" && (
@@ -553,6 +563,7 @@ function Reminders(p: {
   const [drafts, setDrafts] = useState<Record<string, { subject: string; body: string }>>({});
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState("");
+  const [quick, setQuick] = useState({ name: "", email: "" });
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const missingClient = p.focus && !p.byId.get(p.focus.client);
 
@@ -586,6 +597,23 @@ function Reminders(p: {
       el.focus();
       el.setSelectionRange(a + token.length, a + token.length);
     });
+  }
+  async function saveQuick() {
+    if (!client) return;
+    const email = quick.email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return p.say("Check the email address.");
+    if (p.preview) {
+      p.setS((x) => ({ ...x, clients: x.clients.map((c) => (c.id === client.id ? { ...c, contact_email: email, contact_name: quick.name.trim() || c.contact_name } : c)) }));
+      setQuick({ name: "", email: "" });
+      return p.say("Saved (preview only)");
+    }
+    setBusy("quick");
+    const res = await api("/api/onpoint/client", { method: "PATCH", body: JSON.stringify({ id: client.id, contact_name: quick.name.trim() || client.contact_name, contact_email: email }) });
+    setBusy("");
+    if (!res.ok) return p.say(String(res.j.error ?? "Not saved."));
+    setQuick({ name: "", email: "" });
+    p.say(`Email saved for ${client.name}`);
+    await p.reload();
   }
   async function saveTemplate() {
     if (bad.length) return p.say(`Remove unsupported tokens first: ${bad.join(", ")}`);
@@ -771,8 +799,17 @@ function Reminders(p: {
                   <b>
                     {client.contact_name ? `${client.contact_name} ` : ""}&lt;{client.contact_email}&gt;
                   </b>
+                ) : p.canEdit ? (
+                  /* 0279: type the client's email right here, then send */
+                  <span className="op-quick">
+                    <input className="op-in sm" placeholder="Contact name (optional)" value={quick.name} onChange={(e) => setQuick({ ...quick, name: e.target.value })} />
+                    <input className="op-in sm" type="email" placeholder="client@company.com" value={quick.email} onChange={(e) => setQuick({ ...quick, email: e.target.value })} onKeyDown={(e) => e.key === "Enter" && void saveQuick()} />
+                    <button className="ev-btn sm gold" disabled={busy === "quick" || !quick.email.trim()} onClick={() => void saveQuick()}>
+                      {busy === "quick" ? "Saving…" : "Save email"}
+                    </button>
+                  </span>
                 ) : (
-                  <b className="op-late">No email on file: add one on Clients</b>
+                  <b className="op-late">No email on file</b>
                 )}
               </div>
               <div>

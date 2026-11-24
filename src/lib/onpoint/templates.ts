@@ -63,9 +63,9 @@ export interface RenderInput {
 }
 
 /**
- * Fill in a template. A missing value is never made up: {uen} with no UEN stays visible as "[UEN missing]" and
- * is reported, so the email cannot be sent. A missing contact name greets "there" ("Hi there,"), which names
- * nobody, and is reported as a note only.
+ * Fill in a template. A missing value is never made up. With no UEN on file, "(UEN {uen})" and "UEN {uen}" are
+ * left out of the sentence and a note says so (0279: this used to block sending, and most clients from the Nominee
+ * and Job sheets have no UEN). A missing contact name greets "there" ("Hi there,"), which names nobody.
  */
 export function render(tpl: { subject: string; body: string }, v: RenderInput) {
   const n = daysBetween(v.today, v.due);
@@ -75,15 +75,17 @@ export function render(tpl: { subject: string; body: string }, v: RenderInput) {
   const map: Record<string, string> = {
     "{contact}": v.contact?.trim() || "there",
     "{company}": v.company,
-    "{uen}": v.uen?.trim() || "[UEN missing]",
+    "{uen}": v.uen?.trim() || "",
     "{type}": typeName,
     "{due_date}": fmtDate(v.due),
     "{countdown}": countdown(v.due, v.today),
     "{days_left}": n >= 0 ? String(n) : `${-n} days overdue`,
   };
-  const fill = (s: string) => s.replace(/\{[a-z_]+\}/g, (t) => map[t] ?? t);
+  const noUen = !v.uen?.trim();
+  const fill = (s: string) =>
+    (noUen ? s.replace(/\s*\(\s*UEN:?\s*\{uen\}\s*\)/gi, "").replace(/,?\s*UEN:?\s*\{uen\}/gi, "") : s).replace(/\{[a-z_]+\}/g, (t) => map[t] ?? t);
   const both = tpl.subject + tpl.body;
-  if (both.includes("{uen}") && !v.uen?.trim()) missing.push("UEN");
+  if (both.includes("{uen}") && noUen) notes.push("No UEN on file, so the UEN is left out of this email.");
   if (both.includes("{contact}") && !v.contact?.trim()) notes.push("No contact name on file, so the greeting reads “Hi there”.");
   const unknown = unknownTokens(both);
   return { subject: fill(tpl.subject).replace(/\s+/g, " ").trim(), body: fill(tpl.body), missing, unknown, notes, typeName };

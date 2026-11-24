@@ -340,3 +340,9 @@
   .op-headicon { width: 36px; height: 36px; border-radius: 10px; }
   .esop.ev .op-head h1 { font-size: 23px; }
 }
+
+/* 0279: add a client's email where the reminder is sent */
+.op-quick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.esop.ev .op-quick .op-in.sm { flex: 1 1 150px; width: auto; min-width: 0; }
+.esop.ev .op-addmail { cursor: pointer; border-style: dashed; }
+.esop.ev .op-addmail:hover { background: #fbdcd8; }
