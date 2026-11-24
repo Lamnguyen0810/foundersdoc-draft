@@ -179,3 +179,10 @@ test("designed email: logo, deadline card, escaped words, footer", async () => {
   assert.match(logoUrl("https://foundersdoc.com/", null), /^https:\/\/foundersdoc\.com\/api\/onpoint\/logo\?v=default$/);
   assert.notEqual(logoUrl("https://a", "data:image/png;base64,AAAA"), logoUrl("https://a", "data:image/png;base64,BBBB"));
 });
+
+test("designed email without an uploaded logo: the name as text, no picture", async () => {
+  const { emailHtml } = await import("./templates");
+  const h = emailHtml("Hi", { logoUrl: "", sender: "Sample Consulting", brandName: "Sample Consulting", deadline: { type: "AGM", company: "C", uen: null, due: "2026-12-31", today: "2026-11-24" } });
+  assert.ok(!h.includes("<img"));
+  assert.ok(h.includes(">Sample Consulting</div>"));
+});

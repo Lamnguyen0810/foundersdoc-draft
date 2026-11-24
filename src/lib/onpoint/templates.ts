@@ -102,7 +102,7 @@ export function bodyHtml(body: string, banner?: string): string {
 }
 
 export interface EmailLook {
-  /** absolute URL of the logo (an email cannot show a data: image) */
+  /** absolute URL of the logo (an email cannot show a data: image); empty = the name as text only (0274) */
   logoUrl: string;
   /** who the email is from, shown in the footer, e.g. "OnPoint Consulting" */
   sender: string;
@@ -146,7 +146,9 @@ ${banner}
 <tr><td style="padding:22px 32px 18px 32px;border-bottom:1px solid #eef0eb;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
     <td style="vertical-align:middle;">${
-      look.brandName
+      !look.logoUrl
+        ? `<div style="font-size:21px;line-height:26px;font-weight:bold;color:${GREEN};letter-spacing:-0.3px;">${esc(look.brandName || look.sender)}</div>`
+        : look.brandName
         ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="vertical-align:middle;padding-right:12px;"><img src="${esc(look.logoUrl)}" alt="" width="29" height="42" style="display:block;width:29px;height:42px;border:0;"></td><td style="vertical-align:middle;font-size:18px;line-height:22px;font-weight:bold;color:${GREEN};letter-spacing:-0.2px;">${esc(look.brandName)}</td></tr></table>`
         : `<img src="${esc(look.logoUrl)}" alt="${esc(look.sender)}" height="46" style="display:block;height:46px;width:auto;max-width:180px;border:0;">`
     }</td>
