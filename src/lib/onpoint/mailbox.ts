@@ -188,13 +188,31 @@ export async function usesMailbox(wsId: string): Promise<boolean> {
   return !!(m?.mail_provider === "microsoft" && m.mail_token_enc);
 }
 
-export async function sendFromMailbox(wsId: string, mail: { to: string; subject: string; html: string }): Promise<{ ok: boolean; error: string | null }> {
+/** a picture carried inside the email (cid:), so mail apps show it without "Show content" (0272) */
+export interface InlineImage {
+  cid: string;
+  name: string;
+  contentType: string;
+  base64: string;
+}
+
+export async function sendFromMailbox(wsId: string, mail: { to: string; subject: string; html: string; inline?: InlineImage | null }): Promise<{ ok: boolean; error: string | null }> {
   try {
     const token = await accessToken(wsId);
     const res = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ message: { subject: mail.subject, body: { contentType: "HTML", content: mail.html }, toRecipients: [{ emailAddress: { address: mail.to } }] }, saveToSentItems: true }),
+      body: JSON.stringify({
+        message: {
+          subject: mail.subject,
+          body: { contentType: "HTML", content: mail.html },
+          toRecipients: [{ emailAddress: { address: mail.to } }],
+          ...(mail.inline
+            ? { attachments: [{ "@odata.type": "#microsoft.graph.fileAttachment", name: mail.inline.name, contentType: mail.inline.contentType, contentBytes: mail.inline.base64, isInline: true, contentId: mail.inline.cid }] }
+            : {}),
+        },
+        saveToSentItems: true,
+      }),
       signal: AbortSignal.timeout(20_000),
     });
     if (res.status === 202) return { ok: true, error: null };

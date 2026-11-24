@@ -6,7 +6,7 @@ import { sgToday, daysBetween } from "./dates";
 import type { Derived } from "./derive";
 import { DEFAULT_LEADS, DEFAULT_TEMPLATES, emailHtml, logoUrl, render } from "./templates";
 import { siteUrl } from "@/lib/billing/stripe";
-import { sendFromMailbox, usesMailbox } from "./mailbox";
+import { sendFromMailbox, usesMailbox, type InlineImage } from "./mailbox";
 import { TYPES, type Client, type Deadline, type ReminderType, type Template, type Workspace } from "./types";
 
 /**
@@ -248,14 +248,20 @@ export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "
   let ok = false;
   let error: string | null = null;
   /* 0271: the designed email (logo, deadline card, footer) */
-  const html = emailHtml(r.body, {
-    logoUrl: logoUrl(siteUrl("https://foundersdoc.com"), ws.logo_data),
-    sender: ws.custom_name || ws.sender_name,
-    deadline: { type: r.typeName, company: c.name, uen: c.uen, due: d.due_date, today },
-    banner: test ? `Test: this reminder would have gone to ${to}.` : undefined,
-  });
-  /* 0270: the client's own connected Microsoft mailbox first; the Zapier hook otherwise */
-  if (await usesMailbox(ws.id)) ({ ok, error } = await sendFromMailbox(ws.id, { to: test ? ws.test_inbox!.trim() : to, subject: r.subject, html }));
+  const look = (logo: string) =>
+    emailHtml(r.body, {
+      logoUrl: logo,
+      sender: ws.custom_name || ws.sender_name,
+      deadline: { type: r.typeName, company: c.name, uen: c.uen, due: d.due_date, today },
+      banner: test ? `Test: this reminder would have gone to ${to}.` : undefined,
+    });
+  const html = look(logoUrl(siteUrl("https://foundersdoc.com"), ws.logo_data));
+  /* 0270: the client's own connected Microsoft mailbox first; the Zapier hook otherwise.
+     0272: from the mailbox the logo travels inside the email, so it shows without "Show content". */
+  if (await usesMailbox(ws.id)) {
+    const inline = await logoImage(ws.logo_data);
+    ({ ok, error } = await sendFromMailbox(ws.id, { to: test ? ws.test_inbox!.trim() : to, subject: r.subject, html: inline ? look(`cid:${inline.cid}`) : html, inline }));
+  }
   else if (!/^https:\/\/hooks\.zapier\.com\//.test(hook)) error = "Sending is not set up yet: connect the mailbox (or set ONPOINT_HOOK_URL).";
   else {
     try {
@@ -316,3 +322,22 @@ export const errorJson = (e: unknown) => {
   if (!(e instanceof OpError)) console.error("[onpoint]", e);
   return { body: { error: e instanceof OpError ? e.message : "Something went wrong. Please try again." }, status };
 };
+
+/* ── the logo inside the email (0272) ─────────────────────────────────── */
+
+let defaultLogo: InlineImage | null = null;
+
+/** the workspace's own logo, or the default OnPoint logo; null if neither can be read (the email then links it) */
+export async function logoImage(logoData: string | null | undefined): Promise<InlineImage | null> {
+  const m = /^data:(image\/(png|jpeg));base64,([A-Za-z0-9+/=]+)$/.exec(logoData ?? "");
+  if (m) return { cid: "onpoint-logo", name: `logo.${m[2] === "jpeg" ? "jpg" : "png"}`, contentType: m[1], base64: m[3] };
+  if (defaultLogo) return defaultLogo;
+  try {
+    const res = await fetch(`${siteUrl("https://foundersdoc.com")}/onpoint/logo.png`, { signal: AbortSignal.timeout(8_000) });
+    if (!res.ok || !(res.headers.get("content-type") ?? "").startsWith("image/png")) return null;
+    defaultLogo = { cid: "onpoint-logo", name: "logo.png", contentType: "image/png", base64: Buffer.from(await res.arrayBuffer()).toString("base64") };
+    return defaultLogo;
+  } catch {
+    return null;
+  }
+}
