@@ -255,3 +255,88 @@
   .op-badge { width: 34px; height: 34px; }
   .op-statbody b { font-size: 24px; }
 }
+
+/* ── 0277: the same care on every page ────────────────────────────────── */
+@keyframes op-row { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes op-chipin { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+@keyframes op-toast { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes op-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+
+/* page heading */
+.op-head { display: flex; align-items: flex-start; gap: 14px; padding: 2px 0 4px; }
+.op-headicon { width: 44px; height: 44px; flex: none; border-radius: 12px; display: grid; place-items: center; background: #fdf3dc; color: #a3781c; border: 1px solid #f0e2bf; margin-top: 2px; }
+.esop.ev .op-head h1 { margin: 2px 0 0; font-family: Geist, Inter, sans-serif; font-size: 28px; font-weight: 600; letter-spacing: -.02em; line-height: 1.2; }
+.op-headsub { margin: 4px 0 0; font-size: 14px; color: #555; max-width: 720px; line-height: 1.55; }
+
+/* tables: rows slide in, hover tint */
+.op-table tbody tr { animation: op-row .28s ease both; }
+.op-table tbody tr:nth-child(2) { animation-delay: .02s; } .op-table tbody tr:nth-child(3) { animation-delay: .04s; }
+.op-table tbody tr:nth-child(4) { animation-delay: .06s; } .op-table tbody tr:nth-child(5) { animation-delay: .08s; }
+.op-table tbody tr:nth-child(6) { animation-delay: .1s; } .op-table tbody tr:nth-child(n+7) { animation-delay: .12s; }
+.op-date2 { font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+.op-table .op-due { justify-self: auto; }
+.op-due.done { background: #f2f2f0; color: #4a4a4a; border-color: #e3e3df; gap: 4px; text-transform: none; }
+.esop.ev .op-done { height: 30px; padding: 0 10px; font-size: 12.5px; gap: 5px; }
+.esop.ev .op-done:not(:disabled):hover { border-color: #b9d6bd; background: #edf5ee; color: #275f2f; }
+.op-emptystate { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 26px 0; }
+.op-emptystate > span:first-child { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; background: #e8f3ea; color: #2f7a3a; animation: op-float 3s ease-in-out infinite; }
+.esop.ev .ev-chips button { transition: background .15s ease, color .15s ease, border-color .15s ease, transform .15s ease; }
+.esop.ev .ev-chips button:not(.on):hover { border-color: #bdbdbd; transform: translateY(-1px); }
+
+/* clients */
+.op-clientcell { display: flex; align-items: center; gap: 12px; border-left: 3px solid transparent; transition: border-color .2s ease; }
+.op-clientcell.changed { border-left-color: var(--acc); }
+.op-avatar { width: 34px; height: 34px; flex: none; border-radius: 50%; display: grid; place-items: center; background: #eef3ea; color: #2f6b3a; font-size: 12px; font-weight: 700; letter-spacing: .02em; }
+.op-avatar.none { background: #f2f2f0; color: #8a8a86; }
+.op-count { display: inline-grid; place-items: center; min-width: 28px; height: 24px; padding: 0 8px; border-radius: 999px; background: #fdf3dc; color: #7d5b12; font-weight: 700; font-size: 12px; }
+.op-count.zero { background: #f2f2f0; color: #9a9a96; }
+.esop.ev .op-table .op-in.sm { transition: border-color .15s ease, box-shadow .15s ease; }
+.esop.ev .op-table .op-in.sm:focus { box-shadow: 0 0 0 3px rgba(243, 191, 75, .25); }
+
+/* excel sources */
+.op-dropicon { width: 54px; height: 54px; border-radius: 50%; display: grid; place-items: center; background: #fff; border: 1px solid #f0e2bf; color: #a3781c; box-shadow: 0 6px 16px -10px rgba(163, 120, 28, .6); transition: transform .2s ease; }
+.op-drop { transition: border-color .2s ease, background .2s ease, transform .2s ease; }
+.op-drop:hover .op-dropicon { animation: op-float 1.6s ease-in-out infinite; }
+.op-drop.on { transform: scale(1.01); }
+.op-drop.on .op-dropicon { transform: scale(1.1); }
+.op-result { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--g1); font-size: 13.5px; animation: op-row .3s ease both; }
+.op-result:last-child { border-bottom: 0; }
+.op-resultnums { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 4px; color: #555; font-size: 12.5px; }
+.op-resultnums b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.op-acticon.file { background: #fdf3dc; color: #a3781c; }
+.op-imp { grid-template-columns: auto minmax(0, 1fr) auto; }
+.op-rule { transition: background .15s ease; border-radius: 6px; }
+.op-rule:hover { background: #fcfaf4; }
+
+/* reminder emails: numbered steps, chips pop in, a framed preview */
+.op-step { display: inline-flex; align-items: center; gap: 8px; }
+.op-step i { font-style: normal; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: var(--blk); color: var(--acc); font-size: 11px; font-weight: 700; }
+.op-chip { animation: op-chipin .2s ease both; }
+.esop.ev .op-chip button { transition: background .15s ease; }
+.esop.ev .op-chip button:hover { background: rgba(180, 35, 24, .15); color: #b42318; }
+.op-mail { box-shadow: 0 14px 30px -22px rgba(15, 15, 15, .35); }
+.esop.ev .op-token { transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.esop.ev .op-token:hover { transform: translateY(-1px); }
+.esop.ev .op-row { transition: background .15s ease; }
+
+/* calendar: today and the chosen day stand out a little more */
+.op-cald.today { box-shadow: inset 0 0 0 1px #f0e2bf; background: #fffcf4; }
+.op-dayrow { animation: op-row .25s ease both; transition: background .15s ease; border-radius: 6px; }
+.op-dayrow:hover { background: #fcfaf4; }
+
+/* sidebar and toast */
+.esop.ev .op .ev-nav, .esop.ev.op .ev-nav { position: relative; }
+.esop.ev.op .ev-nav::before { content: ""; position: absolute; left: -12px; top: 7px; bottom: 7px; width: 3px; border-radius: 0 3px 3px 0; background: var(--acc); transform: scaleY(0); transition: transform .2s ease; }
+.esop.ev.op .ev-nav.on::before { transform: scaleY(1); }
+.esop.ev.op .e-toast { transition: none; }
+.esop.ev.op .e-toast.on { animation: op-toast .25s ease both; box-shadow: 0 12px 28px -12px rgba(0, 0, 0, .45); }
+
+@media (prefers-reduced-motion: reduce) {
+  .op-table tbody tr, .op-chip, .op-result, .op-dayrow, .op-emptystate > span:first-child, .op-drop:hover .op-dropicon, .esop.ev.op .e-toast.on { animation: none !important; }
+  .op-drop.on { transform: none; }
+}
+@media (max-width: 560px) {
+  .op-head { gap: 10px; }
+  .op-headicon { width: 36px; height: 36px; border-radius: 10px; }
+  .esop.ev .op-head h1 { font-size: 23px; }
+}
