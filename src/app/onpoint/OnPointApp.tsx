@@ -694,8 +694,9 @@ function Reminders(p: {
                 title="Email preview"
                 sandbox="allow-same-origin"
                 srcDoc={emailHtml(r.body, {
-                  logoUrl: s.ws.logo || "/onpoint/logo.png",
+                  logoUrl: s.ws.logo || "/onpoint/logo-mark.png",
                   sender: s.ws.custom_name || s.ws.sender_name,
+                  brandName: s.ws.logo ? undefined : s.ws.custom_name || s.ws.sender_name,
                   deadline: { type: r.typeName, company: client.name, uen: client.uen, due: shownDl!.due_date, today: s.today },
                 })}
                 onLoad={(e) => {
