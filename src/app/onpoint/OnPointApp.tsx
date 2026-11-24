@@ -1077,7 +1077,7 @@ function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
           ))}
         </section>
       </div>
-      {s.me.founder && <MailboxCard preview={p.preview} say={p.say} reload={p.reload} defaultEmail={s.ws.sender_email ?? ""} />}
+      {s.me.role === "admin" && <MailboxCard preview={p.preview} say={p.say} reload={p.reload} defaultEmail={s.ws.sender_email ?? ""} founder={s.me.founder} myEmail={s.me.email} />}
       {s.me.founder && (
         <section className="ev-card op-pad">
           <h2 className="op-h2">Sending · Founders Doc only</h2>
@@ -1589,7 +1589,7 @@ interface MailboxData {
   error: string | null;
 }
 
-function MailboxCard(p: { preview: boolean; say: (t: string) => void; reload: () => Promise<void>; defaultEmail: string }) {
+function MailboxCard(p: { preview: boolean; say: (t: string) => void; reload: () => Promise<void>; defaultEmail: string; founder: boolean; myEmail: string }) {
   const { preview, say } = p;
   const [mb, setMb] = useState<MailboxData | null>(preview ? { configured: true, connected: false, address: null, name: null, connected_at: null, error: null } : null);
   const [email, setEmail] = useState(p.defaultEmail);
@@ -1619,6 +1619,15 @@ function MailboxCard(p: { preview: boolean; say: (t: string) => void; reload: ()
       () => say("Link ready: copy it below."),
     );
   }
+  /* 0278: an OnPoint administrator connects their own email straight away: Microsoft's page opens here */
+  async function connectMe() {
+    if (preview) return say("Preview: Microsoft is not opened.");
+    setBusy("me");
+    const r = await api("/api/onpoint/mail", { method: "POST", body: JSON.stringify({ action: "link" }) });
+    setBusy("");
+    if (!r.ok || !r.j.url) return say(String(r.j.error ?? "Could not start the connection."));
+    window.location.href = String(r.j.url);
+  }
   async function unlink() {
     if (preview || !window.confirm("Disconnect this mailbox? Reminders will stop until it is connected again.")) return;
     setBusy("off");
@@ -1630,11 +1639,11 @@ function MailboxCard(p: { preview: boolean; say: (t: string) => void; reload: ()
   }
   return (
     <section className="ev-card op-pad">
-      <h2 className="op-h2">Sending mailbox · Founders Doc only</h2>
+      <h2 className="op-h2">{p.founder ? "Sending mailbox · Founders Doc" : "Your sending email"}</h2>
       {!mb ? (
         <p className="ev-sub">Loading…</p>
       ) : !mb.configured ? (
-        <p className="ev-sub">Microsoft sending is not set up on the server yet (ONPOINT_MS_CLIENT_ID, ONPOINT_MS_CLIENT_SECRET, ONPOINT_TOKEN_KEY). Until then reminders go through the Zapier hook.</p>
+        <p className="ev-sub">{p.founder ? "Microsoft sending is not set up on the server yet (ONPOINT_MS_CLIENT_ID, ONPOINT_MS_CLIENT_SECRET, ONPOINT_TOKEN_KEY). Until then reminders go through the Zapier hook." : "Connecting your email is not switched on yet. Founders Doc will let you know when it is ready."}</p>
       ) : mb.connected ? (
         <>
           <p>
@@ -1646,6 +1655,19 @@ function MailboxCard(p: { preview: boolean; say: (t: string) => void; reload: ()
           <div className="op-chiprow">
             <button className="ev-btn" disabled={!!busy} onClick={() => void unlink()}>
               Disconnect
+            </button>
+          </div>
+        </>
+      ) : !p.founder ? (
+        <>
+          <p className="ev-sub">
+            Send reminders from your own email, <b>{p.myEmail}</b>. You sign in to Microsoft with your own password and click Accept; reminders then go out from your address and show in your Sent items. Work (Microsoft 365) accounts only. The app can send emails but cannot read your inbox.
+          </p>
+          {mb.error && <p className="op-late">{mb.error}</p>}
+          <div className="op-chiprow">
+            <button className="ev-btn gold" disabled={!!busy} onClick={() => void connectMe()}>
+              <Ic n="mail" s={14} />
+              {busy === "me" ? "Opening Microsoft…" : "Connect my email"}
             </button>
           </div>
         </>
