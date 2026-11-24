@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Ic, type IconName } from "../esop/[slug]/icons";
 import { countdown, daysBetween, fmtDate } from "@/lib/onpoint/dates";
 import { emailHtml, render, TOKENS, unknownTokens } from "@/lib/onpoint/templates";
+import { DEFAULT_PAY, money, PAY_TOKENS, paymentHtml, renderPayment, unknownPayTokens, type Invoice, type InvoiceStatus } from "@/lib/onpoint/payments";
 import { OTHERS, TYPE_NAME, TYPE_PICK, TYPES, type Client, type Deadline, type Delivery, type ReminderType, type Template } from "@/lib/onpoint/types";
 
 /**
@@ -14,18 +15,21 @@ import { OTHERS, TYPE_NAME, TYPE_PICK, TYPES, type Client, type Deadline, type D
 
 export interface Snapshot {
   me: { email: string; role: "admin" | "staff" | "viewer"; founder: boolean };
-  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean };
+  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean; filing_enabled: boolean; pay_subject: string | null; pay_body: string | null };
   clients: Client[];
   deadlines: Deadline[];
   deliveries: Delivery[];
   imports: Array<{ file_name: string; kind: string; summary: Record<string, unknown>; imported_by: string | null; imported_at: string }>;
   templates: Record<ReminderType, Template>;
   leads: Record<ReminderType, number[]>;
+  /* 0280: payment reminders; payments_ready = supabase/139 has been run */
+  invoices: Invoice[];
+  payments_ready: boolean;
   today: string;
 }
 
-type View = "dashboard" | "deadlines" | "calendar" | "reminders" | "clients" | "sources" | "billing";
-const VIEWS: View[] = ["dashboard", "deadlines", "calendar", "reminders", "clients", "sources", "billing"];
+type View = "dashboard" | "payments" | "deadlines" | "calendar" | "reminders" | "clients" | "sources" | "billing";
+const VIEWS: View[] = ["dashboard", "payments", "deadlines", "calendar", "reminders", "clients", "sources", "billing"];
 const PAGE = 50;
 const DEFAULT_LOGO = "/onpoint/logo.png";
 /* 0276: one calm colour per filing type, used wherever a deadline is shown */
@@ -84,6 +88,10 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
   }, []);
 
   const [chip, setChip] = useState<DChip>("overdue");
+  const [payAt, setPayAt] = useState<{ chip: PChip; id: string | null; n: number }>({ chip: "overdue", id: null, n: 0 });
+  const filing = s.ws.filing_enabled;
+  const payLate = s.invoices.filter((v) => v.status === "open" && v.due_date < s.today).length;
+  const openPay = (c: PChip, id?: string) => (setPayAt((x) => ({ chip: c, id: id ?? null, n: x.n + 1 })), go("payments"));
   const go = (v: View) => {
     setView(v);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -134,13 +142,17 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
             <div className="ev-grp">
               <div className="ev-h">Overview</div>
               {nav("dashboard", "overview", "Dashboard")}
-              {nav("deadlines", "esop", "Deadlines", overdue.length)}
-              {nav("calendar", "calendar", "Calendar")}
+              {nav("payments", "card", "Payments", payLate)}
             </div>
-            <div className="ev-grp">
-              <div className="ev-h">Automation</div>
-              {nav("reminders", "mail", "Reminder emails")}
-            </div>
+            {/* 0280: filing reminders are optional (OnPoint sends payment reminders) */}
+            {filing && (
+              <div className="ev-grp">
+                <div className="ev-h">Filing reminders</div>
+                {nav("deadlines", "esop", "Deadlines", overdue.length)}
+                {nav("calendar", "calendar", "Calendar")}
+                {nav("reminders", "mail", "Reminder emails")}
+              </div>
+            )}
             <div className="ev-grp">
               <div className="ev-h">Records</div>
               {nav("clients", "folder", "Clients")}
@@ -179,13 +191,15 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
 
         <main className="ev-main">
           <div className="ev-wrap op-view" key={view}>
-            {view === "dashboard" && <Dashboard s={s} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} openDeadlines={(c) => (setChip(c), go("deadlines"))} />}
+            {view === "dashboard" && !filing && <PayDashboard s={s} byId={byId} company={company} go={go} openPay={openPay} />}
+            {view === "payments" && <Payments key={payAt.n} s={s} setS={setS} byId={byId} canEdit={canEdit} isAdmin={isAdmin} preview={preview} say={say} reload={reload} initialChip={payAt.chip} openId={payAt.id} />}
+            {view === "dashboard" && filing && <Dashboard s={s} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} openDeadlines={(c) => (setChip(c), go("deadlines"))} />}
             {view === "deadlines" && <Deadlines s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} onPreview={openPreview} initialChip={chip} />}
             {view === "calendar" && <Calendar s={s} byId={byId} onPreview={openPreview} />}
-            {view === "billing" && isAdmin && <Billing preview={preview} say={say} back={stripeReturn} />}
+            {view === "billing" && isAdmin && <Billing preview={preview} founder={s.me.founder} say={say} back={stripeReturn} />}
             {view === "reminders" && <Reminders s={s} setS={setS} byId={byId} live={live} canEdit={canEdit} preview={preview} say={say} reload={reload} focus={focus} />}
-            {view === "clients" && <Clients s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} />}
-            {view === "sources" && <Sources s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} />}
+            {view === "clients" && <Clients s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={(id) => openPay("open", id)} />}
+            {view === "sources" && <Sources s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={() => openPay("open")} />}
           </div>
         </main>
       </div>
@@ -324,7 +338,7 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
               </span>
               <div>
                 <div>
-                  {x.status === "sent" ? "Reminder sent" : x.status === "failed" ? "Not sent" : x.status === "queued" ? "Sending" : "Skipped"} to <b>{p.byId.get(x.client_id ?? "")?.name ?? "a client"}</b>: {TYPE_NAME[x.type as ReminderType] ?? x.type}
+                  {x.status === "sent" ? "Reminder sent" : x.status === "failed" ? "Not sent" : x.status === "queued" ? "Sending" : "Skipped"} to <b>{p.byId.get(x.client_id ?? "")?.name ?? "a client"}</b>: {x.type === "PAYMENT" ? "payment reminder" : (TYPE_NAME[x.type as ReminderType] ?? x.type)}
                   {x.test ? <span className="op-testtag">test</span> : null}
                 </div>
                 {x.error ? <div className="op-late op-small">{x.error}</div> : null}
@@ -338,7 +352,7 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
   );
 }
 
-function Stat({ icon, tone, label, value, sub, warn, onClick }: { icon: IconName; tone: "gold" | "blue" | "red" | "green"; label: string; value: number; sub: ReactNode; warn?: boolean; onClick?: () => void }) {
+function Stat({ icon, tone, label, value, sub, warn, onClick, fmt }: { icon: IconName; tone: "gold" | "blue" | "red" | "green"; label: string; value: number; sub: ReactNode; warn?: boolean; onClick?: () => void; fmt?: (n: number) => string }) {
   const n = useCountUp(value);
   return (
     <button type="button" className="ev-card op-stat2" onClick={onClick}>
@@ -347,7 +361,7 @@ function Stat({ icon, tone, label, value, sub, warn, onClick }: { icon: IconName
       </span>
       <span className="op-statbody">
         <span className="op-statlabel">{label}</span>
-        <b className={warn ? "op-late" : ""}>{n.toLocaleString("en-GB")}</b>
+        <b className={warn ? "op-late" : ""}>{fmt ? fmt(n) : n.toLocaleString("en-GB")}</b>
         <span className={`op-statsub ${warn ? "op-late" : ""}`}>{sub}</span>
       </span>
     </button>
@@ -469,7 +483,17 @@ function Deadlines(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean
                         </span>
                       )}
                     </td>
-                    <td>{c?.contact_email ? <span>{c.contact_email}</span> : <span className="op-due late">No email</span>}</td>
+                    <td>
+                      {c?.contact_email ? (
+                        <span>{c.contact_email}</span>
+                      ) : d.status === "active" && p.canEdit ? (
+                        <button className="op-due late op-addmail" onClick={() => p.onPreview(d)} title="Add the email and send">
+                          + Add email
+                        </button>
+                      ) : (
+                        <span className="op-due late">No email</span>
+                      )}
+                    </td>
                     <td className="op-right">
                       <span className="op-acts">
                         {d.status === "active" && (
@@ -553,6 +577,7 @@ function Reminders(p: {
   const [drafts, setDrafts] = useState<Record<string, { subject: string; body: string }>>({});
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState("");
+  const [quick, setQuick] = useState({ name: "", email: "" });
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const missingClient = p.focus && !p.byId.get(p.focus.client);
 
@@ -586,6 +611,23 @@ function Reminders(p: {
       el.focus();
       el.setSelectionRange(a + token.length, a + token.length);
     });
+  }
+  async function saveQuick() {
+    if (!client) return;
+    const email = quick.email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return p.say("Check the email address.");
+    if (p.preview) {
+      p.setS((x) => ({ ...x, clients: x.clients.map((c) => (c.id === client.id ? { ...c, contact_email: email, contact_name: quick.name.trim() || c.contact_name } : c)) }));
+      setQuick({ name: "", email: "" });
+      return p.say("Saved (preview only)");
+    }
+    setBusy("quick");
+    const res = await api("/api/onpoint/client", { method: "PATCH", body: JSON.stringify({ id: client.id, contact_name: quick.name.trim() || client.contact_name, contact_email: email }) });
+    setBusy("");
+    if (!res.ok) return p.say(String(res.j.error ?? "Not saved."));
+    setQuick({ name: "", email: "" });
+    p.say(`Email saved for ${client.name}`);
+    await p.reload();
   }
   async function saveTemplate() {
     if (bad.length) return p.say(`Remove unsupported tokens first: ${bad.join(", ")}`);
@@ -771,8 +813,17 @@ function Reminders(p: {
                   <b>
                     {client.contact_name ? `${client.contact_name} ` : ""}&lt;{client.contact_email}&gt;
                   </b>
+                ) : p.canEdit ? (
+                  /* 0279: type the client's email right here, then send */
+                  <span className="op-quick">
+                    <input className="op-in sm" placeholder="Contact name (optional)" value={quick.name} onChange={(e) => setQuick({ ...quick, name: e.target.value })} />
+                    <input className="op-in sm" type="email" placeholder="client@company.com" value={quick.email} onChange={(e) => setQuick({ ...quick, email: e.target.value })} onKeyDown={(e) => e.key === "Enter" && void saveQuick()} />
+                    <button className="ev-btn sm gold" disabled={busy === "quick" || !quick.email.trim()} onClick={() => void saveQuick()}>
+                      {busy === "quick" ? "Saving…" : "Save email"}
+                    </button>
+                  </span>
                 ) : (
-                  <b className="op-late">No email on file: add one on Clients</b>
+                  <b className="op-late">No email on file</b>
                 )}
               </div>
               <div>
@@ -836,7 +887,7 @@ function Reminders(p: {
 
 /* ── Clients ───────────────────────────────────────────────────────────── */
 
-function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; openPay: (invoiceId?: string) => void }) {
   const { s } = p;
   const [q, setQ] = useState("");
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -848,6 +899,19 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
     for (const d of s.deadlines) if (d.status === "active") m.set(d.client_id, (m.get(d.client_id) ?? 0) + 1);
     return m;
   }, [s.deadlines]);
+  /* 0281: what each client owes (unpaid invoices), linked to Payments */
+  const owed = useMemo(() => {
+    const m = new Map<string, { cents: number; n: number; first: string }>();
+    for (const v of s.invoices) {
+      if (v.status !== "open") continue;
+      const x = m.get(v.client_id);
+      if (x) {
+        x.cents += v.amount_cents;
+        x.n++;
+      } else m.set(v.client_id, { cents: v.amount_cents, n: 1, first: v.id });
+    }
+    return m;
+  }, [s.invoices]);
   const rows = s.clients.filter((c) => (!onlyMissing || !c.contact_email) && (!q.trim() || c.name.toLowerCase().includes(q.trim().toLowerCase()) || (c.uen ?? "").toLowerCase().includes(q.trim().toLowerCase())));
   const pages = Math.max(1, Math.ceil(rows.length / PAGE));
   const shown = rows.slice(page * PAGE, page * PAGE + PAGE);
@@ -871,7 +935,7 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
   return (
     <>
       <PageHead icon="folder" eyebrow="Records" title="Clients">
-        Who each reminder goes to. A reminder only goes to an email address saved here.
+        Who each reminder goes to, and what they owe. A reminder only goes to an email address saved here.
       </PageHead>
       <section className="ev-card op-pad">
         <div className="op-tools">
@@ -895,7 +959,8 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
             <thead>
               <tr>
                 <th>Client</th>
-                <th>Live deadlines</th>
+                {s.ws.filing_enabled && <th>Live deadlines</th>}
+                <th>Unpaid</th>
                 <th>Contact name</th>
                 <th>Email</th>
                 <th className="op-right" />
@@ -920,8 +985,22 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
                       </div>
                       </div>
                     </td>
+                    {s.ws.filing_enabled && (
+                      <td>
+                        <span className={`op-count ${count.get(c.id) ? "" : "zero"}`}>{count.get(c.id) ?? 0}</span>
+                      </td>
+                    )}
                     <td>
-                      <span className={`op-count ${count.get(c.id) ? "" : "zero"}`}>{count.get(c.id) ?? 0}</span>
+                      {(() => {
+                        const u = owed.get(c.id);
+                        return u ? (
+                          <button className="ev-link op-amt" onClick={() => p.openPay(u.first)} title={`${u.n} unpaid invoice${u.n === 1 ? "" : "s"}`}>
+                            {money(u.cents)}
+                          </button>
+                        ) : (
+                          <span className="ev-sub">–</span>
+                        );
+                      })()}
                     </td>
                     <td>
                       <input className="op-in sm" value={e.contact_name} disabled={!p.canEdit} placeholder="e.g. Alex Tan" onChange={(x) => setEdit((m) => ({ ...m, [c.id]: { ...e, contact_name: x.target.value } }))} />
@@ -950,7 +1029,7 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
 
 /* ── Excel sources ─────────────────────────────────────────────────────── */
 
-function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; openPay: () => void }) {
   const { s } = p;
   const [busy, setBusy] = useState("");
   const [drag, setDrag] = useState(false);
@@ -995,6 +1074,17 @@ function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
       <PageHead icon="upload" eyebrow="Records" title="Excel sources">
         The sheets this system reads. Upload them again any time; your files are never changed.
       </PageHead>
+      {/* 0281: the invoice list (payment reminders) is imported on Payments; these sheets add clients and their emails */}
+      <div className="op-soonbar op-linkbar" role="note">
+        <Ic n="card" s={16} />
+        <span>
+          <b>Unpaid invoices</b> are imported on{" "}
+          <a href="#payments" onClick={(e) => (e.preventDefault(), p.openPay())}>
+            Payments → Import invoice list
+          </a>
+          . The sheets below add your clients and their contact emails{p.s.ws.filing_enabled ? ", and the filing deadlines" : ""}.
+        </span>
+      </div>
       {p.canEdit && (
         <section
           className={`ev-card op-drop ${drag ? "on" : ""}`}
@@ -1384,6 +1474,9 @@ function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: De
 interface BillingData {
   configured: boolean;
   mode: "test" | "live" | "unset";
+  open: boolean;
+  plan: typeof PLAN_FALLBACK;
+  ready: { monthly: boolean; setup: boolean; coupon: boolean; tax: boolean };
   price: { name: string; amount: number; currency: string; interval: string; tax: boolean } | null;
   sub: { status: string; cancel_at_period_end: boolean; renews_on: string | null; started_on: string; amount: number | null; currency: string; email: string | null } | null;
   card: { brand: string; last4: string; exp: string } | null;
@@ -1391,7 +1484,6 @@ interface BillingData {
   linked?: boolean;
 }
 
-const money = (cents: number, cur: string) => `${cur.toLowerCase() === "sgd" ? "S$" : `${cur.toUpperCase()} `}${(cents / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const STATUS: Record<string, [string, string]> = {
   active: ["Active", "ok"],
   trialing: ["Trial", "ok"],
@@ -1401,35 +1493,42 @@ const STATUS: Record<string, [string, string]> = {
   canceled: ["Ended", "off"],
   paused: ["Paused", "off"],
 };
+/* 0281: the fee proposal (shown even before Stripe is set up; the server sends the same) */
+const PLAN_FALLBACK = { setup: 28_000, setup_was: 108_800, intro: 8_000, intro_months: 3, monthly: 18_000, currency: "sgd" };
+/* the preview: opening soon, nothing paid (sample only) */
 const SAMPLE_BILLING: BillingData = {
   configured: true,
   mode: "test",
-  price: { name: "OnPoint Workflows", amount: 18000, currency: "sgd", interval: "month", tax: true },
-  sub: { status: "active", cancel_at_period_end: false, renews_on: "2026-12-24", started_on: "2026-11-24", amount: 18000, currency: "sgd", email: "accounts@example.com" },
-  card: { brand: "visa", last4: "4242", exp: "12/29" },
-  invoices: [{ id: "in_sample", number: "SAMPLE-0001", date: "2026-11-24", amount: 19620, currency: "sgd", status: "paid", url: null, pdf: null }],
+  open: false,
+  plan: PLAN_FALLBACK,
+  ready: { monthly: true, setup: true, coupon: true, tax: false },
+  price: { name: "OnPoint Workflows", amount: 18000, currency: "sgd", interval: "month", tax: false },
+  sub: null,
+  card: null,
+  invoices: [],
 };
 
-function Billing(p: { preview: boolean; say: (t: string) => void; back: { sessionId: string | null; cancelled: boolean } | null }) {
+function Billing(p: { preview: boolean; founder: boolean; say: (t: string) => void; back: { sessionId: string | null; cancelled: boolean } | null }) {
   const [b, setB] = useState<BillingData | null>(p.preview ? SAMPLE_BILLING : null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState("");
+  const [tick, setTick] = useState(0);
   const { preview, say, back } = p;
   useEffect(() => {
     if (preview) return;
     let gone = false;
-    const q = back?.sessionId ? `?session_id=${encodeURIComponent(back.sessionId)}` : "";
+    const q = back?.sessionId && tick === 0 ? `?session_id=${encodeURIComponent(back.sessionId)}` : "";
     void api(`/api/onpoint/billing${q}`).then((r) => {
       if (gone) return;
       if (!r.ok) return setErr(String(r.j.error ?? "Could not load billing."));
       const data = r.j as unknown as BillingData;
       setB(data);
-      if (data.linked) say("Monthly card payment set up. Thank you!");
+      if (data.linked) say("Card payment set up. Thank you!");
     });
     return () => {
       gone = true;
     };
-  }, [preview, say, back]);
+  }, [preview, say, back, tick]);
   async function open(action: "checkout" | "portal", copy = false) {
     if (preview) return say("Preview: Stripe is not opened.");
     setBusy(action + (copy ? "-copy" : ""));
@@ -1446,36 +1545,84 @@ function Billing(p: { preview: boolean; say: (t: string) => void; back: { sessio
     }
     window.location.href = url;
   }
+  /* Founders Doc only: make the prices in Stripe, open or close card payment */
+  async function admin(action: "setup" | "open", on?: boolean) {
+    if (preview) {
+      if (action === "open" && b) setB({ ...b, open: !!on });
+      return say("Preview: not saved.");
+    }
+    setBusy(action);
+    const r = await api("/api/onpoint/billing", { method: "POST", body: JSON.stringify({ action, on }) });
+    setBusy("");
+    if (!r.ok) return say(String(r.j.error ?? "Not done."));
+    const made = (r.j.made as string[] | undefined) ?? [];
+    say(action === "setup" ? (made.length ? `Created in Stripe: ${made.join(", ")}` : "Everything was already in Stripe") : on ? "Billing is open: OnPoint can now pay by card" : "Billing closed: opening soon");
+    setTick((t) => t + 1);
+  }
   const st = b?.sub ? (STATUS[b.sub.status] ?? [b.sub.status, "off"]) : null;
-  const amount = b?.sub?.amount ?? b?.price?.amount ?? null;
-  const cur = b?.sub?.currency ?? b?.price?.currency ?? "sgd";
+  const plan = b?.plan ?? PLAN_FALLBACK;
+  const canPay = !!b?.configured && !!b.ready.monthly && (b.open || p.founder);
+  const gst = b?.ready.tax ? "+ GST" : "excl. GST";
   return (
     <>
       <PageHead icon="card" eyebrow="Account" title="Billing & plan">
-        Your monthly subscription, paid by card and charged automatically each month.
+        Your plan, as in the fee proposal: a one-off setup, then a monthly subscription paid by card.
       </PageHead>
       {back?.cancelled && <div className="op-warn">Payment not completed. Nothing was charged.</div>}
+      {b && !b.open && !b.sub && (
+        <div className="op-soonbar" role="note">
+          <span className="op-soontag">Opening soon</span>
+          <span>
+            <b>Card payment opens soon.</b> Until then, everything in OnPoint Workflows is free to use. Nothing is charged.
+          </span>
+        </div>
+      )}
       {b?.mode === "test" && <div className="op-warn">Stripe test mode: no real card is charged here.</div>}
       {err && <div className="op-warn">{err}</div>}
       {!b && !err && <div className="ev-card op-pad ev-sub">Loading…</div>}
-      {b && !b.configured && <div className="ev-card op-pad">Card payments are not switched on yet.</div>}
-      {b?.configured && (
+      {b && (
         <>
           <div className="op-grid2">
             <section className="ev-card op-pad op-plan">
               <div className="op-planh">
                 <div>
-                  <span className="op-lab">Current plan</span>
+                  <span className="op-lab">Your plan</span>
                   <b className="op-planname">{b.price?.name ?? "OnPoint Workflows"}</b>
-                  {st ? <span className={`op-pill ${st[1]}`}>{b.sub?.cancel_at_period_end ? "Ends at period end" : st[0]}</span> : <span className="op-pill off">Not set up</span>}
+                  {st ? <span className={`op-pill ${st[1]}`}>{b.sub?.cancel_at_period_end ? "Ends at period end" : st[0]}</span> : <span className={`op-pill ${b.open ? "warn" : "off"}`}>{b.open ? "Not paid yet" : "Opening soon · free for now"}</span>}
                 </div>
-                {amount != null && (
-                  <div className="op-price">
-                    <b>{money(amount, cur)}</b>
-                    <span>per {b.price?.interval ?? "month"}{b.price?.tax ? " + GST" : ""}</span>
-                  </div>
-                )}
               </div>
+              <ul className="op-fees">
+                <li>
+                  <span>
+                    <b>Setup</b>
+                    <i>One-off · configuration, branding, migration and onboarding</i>
+                  </span>
+                  <span className="op-fee">
+                    <s>{money(plan.setup_was, plan.currency)}</s> {money(plan.setup, plan.currency)}
+                  </span>
+                </li>
+                <li>
+                  <span>
+                    <b>First {plan.intro_months} months</b>
+                    <i>Early-adopter price</i>
+                  </span>
+                  <span className="op-fee">
+                    {money(plan.intro, plan.currency)}
+                    <em>/month</em>
+                  </span>
+                </li>
+                <li>
+                  <span>
+                    <b>After that</b>
+                    <i>Unlimited users, hosting, updates, support and maintenance</i>
+                  </span>
+                  <span className="op-fee">
+                    {money(plan.monthly, plan.currency)}
+                    <em>/month</em>
+                  </span>
+                </li>
+              </ul>
+              <p className="ev-sub op-small">Prices in Singapore dollars, {gst}. Billed by card through Stripe: the first payment covers the setup and the first month.</p>
               {b.sub ? (
                 <div className="op-meta">
                   <div>
@@ -1489,19 +1636,18 @@ function Billing(p: { preview: boolean; say: (t: string) => void; back: { sessio
                   </div>
                 </div>
               ) : (
-                <>
-                  <p className="ev-sub">Pay once on Stripe&rsquo;s secure page. After that the card is charged automatically every month, and Stripe emails the receipt.</p>
-                  {!b.price && <p className="op-late">The monthly price is not set up in Stripe yet.</p>}
-                  <div className="op-chiprow">
-                    <button className="ev-btn gold" disabled={!b.price || !!busy} onClick={() => void open("checkout")}>
-                      <Ic n="card" s={15} />
-                      {busy === "checkout" ? "Opening…" : "Set up monthly card payment"}
-                    </button>
-                    <button className="ev-btn" disabled={!b.price || !!busy} onClick={() => void open("checkout", true)}>
+                <div className="op-chiprow">
+                  <button className="ev-btn gold" disabled={!canPay || !!busy} onClick={() => void open("checkout")}>
+                    <Ic n="card" s={15} />
+                    {!b.open && !p.founder ? "Opening soon" : busy === "checkout" ? "Opening…" : "Set up card payment"}
+                  </button>
+                  {canPay && (
+                    <button className="ev-btn" disabled={!!busy} onClick={() => void open("checkout", true)}>
                       {busy === "checkout-copy" ? "Copying…" : "Copy payment link"}
                     </button>
-                  </div>
-                </>
+                  )}
+                  {p.founder && !b.open && b.ready.monthly && <span className="ev-sub op-small">Founders Doc can test this before it opens.</span>}
+                </div>
               )}
             </section>
             <section className="ev-card op-pad">
@@ -1525,6 +1671,29 @@ function Billing(p: { preview: boolean; say: (t: string) => void; back: { sessio
               <p className="ev-sub">🔒 The card is entered on Stripe&rsquo;s secure page. Card numbers never reach this system or your Excel sheets.</p>
             </section>
           </div>
+          {p.founder && (
+            <section className="ev-card op-pad op-founder">
+              <h2 className="op-h2">
+                Founders Doc only <span className="ev-sub">· OnPoint does not see this</span>
+              </h2>
+              <ul className="op-checks">
+                <li className={b.configured ? "c-ok" : "c-no"}>Stripe connected{b.configured ? ` (${b.mode} mode)` : ": set STRIPE keys on Vercel"}</li>
+                <li className={b.ready.monthly ? "c-ok" : "c-no"}>Monthly price S$180 (lookup key onpoint_monthly)</li>
+                <li className={b.ready.setup ? "c-ok" : "c-no"}>One-off setup S$280 (lookup key onpoint_setup)</li>
+                <li className={b.ready.coupon ? "c-ok" : "c-no"}>First 3 months at S$80 (coupon onpoint_intro, S$100 off)</li>
+                <li className={b.ready.tax ? "c-ok" : "c-opt"}>GST {b.ready.tax ? "added to each invoice" : "not added (optional: ONPOINT_TAX_RATE_ID on Vercel)"}</li>
+                <li className={b.open ? "c-ok" : "c-opt"}>{b.open ? "Billing open: OnPoint can pay" : "Opening soon: OnPoint sees the plan and uses everything free"}</li>
+              </ul>
+              <div className="op-chiprow">
+                <button className="ev-btn" disabled={!b.configured || !!busy || (b.ready.monthly && b.ready.setup && b.ready.coupon)} onClick={() => void admin("setup")}>
+                  {busy === "setup" ? "Creating…" : b.ready.monthly && b.ready.setup && b.ready.coupon ? "Prices are in Stripe" : "Create prices in Stripe"}
+                </button>
+                <button className={`ev-btn ${b.open ? "" : "gold"}`} disabled={!!busy || (!b.open && !b.ready.monthly)} onClick={() => window.confirm(b.open ? "Close card payment again (opening soon)?" : "Open card payment? OnPoint's administrators can then pay by card.") && void admin("open", !b.open)}>
+                  {busy === "open" ? "Saving…" : b.open ? "Close billing (opening soon)" : "Open billing"}
+                </button>
+              </div>
+            </section>
+          )}
           <section className="ev-card op-pad">
             <h2 className="op-h2">Invoices</h2>
             {b.invoices.length === 0 ? (
@@ -1689,6 +1858,646 @@ function MailboxCard(p: { preview: boolean; say: (t: string) => void; reload: ()
           <input className="op-in sm" readOnly value={link.url} onFocus={(e) => e.currentTarget.select()} />
         </div>
       )}
+    </section>
+  );
+}
+
+/* ── Payment reminders (0280) ──────────────────────────────────────────── */
+
+type PChip = "overdue" | "14" | "open" | "paid" | "all";
+const PAY_CHIPS: Array<[PChip, string]> = [
+  ["overdue", "Overdue"],
+  ["14", "Due in 14 days"],
+  ["open", "All unpaid"],
+  ["paid", "Paid"],
+  ["all", "All"],
+];
+const payTest = (v: Invoice, c: PChip, today: string) =>
+  c === "overdue" ? v.status === "open" && v.due_date < today : c === "14" ? v.status === "open" && v.due_date >= today && daysBetween(today, v.due_date) <= 14 : c === "open" ? v.status === "open" : c === "paid" ? v.status === "paid" : true;
+const dollars = (n: number) => `S$${n.toLocaleString("en-GB")}`;
+const sum = (xs: Invoice[]) => xs.reduce((a, v) => a + v.amount_cents, 0);
+
+/** when each invoice was last reminded, from the recent emails */
+function useReminded(s: Snapshot) {
+  return useMemo(() => {
+    const m = new Map<string, { last: string; n: number }>();
+    for (const d of s.deliveries) {
+      if (!d.invoice_id || d.status !== "sent") continue;
+      const x = m.get(d.invoice_id);
+      if (!x) m.set(d.invoice_id, { last: d.requested_at, n: 1 });
+      else x.n++;
+    }
+    return m;
+  }, [s.deliveries]);
+}
+
+function PayDashboard(p: { s: Snapshot; byId: Map<string, Client>; company: string; go: (v: View) => void; openPay: (c: PChip, id?: string) => void }) {
+  const { s } = p;
+  const open = s.invoices.filter((v) => v.status === "open");
+  const late = open.filter((v) => v.due_date < s.today);
+  const soon = open.filter((v) => v.due_date >= s.today && daysBetween(s.today, v.due_date) <= 14);
+  const month = s.today.slice(0, 7);
+  const sent = s.deliveries.filter((d) => d.type === "PAYMENT" && d.status === "sent" && d.requested_at.slice(0, 7) === month);
+  const next = [...late.slice().sort((a, b) => a.due_date.localeCompare(b.due_date)).slice(0, 5), ...open.filter((v) => v.due_date >= s.today).slice(0, 8)];
+  const noEmail = new Set(open.filter((v) => !p.byId.get(v.client_id)?.contact_email).map((v) => v.client_id)).size;
+  return (
+    <>
+      <header className="op-hero">
+        <p className="op-eyebrow">Overview · {longDate(s.today)}</p>
+        <h1>Welcome back, {p.company.replace(/,?\s+(pte\.?\s*ltd\.?|private limited)$/i, "")}</h1>
+        <p>
+          Here is what your clients owe today, from your <b>invoice list</b>. Send each client a payment reminder from your own email, before and after the due date.
+        </p>
+      </header>
+      {!s.payments_ready && <div className="op-warn">Payment reminders are not switched on yet: Founders Doc runs one database update (139) first.</div>}
+      {s.payments_ready && s.invoices.length === 0 && (
+        <div className="ev-card op-empty">
+          <b>No invoices yet.</b> Import your unpaid invoice list (Excel or CSV, e.g. from Xero) or add one by hand on{" "}
+          <a href="#payments" onClick={(e) => (e.preventDefault(), p.go("payments"))}>
+            Payments
+          </a>
+          .
+        </div>
+      )}
+      <div className="op-stats">
+        <Stat icon="card" tone="gold" label="Outstanding" value={Math.round(sum(open) / 100)} fmt={dollars} sub={`${open.length} unpaid invoice${open.length === 1 ? "" : "s"}`} onClick={() => p.openPay("open")} />
+        <Stat icon="alert" tone="red" label="Overdue" value={late.length} sub={late.length ? `${money(sum(late))} past due` : "Nothing overdue"} warn={late.length > 0} onClick={() => p.openPay("overdue")} />
+        <Stat icon="hourglass" tone="blue" label="Due in 14 days" value={soon.length} sub={soon.length ? money(sum(soon)) : "Nothing due soon"} onClick={() => p.openPay("14")} />
+        <Stat icon="sent" tone="green" label="Reminders sent" value={sent.length} sub="This month, from your email" onClick={() => p.openPay("all")} />
+      </div>
+      {noEmail > 0 && (
+        <div className="op-warn" role="note">
+          {noEmail} client{noEmail === 1 ? "" : "s"} with an unpaid invoice {noEmail === 1 ? "has" : "have"} no email yet. Add it on Payments when you send the reminder.
+        </div>
+      )}
+      <div className="op-grid2 op-dash">
+        <section className="ev-card op-list">
+          <div className="op-h">
+            <h2>
+              To chase <span className="ev-sub">overdue first</span>
+            </h2>
+            <a href="#payments" onClick={(e) => (e.preventDefault(), p.go("payments"))}>
+              View all →
+            </a>
+          </div>
+          {next.length === 0 && <p className="ev-sub">Nothing to chase.</p>}
+          {next.map((v) => (
+            <button key={v.id} className="op-row op-next" onClick={() => p.openPay(v.due_date < s.today ? "overdue" : "open", v.id)}>
+              <span className="op-name op-namechev">
+                <span>{p.byId.get(v.client_id)?.name ?? "—"}</span>
+                <Ic n="chev" s={11} />
+              </span>
+              <span className="op-amt">{money(v.amount_cents, v.currency)}</span>
+              <span className="op-date">{fmtDate(v.due_date)}</span>
+              <span className={dueClass(v.due_date, s.today)}>{shortCount(v.due_date, s.today)}</span>
+            </button>
+          ))}
+        </section>
+        <section className="ev-card op-list">
+          <div className="op-h">
+            <h2>Reminder activity</h2>
+          </div>
+          {s.deliveries.length === 0 && <p className="ev-sub">No reminders sent yet. They appear here as they go out.</p>}
+          {s.deliveries.slice(0, 10).map((x) => {
+            const inv = x.invoice_id ? s.invoices.find((v) => v.id === x.invoice_id) : undefined;
+            return (
+              <div key={x.id} className="op-act2">
+                <span className={`op-acticon ${x.status}`} aria-hidden="true">
+                  <Ic n={x.status === "sent" ? "sent" : x.status === "failed" ? "bang" : "clock"} s={15} />
+                </span>
+                <div>
+                  <div>
+                    {x.status === "sent" ? "Reminder sent" : x.status === "failed" ? "Not sent" : x.status === "queued" ? "Sending" : "Skipped"} to <b>{p.byId.get(x.client_id ?? "")?.name ?? "a client"}</b>:{" "}
+                    {x.type === "PAYMENT" ? (inv ? `payment ${money(inv.amount_cents, inv.currency)}` : "payment") : (TYPE_NAME[x.type as ReminderType] ?? x.type)}
+                    {x.test ? <span className="op-testtag">test</span> : null}
+                  </div>
+                  {x.error ? <div className="op-late op-small">{x.error}</div> : null}
+                  <div className="ev-sub op-small">{new Date(x.requested_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      </div>
+    </>
+  );
+}
+
+function Payments(p: {
+  s: Snapshot;
+  setS: (fn: (s: Snapshot) => Snapshot) => void;
+  byId: Map<string, Client>;
+  canEdit: boolean;
+  isAdmin: boolean;
+  preview: boolean;
+  say: (t: string) => void;
+  reload: () => Promise<void>;
+  initialChip?: PChip;
+  openId?: string | null;
+}) {
+  const { s } = p;
+  const [chip, setChip] = useState<PChip>(p.initialChip ?? "overdue");
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(0);
+  const [busy, setBusy] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [sel, setSel] = useState<string | null>(p.openId ?? null);
+  const [wording, setWording] = useState(false);
+  const reminded = useReminded(s);
+  const file = useRef<HTMLInputElement>(null);
+
+  const base = s.invoices.filter((v) => {
+    const t = q.trim().toLowerCase();
+    if (!t) return true;
+    const c = p.byId.get(v.client_id);
+    return `${c?.name ?? ""} ${v.number ?? ""} ${v.description ?? ""}`.toLowerCase().includes(t);
+  });
+  const rows = base.filter((v) => payTest(v, chip, s.today)).sort((a, b) => a.due_date.localeCompare(b.due_date));
+  const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+  const shown = rows.slice(page * PAGE, page * PAGE + PAGE);
+  const selected = sel ? s.invoices.find((v) => v.id === sel) : undefined;
+
+  async function mark(v: Invoice, status: InvoiceStatus) {
+    if (p.preview) {
+      p.setS((x) => ({ ...x, invoices: x.invoices.map((i) => (i.id === v.id ? { ...i, status, paid_on: status === "paid" ? s.today : null } : i)).filter((i) => i.status !== "cancelled") }));
+      return p.say(status === "paid" ? "Marked paid (preview only)" : "Updated (preview only)");
+    }
+    setBusy(v.id);
+    const r = await api("/api/onpoint/payments", { method: "PATCH", body: JSON.stringify({ id: v.id, status }) });
+    setBusy("");
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    p.say(status === "paid" ? "Marked paid: no more reminders for it" : status === "open" ? "Back to unpaid" : "Invoice removed");
+    await p.reload();
+  }
+  async function importFile(f: File | undefined) {
+    if (!f) return;
+    if (p.preview) return p.say("Preview: not imported.");
+    const fd = new FormData();
+    fd.append("file", f);
+    setBusy("import");
+    const r = await api("/api/onpoint/payments", { method: "POST", body: fd });
+    setBusy("");
+    if (file.current) file.current.value = "";
+    if (!r.ok) return p.say(String(r.j.error ?? "Not imported."));
+    const j = r.j as { invoices: number; added: number; new_clients: number; emails: number; marked_paid: number; skipped: string[] };
+    p.say(`${j.invoices} unpaid invoice${j.invoices === 1 ? "" : "s"} read (${j.added} new)${j.new_clients ? `, ${j.new_clients} new client${j.new_clients === 1 ? "" : "s"}` : ""}${j.marked_paid ? `, ${j.marked_paid} marked paid` : ""}${j.skipped.length ? `, ${j.skipped.length} row${j.skipped.length === 1 ? "" : "s"} skipped` : ""}.`);
+    setChip("open");
+    await p.reload();
+  }
+
+  return (
+    <>
+      <PageHead icon="card" eyebrow="Payments" title="Payment reminders">
+        Your clients&rsquo; unpaid invoices. Preview the reminder, add an email if it&rsquo;s missing, and send it from {s.ws.sender_email || s.ws.sender_name}.
+      </PageHead>
+      {!s.payments_ready && <div className="op-warn">Payment reminders are not switched on yet: run supabase/139_onpoint_payments.sql in Supabase first.</div>}
+      <div className="op-soonbar" role="note">
+        <span className="op-soontag">Coming soon</span>
+        <span>
+          <b>Automatic reminders</b> before and after each due date. For now, send each reminder with the button: it goes straight away, from your own email.
+        </span>
+      </div>
+      <section className="ev-card op-pad">
+        <div className="op-tools">
+          <label className="ev-search wide">
+            <Ic n="search" />
+            <span className="ev-sr">Search</span>
+            <input value={q} placeholder="Search a client or invoice" onChange={(e) => (setQ(e.target.value), setPage(0))} />
+          </label>
+          {p.canEdit && (
+            <>
+              <button className="ev-btn op-push" onClick={() => setAdding((a) => !a)} aria-expanded={adding}>
+                <Ic n="plus" s={14} />
+                Add invoice
+              </button>
+              <button className="ev-btn gold" disabled={busy === "import"} onClick={() => file.current?.click()}>
+                <Ic n="upload" s={14} />
+                {busy === "import" ? "Importing…" : "Import invoice list"}
+              </button>
+              <input ref={file} type="file" accept=".xlsx,.csv" hidden onChange={(e) => void importFile(e.target.files?.[0])} />
+            </>
+          )}
+        </div>
+        {adding && <AddInvoice s={s} setS={p.setS} preview={p.preview} say={p.say} reload={p.reload} done={(id) => (setAdding(false), setChip("open"), id && setSel(id))} />}
+        <p className="ev-sub op-small op-mt">Import: an Excel or CSV list of unpaid invoices (Xero&rsquo;s invoice export works) with a client, an amount and a due date; an email column fills in missing emails. Invoices marked paid in the file are marked paid here.</p>
+        <div className="ev-chips" role="group" aria-label="Filter">
+          {PAY_CHIPS.map(([k, label]) => (
+            <button key={k} className={chip === k ? "on" : ""} aria-pressed={chip === k} onClick={() => (setChip(k), setPage(0))}>
+              {label} <span>{base.filter((v) => payTest(v, k, s.today)).length}</span>
+            </button>
+          ))}
+        </div>
+        <div className="ev-tablewrap">
+          <table className="ev-table op-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Invoice</th>
+                <th className="op-right">Amount</th>
+                <th>Due</th>
+                <th>Last reminder</th>
+                <th className="op-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shown.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="ev-empty">
+                    <div className="op-emptystate">
+                      <span aria-hidden="true">
+                        <Ic n="check" s={22} />
+                      </span>
+                      <b>{chip === "overdue" ? "Nothing overdue" : s.invoices.length ? "Nothing here" : "No invoices yet"}</b>
+                      <span className="ev-sub">{s.invoices.length ? "Try another filter or search." : "Import your invoice list or add one by hand."}</span>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {shown.map((v) => {
+                const c = p.byId.get(v.client_id);
+                const rem = reminded.get(v.id);
+                return (
+                  <tr key={v.id}>
+                    <td>
+                      <b>{c?.name ?? "—"}</b>
+                      <div className="ev-sub">
+                        {c?.contact_email ? (
+                          c.contact_email
+                        ) : v.status === "open" && p.canEdit ? (
+                          <button className="op-due late op-addmail" onClick={() => setSel(v.id)}>
+                            + Add email
+                          </button>
+                        ) : (
+                          <span className="op-due late">No email</span>
+                        )}
+                      </div>
+                    </td>
+                    <td>
+                      <b>{v.number || "—"}</b>
+                      {v.description ? <div className="ev-sub op-clip">{v.description}</div> : null}
+                    </td>
+                    <td className="op-right op-amt">{money(v.amount_cents, v.currency)}</td>
+                    <td>
+                      <div className="op-date2">{fmtDate(v.due_date)}</div>
+                      {v.status === "open" ? (
+                        <span className={dueClass(v.due_date, s.today)}>{countdown(v.due_date, s.today)}</span>
+                      ) : (
+                        <span className="op-due done">
+                          <Ic n="check" s={11} w={2.4} />
+                          Paid{v.paid_on ? ` ${fmtDate(v.paid_on)}` : ""}
+                        </span>
+                      )}
+                    </td>
+                    <td>{rem ? <span className="ev-sub">{fmtDate(rem.last.slice(0, 10))}{rem.n > 1 ? ` · ${rem.n} sent` : ""}</span> : <span className="ev-sub">Not yet</span>}</td>
+                    <td className="op-right">
+                      <span className="op-acts">
+                        {v.status === "open" && (
+                          <button className="ev-btn sm gold" onClick={() => setSel(v.id)}>
+                            <Ic n="mail" s={13} />
+                            Preview &amp; send
+                          </button>
+                        )}
+                        {p.canEdit && v.status === "open" && (
+                          <button className="ev-btn sm op-done" disabled={busy === v.id} onClick={() => void mark(v, "paid")}>
+                            <Ic n="check" s={12} w={2.2} />
+                            Paid
+                          </button>
+                        )}
+                        {p.canEdit && v.status === "paid" && (
+                          <button className="ev-link" disabled={busy === v.id} onClick={() => void mark(v, "open")}>
+                            Not paid
+                          </button>
+                        )}
+                        {p.canEdit && (
+                          <button className="ev-link" disabled={busy === v.id} onClick={() => window.confirm(`Remove ${v.number ? `invoice ${v.number}` : "this invoice"} for ${c?.name ?? "this client"}? No reminders will be sent for it.`) && void mark(v, "cancelled")}>
+                            Remove
+                          </button>
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <Pager page={page} pages={pages} total={rows.length} setPage={setPage} />
+      </section>
+      <PayWording s={s} setS={p.setS} canEdit={p.canEdit} preview={p.preview} say={p.say} reload={p.reload} open={wording} setOpen={setWording} />
+      {p.isAdmin && <FilingSwitch s={s} setS={p.setS} preview={p.preview} say={p.say} reload={p.reload} />}
+      {selected && <PaySend s={s} setS={p.setS} v={selected} client={p.byId.get(selected.client_id)} canEdit={p.canEdit} preview={p.preview} say={p.say} reload={p.reload} onClose={() => setSel(null)} editWording={() => (setSel(null), setWording(true))} />}
+    </>
+  );
+}
+
+function AddInvoice(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; done: (id?: string) => void }) {
+  const [f, setF] = useState({ client: "", email: "", contact: "", number: "", description: "", amount: "", due: p.s.today });
+  const [busy, setBusy] = useState(false);
+  const known = p.s.clients.find((c) => c.name.toLowerCase() === f.client.trim().toLowerCase());
+  const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((x) => ({ ...x, [k]: e.target.value }));
+  async function save() {
+    if (!f.client.trim()) return p.say("Type the client's name.");
+    if (!/^\d+(\.\d{1,2})?$/.test(f.amount.replace(/[,\s]/g, ""))) return p.say("Type the amount, e.g. 1200 or 1,200.50.");
+    if (f.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email.trim())) return p.say("Check the email address.");
+    if (p.preview) {
+      const id = `v${Date.now()}`;
+      const cid = known?.id ?? `c${Date.now()}`;
+      p.setS((x) => ({
+        ...x,
+        clients: known
+          ? x.clients.map((c) => (c.id === known.id && !c.contact_email && f.email ? { ...c, contact_email: f.email.trim().toLowerCase() } : c))
+          : [...x.clients, { id: cid, key: f.client.toLowerCase(), name: f.client.trim(), uen: null, fye: null, services: [], contact_name: f.contact || null, contact_email: f.email.trim().toLowerCase() || null, active: true }],
+        invoices: [...x.invoices, { id, client_id: cid, number: f.number || null, description: f.description || null, amount_cents: Math.round(parseFloat(f.amount.replace(/[,\s]/g, "")) * 100), currency: "SGD", issue_date: null, due_date: f.due, status: "open", paid_on: null, source: "Added in the app" }],
+      }));
+      p.say("Invoice added (preview only)");
+      return p.done(id);
+    }
+    setBusy(true);
+    const r = await api("/api/onpoint/payments", {
+      method: "POST",
+      body: JSON.stringify({ action: "add", client_id: known?.id, client_name: f.client, email: f.email, contact_name: f.contact, number: f.number, description: f.description, amount: f.amount, due_date: f.due }),
+    });
+    setBusy(false);
+    if (!r.ok) return p.say(String(r.j.error ?? "Not added."));
+    p.say("Invoice added");
+    await p.reload();
+    p.done(String(r.j.id ?? ""));
+  }
+  return (
+    <div className="op-addinv">
+      <label>
+        <span className="op-lab">Client</span>
+        <input className="op-in sm" list="op-clientnames" value={f.client} onChange={set("client")} placeholder="Company name" />
+        <datalist id="op-clientnames">
+          {p.s.clients.slice(0, 2000).map((c) => (
+            <option key={c.id} value={c.name} />
+          ))}
+        </datalist>
+      </label>
+      <label>
+        <span className="op-lab">Client email {known?.contact_email ? <i className="ev-sub">(on file: {known.contact_email})</i> : null}</span>
+        <input className="op-in sm" type="email" value={f.email} onChange={set("email")} placeholder={known?.contact_email ? "Leave empty to keep it" : "client@company.com"} />
+      </label>
+      <label>
+        <span className="op-lab">Contact name (optional)</span>
+        <input className="op-in sm" value={f.contact} onChange={set("contact")} placeholder="For “Hi …”" />
+      </label>
+      <label>
+        <span className="op-lab">Invoice no. (optional)</span>
+        <input className="op-in sm" value={f.number} onChange={set("number")} placeholder="INV-0001" />
+      </label>
+      <label className="op-span2">
+        <span className="op-lab">What it is for (optional)</span>
+        <input className="op-in sm" value={f.description} onChange={set("description")} placeholder="e.g. Corporate secretarial fee 2027" />
+      </label>
+      <label>
+        <span className="op-lab">Amount (S$)</span>
+        <input className="op-in sm" inputMode="decimal" value={f.amount} onChange={set("amount")} placeholder="1,200.00" />
+      </label>
+      <label>
+        <span className="op-lab">Due date</span>
+        <input className="op-in sm" type="date" value={f.due} onChange={set("due")} />
+      </label>
+      <div className="op-span2 op-chiprow">
+        <button className="ev-btn gold" disabled={busy} onClick={() => void save()}>
+          {busy ? "Adding…" : "Add invoice"}
+        </button>
+        <button className="ev-link" onClick={() => p.done()}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PaySend(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; v: Invoice; client: Client | undefined; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; onClose: () => void; editWording: () => void }) {
+  const { s, v, client } = p;
+  const [quick, setQuick] = useState({ name: "", email: "" });
+  const [busy, setBusy] = useState("");
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    box.current?.focus();
+    const k = (e: KeyboardEvent) => e.key === "Escape" && p.onClose();
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [p]);
+  if (!client) return null;
+  const tpl = { subject: s.ws.pay_subject || DEFAULT_PAY.subject, body: s.ws.pay_body || DEFAULT_PAY.body };
+  const r = renderPayment(tpl, { company: client.name, contact: client.contact_name, number: v.number, description: v.description, amount_cents: v.amount_cents, currency: v.currency, due: v.due_date, today: s.today });
+  const canSend = p.canEdit && v.status === "open" && !!client.contact_email && !r.unknown.length;
+  async function saveQuick() {
+    const email = quick.email.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return p.say("Check the email address.");
+    if (p.preview) {
+      p.setS((x) => ({ ...x, clients: x.clients.map((c) => (c.id === client!.id ? { ...c, contact_email: email, contact_name: quick.name.trim() || c.contact_name } : c)) }));
+      return p.say("Saved (preview only)");
+    }
+    setBusy("quick");
+    const res = await api("/api/onpoint/client", { method: "PATCH", body: JSON.stringify({ id: client!.id, contact_name: quick.name.trim() || client!.contact_name, contact_email: email }) });
+    setBusy("");
+    if (!res.ok) return p.say(String(res.j.error ?? "Not saved."));
+    p.say(`Email saved for ${client!.name}`);
+    await p.reload();
+  }
+  async function send() {
+    if (p.preview) return p.say("Preview: nothing is sent.");
+    if (!window.confirm(`Send the payment reminder (${money(v.amount_cents, v.currency)}) to ${client!.name} now?${s.ws.test_inbox ? `\n\nTest mode: it goes to ${s.ws.test_inbox}.` : `\n\nIt goes to ${client!.contact_email}.`}`)) return;
+    setBusy("send");
+    const res = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "send", invoice_id: v.id, request_id: crypto.randomUUID() }) });
+    setBusy("");
+    p.say(String(res.j.message ?? res.j.error ?? (res.ok ? "Sent" : "Not sent")));
+    await p.reload();
+    if (res.ok) p.onClose();
+  }
+  return (
+    <>
+      <button className="ev-scrim top" aria-label="Close" onClick={p.onClose} />
+      <div ref={box} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="op-ps" className="ev-pay op-modal wide">
+        <div className="op-h">
+          <h2 id="op-ps">Payment reminder · {client.name}</h2>
+          <button className="ev-link" onClick={p.onClose} aria-label="Close">
+            <Ic n="close" s={14} />
+          </button>
+        </div>
+        <div className="op-mail">
+          <div>
+            <span>From</span>
+            <b>
+              {s.ws.sender_name}
+              {s.ws.sender_email ? ` <${s.ws.sender_email}>` : ""}
+            </b>
+          </div>
+          <div>
+            <span>To</span>
+            {client.contact_email ? (
+              <b>
+                {client.contact_name ? `${client.contact_name} ` : ""}&lt;{client.contact_email}&gt;
+              </b>
+            ) : p.canEdit ? (
+              <span className="op-quick">
+                <input className="op-in sm" placeholder="Contact name (optional)" value={quick.name} onChange={(e) => setQuick({ ...quick, name: e.target.value })} />
+                <input className="op-in sm" type="email" placeholder="client@company.com" value={quick.email} onChange={(e) => setQuick({ ...quick, email: e.target.value })} onKeyDown={(e) => e.key === "Enter" && void saveQuick()} />
+                <button className="ev-btn sm gold" disabled={busy === "quick" || !quick.email.trim()} onClick={() => void saveQuick()}>
+                  {busy === "quick" ? "Saving…" : "Save email"}
+                </button>
+              </span>
+            ) : (
+              <b className="op-late">No email on file</b>
+            )}
+          </div>
+          <div>
+            <span>Subject</span>
+            <b>{r.subject}</b>
+          </div>
+          <iframe
+            className="op-mailframe"
+            title="Email preview"
+            sandbox="allow-same-origin"
+            srcDoc={paymentHtml(r.body, {
+              logoUrl: s.ws.logo || "",
+              sender: s.ws.custom_name || s.ws.sender_name,
+              brandName: s.ws.logo ? undefined : s.ws.custom_name || s.ws.sender_name,
+              company: client.name,
+              number: v.number,
+              description: v.description,
+              amount_cents: v.amount_cents,
+              currency: v.currency,
+              due: v.due_date,
+              today: s.today,
+            })}
+            onLoad={(e) => {
+              const f = e.currentTarget;
+              const h = f.contentDocument?.documentElement.scrollHeight;
+              if (h) f.style.height = `${h}px`;
+            }}
+          />
+        </div>
+        {r.notes.map((n) => (
+          <p key={n} className="ev-sub op-small">
+            {n}
+          </p>
+        ))}
+        {r.unknown.length > 0 && <p className="op-late">Not supported in the wording: {r.unknown.join(", ")}</p>}
+        {s.ws.test_inbox && <p className="ev-sub op-small">Test mode: sending now goes to {s.ws.test_inbox}.</p>}
+        <div className="op-chiprow op-mt">
+          {p.canEdit && (
+            <button className="ev-btn gold" disabled={!canSend || busy === "send"} onClick={() => void send()}>
+              <Ic n="mail" s={14} />
+              {busy === "send" ? "Sending…" : "Send this reminder now"}
+            </button>
+          )}
+          {p.canEdit && (
+            <button className="ev-link" onClick={p.editWording}>
+              Change the wording
+            </button>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function PayWording(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; open: boolean; setOpen: (b: boolean) => void }) {
+  const cur = { subject: p.s.ws.pay_subject || DEFAULT_PAY.subject, body: p.s.ws.pay_body || DEFAULT_PAY.body };
+  const [d, setD] = useState(cur);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLElement>(null);
+  const dirty = d.subject !== cur.subject || d.body !== cur.body;
+  const bad = unknownPayTokens(d.subject + d.body);
+  useEffect(() => {
+    if (p.open) ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [p.open]);
+  async function save() {
+    if (bad.length) return p.say(`Remove unsupported tokens first: ${bad.join(", ")}`);
+    if (p.preview) {
+      p.setS((x) => ({ ...x, ws: { ...x.ws, pay_subject: d.subject, pay_body: d.body } }));
+      return p.say("Saved (preview only)");
+    }
+    setBusy(true);
+    const r = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "template", ...d }) });
+    setBusy(false);
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved: your edits are kept here."));
+    p.say("Payment reminder wording saved");
+    await p.reload();
+  }
+  return (
+    <section ref={ref} className="ev-card op-pad op-mt2">
+      <button className="op-fold" aria-expanded={p.open} onClick={() => p.setOpen(!p.open)}>
+        <span>
+          <b>Email wording</b>
+          <span className="ev-sub"> · the same for every payment reminder; the invoice details fill in by themselves</span>
+        </span>
+        <Ic n={p.open ? "up" : "down"} s={14} />
+      </button>
+      {p.open && (
+        <>
+          <div className="op-field op-mt">
+            <label className="op-lab" htmlFor="op-psub">
+              Subject
+            </label>
+            <input id="op-psub" className="op-in" value={d.subject} disabled={!p.canEdit} onChange={(e) => setD({ ...d, subject: e.target.value })} />
+          </div>
+          <div className="op-field">
+            <label className="op-lab" htmlFor="op-pbody">
+              Email
+            </label>
+            <textarea id="op-pbody" className="op-in" rows={11} value={d.body} disabled={!p.canEdit} onChange={(e) => setD({ ...d, body: e.target.value })} />
+            {p.canEdit && (
+              <div className="op-chiprow op-mt" aria-label="Insert a token">
+                {PAY_TOKENS.map((t) => (
+                  <button key={t} className="op-token" onClick={() => setD({ ...d, body: `${d.body}${t}` })}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
+            {bad.length > 0 && <p className="op-late">Not supported: {bad.join(", ")}</p>}
+          </div>
+          {p.canEdit && (
+            <div className="op-chiprow">
+              <button className="ev-btn gold" disabled={!dirty || busy} onClick={() => void save()}>
+                {busy ? "Saving…" : dirty ? "Save wording" : "Saved"}
+              </button>
+              {dirty && (
+                <button className="ev-link" onClick={() => setD(cur)}>
+                  Undo changes
+                </button>
+              )}
+              <button className="ev-link" onClick={() => setD(DEFAULT_PAY)}>
+                Back to the standard wording
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function FilingSwitch(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+  const on = p.s.ws.filing_enabled;
+  const [busy, setBusy] = useState(false);
+  async function flip() {
+    if (p.preview) {
+      p.setS((x) => ({ ...x, ws: { ...x.ws, filing_enabled: !on } }));
+      return p.say(on ? "Filing reminders hidden (preview only)" : "Filing reminders shown (preview only)");
+    }
+    setBusy(true);
+    const r = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "filing", on: !on }) });
+    setBusy(false);
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    p.say(on ? "Filing reminders hidden" : "Filing reminders switched on");
+    await p.reload();
+  }
+  return (
+    <section className="ev-card op-pad op-mt2 op-optional">
+      <div>
+        <b>Filing reminders</b> <span className="op-soontag muted">Optional</span>
+        <p className="ev-sub op-small">ACRA and IRAS deadline reminders (AR, ECI, AGM…) worked out from the Master List. {on ? "Shown in the menu." : "Hidden: you only send payment reminders."}</p>
+      </div>
+      <button className="ev-btn" disabled={busy} onClick={() => void flip()}>
+        {on ? "Hide filing reminders" : "Show filing reminders"}
+      </button>
     </section>
   );
 }

@@ -63,9 +63,9 @@ export interface RenderInput {
 }
 
 /**
- * Fill in a template. A missing value is never made up: {uen} with no UEN stays visible as "[UEN missing]" and
- * is reported, so the email cannot be sent. A missing contact name greets "there" ("Hi there,"), which names
- * nobody, and is reported as a note only.
+ * Fill in a template. A missing value is never made up. With no UEN on file, "(UEN {uen})" and "UEN {uen}" are
+ * left out of the sentence and a note says so (0279: this used to block sending, and most clients from the Nominee
+ * and Job sheets have no UEN). A missing contact name greets "there" ("Hi there,"), which names nobody.
  */
 export function render(tpl: { subject: string; body: string }, v: RenderInput) {
   const n = daysBetween(v.today, v.due);
@@ -75,15 +75,17 @@ export function render(tpl: { subject: string; body: string }, v: RenderInput) {
   const map: Record<string, string> = {
     "{contact}": v.contact?.trim() || "there",
     "{company}": v.company,
-    "{uen}": v.uen?.trim() || "[UEN missing]",
+    "{uen}": v.uen?.trim() || "",
     "{type}": typeName,
     "{due_date}": fmtDate(v.due),
     "{countdown}": countdown(v.due, v.today),
     "{days_left}": n >= 0 ? String(n) : `${-n} days overdue`,
   };
-  const fill = (s: string) => s.replace(/\{[a-z_]+\}/g, (t) => map[t] ?? t);
+  const noUen = !v.uen?.trim();
+  const fill = (s: string) =>
+    (noUen ? s.replace(/\s*\(\s*UEN:?\s*\{uen\}\s*\)/gi, "").replace(/,?\s*UEN:?\s*\{uen\}/gi, "") : s).replace(/\{[a-z_]+\}/g, (t) => map[t] ?? t);
   const both = tpl.subject + tpl.body;
-  if (both.includes("{uen}") && !v.uen?.trim()) missing.push("UEN");
+  if (both.includes("{uen}") && noUen) notes.push("No UEN on file, so the UEN is left out of this email.");
   if (both.includes("{contact}") && !v.contact?.trim()) notes.push("No contact name on file, so the greeting reads “Hi there”.");
   const unknown = unknownTokens(both);
   return { subject: fill(tpl.subject).replace(/\s+/g, " ").trim(), body: fill(tpl.body), missing, unknown, notes, typeName };
@@ -111,6 +113,11 @@ export interface EmailLook {
   /** the deadline in a summary card */
   deadline: { type: string; company: string; uen: string | null; due: string; today: string };
   banner?: string;
+  /** 0280 (payment reminders): the small label top right, the big line, the card's rows and the footer line */
+  kicker?: string;
+  headline?: string;
+  rows?: Array<[string, string]>;
+  footer?: string;
 }
 
 /**
@@ -129,15 +136,15 @@ export function emailHtml(body: string, look: EmailLook): string {
   const row = (k: string, v: string, last = false) =>
     `<tr><td style="padding:10px 0;${last ? "" : "border-bottom:1px solid #e8ebe4;"}font-size:13px;color:#6b7266;width:120px;vertical-align:top;">${esc(k)}</td><td style="padding:10px 0;${last ? "" : "border-bottom:1px solid #e8ebe4;"}font-size:14px;color:#1d2219;font-weight:bold;vertical-align:top;">${v}</td></tr>`;
   const card = [
-    row("Company", esc(look.deadline.company)),
-    look.deadline.uen ? row("UEN", esc(look.deadline.uen)) : "",
-    row("Filing", esc(look.deadline.type)),
+    ...(look.rows
+      ? look.rows.map(([k, v]) => row(k, esc(v)))
+      : [row("Company", esc(look.deadline.company)), look.deadline.uen ? row("UEN", esc(look.deadline.uen)) : "", row("Filing", esc(look.deadline.type))]),
     row("Due date", `${esc(fmtDate(look.deadline.due))} &nbsp;<span style="display:inline-block;padding:2px 9px;border-radius:999px;background:${pill.bg};color:${pill.fg};font-size:12px;font-weight:bold;">${esc(pill.text)}</span>`, true),
   ].join("");
   const banner = look.banner
     ? `<tr><td style="padding:12px 32px;background:#fff8e6;border-bottom:1px solid #f0dfb0;font-size:13px;color:#5c4a14;">${esc(look.banner)}</td></tr>`
     : "";
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(look.deadline.type)} reminder</title></head>
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(look.kicker ?? `${look.deadline.type} reminder`)}</title></head>
 <body style="margin:0;padding:0;background:#f3f4f1;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f3f4f1;"><tr><td align="center" style="padding:28px 12px;">
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #e3e6df;border-radius:10px;border-collapse:separate;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:#1d2219;">
@@ -152,11 +159,11 @@ ${banner}
         ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="vertical-align:middle;padding-right:12px;"><img src="${esc(look.logoUrl)}" alt="" width="29" height="42" style="display:block;width:29px;height:42px;border:0;"></td><td style="vertical-align:middle;font-size:18px;line-height:22px;font-weight:bold;color:${GREEN};letter-spacing:-0.2px;">${esc(look.brandName)}</td></tr></table>`
         : `<img src="${esc(look.logoUrl)}" alt="${esc(look.sender)}" height="46" style="display:block;height:46px;width:auto;max-width:180px;border:0;">`
     }</td>
-    <td align="right" style="vertical-align:middle;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:${GREEN};font-weight:bold;">Filing reminder</td>
+    <td align="right" style="vertical-align:middle;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:${GREEN};font-weight:bold;">${esc(look.kicker ?? "Filing reminder")}</td>
   </tr></table>
 </td></tr>
 <tr><td style="padding:26px 32px 6px 32px;">
-  <div style="font-size:21px;line-height:28px;font-weight:bold;color:#1d2219;">${esc(look.deadline.type)} due ${esc(fmtDate(look.deadline.due))}</div>
+  <div style="font-size:21px;line-height:28px;font-weight:bold;color:#1d2219;">${esc(look.headline ?? `${look.deadline.type} due ${fmtDate(look.deadline.due)}`)}</div>
 </td></tr>
 <tr><td style="padding:14px 32px 8px 32px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8f9f6;border:1px solid #e8ebe4;border-radius:8px;border-collapse:separate;"><tr><td style="padding:6px 18px;">
@@ -166,7 +173,7 @@ ${banner}
 <tr><td style="padding:20px 32px 10px 32px;font-size:15px;line-height:24px;color:#2b3127;">${paras}</td></tr>
 <tr><td style="padding:16px 32px 22px 32px;border-top:1px solid #eef0eb;background:#fbfbfa;font-size:12px;line-height:18px;color:#7a8075;">
   Sent by <b style="color:#4a5145;">${esc(look.sender)}</b>. Reply to this email with any questions.<br>
-  <span style="color:#a2a79c;">Filing reminders by OnPoint Workflows · powered by FD AI</span>
+  <span style="color:#a2a79c;">${esc(look.footer ?? "Filing reminders by OnPoint Workflows · powered by FD AI")}</span>
 </td></tr>
 </table>
 </td></tr></table>

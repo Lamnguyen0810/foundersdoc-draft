@@ -67,6 +67,7 @@ export interface Delivery {
   id: string;
   client_id: string | null;
   deadline_id: string | null;
+  invoice_id?: string | null;
   type: string;
   trigger: "AUTOMATIC" | "MANUAL";
   lead_days: number | null;
@@ -90,4 +91,8 @@ export interface Workspace {
   sender_email: string | null;
   test_inbox: string | null;
   auto_send: boolean;
+  /** 0280: filing reminders are optional (OnPoint uses payment reminders); the payment email's own wording */
+  filing_enabled: boolean;
+  pay_subject: string | null;
+  pay_body: string | null;
 }

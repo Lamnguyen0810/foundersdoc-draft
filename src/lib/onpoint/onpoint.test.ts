@@ -140,10 +140,12 @@ test("templates: tokens filled, nothing made up, unknown tokens caught", () => {
   assert.deepEqual(r.missing, []);
 
   const n = render(DEFAULT_TEMPLATES.AR, { type: "AR", label: null, company: "Sample Company Pte. Ltd.", uen: null, contact: null, due: "2026-11-20", today: "2026-11-23" });
-  assert.deepEqual(n.missing, ["UEN"], "a missing UEN blocks sending");
+  assert.deepEqual(n.missing, [], "a missing UEN no longer blocks sending (0279)");
+  assert.ok(!n.body.includes("UEN") && !n.body.includes("()"), "the UEN is left out of the sentence");
+  assert.ok(n.body.includes("for Sample Company Pte. Ltd. is due"));
   assert.match(n.body, /^Hi there,/);
   assert.match(n.body, /3 days overdue/);
-  assert.equal(n.notes.length, 1);
+  assert.equal(n.notes.length, 2);
 
   const k = render(DEFAULT_TEMPLATES.CORP_SEC_EXPIRY, { type: "CORP_SEC_EXPIRY", label: "Nominee director renewal", company: "Sample Company Pte. Ltd.", uen: "1", contact: "Alex", due: "2026-12-31", today: "2026-11-23" });
   assert.match(k.subject, /Nominee director renewal/);
