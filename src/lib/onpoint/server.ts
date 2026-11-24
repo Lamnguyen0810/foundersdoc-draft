@@ -5,6 +5,7 @@ import { getUser, isAdmin } from "@/lib/supabase/server";
 import { sgToday, daysBetween } from "./dates";
 import type { Derived } from "./derive";
 import { DEFAULT_LEADS, DEFAULT_TEMPLATES, bodyHtml, render } from "./templates";
+import { sendFromMailbox, usesMailbox } from "./mailbox";
 import { TYPES, type Client, type Deadline, type ReminderType, type Template, type Workspace } from "./types";
 
 /**
@@ -245,7 +246,10 @@ export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "
   const hook = process.env.ONPOINT_HOOK_URL?.trim() ?? "";
   let ok = false;
   let error: string | null = null;
-  if (!/^https:\/\/hooks\.zapier\.com\//.test(hook)) error = "Sending is not set up yet (ONPOINT_HOOK_URL).";
+  const html = bodyHtml(r.body, test ? `Test: this reminder would have gone to ${to}.` : undefined);
+  /* 0270: the client's own connected Microsoft mailbox first; the Zapier hook otherwise */
+  if (await usesMailbox(ws.id)) ({ ok, error } = await sendFromMailbox(ws.id, { to: test ? ws.test_inbox!.trim() : to, subject: r.subject, html }));
+  else if (!/^https:\/\/hooks\.zapier\.com\//.test(hook)) error = "Sending is not set up yet: connect the mailbox (or set ONPOINT_HOOK_URL).";
   else {
     try {
       const res = await fetch(hook, {
@@ -256,7 +260,7 @@ export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "
           to: test ? ws.test_inbox!.trim() : to,
           subject: r.subject,
           text: test ? `[Test: this reminder would have gone to ${to}]\n\n${r.body}` : r.body,
-          html: bodyHtml(r.body, test ? `Test: this reminder would have gone to ${to}.` : undefined),
+          html,
           from_name: ws.sender_name,
           test,
           delivery_id: deliveryId,

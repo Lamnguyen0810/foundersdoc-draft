@@ -24,6 +24,8 @@ const P = {
   down: <path d="m6 9 6 6 6-6" />,
   close: <path d="M6 6l12 12M18 6 6 18" />,
   mail: <><rect x="3.5" y="5.5" width="17" height="13" rx="2" /><path d="M4 7l8 6 8-6" /></>,
+  calendar: <><rect x="3.5" y="5" width="17" height="15.5" rx="2" /><path d="M3.5 10h17M8 3v4M16 3v4" /></>,
+  card: <><rect x="2.5" y="5.5" width="19" height="13" rx="2" /><path d="M2.5 10h19M6 15h4" /></>,
 } as const;
 
 export type IconName = keyof typeof P;
