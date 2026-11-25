@@ -25,11 +25,31 @@ export interface Snapshot {
   /* 0280: payment reminders; payments_ready = supabase/139 has been run */
   invoices: Invoice[];
   payments_ready: boolean;
+  /* 0286: the file folder (every uploaded invoice file) */
+  files?: OpFile[];
+  files_ready?: boolean;
   today: string;
 }
 
-type View = "dashboard" | "payments" | "deadlines" | "calendar" | "reminders" | "clients" | "client" | "sources" | "billing";
-const VIEWS: View[] = ["dashboard", "payments", "deadlines", "calendar", "reminders", "clients", "sources", "billing"];
+type View = "dashboard" | "payments" | "deadlines" | "calendar" | "reminders" | "clients" | "client" | "files" | "sources" | "billing";
+
+interface OpFile {
+  id: string;
+  name: string;
+  kind: "pdf" | "list" | "sheet";
+  size: number;
+  uploaded_by: string | null;
+  uploaded_at: string;
+  invoice_id: string | null;
+  import_id: number | null;
+  details: Record<string, unknown>;
+}
+interface PdfRead {
+  file_id: string | null;
+  file_name: string;
+  draft: { client: string; client_id: string | null; email: string | null; number: string | null; description: string | null; amount_cents: number | null; currency: string; due_date: string | null; issue_date: string | null; problems: string[] };
+}
+const VIEWS: View[] = ["dashboard", "payments", "deadlines", "calendar", "reminders", "clients", "files", "sources", "billing"];
 const PAGE = 50;
 const DEFAULT_LOGO = "/onpoint/logo.png";
 /* 0276: one calm colour per filing type, used wherever a deadline is shown */
@@ -157,6 +177,7 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
             <div className="ev-grp">
               <div className="ev-h">Records</div>
               {nav("clients", "folder", "Clients")}
+              {nav("files", "folder", "Invoice files")}
               {nav("sources", "upload", "Excel sources")}
             </div>
             {isAdmin && (
@@ -200,6 +221,7 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
             {view === "billing" && isAdmin && <Billing preview={preview} founder={s.me.founder} enquired={s.ws.addon_enquired_at} say={say} back={stripeReturn} />}
             {view === "reminders" && <Reminders s={s} setS={setS} byId={byId} live={live} canEdit={canEdit} preview={preview} say={say} reload={reload} focus={focus} />}
             {view === "clients" && <Clients s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={(id) => openPay("open", id)} openClient={openClient} />}
+            {view === "files" && <Files s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={(id) => openPay("all", id)} />}
             {view === "client" && clientId && <ClientPage key={clientId} s={s} setS={setS} id={clientId} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} back={() => go("clients")} onPreview={openPreview} />}
             {view === "sources" && <Sources s={s} setS={setS} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={() => openPay("open")} />}
           </div>
@@ -1082,9 +1104,9 @@ function Sources(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
       <div className="op-soonbar op-linkbar" role="note">
         <Ic n="card" s={16} />
         <span>
-          <b>Unpaid invoices</b> are imported on{" "}
+          <b>Unpaid invoices</b> are uploaded on{" "}
           <a href="#payments" onClick={(e) => (e.preventDefault(), p.openPay())}>
-            Payments → Import invoice list
+            Payments → Upload invoices
           </a>
           . The sheets below add your clients and their contact emails{p.s.ws.filing_enabled ? ", and the filing deadlines" : ""}.
         </span>
@@ -2035,18 +2057,47 @@ function Payments(p: {
     p.say(status === "paid" ? "Marked paid: no more reminders for it" : status === "open" ? "Back to unpaid" : "Invoice removed");
     await p.reload();
   }
-  async function importFile(f: File | undefined) {
-    if (!f) return;
-    if (p.preview) return p.say("Preview: not imported.");
-    const fd = new FormData();
-    fd.append("file", f);
-    setBusy("import");
-    const r = await api("/api/onpoint/payments", { method: "POST", body: fd });
-    setBusy("");
+  /* 0286: one or many files: PDF invoices are read for checking; Excel/CSV lists are imported. Every file is kept. */
+  const [review, setReview] = useState<PdfRead[] | null>(null);
+  async function upload(list: FileList | null) {
+    const files = [...(list ?? [])].filter((f) => /\.(pdf|xlsx|csv)$/i.test(f.name));
     if (file.current) file.current.value = "";
-    if (!r.ok) return p.say(String(r.j.error ?? "Not imported."));
-    const j = r.j as { invoices: number; added: number; new_clients: number; emails: number; marked_paid: number; skipped: string[] };
-    p.say(`${j.invoices} unpaid invoice${j.invoices === 1 ? "" : "s"} read (${j.added} new)${j.new_clients ? `, ${j.new_clients} new client${j.new_clients === 1 ? "" : "s"}` : ""}${j.marked_paid ? `, ${j.marked_paid} marked paid` : ""}${j.skipped.length ? `, ${j.skipped.length} row${j.skipped.length === 1 ? "" : "s"} skipped` : ""}.`);
+    if (!files.length) return p.say("Choose PDF invoices, or an Excel (.xlsx) or CSV list.");
+    if (p.preview) {
+      const pdfs = files.filter((f) => /\.pdf$/i.test(f.name));
+      if (pdfs.length)
+        setReview(
+          pdfs.map((f, i) => ({
+            file_id: null,
+            file_name: f.name,
+            draft: { client: i ? "SAMPLE Lambda Studio Pte. Ltd." : "Sample Company Pte. Ltd.", client_id: i ? null : "c1", email: i ? null : "alex.tan@example.com", number: `SAMPLE-INV-30${i + 1}`, description: "Corporate secretarial fee", amount_cents: 78000, currency: "SGD", due_date: s.today, issue_date: null, problems: i ? ["New client (not in your list yet): check the name."] : [] },
+          })),
+        );
+      return p.say(pdfs.length ? "Preview: sample reading shown" : "Preview: not imported.");
+    }
+    setBusy("import");
+    const drafts: PdfRead[] = [];
+    const notes: string[] = [];
+    let n = 0;
+    for (const f of files) {
+      n++;
+      p.say(`Uploading ${n} of ${files.length}: ${f.name}`);
+      const fd = new FormData();
+      fd.append("file", f);
+      const r = await api("/api/onpoint/payments", { method: "POST", body: fd });
+      if (!r.ok) {
+        notes.push(String(r.j.error ?? `${f.name}: not uploaded.`));
+        continue;
+      }
+      if (r.j.kind === "pdf") drafts.push({ file_id: (r.j.file_id as string | null) ?? null, file_name: f.name, draft: r.j.draft as PdfRead["draft"] });
+      else {
+        const j = r.j as { invoices: number; added: number };
+        notes.push(`${f.name}: ${j.invoices} unpaid invoice${j.invoices === 1 ? "" : "s"} (${j.added} new)`);
+      }
+    }
+    setBusy("");
+    if (drafts.length) setReview(drafts);
+    p.say(notes.length ? notes.join(" · ") : `${drafts.length} PDF invoice${drafts.length === 1 ? "" : "s"} read: check them, then add.`);
     setChip("open");
     await p.reload();
   }
@@ -2075,13 +2126,13 @@ function Payments(p: {
             <>
               <button className="ev-btn op-push" onClick={() => setAdding((a) => !a)} aria-expanded={adding}>
                 <Ic n="plus" s={14} />
-                Add invoice
+                Type in an invoice
               </button>
               <button className="ev-btn gold" disabled={busy === "import"} onClick={() => file.current?.click()}>
                 <Ic n="upload" s={14} />
-                {busy === "import" ? "Importing…" : "Import invoice list"}
+                {busy === "import" ? "Uploading…" : "Upload invoices"}
               </button>
-              <input ref={file} type="file" accept=".xlsx,.csv" hidden onChange={(e) => void importFile(e.target.files?.[0])} />
+              <input ref={file} type="file" accept=".pdf,.xlsx,.csv" multiple hidden onChange={(e) => void upload(e.target.files)} />
             </>
           )}
         </div>
@@ -2099,7 +2150,9 @@ function Payments(p: {
             </div>
           ) : null;
         })()}
-        <p className="ev-sub op-small op-mt">Import: an Excel or CSV list of unpaid invoices (Xero&rsquo;s invoice export works) with a client, an amount and a due date; an email column fills in missing emails. Invoices marked paid in the file are marked paid here.</p>
+        <p className="ev-sub op-small op-mt">
+          <b>Upload invoices:</b> one or many files at once. <b>PDF invoices</b> are read for you to check before they are added; an <b>Excel or CSV list</b> (Xero&rsquo;s export works) is added straight away. Every file is kept in <b>Invoice files</b>, with the day it was uploaded.
+        </p>
         <div className="ev-chips" role="group" aria-label="Filter">
           {PAY_CHIPS.map(([k, label]) => (
             <button key={k} className={chip === k ? "on" : ""} aria-pressed={chip === k} onClick={() => (setChip(k), setPage(0))}>
@@ -2160,6 +2213,14 @@ function Payments(p: {
                     </td>
                     <td>
                       <b>{v.number || "—"}</b>
+                      {(() => {
+                        const pdf = (s.files ?? []).find((f) => f.invoice_id === v.id);
+                        return pdf ? (
+                          <a className="op-pdflink" href={`/api/onpoint/files?id=${pdf.id}`} target="_blank" rel="noopener noreferrer" title={pdf.name}>
+                            PDF
+                          </a>
+                        ) : null;
+                      })()}
                       {v.description ? <div className="ev-sub op-clip">{v.description}</div> : null}
                     </td>
                     <td className="op-right op-amt">{money(v.amount_cents, v.currency)}</td>
@@ -2219,6 +2280,7 @@ function Payments(p: {
       <PayWording s={s} setS={p.setS} canEdit={p.canEdit} preview={p.preview} say={p.say} reload={p.reload} open={wording} setOpen={setWording} />
       {p.isAdmin && <FilingSwitch s={s} setS={p.setS} preview={p.preview} say={p.say} reload={p.reload} />}
       {selected && <PaySend s={s} setS={p.setS} v={selected} client={p.byId.get(selected.client_id)} canEdit={p.canEdit} preview={p.preview} say={p.say} reload={p.reload} onClose={() => setSel(null)} editWording={() => (setSel(null), setWording(true))} />}
+      {review && <PdfReview s={s} reads={review} preview={p.preview} say={p.say} reload={p.reload} onClose={() => setReview(null)} />}
     </>
   );
 }
@@ -2610,7 +2672,7 @@ function AutoCard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => voi
           <p className="ev-sub op-small">
             {on
               ? "Every morning at 8am (Singapore), each unpaid invoice gets its reminder on these days, by itself. Each one goes once; paid invoices stop."
-              : "Import your invoices and set the days: the system tracks every due date. Once switched on, each reminder goes by itself at 8am on these days. Until then, use Preview & send."}
+              : "Upload your invoices and set the days: the system tracks every due date. Once switched on, each reminder goes by itself at 8am on these days. Until then, use Preview & send."}
           </p>
         </div>
         <div className="op-autoright">
@@ -2709,7 +2771,7 @@ function Rollout(p: { s: Snapshot; go: (v: View) => void }) {
   const { s } = p;
   const plan = s.ws.plan ?? "free";
   const steps: Array<{ t: string; d: string; done: boolean; view: View; act: string }> = [
-    { t: "Connect your data", d: "Import your unpaid invoice list, or add invoices", done: s.invoices.length > 0, view: "payments", act: "Import invoices" },
+    { t: "Connect your data", d: "Upload your invoices (PDF, Excel or CSV), or type one in", done: s.invoices.length > 0, view: "payments", act: "Upload invoices" },
     { t: "Set the rules", d: "Connect your email, check the reminder days and wording", done: !!s.ws.mail_connected, view: "sources", act: "Connect my email" },
     { t: "Test run", d: "Send one reminder: it comes to us first, as a safety check", done: s.deliveries.some((x) => x.test && x.status === "sent"), view: "payments", act: "Preview & send" },
     {
@@ -3032,5 +3094,255 @@ function AddonCard(p: { enquired: string | null; preview: boolean; say: (t: stri
         </div>
       )}
     </section>
+  );
+}
+
+/* ── PDF invoices: check, then add (0286) ──────────────────────────────── */
+
+function PdfReview(p: { s: Snapshot; reads: PdfRead[]; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; onClose: () => void }) {
+  const known = new Map(p.s.clients.map((c) => [c.name.toLowerCase(), c]));
+  const [rows, setRows] = useState(() =>
+    p.reads.map((r) => ({
+      on: !!(r.draft.amount_cents && r.draft.due_date),
+      file_id: r.file_id,
+      file_name: r.file_name,
+      client: r.draft.client,
+      email: r.draft.email ?? "",
+      number: r.draft.number ?? "",
+      description: r.draft.description ?? "",
+      amount: r.draft.amount_cents ? (r.draft.amount_cents / 100).toFixed(2) : "",
+      currency: r.draft.currency,
+      due: r.draft.due_date ?? "",
+      problems: r.draft.problems,
+      error: "",
+    })),
+  );
+  const [busy, setBusy] = useState(false);
+  const set = (i: number, k: string, v: string | boolean) => setRows((x) => x.map((r, j) => (j === i ? { ...r, [k]: v, error: "" } : r)));
+  const ready = rows.filter((r) => r.on);
+  const bad = (r: (typeof rows)[number]) => !r.client.trim() || !/^\d+(\.\d{1,2})?$/.test(r.amount.replace(/[,\s]/g, "")) || !/^\d{4}-\d{2}-\d{2}$/.test(r.due);
+  async function add() {
+    if (ready.some(bad)) return p.say("Each ticked invoice needs a client, an amount and a due date.");
+    if (p.preview) {
+      p.say(`${ready.length} invoice${ready.length === 1 ? "" : "s"} added (preview only)`);
+      return p.onClose();
+    }
+    setBusy(true);
+    const items = ready.map((r) => {
+      const k = known.get(r.client.trim().toLowerCase());
+      return { file_id: r.file_id, file_name: r.file_name, client_id: k?.id, client_name: r.client, email: r.email, number: r.number, description: r.description, amount: r.amount, currency: r.currency, due_date: r.due };
+    });
+    const res = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "add_pdf", items }) });
+    setBusy(false);
+    const results = (res.j.results as Array<{ file_id: string | null; ok: boolean; error?: string }>) ?? [];
+    const ok = results.filter((r) => r.ok).length;
+    await p.reload();
+    if (ok === items.length) {
+      p.say(`${ok} invoice${ok === 1 ? "" : "s"} added from PDF`);
+      return p.onClose();
+    }
+    /* keep the ones that did not go in, with the reason */
+    setRows((x) => x.map((r) => {
+      const f = results.find((q) => q.file_id === r.file_id);
+      return f?.ok ? { ...r, on: false, error: "", problems: ["Added."] } : f ? { ...r, error: f.error ?? "Not added." } : r;
+    }));
+    p.say(`${ok} added, ${items.length - ok} not added: see the reasons.`);
+  }
+  return (
+    <>
+      <button className="ev-scrim top" aria-label="Close" onClick={p.onClose} />
+      <div role="dialog" aria-modal="true" aria-labelledby="op-pdfh" className="ev-pay op-modal wide op-review">
+        <div className="op-h">
+          <h2 id="op-pdfh">Check {rows.length} invoice{rows.length === 1 ? "" : "s"} from PDF</h2>
+          <button className="ev-link" onClick={p.onClose} aria-label="Close">
+            <Ic n="close" s={14} />
+          </button>
+        </div>
+        <p className="ev-sub op-small">We read these from the PDFs. Check each one and correct anything, then add them. Nothing is added until you press the button. The files are already kept in Invoice files.</p>
+        <datalist id="op-clientnames2">
+          {p.s.clients.slice(0, 2000).map((c) => (
+            <option key={c.id} value={c.name} />
+          ))}
+        </datalist>
+        <div className="op-revlist">
+          {rows.map((r, i) => (
+            <div key={i} className={`op-rev ${r.on ? "" : "off"}`}>
+              <label className="op-revtop">
+                <input type="checkbox" checked={r.on} onChange={(e) => set(i, "on", e.target.checked)} />
+                <b>{r.file_name}</b>
+              </label>
+              <div className="op-revgrid">
+                <label>
+                  <span className="op-lab">Client</span>
+                  <input className="op-in sm" list="op-clientnames2" value={r.client} onChange={(e) => set(i, "client", e.target.value)} />
+                </label>
+                <label>
+                  <span className="op-lab">Email</span>
+                  <input className="op-in sm" type="email" value={r.email} placeholder={known.get(r.client.trim().toLowerCase())?.contact_email ?? "client@company.com"} onChange={(e) => set(i, "email", e.target.value)} />
+                </label>
+                <label>
+                  <span className="op-lab">Invoice no.</span>
+                  <input className="op-in sm" value={r.number} onChange={(e) => set(i, "number", e.target.value)} />
+                </label>
+                <label>
+                  <span className="op-lab">Amount ({r.currency === "SGD" ? "S$" : r.currency})</span>
+                  <input className="op-in sm" inputMode="decimal" value={r.amount} onChange={(e) => set(i, "amount", e.target.value)} />
+                </label>
+                <label>
+                  <span className="op-lab">Due date</span>
+                  <input className="op-in sm" type="date" value={r.due} onChange={(e) => set(i, "due", e.target.value)} />
+                </label>
+                <label className="op-span2">
+                  <span className="op-lab">What it is for</span>
+                  <input className="op-in sm" value={r.description} onChange={(e) => set(i, "description", e.target.value)} />
+                </label>
+              </div>
+              {r.error ? <p className="op-late op-small">{r.error}</p> : r.problems.length ? <p className="op-revnote">{r.problems.join(" ")}</p> : <p className="op-revok">Everything was read.</p>}
+            </div>
+          ))}
+        </div>
+        <div className="op-chiprow op-mt">
+          <button className="ev-btn gold" disabled={busy || !ready.length} onClick={() => void add()}>
+            {busy ? "Adding…" : `Add ${ready.length} invoice${ready.length === 1 ? "" : "s"}`}
+          </button>
+          <button className="ev-link" onClick={p.onClose}>
+            Not now (the files stay in Invoice files)
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ── Invoice files: the folder of every uploaded file (0286) ───────────── */
+
+const KIND_NAME: Record<OpFile["kind"], string> = { pdf: "PDF invoice", list: "Invoice list", sheet: "Client sheet" };
+
+function Files(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; openPay: (invoiceId: string) => void }) {
+  const { s } = p;
+  const [q, setQ] = useState("");
+  const [kind, setKind] = useState<"" | OpFile["kind"]>("");
+  const [busy, setBusy] = useState("");
+  const files = (s.files ?? []).filter((f) => (!kind || f.kind === kind) && (!q.trim() || f.name.toLowerCase().includes(q.trim().toLowerCase())));
+  const days = new Map<string, OpFile[]>();
+  for (const f of files) {
+    const d = new Date(new Date(f.uploaded_at).getTime() + 8 * 3_600_000).toISOString().slice(0, 10);
+    days.set(d, [...(days.get(d) ?? []), f]);
+  }
+  const size = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+  async function remove(f: OpFile) {
+    if (!window.confirm(`Remove ${f.name} from Invoice files? ${f.invoice_id ? "The invoice it became stays on Payments." : ""}`)) return;
+    if (p.preview) return p.say("Preview: not removed.");
+    setBusy(f.id);
+    const r = await api(`/api/onpoint/files?id=${f.id}`, { method: "DELETE" });
+    setBusy("");
+    if (!r.ok) return p.say(String(r.j.error ?? "Not removed."));
+    p.say("File removed");
+    await p.reload();
+  }
+  const detail = (f: OpFile) => {
+    if (f.kind === "pdf") {
+      const v = f.invoice_id ? s.invoices.find((x) => x.id === f.invoice_id) : undefined;
+      if (v) return { text: `${v.number || "Invoice"} · ${money(v.amount_cents, v.currency)} · ${p.byId.get(v.client_id)?.name ?? ""} · ${v.status === "paid" ? "Paid" : `due ${fmtDate(v.due_date)}`}`, inv: v.id, tone: v.status === "paid" ? "ok" : "" };
+      return { text: "Not added to invoices yet", inv: null, tone: "warn" };
+    }
+    const d = f.details as { invoices?: number; added?: number; clients?: number; deadlines?: number };
+    if (f.kind === "list") return { text: `${d.invoices ?? 0} unpaid invoice${d.invoices === 1 ? "" : "s"} (${d.added ?? 0} new)`, inv: null, tone: "" };
+    return { text: `${d.clients ?? 0} clients${d.deadlines ? ` · ${d.deadlines} deadlines` : ""}`, inv: null, tone: "" };
+  };
+  return (
+    <>
+      <PageHead icon="folder" eyebrow="Records" title="Invoice files">
+        Every file you upload is kept here, by day: PDF invoices, invoice lists and client sheets. Only your team can open them.
+      </PageHead>
+      {s.files_ready === false && <div className="op-warn">The file folder is not switched on yet: run supabase/143_onpoint_files.sql in Supabase first.</div>}
+      <section className="ev-card op-pad">
+        <div className="op-tools">
+          <label className="ev-search wide">
+            <Ic n="search" />
+            <span className="ev-sr">Search files</span>
+            <input value={q} placeholder="Search a file name" onChange={(e) => setQ(e.target.value)} />
+          </label>
+        </div>
+        <div className="ev-chips" role="group" aria-label="Type">
+          {([["", "All"], ["pdf", "PDF invoices"], ["list", "Invoice lists"], ["sheet", "Client sheets"]] as Array<["" | OpFile["kind"], string]>).map(([k, label]) => (
+            <button key={k || "all"} className={kind === k ? "on" : ""} aria-pressed={kind === k} onClick={() => setKind(k)}>
+              {label} <span>{(s.files ?? []).filter((f) => !k || f.kind === k).length}</span>
+            </button>
+          ))}
+        </div>
+        {files.length === 0 && (
+          <div className="op-emptystate">
+            <span aria-hidden="true">
+              <Ic n="folder" s={22} />
+            </span>
+            <b>No files yet</b>
+            <span className="ev-sub">Files appear here as you upload them on Payments or Excel sources.</span>
+          </div>
+        )}
+        {[...days.entries()].map(([day, list]) => (
+          <div key={day} className="op-fday">
+            <h3 className="op-fdayh">
+              {longDate(day)} <span className="ev-sub">· {list.length} file{list.length === 1 ? "" : "s"}</span>
+            </h3>
+            <div className="ev-tablewrap">
+              <table className="ev-table op-table">
+                <thead>
+                  <tr>
+                    <th>File</th>
+                    <th>Type</th>
+                    <th>What it became</th>
+                    <th>Uploaded</th>
+                    <th className="op-right" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((f) => {
+                    const d = detail(f);
+                    return (
+                      <tr key={f.id}>
+                        <td>
+                          <b className="op-fname">{f.name}</b>
+                          <div className="ev-sub op-small">{size(f.size)}</div>
+                        </td>
+                        <td>
+                          <span className={`op-fkind k-${f.kind}`}>{KIND_NAME[f.kind]}</span>
+                        </td>
+                        <td>
+                          {d.inv ? (
+                            <button className="ev-link" onClick={() => p.openPay(d.inv!)}>
+                              {d.text}
+                            </button>
+                          ) : (
+                            <span className={d.tone === "warn" ? "op-due soon" : "ev-sub"}>{d.text}</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="ev-sub op-small">
+                            {new Date(f.uploaded_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })} · {f.uploaded_by ?? "—"}
+                          </span>
+                        </td>
+                        <td className="op-right">
+                          <span className="op-acts">
+                            <a className="ev-btn sm" href={`/api/onpoint/files?id=${f.id}`} target="_blank" rel="noopener noreferrer">
+                              Open
+                            </a>
+                            {p.canEdit && (
+                              <button className="ev-link" disabled={busy === f.id} onClick={() => void remove(f)}>
+                                Remove
+                              </button>
+                            )}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))}
+      </section>
+    </>
   );
 }

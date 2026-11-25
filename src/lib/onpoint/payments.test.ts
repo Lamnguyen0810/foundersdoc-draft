@@ -118,3 +118,26 @@ test("automatic payment reminders: which day, and the next one", async () => {
   assert.equal(cleanDays([0], 1), null);
   assert.equal(cleanDays([1.5], 0), null);
 });
+
+test("reading a PDF invoice's text: Xero layout and a simple one", async () => {
+  const { parseInvoiceText } = await import("./payments");
+  const own = { names: ["OnPoint Consulting Pte. Ltd."], emails: ["accounts@onpointsg.com"] };
+  const xero = "TAX INVOICE\nSAMPLE Lambda Studio Pte. Ltd. Invoice Date OnPoint Consulting Pte. Ltd.\nAttention: Accounts 20 Nov 2026 accounts@onpointsg.com\nfinance@example.com Invoice Number\nSAMPLE-INV-3001\nDue Date\n4 Dec 2026\nDescription Quantity Unit Price Amount SGD\nCorporate secretarial fee 2026 1.00 480.00 480.00\nRegistered address (12 months) 1.00 300.00 300.00\nSubtotal 780.00\nAMOUNT DUE SGD780.00";
+  const a = parseInvoiceText(xero, [], own);
+  assert.equal(a.client, "SAMPLE Lambda Studio Pte. Ltd.");
+  assert.equal(a.number, "SAMPLE-INV-3001");
+  assert.equal(a.amount_cents, 78000);
+  assert.equal(a.due_date, "2026-12-04");
+  assert.equal(a.issue_date, "2026-11-20");
+  assert.equal(a.email, "finance@example.com");
+  assert.equal(a.description, "Corporate secretarial fee 2026");
+  const simple = "OnPoint Consulting Pte. Ltd.\naccounts@onpointsg.com\nINVOICE\nInvoice No: SAMPLE-INV-3002\nInvoice Date: 15/11/2026\nDue Date: 30/11/2026\nBill To:\nSAMPLE Mu Engineering Pte. Ltd.\nDescription\nAccounts and tax filing FY2025\nTotal Due: S$ 1,250.00";
+  const b = parseInvoiceText(simple, [{ id: "c9", name: "SAMPLE Mu Engineering Pte. Ltd.", key: "sample mu engineering pte ltd", contact_email: "ops@example.com" }], own);
+  assert.equal(b.client_id, "c9");
+  assert.equal(b.email, "ops@example.com");
+  assert.equal(b.amount_cents, 125000);
+  assert.equal(b.due_date, "2026-11-30");
+  assert.deepEqual(b.problems, []);
+  const scan = parseInvoiceText("  ", [], own);
+  assert.match(scan.problems[0], /No readable text/);
+});

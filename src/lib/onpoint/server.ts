@@ -163,6 +163,11 @@ export async function snapshot(m: Me) {
     leads,
     invoices: invoices ?? [],
     payments_ready: invoices !== null,
+    /* 0286: the file folder (null before supabase/143) */
+    ...(await import("./files").then(async (f) => {
+      const files = await f.listFiles(id);
+      return { files: files ?? [], files_ready: files !== null };
+    })),
     today: sgToday(),
   };
 }
@@ -240,7 +245,7 @@ export async function applyImport(m: Me, fileName: string, d: Derived) {
 
   const summary = { kinds: d.kinds, clients: d.clients.length, deadlines: dl.length, added: fresh2.length, contacts, superseded: old.length, skipped: d.skipped };
   await closeImport(imp.id, summary);
-  return summary;
+  return { ...summary, import_id: imp.id };
 }
 
 /* ── sending ──────────────────────────────────────────────────────────── */
@@ -540,7 +545,7 @@ export async function addInvoice(m: Me, b: Record<string, unknown>) {
   } else cid = await clientFor(m.ws.id, name, email, contact);
   const r = await db()
     .from("onpoint_invoices")
-    .insert({ workspace_id: m.ws.id, client_id: cid, number, description, amount_cents: amount, currency: "SGD", due_date: due, source: "Added in the app", source_key: number ? `INV:${number.toLowerCase()}` : `MAN:${crypto.randomUUID()}`, created_by: m.email })
+    .insert({ workspace_id: m.ws.id, client_id: cid, number, description, amount_cents: amount, currency: /^[A-Z]{3}$/.test(String(b.currency ?? "")) ? String(b.currency) : "SGD", due_date: due, source: String(b.source ?? "").slice(0, 200) || "Added in the app", source_key: number ? `INV:${number.toLowerCase()}` : `MAN:${crypto.randomUUID()}`, created_by: m.email })
     .select("id")
     .single();
   if (r.error && /duplicate|23505/i.test(`${r.error.code ?? ""} ${r.error.message}`)) throw new OpError(`Invoice ${number} is already there.`, 409);
@@ -637,7 +642,7 @@ export async function applyInvoiceImport(m: Me, fileName: string, list: InvoiceL
   }
   const summary = { invoices: rows.length, added: rows.filter((r) => !had.has(r.source_key)).length, new_clients: freshRows.length, emails, marked_paid: paid, skipped: list.skipped.slice(0, 50) };
   await closeImport(imp.id, summary);
-  return summary;
+  return { ...summary, import_id: imp.id };
 }
 
 /** Send one payment reminder now (a button; automatic payment reminders come later). Same safeguards as filing. */
@@ -714,4 +719,25 @@ export async function enquireAddon(m: Me, note: string) {
     await teamNotice(`📝 OnPoint asked about the document drafting & review add-on (${m.email})${note ? `: ${note.slice(0, 300)}` : ""}`, channel).catch(() => false);
   }
   return { at };
+}
+
+/* ── PDF invoices (0286) ──────────────────────────────────────────────── */
+
+/** read one PDF invoice into a draft for the person to check; nothing is added yet */
+export async function readPdfInvoice(m: Me, buf: Buffer) {
+  const { extractText, getDocumentProxy } = await import("unpdf");
+  let text = "";
+  try {
+    const pdf = await getDocumentProxy(new Uint8Array(buf));
+    text = String((await extractText(pdf, { mergePages: true })).text ?? "");
+  } catch {
+    text = "";
+  }
+  const clients = await all<{ id: string; name: string; key: string; contact_email: string | null }>((f, t) => db().from("onpoint_clients").select("id, name, key, contact_email").eq("workspace_id", m.ws.id).range(f, t));
+  const w = (await db().from("onpoint_workspaces").select("mail_address").eq("id", m.ws.id).maybeSingle()).data as { mail_address?: string | null } | null;
+  const { parseInvoiceText } = await import("./payments");
+  return parseInvoiceText(text, clients, {
+    names: [m.ws.name, m.ws.custom_name ?? "", m.ws.sender_name].filter(Boolean),
+    emails: [m.ws.sender_email ?? "", w?.mail_address ?? "", m.email].map((e) => e.toLowerCase()).filter(Boolean),
+  });
 }

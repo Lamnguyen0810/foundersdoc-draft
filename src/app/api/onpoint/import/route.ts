@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { applyImport, errorJson, guard, OpError, undoImport } from "@/lib/onpoint/server";
 import { readXlsx } from "@/lib/onpoint/xlsx";
 import { derive } from "@/lib/onpoint/derive";
+import { noteFile, storeFile } from "@/lib/onpoint/files";
 import { sgToday } from "@/lib/onpoint/dates";
 
 /**
  * POST /api/onpoint/import (multipart, field "files"): OnPoint's Excel sheets → clients, contacts and deadlines.
- * The sheets are read here and never kept; only what is worked out from them is stored (0267).
+ * 0286: the sheet itself is also kept, private, in OnPoint's file folder.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,15 +24,20 @@ export async function POST(req: NextRequest) {
       if (!/\.xlsx$/i.test(f.name)) throw new OpError(`${f.name}: only .xlsx files can be read. In Excel: File → Save As → Excel Workbook.`);
       if (f.size > 8 * 1024 * 1024) throw new OpError(`${f.name} is larger than 8 MB.`);
       let sheets;
+      const buf = Buffer.from(await f.arrayBuffer());
       try {
-        sheets = readXlsx(Buffer.from(await f.arrayBuffer()));
+        sheets = readXlsx(buf);
       } catch {
         throw new OpError(`${f.name} could not be read as an Excel file.`);
       }
       const label = f.name.replace(/\.xlsx$/i, "").replace(/_/g, " ");
       const d = derive(label, sheets, sgToday());
       try {
-        results.push({ file: f.name, ...(await applyImport(m, f.name, d)) });
+        const res = await applyImport(m, f.name, d);
+        /* 0286: the sheet is kept in the file folder too */
+        const fileId = await storeFile(m, buf, f.name, "sheet", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet").catch(() => null);
+        await noteFile(m, fileId, { import_id: res.import_id, details: { kinds: res.kinds, clients: res.clients, deadlines: res.deadlines, contacts: res.contacts } });
+        results.push({ file: f.name, ...res });
       } catch (e) {
         /* 0275: say which file and why, instead of a bare "not imported" */
         console.error("[onpoint import]", f.name, e);
