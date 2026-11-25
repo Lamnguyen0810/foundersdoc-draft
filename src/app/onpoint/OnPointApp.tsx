@@ -1938,7 +1938,6 @@ function PayDashboard(p: { s: Snapshot; byId: Map<string, Client>; company: stri
         </p>
       </header>
       {!s.payments_ready && <div className="op-warn">Payment reminders are not switched on yet: Founders Doc runs one database update (139) first.</div>}
-      <Rollout s={s} go={p.go} />
       {s.payments_ready && s.invoices.length === 0 && (
         <div className="ev-card op-empty">
           <b>No invoices yet.</b> Import your unpaid invoice list (Excel or CSV, e.g. from Xero) or add one by hand on{" "}
@@ -2788,61 +2787,6 @@ function UndoImport(p: { imp: { id?: number; file_name: string }; preview: boole
   );
 }
 
-/* ── Rollout (0283): the four steps of the fee proposal ────────────────── */
-
-function Rollout(p: { s: Snapshot; go: (v: View) => void }) {
-  const { s } = p;
-  const plan = s.ws.plan ?? "free";
-  const steps: Array<{ t: string; d: string; done: boolean; view: View; act: string }> = [
-    { t: "Connect your data", d: "Upload your invoices (PDF, Excel or CSV), or type one in", done: s.invoices.length > 0, view: "payments", act: "Upload invoices" },
-    { t: "Set the rules", d: "Connect your email, check the reminder days and wording", done: !!s.ws.mail_connected, view: "sources", act: "Connect my email" },
-    { t: "Test run", d: "Send one reminder: it comes to us first, as a safety check", done: s.deliveries.some((x) => x.test && x.status === "sent"), view: "payments", act: "Preview & send" },
-    {
-      t: "Go live",
-      d: plan === "free" ? "Reminders reach your clients. Free while card payment opens soon" : plan === "none" ? "Set up the card payment, then reminders reach your clients" : "Reminders reach your clients; your plan is active",
-      done: !s.ws.test_inbox && plan !== "none",
-      view: plan === "none" ? "billing" : "payments",
-      act: plan === "none" ? "Set up payment" : "With Founders Doc",
-    },
-  ];
-  const at = steps.findIndex((x) => !x.done);
-  if (at === -1) return null;
-  return (
-    <section className="ev-card op-pad op-rollout" aria-label="Your rollout">
-      <div className="op-rollh">
-        <h2 className="op-h2">Your rollout</h2>
-        <span className="ev-sub op-small">
-          Step {at + 1} of 4 · as in your proposal
-        </span>
-      </div>
-      <ol className="op-steps4">
-        {steps.map((x, i) => (
-          <li key={x.t} className={x.done ? "done" : i === at ? "now" : ""}>
-            <span className="op-stepn" aria-hidden="true">
-              {x.done ? <Ic n="check" s={13} w={2.6} /> : i + 1}
-            </span>
-            <b>{x.t}</b>
-            <span className="ev-sub op-small">{x.d}</span>
-            {i === at && (s.me.role === "admin" || x.view !== "billing") && x.act !== "With Founders Doc" ? (
-              <a
-                href={`#${x.view}`}
-                className="op-steplink"
-                onClick={(e) => {
-                  e.preventDefault();
-                  p.go(x.view);
-                }}
-              >
-                {x.act} →
-              </a>
-            ) : i === at ? (
-              <span className="ev-sub op-small op-steplink">Founders Doc switches this on with you</span>
-            ) : null}
-          </li>
-        ))}
-      </ol>
-    </section>
-  );
-}
 
 /** 0284: where it matters (sending), say plainly where the emails go for now */
 function SafetyNote({ inbox }: { inbox: string }) {
