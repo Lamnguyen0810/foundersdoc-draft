@@ -509,3 +509,7 @@
 .op-fbdrop:hover { border-color: #f3bf4b; background: #fffbf0; }
 .op-fbshot { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #2f6b1f; }
 @media (prefers-reduced-motion: reduce) { .esop.ev .op-fbpanel { animation: none; } }
+
+/* 0293 · edit a comment */
+.op-fbedit { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.op-fbkinds.small button { padding: 6px 8px; font-size: 12.5px; }

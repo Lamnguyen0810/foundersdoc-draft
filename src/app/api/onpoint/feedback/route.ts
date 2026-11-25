@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addFeedback, errorJson, feedbackShot, guard, markFeedback } from "@/lib/onpoint/server";
+import { addFeedback, deleteFeedback, editFeedback, errorJson, feedbackShot, guard, markFeedback, OpError } from "@/lib/onpoint/server";
 
 /**
  * OnPoint's feedback, page by page, for the first 3 months (0291).
@@ -7,6 +7,8 @@ import { addFeedback, errorJson, feedbackShot, guard, markFeedback } from "@/lib
  *   optional screenshot (Founders Doc hears about it on Slack, if set up)
  * GET ?shot=<id>           opens a comment's screenshot (a one-minute private link)
  * PATCH { id, done }       Founders Doc marks a comment done
+ * PATCH { id, message, kind }  0293: the writer changes their comment while it is not done
+ * DELETE ?id=…             0293: the writer deletes their comment while it is not done
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,9 +42,25 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const m = await guard("admin");
-    const b = (await req.json().catch(() => ({}))) as { id?: unknown; done?: unknown };
-    await markFeedback(m, String(b.id ?? ""), b.done === true);
+    const b = (await req.json().catch(() => ({}))) as { id?: unknown; done?: unknown; message?: unknown; kind?: unknown };
+    if (typeof b.message === "string") {
+      await editFeedback(await guard("view"), String(b.id ?? ""), b.message, typeof b.kind === "string" ? b.kind : undefined);
+      return NextResponse.json({ ok: true });
+    }
+    await markFeedback(await guard("admin"), String(b.id ?? ""), b.done === true);
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    const { body, status } = errorJson(e);
+    return NextResponse.json(body, { status });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const m = await guard("view");
+    const id = String(req.nextUrl.searchParams.get("id") ?? "");
+    if (!id) throw new OpError("Which comment?");
+    await deleteFeedback(m, id);
     return NextResponse.json({ ok: true });
   } catch (e) {
     const { body, status } = errorJson(e);

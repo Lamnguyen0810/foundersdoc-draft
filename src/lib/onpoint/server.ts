@@ -155,13 +155,15 @@ export async function snapshot(m: Me) {
     /* 0292: with its kind and whether it has a screenshot (before 146: without) */
     db()
       .from("onpoint_feedback")
-      .select("id, page, message, created_by, created_at, status, kind, shot_path")
+      .select("id, page, message, created_by, created_at, status, kind, shot_path, edited_at")
       .eq("workspace_id", id)
       .order("created_at", { ascending: false })
       .range(0, 299)
       .then(async (r) =>
         r.error
-          ? ((await db().from("onpoint_feedback").select("id, page, message, created_by, created_at, status").eq("workspace_id", id).order("created_at", { ascending: false }).range(0, 299)).data ?? null)
+          ? ((await db().from("onpoint_feedback").select("id, page, message, created_by, created_at, status, kind").eq("workspace_id", id).order("created_at", { ascending: false }).range(0, 299)).data ??
+            (await db().from("onpoint_feedback").select("id, page, message, created_by, created_at, status").eq("workspace_id", id).order("created_at", { ascending: false }).range(0, 299)).data ??
+            null)
           : (r.data ?? []).map((f) => {
               const { shot_path, ...rest } = f as { shot_path: string | null } & Record<string, unknown>;
               return { ...rest, shot: !!shot_path };
@@ -843,4 +845,30 @@ export async function feedbackShot(m: Me, id: string): Promise<string> {
   const s = await db().storage.from("onpoint-files").createSignedUrl(f.shot_path, 60);
   if (s.error || !s.data?.signedUrl) throw new OpError("The screenshot could not be opened.", 500);
   return s.data.signedUrl;
+}
+
+/* 0293: the person who wrote a comment can change or delete it while it is not done yet (Founders Doc can too) */
+async function ownFeedback(m: Me, id: string) {
+  const f = (await db().from("onpoint_feedback").select("id, created_by, status, shot_path").eq("workspace_id", m.ws.id).eq("id", id).maybeSingle()).data as { id: string; created_by: string | null; status: string; shot_path?: string | null } | null;
+  if (!f) throw new OpError("That comment is no longer there.", 404);
+  if (!m.founder && f.created_by !== m.email) throw new OpError("You can only change your own comments.", 403);
+  if (!m.founder && f.status === "done") throw new OpError("This one is already done, so it can't be changed. Send a new comment instead.", 409);
+  return f;
+}
+
+export async function editFeedback(m: Me, id: string, message: string, kind?: string) {
+  await ownFeedback(m, id);
+  const text = message.trim().slice(0, 4000);
+  if (!text) throw new OpError("Write your comment first.");
+  const k = kind && (KINDS as readonly string[]).includes(kind) ? { kind } : {};
+  let r = await db().from("onpoint_feedback").update({ message: text, ...k, edited_at: new Date().toISOString() }).eq("workspace_id", m.ws.id).eq("id", id);
+  if (r.error && /edited_at|kind/.test(r.error.message)) r = await db().from("onpoint_feedback").update({ message: text }).eq("workspace_id", m.ws.id).eq("id", id);
+  if (r.error) throw new OpError(r.error.message, 500);
+}
+
+export async function deleteFeedback(m: Me, id: string) {
+  const f = await ownFeedback(m, id);
+  if (f.shot_path) await db().storage.from("onpoint-files").remove([f.shot_path]);
+  const r = await db().from("onpoint_feedback").delete().eq("workspace_id", m.ws.id).eq("id", id);
+  if (r.error) throw new OpError(r.error.message, 500);
 }

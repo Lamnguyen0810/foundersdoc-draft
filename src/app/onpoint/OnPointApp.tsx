@@ -46,6 +46,7 @@ interface Feedback {
   /* 0292 */
   kind?: "change" | "add" | "fix" | "question";
   shot?: boolean;
+  edited_at?: string | null;
 }
 const KINDS: Array<["change" | "add" | "fix" | "question", string, string]> = [
   ["change", "✏️", "Change something"],
@@ -3514,7 +3515,38 @@ function FeedbackLauncher(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot
   const [shot, setShot] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [thanks, setThanks] = useState(false);
+  /* 0293: change or delete your own comment while it is not done */
+  const [editing, setEditing] = useState<{ id: string; message: string; kind: Feedback["kind"] } | null>(null);
   const all = s.feedback ?? [];
+  const mineCanChange = (f: Feedback) => f.status !== "done" && (s.me.founder || f.created_by === s.me.email);
+  async function saveEdit() {
+    if (!editing) return;
+    const msg = editing.message.trim();
+    if (!msg) return p.say("Write your comment first.");
+    if (p.preview) {
+      p.setS((x) => ({ ...x, feedback: (x.feedback ?? []).map((k) => (k.id === editing.id ? { ...k, message: msg, kind: editing.kind, edited_at: new Date().toISOString() } : k)) }));
+      setEditing(null);
+      return p.say("Changed (preview only)");
+    }
+    setBusy(true);
+    const r = await api("/api/onpoint/feedback", { method: "PATCH", body: JSON.stringify({ id: editing.id, message: msg, kind: editing.kind }) });
+    setBusy(false);
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    setEditing(null);
+    p.say("Comment changed");
+    await p.reload();
+  }
+  async function remove(f: Feedback) {
+    if (!window.confirm("Delete this comment? It can't be brought back.")) return;
+    if (p.preview) {
+      p.setS((x) => ({ ...x, feedback: (x.feedback ?? []).filter((k) => k.id !== f.id) }));
+      return p.say("Deleted (preview only)");
+    }
+    const r = await api(`/api/onpoint/feedback?id=${f.id}`, { method: "DELETE" });
+    if (!r.ok) return p.say(String(r.j.error ?? "Not deleted."));
+    p.say("Comment deleted");
+    await p.reload();
+  }
   const list = (tab === "page" ? all.filter((f) => f.page === p.page) : all).slice(0, 40);
   const fresh = all.filter((f) => f.status === "new").length;
   const pages = [...new Set([...Object.values(PAGE_NAME).filter((n) => n !== "Payment reminders" || s.ws.payments_enabled !== false), "Anything else"])];
@@ -3583,7 +3615,7 @@ function FeedbackLauncher(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot
                     <Ic n="check" s={14} w={2.4} /> Thank you! We&rsquo;ve got it, and you&rsquo;ll see it marked done when it&rsquo;s sorted.
                   </p>
                 )}
-                <p className="ev-sub op-small">Tell us what to change, one point at a time, whenever you notice it. No call needed.</p>
+                <p className="ev-sub op-small">Tell us what to change, one point at a time, whenever you notice it. No call needed. You can edit or delete a comment until it is marked done.</p>
                 <button className="ev-btn gold op-fbnew" onClick={start}>
                   <Ic n="plus" s={15} /> New feedback
                 </button>
@@ -3608,9 +3640,44 @@ function FeedbackLauncher(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot
                             <span className="ev-sub op-small">{f.page}</span>
                             <span className={`op-pill ${f.status === "done" ? "ok" : "warn"}`}>{f.status === "done" ? "Done" : "Received"}</span>
                           </div>
-                          <p>{f.message}</p>
+                          {editing?.id === f.id ? (
+                            <div className="op-fbedit">
+                              <div className="op-fbkinds small" role="radiogroup" aria-label="Kind of feedback">
+                                {KINDS.map(([v, icon, label]) => (
+                                  <button key={v} type="button" role="radio" aria-checked={editing.kind === v} className={editing.kind === v ? "on" : ""} onClick={() => setEditing({ ...editing, kind: v })}>
+                                    <span aria-hidden="true">{icon}</span> {label}
+                                  </button>
+                                ))}
+                              </div>
+                              <textarea className="op-in" rows={4} maxLength={4000} value={editing.message} onChange={(e) => setEditing({ ...editing, message: e.target.value })} />
+                              <div className="op-chiprow">
+                                <button className="ev-btn sm gold" disabled={busy || !editing.message.trim()} onClick={() => void saveEdit()}>
+                                  {busy ? "Saving…" : "Save changes"}
+                                </button>
+                                <button className="ev-link op-small" onClick={() => setEditing(null)}>
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p>{f.message}</p>
+                          )}
                           <div className="op-fbfoot">
-                            <span className="ev-sub op-small">{new Date(f.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                            <span className="ev-sub op-small">
+                              {new Date(f.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                              {f.edited_at ? " · edited" : ""}
+                              {s.me.founder && f.created_by ? ` · ${f.created_by}` : ""}
+                            </span>
+                            {mineCanChange(f) && editing?.id !== f.id && (
+                              <>
+                                <button className="ev-link op-small" onClick={() => setEditing({ id: f.id, message: f.message, kind: f.kind ?? "change" })}>
+                                  Edit
+                                </button>
+                                <button className="ev-link op-small" onClick={() => void remove(f)}>
+                                  Delete
+                                </button>
+                              </>
+                            )}
                             {f.shot ? (
                               <a className="ev-link op-small" href={`/api/onpoint/feedback?shot=${f.id}`} target="_blank" rel="noopener noreferrer">
                                 Screenshot
