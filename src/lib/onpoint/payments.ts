@@ -366,9 +366,13 @@ export interface PdfDraft {
   problems: string[];
 }
 
-const MONEY = /(?:S\$|SGD|USD|US\$|\$)?\s*(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{2}|\d{2,})(?!\s*%)/g;
+/* an amount has cents or a currency sign; dates are taken out first, so a year is never read as an amount */
+const MONEY = /(?:(?:S\$|SGD|USD|US\$|\$)\s*(\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)|(\d{1,3}(?:,\d{3})+\.\d{2}|\d+\.\d{2}))(?!\s*%)/g;
+const DATES = /\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4}|[A-Za-z]{3,9}\s+\d{4}/g;
+const amounts = (s: string) =>
+  [...s.replace(DATES, " ").matchAll(MONEY)].map((m) => Math.round(parseFloat((m[1] ?? m[2]).replace(/,/g, "")) * 100)).filter((n) => n > 0 && n < 100_000_000_000);
 const moneyIn = (s: string): number | null => {
-  const all = [...s.matchAll(MONEY)].map((m) => Math.round(parseFloat(m[1].replace(/,/g, "")) * 100)).filter((n) => n > 0);
+  const all = amounts(s);
   return all.length ? all[all.length - 1] : null;
 };
 
@@ -410,18 +414,22 @@ export function parseInvoiceText(text: string, clients: Array<{ id: string; name
     flat.match(/\b(INV[-\s]?[A-Z0-9][A-Z0-9\-]{1,30})\b/i)?.[1]?.replace(/\s/g, "-") ??
     null;
   if (out.number && /^(date|due|to|for)$/i.test(out.number)) out.number = null;
-  out.issue_date = after(lines, /\b(?:invoice\s+date|date\s+of\s+issue|issue\s+date|date\s+issued)\b/i, firstDate);
+  out.issue_date = after(lines, /\b(?:invoice\s+date|date\s+of\s+issue|issue\s+date|date\s+issued)\b/i, firstDate) ?? after(lines, /^date\b/i, firstDate);
   out.due_date = after(lines, /\b(?:due\s+date|payment\s+due|date\s+due|due\s+by|pay\s+by)\b/i, firstDate);
   if (!out.due_date && /due\s+(?:on|upon)\s+receipt|payable\s+(?:on|upon)\s+receipt/i.test(flat)) out.due_date = out.issue_date;
   if (!out.due_date) problems.push("No due date found: pick it.");
-  const amountLine = /^(?:amount\s+due|balance\s+due|total\s+due|amount\s+payable|total\s+amount\s+due|balance|total\s*\((?:sgd|s\$)\)|total\s+(?:sgd|s\$)|grand\s+total|total)\b/i;
-  const amt = after(lines, amountLine, (s) => {
+  /* "Amount due" first; otherwise the last "Total" line with an amount on it (a table's "Total" heading comes first) */
+  const dueLine = /^(?:amount\s+due|balance\s+due|total\s+due|amount\s+payable|total\s+amount\s+due|balance)\b/i;
+  const totalLine = /^(?:grand\s+total|total)\b/i;
+  const pick = (s: string) => {
     const n = moneyIn(s);
     return n ? String(n) : null;
-  });
+  };
+  const lastTotal = [...lines].reverse().find((l) => totalLine.test(l) && moneyIn(l.replace(totalLine, "")));
+  const amt = after(lines, dueLine, pick) ?? (lastTotal ? pick(lastTotal.replace(totalLine, "")) : null) ?? after(lines, totalLine, pick);
   out.amount_cents = amt ? Number(amt) : null;
   if (!out.amount_cents) {
-    const all = [...flat.matchAll(MONEY)].map((m) => Math.round(parseFloat(m[1].replace(/,/g, "")) * 100)).filter((n) => n > 0 && n < 100_000_000_000);
+    const all = amounts(flat);
     if (all.length) {
       out.amount_cents = Math.max(...all);
       problems.push("Amount guessed (largest figure on the invoice): check it.");
@@ -439,9 +447,9 @@ export function parseInvoiceText(text: string, clients: Array<{ id: string; name
     out.client_id = hit.id;
   } else {
     /* a company name on the invoice that is not OnPoint ("… Pte. Ltd.", "… LLP"), else the line under "Bill to" */
-    const COMPANY = /([A-Z0-9][\w&.,'()\- ]{1,80}?\b(?:Pte\.?\s*Ltd\.?|Private\s+Limited|Limited|Ltd\.?|LLP|LLC|Inc\.?|Sdn\.?\s*Bhd\.?|Corporation|Corp\.?))/g;
+    const COMPANY = /([A-Z0-9][\w&.,'()\- ]{1,80}?\b(?:Pte\.?\s*Ltd\.?|Private\s+Limited|Limited|Ltd\.?|LLP|LLC|Inc\.?|Sdn\.?\s*Bhd\.?|Corporation|Corp\.?))/gi;
     const named = lines
-      .flatMap((l) => [...l.matchAll(COMPANY)].map((m) => m[1].trim()))
+      .flatMap((l) => [...l.matchAll(COMPANY)].map((m) => m[1].trim().replace(/^(?:to|bill(?:ed)?\s+to|invoice\s+to|attn:?|attention:?)\s+/i, "")))
       .filter((n) => !/invoice|date|due|attention/i.test(n) && !ownKeys.some((k) => clientKey(n).endsWith(k) || k.endsWith(clientKey(n))));
     const billTo = after(lines, /^(?:bill(?:ed)?\s+to|invoice\s+to|to|customer|client)\b/i, (s) => (s.length >= 3 && !/@|^\d|invoice|date|due|\b[A-Z]+-\d/i.test(s) ? s.slice(0, 120) : null));
     const guess = named[0] ?? (billTo && !ownKeys.includes(clientKey(billTo)) ? billTo : "");
@@ -453,11 +461,13 @@ export function parseInvoiceText(text: string, clients: Array<{ id: string; name
   const emails = [...new Set((flat.match(/[^\s@<>,;()"']+@[^\s@<>,;()"']+\.[a-z]{2,}/gi) ?? []).map((e) => e.toLowerCase()))];
   out.email = (hit?.contact_email ?? emails.find((e) => !own.emails.includes(e) && !ownDomains.includes(e.split("@")[1]))) ?? null;
   /* what it is for: the first line under a "Description" heading */
-  const di = lines.findIndex((l) => /^(?:description|item|particulars|details)\b/i.test(l));
-  if (di >= 0 && lines[di + 1]) {
-    /* without the quantity, price and amount columns at the end of the line */
-    const d = lines[di + 1].replace(/(\s+(?:S\$|SGD|\$)?\s*[\d,]+\.\d{1,2})+$/, "").trim();
-    if (d.length >= 3) out.description = d.slice(0, 160);
+  const di = lines.findIndex((l) => /^(?:qty\s+)?(?:description|item|particulars|details)\b/i.test(l));
+  if (di >= 0) {
+    /* the first line under the heading that is not the heading's own wrap ("Price", "Total"); without the quantity in
+       front and the price and amount columns at the end */
+    const line = lines.slice(di + 1, di + 5).find((l) => !/^(?:unit\s+)?(?:price|total|amount|qty|quantity|rate)(?:\s+\w+)?$/i.test(l));
+    const d = (line ?? "").replace(/^\d+(?:\.\d+)?\s+(?=[A-Za-z])/, "").replace(/(\s+(?:(?:S\$|SGD|\$)\s*[\d,]+(?:\.\d{1,2})?|[\d,]+\.\d{1,2}))+$/, "").trim();
+    if (d.length >= 3 && /[A-Za-z]{3}/.test(d)) out.description = d.slice(0, 160);
   }
   if (!out.number) problems.push("No invoice number found (optional).");
   return out;

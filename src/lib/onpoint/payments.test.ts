@@ -164,3 +164,14 @@ test("a PDF that lists many invoices in a table: one row each; client headings c
   /* a single invoice's items table is not a list of invoices */
   assert.equal(tableFromPdf([[...at(480, [["Description", 50], ["Quantity", 360], ["Unit Price", 430], ["Amount SGD", 500]]), ...at(460, [["Secretarial fee", 50], ["1.00", 370], ["480.00", 430], ["480.00", 500]])]]), null);
 });
+
+test("reading a PDF invoice: a Word-made layout (upper-case client after 'To', 'Total' heading before the items)", async () => {
+  const { parseInvoiceText } = await import("./payments");
+  const text = "INVOICE\nOnPoint Consulting Pte. Ltd.\nSAMPLE office address, Singapore\nInvoice No: SAMPLE-INV-6001\nDue Date: 09/12/2026\nTax Invoice\nDate: 25/11/2026\nTo SAMPLE UPSILON PTE. LTD.\nReg. No. SAMPLE-UEN-0001\nadministrator@foundersdoc.com\nQty Description Unit\nPrice\nTotal\n1 Corporate secretarial services provided from\n01/11/2026 to 30/11/2026 for the month of\nNovember 2026\n1 S$720.00 Pay by bank transfer,\n1 Registered address (November 2026) 1 S$180.00\nSubtotal S$900.00\nSales Tax -\nTotal S$900.00\nThank you !";
+  const r = parseInvoiceText(text, [], { names: ["OnPoint Consulting Pte. Ltd."], emails: [] });
+  assert.equal(r.client, "SAMPLE UPSILON PTE. LTD.");
+  assert.equal(r.amount_cents, 90000);
+  assert.equal(r.due_date, "2026-12-09");
+  assert.equal(r.issue_date, "2026-11-25");
+  assert.equal(r.number, "SAMPLE-INV-6001");
+});
