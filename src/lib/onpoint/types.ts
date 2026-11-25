@@ -100,4 +100,6 @@ export interface Workspace {
   /** 0282: automatic payment reminders: days before the due date (0 = on the day) and days after it */
   pay_before: number[];
   pay_after: number[];
+  /** 0290: payment reminders (invoices) are optional; OnPoint's system is deadline tracking */
+  payments_enabled: boolean;
 }

@@ -22,7 +22,7 @@ export default async function OnPointPage() {
   if (!isSupabaseConfigured()) {
     const demo: Snapshot = {
       me: { email: "preview@example.com", role: "admin", founder: true },
-      ws: { id: "demo", slug: "onpoint", name: "OnPoint Consulting Pte. Ltd.", custom_name: null, logo: null, sender_name: "OnPoint Consulting", sender_email: "sadiq@example.com", test_inbox: "administrator@foundersdoc.com", auto_send: false, filing_enabled: false, pay_subject: null, pay_body: null, pay_before: [7, 0], pay_after: [3, 10, 30], mail_connected: false, plan: "free" },
+      ws: { id: "demo", slug: "onpoint", name: "OnPoint Consulting Pte. Ltd.", custom_name: null, logo: null, sender_name: "OnPoint Consulting", sender_email: "sadiq@example.com", test_inbox: "administrator@foundersdoc.com", auto_send: false, filing_enabled: true, pay_subject: null, pay_body: null, pay_before: [7, 0], pay_after: [3, 10, 30], payments_enabled: false, mail_connected: false, plan: "free" },
       clients: DEMO_CLIENTS,
       deadlines: DEMO_DEADLINES,
       deliveries: [],

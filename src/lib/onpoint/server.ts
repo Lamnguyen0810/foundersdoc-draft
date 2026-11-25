@@ -44,9 +44,10 @@ const WS = "id, slug, name, custom_name, logo_data, sender_name, sender_email, t
 export async function workspace(): Promise<Workspace> {
   /* 0280: before supabase/139 is run, the new columns are not there yet: filing stays on, payments wait */
   /* 0282: and before 141, the payment schedule is the standard one */
-  const base = { filing_enabled: true, pay_subject: null, pay_body: null, pay_before: DEFAULT_BEFORE, pay_after: DEFAULT_AFTER };
+  /* 0290: before 144, payments stay shown as they were */
+  const base = { filing_enabled: true, pay_subject: null, pay_body: null, pay_before: DEFAULT_BEFORE, pay_after: DEFAULT_AFTER, payments_enabled: true };
   let w: Workspace | null = null;
-  for (const cols of [`${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after`, `${WS}, filing_enabled, pay_subject, pay_body`, WS]) {
+  for (const cols of [`${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after, payments_enabled`, `${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after`, `${WS}, filing_enabled, pay_subject, pay_body`, WS]) {
     const r = await db().from("onpoint_workspaces").select(cols).eq("slug", SLUG).maybeSingle();
     if (r.error && cols !== WS) continue;
     w = r.data ? ({ ...base, ...(must(r) as object) } as Workspace) : null;
@@ -386,7 +387,7 @@ const count = (t: RunTotals, r: SendResult) => (r.status === "sent" ? t.sent++ :
 export async function dailyRun(): Promise<RunTotals & { off?: boolean; payments: RunTotals; filing: RunTotals }> {
   const ws = await workspace();
   if (!ws.auto_send) return { ...zero(), off: true, payments: zero(), filing: zero() };
-  const payments = await paymentRun(ws).catch(() => zero());
+  const payments = ws.payments_enabled ? await paymentRun(ws).catch(() => zero()) : zero();
   const filing = ws.filing_enabled ? await filingRun(ws) : zero();
   const sum = (k: keyof RunTotals) => payments[k] + filing[k];
   return { checked: sum("checked"), due: sum("due"), sent: sum("sent"), skipped: sum("skipped"), failed: sum("failed"), payments, filing };
@@ -572,6 +573,12 @@ export async function savePayTemplate(m: Me, subject: string, body: string) {
   const bad = renderPayment({ subject: s, body: b }, { company: "x", contact: null, number: null, description: null, amount_cents: 1, currency: "SGD", due: sgToday(), today: sgToday() }).unknown;
   if (bad.length) throw new OpError(`Not supported: ${bad.join(", ")}`);
   mustP(await db().from("onpoint_workspaces").update({ pay_subject: s, pay_body: b, updated_at: new Date().toISOString() }).eq("id", m.ws.id));
+}
+
+/** 0290: payment reminders shown or hidden (optional) */
+export async function setPayments(m: Me, on: boolean) {
+  const r = await db().from("onpoint_workspaces").update({ payments_enabled: on, updated_at: new Date().toISOString() }).eq("id", m.ws.id);
+  if (r.error) throw new OpError(/payments_enabled/.test(r.error.message) ? "Run supabase/144_onpoint_deadlines_first.sql first." : r.error.message, 503);
 }
 
 export async function setFiling(m: Me, on: boolean) {

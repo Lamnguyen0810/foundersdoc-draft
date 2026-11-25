@@ -462,3 +462,8 @@
 .op-switch:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
 .op-switch:disabled { opacity: .6; cursor: default; }
 @media (prefers-reduced-motion: reduce) { .op-switch i, .op-switch i::after { transition: none; } }
+
+/* 0290 · automatic filing reminders switch */
+.esop.ev .op-autofiling { flex: none; border-left: 3px solid #f3bf4b; }
+.op-autofiling .op-h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; }
+.op-autofiling p { margin: 0; max-width: 760px; }
