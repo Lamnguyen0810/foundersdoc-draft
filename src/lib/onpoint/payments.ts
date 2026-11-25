@@ -349,3 +349,181 @@ export function nextAuto(v: Pick<Invoice, "status" | "due_date">, today: string,
   const [y, m, d] = v.due_date.split("-").map(Number) as [number, number, number];
   return new Date(Date.UTC(y, m - 1, d) + next * 86_400_000).toISOString().slice(0, 10);
 }
+
+/* ── reading one PDF invoice (0286) ───────────────────────────────────────── */
+
+export interface PdfDraft {
+  client: string;
+  client_id: string | null;
+  email: string | null;
+  number: string | null;
+  description: string | null;
+  amount_cents: number | null;
+  currency: string;
+  due_date: string | null;
+  issue_date: string | null;
+  /** what to check before adding it (nothing is added without the person's OK) */
+  problems: string[];
+}
+
+const MONEY = /(?:S\$|SGD|USD|US\$|\$)?\s*(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+\.\d{2}|\d{2,})(?!\s*%)/g;
+const moneyIn = (s: string): number | null => {
+  const all = [...s.matchAll(MONEY)].map((m) => Math.round(parseFloat(m[1].replace(/,/g, "")) * 100)).filter((n) => n > 0);
+  return all.length ? all[all.length - 1] : null;
+};
+
+/** the text after a label, on the same line ("Due Date: 13 Nov 2026") or on the next line (Xero's layout) */
+function after(lines: string[], labels: RegExp, pick: (s: string) => string | null): string | null {
+  for (let i = 0; i < lines.length; i++) {
+    const m = labels.exec(lines[i]);
+    if (!m) continue;
+    const rest = lines[i].slice(m.index + m[0].length).replace(/^[\s:#.\-–]+/, "");
+    const same = rest ? pick(rest) : null;
+    if (same) return same;
+    for (let k = 1; k <= 2 && i + k < lines.length; k++) {
+      const next = pick(lines[i + k]);
+      if (next) return next;
+    }
+  }
+  return null;
+}
+
+/**
+ * Read an invoice's text (from a PDF made by accounting software). Rules only, no guessing service: the client is
+ * matched to a client already in the app where possible; every field can be corrected before the invoice is added.
+ */
+export function parseInvoiceText(text: string, clients: Array<{ id: string; name: string; key: string; contact_email: string | null }>, own: { names: string[]; emails: string[] }): PdfDraft {
+  const lines = text.replace(/\r/g, "").split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const problems: string[] = [];
+  const out: PdfDraft = { client: "", client_id: null, email: null, number: null, description: null, amount_cents: null, currency: "SGD", due_date: null, issue_date: null, problems };
+  if (lines.join("").length < 20) {
+    problems.push("No readable text in this PDF (it may be a scan or a photo): type the details in.");
+    return out;
+  }
+  const flat = lines.join("\n");
+  const firstDate = (s: string) => {
+    const m = s.match(/\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[\s-]+[A-Za-z]{3,9}[\s,-]+\d{4}|[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4}/);
+    return m ? dateOfCell(m[0]) : null;
+  };
+  out.number =
+    after(lines, /\b(?:tax\s+)?invoice\s*(?:no\.?|number|num|#)/i, (s) => s.match(/^([A-Z0-9][A-Z0-9\-/_.]{1,39})\b/i)?.[1] ?? null) ??
+    flat.match(/\b(INV[-\s]?[A-Z0-9][A-Z0-9\-]{1,30})\b/i)?.[1]?.replace(/\s/g, "-") ??
+    null;
+  if (out.number && /^(date|due|to|for)$/i.test(out.number)) out.number = null;
+  out.issue_date = after(lines, /\b(?:invoice\s+date|date\s+of\s+issue|issue\s+date|date\s+issued)\b/i, firstDate);
+  out.due_date = after(lines, /\b(?:due\s+date|payment\s+due|date\s+due|due\s+by|pay\s+by)\b/i, firstDate);
+  if (!out.due_date && /due\s+(?:on|upon)\s+receipt|payable\s+(?:on|upon)\s+receipt/i.test(flat)) out.due_date = out.issue_date;
+  if (!out.due_date) problems.push("No due date found: pick it.");
+  const amountLine = /^(?:amount\s+due|balance\s+due|total\s+due|amount\s+payable|total\s+amount\s+due|balance|total\s*\((?:sgd|s\$)\)|total\s+(?:sgd|s\$)|grand\s+total|total)\b/i;
+  const amt = after(lines, amountLine, (s) => {
+    const n = moneyIn(s);
+    return n ? String(n) : null;
+  });
+  out.amount_cents = amt ? Number(amt) : null;
+  if (!out.amount_cents) {
+    const all = [...flat.matchAll(MONEY)].map((m) => Math.round(parseFloat(m[1].replace(/,/g, "")) * 100)).filter((n) => n > 0 && n < 100_000_000_000);
+    if (all.length) {
+      out.amount_cents = Math.max(...all);
+      problems.push("Amount guessed (largest figure on the invoice): check it.");
+    } else problems.push("No amount found: type it.");
+  }
+  if (/\bUSD\b|US\$/.test(flat) && !/\bSGD\b|S\$/.test(flat)) out.currency = "USD";
+  /* the client: one already in the app whose name is on the invoice (the longest match), not OnPoint itself */
+  const ownKeys = own.names.map(clientKey).filter(Boolean);
+  const textKey = ` ${clientKey(flat)} `;
+  const hit = clients
+    .filter((c) => c.key && c.key.length >= 4 && !ownKeys.includes(c.key) && textKey.includes(` ${c.key} `))
+    .sort((a, b) => b.key.length - a.key.length)[0];
+  if (hit) {
+    out.client = hit.name;
+    out.client_id = hit.id;
+  } else {
+    /* a company name on the invoice that is not OnPoint ("… Pte. Ltd.", "… LLP"), else the line under "Bill to" */
+    const COMPANY = /([A-Z0-9][\w&.,'()\- ]{1,80}?\b(?:Pte\.?\s*Ltd\.?|Private\s+Limited|Limited|Ltd\.?|LLP|LLC|Inc\.?|Sdn\.?\s*Bhd\.?|Corporation|Corp\.?))/g;
+    const named = lines
+      .flatMap((l) => [...l.matchAll(COMPANY)].map((m) => m[1].trim()))
+      .filter((n) => !/invoice|date|due|attention/i.test(n) && !ownKeys.some((k) => clientKey(n).endsWith(k) || k.endsWith(clientKey(n))));
+    const billTo = after(lines, /^(?:bill(?:ed)?\s+to|invoice\s+to|to|customer|client)\b/i, (s) => (s.length >= 3 && !/@|^\d|invoice|date|due|\b[A-Z]+-\d/i.test(s) ? s.slice(0, 120) : null));
+    const guess = named[0] ?? (billTo && !ownKeys.includes(clientKey(billTo)) ? billTo : "");
+    if (guess) out.client = guess;
+    problems.push(out.client ? "New client (not in your list yet): check the name." : "Client not found: type the name.");
+  }
+  /* the email: the client's own on file first, otherwise one on the invoice that is not OnPoint's */
+  const ownDomains = own.emails.map((e) => e.split("@")[1]?.toLowerCase()).filter(Boolean);
+  const emails = [...new Set((flat.match(/[^\s@<>,;()"']+@[^\s@<>,;()"']+\.[a-z]{2,}/gi) ?? []).map((e) => e.toLowerCase()))];
+  out.email = (hit?.contact_email ?? emails.find((e) => !own.emails.includes(e) && !ownDomains.includes(e.split("@")[1]))) ?? null;
+  /* what it is for: the first line under a "Description" heading */
+  const di = lines.findIndex((l) => /^(?:description|item|particulars|details)\b/i.test(l));
+  if (di >= 0 && lines[di + 1]) {
+    /* without the quantity, price and amount columns at the end of the line */
+    const d = lines[di + 1].replace(/(\s+(?:S\$|SGD|\$)?\s*[\d,]+\.\d{1,2})+$/, "").trim();
+    if (d.length >= 3) out.description = d.slice(0, 160);
+  }
+  if (!out.number) problems.push("No invoice number found (optional).");
+  return out;
+}
+
+/* ── a PDF that lists many invoices in a table (0287) ──────────────────────── */
+
+export interface PdfItem {
+  str: string;
+  x: number;
+  y: number;
+  w: number;
+}
+
+/**
+ * Rebuild a table from a PDF's text pieces and their positions (a printed invoice list, an aged receivables
+ * report, a statement): the header row names the columns (client, invoice no., due date, amount), and every
+ * piece below goes to the nearest column. Where the client is a heading above its invoices (Xero's aged
+ * receivables) instead of a column, it is carried down into a "Client" column. Null if there is no such table.
+ */
+export function tableFromPdf(pages: PdfItem[][]): Cell[][] | null {
+  let cols: Array<{ name: string; c: number }> | null = null;
+  let addClient = false;
+  let group = "";
+  const out: Cell[][] = [];
+  for (const items of pages) {
+    /* lines, top to bottom; pieces on a line merged into cells where the gap is small */
+    const lines: PdfItem[][] = [];
+    for (const it of items.filter((i) => i.str.trim()).sort((a, b) => b.y - a.y || a.x - b.x)) {
+      const line = lines.find((l) => Math.abs(l[0].y - it.y) < 2.5);
+      if (line) line.push(it);
+      else lines.push([it]);
+    }
+    for (const line of lines) {
+      line.sort((a, b) => a.x - b.x);
+      const cells: PdfItem[] = [];
+      for (const it of line) {
+        const last = cells[cells.length - 1];
+        if (last && it.x - (last.x + last.w) < 6) cells[cells.length - 1] = { str: `${last.str} ${it.str}`.replace(/\s+/g, " "), x: last.x, y: last.y, w: it.x + it.w - last.x };
+        else cells.push({ ...it, str: it.str.trim() });
+      }
+      const names = cells.map((c) => norm(c.str));
+      const has = (k: Key) => names.some((n) => H[k].test(n));
+      if (cells.length >= 3 && has("due") && (has("owing") || has("total")) && (has("client") || has("number"))) {
+        cols = cells.map((c) => ({ name: c.str, c: c.x + c.w / 2 }));
+        addClient = !has("client");
+        if (!out.length) out.push([...(addClient ? ["Client"] : []), ...cols.map((c) => c.name)]);
+        continue;
+      }
+      if (!cols) continue;
+      const text = cells.map((c) => c.str).join(" ");
+      if (/^(sub)?total\b|^balance\s+(due|owing)\b/i.test(text)) continue;
+      if (cells.length === 1 && !/\d{2,}/.test(text)) {
+        group = text.slice(0, 160);
+        continue;
+      }
+      if (cells.length < 2) continue;
+      const row: Cell[] = cols.map(() => "");
+      for (const c of cells) {
+        const mid = c.x + c.w / 2;
+        let best = 0;
+        for (let i = 1; i < cols.length; i++) if (Math.abs(cols[i].c - mid) < Math.abs(cols[best].c - mid)) best = i;
+        row[best] = row[best] ? `${row[best]} ${c.str}` : c.str;
+      }
+      out.push(addClient ? [group, ...row] : row);
+    }
+  }
+  return out.length > 1 ? out : null;
+}

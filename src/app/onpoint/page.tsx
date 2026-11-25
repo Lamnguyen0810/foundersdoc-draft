@@ -31,6 +31,12 @@ export default async function OnPointPage() {
       leads: DEMO_LEADS,
       invoices: DEMO_INVOICES,
       payments_ready: true,
+      files_ready: true,
+      files: [
+        { id: "f1", name: "SAMPLE_invoice_0386.pdf", kind: "pdf", size: 48213, uploaded_by: "sadiq@example.com", uploaded_at: new Date().toISOString(), invoice_id: "v1", import_id: null, details: {} },
+        { id: "f2", name: "SAMPLE_invoice_0412.pdf", kind: "pdf", size: 51002, uploaded_by: "sadiq@example.com", uploaded_at: new Date().toISOString(), invoice_id: null, import_id: null, details: {} },
+        { id: "f3", name: "Sample unpaid invoices.xlsx", kind: "list", size: 9120, uploaded_by: "sadiq@example.com", uploaded_at: `${sgToday()}T00:30:00.000Z`, invoice_id: null, import_id: 1, details: { invoices: 5, added: 5 } },
+      ],
       today: sgToday(),
     };
     return <OnPointApp initial={demo} preview />;
