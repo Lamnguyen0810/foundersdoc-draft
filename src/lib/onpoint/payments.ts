@@ -462,3 +462,68 @@ export function parseInvoiceText(text: string, clients: Array<{ id: string; name
   if (!out.number) problems.push("No invoice number found (optional).");
   return out;
 }
+
+/* ── a PDF that lists many invoices in a table (0287) ──────────────────────── */
+
+export interface PdfItem {
+  str: string;
+  x: number;
+  y: number;
+  w: number;
+}
+
+/**
+ * Rebuild a table from a PDF's text pieces and their positions (a printed invoice list, an aged receivables
+ * report, a statement): the header row names the columns (client, invoice no., due date, amount), and every
+ * piece below goes to the nearest column. Where the client is a heading above its invoices (Xero's aged
+ * receivables) instead of a column, it is carried down into a "Client" column. Null if there is no such table.
+ */
+export function tableFromPdf(pages: PdfItem[][]): Cell[][] | null {
+  let cols: Array<{ name: string; c: number }> | null = null;
+  let addClient = false;
+  let group = "";
+  const out: Cell[][] = [];
+  for (const items of pages) {
+    /* lines, top to bottom; pieces on a line merged into cells where the gap is small */
+    const lines: PdfItem[][] = [];
+    for (const it of items.filter((i) => i.str.trim()).sort((a, b) => b.y - a.y || a.x - b.x)) {
+      const line = lines.find((l) => Math.abs(l[0].y - it.y) < 2.5);
+      if (line) line.push(it);
+      else lines.push([it]);
+    }
+    for (const line of lines) {
+      line.sort((a, b) => a.x - b.x);
+      const cells: PdfItem[] = [];
+      for (const it of line) {
+        const last = cells[cells.length - 1];
+        if (last && it.x - (last.x + last.w) < 6) cells[cells.length - 1] = { str: `${last.str} ${it.str}`.replace(/\s+/g, " "), x: last.x, y: last.y, w: it.x + it.w - last.x };
+        else cells.push({ ...it, str: it.str.trim() });
+      }
+      const names = cells.map((c) => norm(c.str));
+      const has = (k: Key) => names.some((n) => H[k].test(n));
+      if (cells.length >= 3 && has("due") && (has("owing") || has("total")) && (has("client") || has("number"))) {
+        cols = cells.map((c) => ({ name: c.str, c: c.x + c.w / 2 }));
+        addClient = !has("client");
+        if (!out.length) out.push([...(addClient ? ["Client"] : []), ...cols.map((c) => c.name)]);
+        continue;
+      }
+      if (!cols) continue;
+      const text = cells.map((c) => c.str).join(" ");
+      if (/^(sub)?total\b|^balance\s+(due|owing)\b/i.test(text)) continue;
+      if (cells.length === 1 && !/\d{2,}/.test(text)) {
+        group = text.slice(0, 160);
+        continue;
+      }
+      if (cells.length < 2) continue;
+      const row: Cell[] = cols.map(() => "");
+      for (const c of cells) {
+        const mid = c.x + c.w / 2;
+        let best = 0;
+        for (let i = 1; i < cols.length; i++) if (Math.abs(cols[i].c - mid) < Math.abs(cols[best].c - mid)) best = i;
+        row[best] = row[best] ? `${row[best]} ${c.str}` : c.str;
+      }
+      out.push(addClient ? [group, ...row] : row);
+    }
+  }
+  return out.length > 1 ? out : null;
+}

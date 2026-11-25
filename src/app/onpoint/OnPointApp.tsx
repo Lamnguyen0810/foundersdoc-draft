@@ -47,6 +47,8 @@ interface OpFile {
 interface PdfRead {
   file_id: string | null;
   file_name: string;
+  /** 0287: the row, when the PDF lists many invoices in a table */
+  row?: number;
   draft: { client: string; client_id: string | null; email: string | null; number: string | null; description: string | null; amount_cents: number | null; currency: string; due_date: string | null; issue_date: string | null; problems: string[] };
 }
 const VIEWS: View[] = ["dashboard", "payments", "deadlines", "calendar", "reminders", "clients", "files", "sources", "billing"];
@@ -2065,7 +2067,16 @@ function Payments(p: {
     if (!files.length) return p.say("Choose PDF invoices, or an Excel (.xlsx) or CSV list.");
     if (p.preview) {
       const pdfs = files.filter((f) => /\.pdf$/i.test(f.name));
-      if (pdfs.length)
+      if (pdfs.some((f) => /list|aged|statement/i.test(f.name)))
+        setReview(
+          ["Nu Bakery", "Xi Interiors", "Omicron Clinic", "Pi Robotics"].map((n, i) => ({
+            file_id: null,
+            file_name: "SAMPLE_unpaid_invoices_list.pdf",
+            row: i + 1,
+            draft: { client: `SAMPLE ${n} Pte. Ltd.`, client_id: null, email: null, number: `SAMPLE-INV-400${i + 1}`, description: "Corporate secretarial fee", amount_cents: [52320, 130800, 32700, 65400][i], currency: "SGD", due_date: s.today, issue_date: null, problems: ["New client (not in your list yet): check the name."] },
+          })),
+        );
+      else if (pdfs.length)
         setReview(
           pdfs.map((f, i) => ({
             file_id: null,
@@ -2089,7 +2100,13 @@ function Payments(p: {
         notes.push(String(r.j.error ?? `${f.name}: not uploaded.`));
         continue;
       }
-      if (r.j.kind === "pdf") drafts.push({ file_id: (r.j.file_id as string | null) ?? null, file_name: f.name, draft: r.j.draft as PdfRead["draft"] });
+      if (r.j.kind === "pdf") {
+        const ds = (r.j.drafts as PdfRead["draft"][]) ?? [];
+        const table = r.j.table === true;
+        ds.forEach((d, k) => drafts.push({ file_id: (r.j.file_id as string | null) ?? null, file_name: f.name, row: table ? k + 1 : undefined, draft: d }));
+        if (table) notes.push(`${f.name}: a table of ${ds.length} invoices`);
+        for (const n of (r.j.notes as string[]) ?? []) notes.push(`${f.name}: ${n}`);
+      }
       else {
         const j = r.j as { invoices: number; added: number };
         notes.push(`${f.name}: ${j.invoices} unpaid invoice${j.invoices === 1 ? "" : "s"} (${j.added} new)`);
@@ -2097,7 +2114,7 @@ function Payments(p: {
     }
     setBusy("");
     if (drafts.length) setReview(drafts);
-    p.say(notes.length ? notes.join(" · ") : `${drafts.length} PDF invoice${drafts.length === 1 ? "" : "s"} read: check them, then add.`);
+    p.say(notes.length ? `${notes.join(" · ")}${drafts.length ? ". Check them, then add." : ""}` : `${drafts.length} PDF invoice${drafts.length === 1 ? "" : "s"} read: check them, then add.`);
     setChip("open");
     await p.reload();
   }
@@ -2151,7 +2168,7 @@ function Payments(p: {
           ) : null;
         })()}
         <p className="ev-sub op-small op-mt">
-          <b>Upload invoices:</b> one or many files at once. <b>PDF invoices</b> are read for you to check before they are added; an <b>Excel or CSV list</b> (Xero&rsquo;s export works) is added straight away. Every file is kept in <b>Invoice files</b>, with the day it was uploaded.
+          <b>Upload invoices:</b> one or many files at once. <b>PDF invoices</b>, or a PDF listing many invoices in a table, are read for you to check before they are added; an <b>Excel or CSV list</b> (Xero&rsquo;s export works) is added straight away. Every file is kept in <b>Invoice files</b>, with the day it was uploaded.
         </p>
         <div className="ev-chips" role="group" aria-label="Filter">
           {PAY_CHIPS.map(([k, label]) => (
@@ -2240,7 +2257,7 @@ function Payments(p: {
                       {(() => {
                         /* 0282: when the next automatic one would go (shown in grey while automatic sending is off) */
                         const nx = nextAuto(v, s.today, s.ws.pay_before, s.ws.pay_after);
-                        return nx ? <div className={`op-small ${s.ws.auto_send ? "op-nextauto" : "ev-sub"}`}>Auto: {nx === s.today ? "today" : fmtDate(nx)}{s.ws.auto_send ? "" : " (when on)"}</div> : null;
+                        return nx ? <div className={`op-small ${s.ws.auto_send ? "op-nextauto" : "ev-sub"}`}>Auto: {nx === s.today ? "today" : fmtDate(nx)}{s.ws.auto_send ? "" : " (if switched on)"}</div> : null;
                       })()}
                     </td>
                     <td className="op-right">
@@ -2635,10 +2652,10 @@ function AutoCard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => voi
       return p.say("Preview: not saved.");
     }
     setBusy("toggle");
-    const r = await api("/api/onpoint/settings", { method: "PATCH", body: JSON.stringify({ auto_send: !on }) });
+    const r = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "auto", on: !on }) });
     setBusy("");
     if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
-    p.say(on ? "Automatic sending off" : "Automatic sending on: from tomorrow 8am");
+    p.say(on ? "Automatic reminders off" : "Automatic reminders on: the first ones go at 8am");
     await p.reload();
   }
   async function run() {
@@ -2667,12 +2684,21 @@ function AutoCard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => voi
       <div className="op-autoh">
         <div>
           <h2 className="op-h2">
-            Automatic reminders <span className={`op-pill ${on ? "ok" : "off"}`}>{on ? "On" : "Off for now"}</span>
+            Automatic reminders
+            {/* 0287: OnPoint's administrators switch it on and off themselves */}
+            {s.me.role === "admin" ? (
+              <button type="button" role="switch" aria-checked={on} className={`op-switch ${on ? "on" : ""}`} disabled={busy === "toggle"} onClick={() => void toggle()}>
+                <i aria-hidden="true" />
+                <span>{busy === "toggle" ? "Saving…" : on ? "On" : "Off"}</span>
+              </button>
+            ) : (
+              <span className={`op-pill ${on ? "ok" : "off"}`}>{on ? "On" : "Off"}</span>
+            )}
           </h2>
           <p className="ev-sub op-small">
             {on
               ? "Every morning at 8am (Singapore), each unpaid invoice gets its reminder on these days, by itself. Each one goes once; paid invoices stop."
-              : "Upload your invoices and set the days: the system tracks every due date. Once switched on, each reminder goes by itself at 8am on these days. Until then, use Preview & send."}
+              : "Upload your invoices and set the days: the system tracks every due date. Switch it on and each reminder goes by itself at 8am on these days. While it is off, use Preview & send."}
           </p>
         </div>
         <div className="op-autoright">
@@ -2727,15 +2753,12 @@ function AutoCard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => voi
       {founder ? (
         <div className="op-chiprow op-founderrow">
           <span className="ev-sub op-small">Founders Doc only:</span>
-          <button className={`ev-btn sm ${on ? "" : "gold"}`} disabled={busy === "toggle"} onClick={() => void toggle()}>
-            {busy === "toggle" ? "Saving…" : on ? "Turn off" : "Turn on"}
-          </button>
           <button className="ev-btn sm" disabled={busy === "run" || !s.ws.test_inbox || today.length === 0} onClick={() => void run()} title={s.ws.test_inbox ? `Sends today's reminders to ${s.ws.test_inbox}` : "Only while emails go to the safety-check inbox"}>
             {busy === "run" ? "Sending…" : `Run today's now (to ${s.ws.test_inbox ?? "the safety-check inbox"})`}
           </button>
         </div>
-      ) : !on ? (
-        <p className="ev-sub op-small">Founders Doc switches automatic sending on when you&rsquo;re ready.</p>
+      ) : s.me.role !== "admin" && !on ? (
+        <p className="ev-sub op-small">Your administrator switches automatic reminders on.</p>
       ) : null}
     </section>
   );
@@ -3106,6 +3129,7 @@ function PdfReview(p: { s: Snapshot; reads: PdfRead[]; preview: boolean; say: (t
       on: !!(r.draft.amount_cents && r.draft.due_date),
       file_id: r.file_id,
       file_name: r.file_name,
+      row: r.row,
       client: r.draft.client,
       email: r.draft.email ?? "",
       number: r.draft.number ?? "",
@@ -3158,7 +3182,18 @@ function PdfReview(p: { s: Snapshot; reads: PdfRead[]; preview: boolean; say: (t
             <Ic n="close" s={14} />
           </button>
         </div>
-        <p className="ev-sub op-small">We read these from the PDFs. Check each one and correct anything, then add them. Nothing is added until you press the button. The files are already kept in Invoice files.</p>
+        <p className="ev-sub op-small">We read these from the PDFs (a PDF with a table of invoices gives one row each). Check each one and correct anything, then add them. Nothing is added until you press the button. The files are already kept in Invoice files.</p>
+        {rows.length > 3 && (
+          <div className="op-chiprow op-mt">
+            <button className="ev-link" onClick={() => setRows((x) => x.map((r) => ({ ...r, on: true })))}>
+              Tick all
+            </button>
+            <button className="ev-link" onClick={() => setRows((x) => x.map((r) => ({ ...r, on: false })))}>
+              Untick all
+            </button>
+            <span className="ev-sub op-small">{ready.length} of {rows.length} ticked</span>
+          </div>
+        )}
         <datalist id="op-clientnames2">
           {p.s.clients.slice(0, 2000).map((c) => (
             <option key={c.id} value={c.name} />
@@ -3170,6 +3205,7 @@ function PdfReview(p: { s: Snapshot; reads: PdfRead[]; preview: boolean; say: (t
               <label className="op-revtop">
                 <input type="checkbox" checked={r.on} onChange={(e) => set(i, "on", e.target.checked)} />
                 <b>{r.file_name}</b>
+                {r.row ? <span className="ev-sub">· row {r.row} of the table</span> : null}
               </label>
               <div className="op-revgrid">
                 <label>
@@ -3241,6 +3277,10 @@ function Files(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean; pr
     await p.reload();
   }
   const detail = (f: OpFile) => {
+    if (f.kind === "pdf" && (f.details as { table?: boolean }).table) {
+      const d = f.details as { rows?: number; added?: number };
+      return { text: `A table of ${d.rows ?? 0} invoices${d.added ? ` (${d.added} added)` : " (not added yet)"}`, inv: null, tone: d.added ? "" : "warn" };
+    }
     if (f.kind === "pdf") {
       const v = f.invoice_id ? s.invoices.find((x) => x.id === f.invoice_id) : undefined;
       if (v) return { text: `${v.number || "Invoice"} · ${money(v.amount_cents, v.currency)} · ${p.byId.get(v.client_id)?.name ?? ""} · ${v.status === "paid" ? "Paid" : `due ${fmtDate(v.due_date)}`}`, inv: v.id, tone: v.status === "paid" ? "ok" : "" };

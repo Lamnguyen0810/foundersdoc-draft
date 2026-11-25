@@ -7,7 +7,7 @@ import type { Derived } from "./derive";
 import { DEFAULT_LEADS, DEFAULT_TEMPLATES, emailHtml, logoUrl, render } from "./templates";
 import { siteUrl } from "@/lib/billing/stripe";
 import { sendFromMailbox, usesMailbox, type InlineImage } from "./mailbox";
-import { autoTag, DEFAULT_AFTER, DEFAULT_BEFORE, DEFAULT_PAY, paymentHtml, renderPayment, type Invoice, type InvoiceList } from "./payments";
+import { autoTag, DEFAULT_AFTER, DEFAULT_BEFORE, DEFAULT_PAY, paymentHtml, renderPayment, type Invoice, type InvoiceList, type PdfDraft, type PdfItem } from "./payments";
 import { clientKey } from "./derive";
 import { TYPES, type Client, type Deadline, type ReminderType, type Template, type Workspace } from "./types";
 
@@ -723,21 +723,53 @@ export async function enquireAddon(m: Me, note: string) {
 
 /* ── PDF invoices (0286) ──────────────────────────────────────────────── */
 
-/** read one PDF invoice into a draft for the person to check; nothing is added yet */
-export async function readPdfInvoice(m: Me, buf: Buffer) {
+/**
+ * Read a PDF for the person to check; nothing is added yet. 0287: a PDF that lists many invoices in a table (an
+ * invoice list, an aged receivables report, a statement) gives one draft per row; otherwise one invoice.
+ */
+export async function readPdfInvoice(m: Me, buf: Buffer): Promise<{ table: boolean; drafts: PdfDraft[]; notes: string[] }> {
   const { extractText, getDocumentProxy } = await import("unpdf");
+  const { parseInvoiceText, readInvoiceList, tableFromPdf } = await import("./payments");
   let text = "";
+  const pages: PdfItem[][] = [];
   try {
     const pdf = await getDocumentProxy(new Uint8Array(buf));
     text = String((await extractText(pdf, { mergePages: true })).text ?? "");
+    for (let i = 1; i <= Math.min(pdf.numPages, 30); i++) {
+      const tc = await (await pdf.getPage(i)).getTextContent();
+      pages.push(
+        (tc.items as Array<{ str?: string; transform?: number[]; width?: number }>)
+          .filter((t) => typeof t.str === "string" && t.transform)
+          .map((t) => ({ str: t.str!, x: t.transform![4], y: t.transform![5], w: t.width ?? 0 })),
+      );
+    }
   } catch {
-    text = "";
+    /* not readable: the single-invoice reading below says so */
   }
   const clients = await all<{ id: string; name: string; key: string; contact_email: string | null }>((f, t) => db().from("onpoint_clients").select("id, name, key, contact_email").eq("workspace_id", m.ws.id).range(f, t));
   const w = (await db().from("onpoint_workspaces").select("mail_address").eq("id", m.ws.id).maybeSingle()).data as { mail_address?: string | null } | null;
-  const { parseInvoiceText } = await import("./payments");
-  return parseInvoiceText(text, clients, {
+  const own = {
     names: [m.ws.name, m.ws.custom_name ?? "", m.ws.sender_name].filter(Boolean),
     emails: [m.ws.sender_email ?? "", w?.mail_address ?? "", m.email].map((e) => e.toLowerCase()).filter(Boolean),
+  };
+  const single = parseInvoiceText(text, clients, own);
+  const rows = tableFromPdf(pages);
+  const list = rows ? readInvoiceList([{ name: "PDF table", rows }], "PDF") : null;
+  if (!list || list.invoices.length < 2) return { table: false, drafts: [single], notes: [] };
+  const byKey = new Map(clients.map((c) => [c.key, c]));
+  const ownKeys = own.names.map(clientKey);
+  const drafts: PdfDraft[] = list.invoices.map((v) => {
+    /* no client on the row (a statement for one client): the client named on the PDF */
+    const name = v.client && !ownKeys.includes(v.client_key) ? v.client : single.client;
+    const k = byKey.get(clientKey(name));
+    const problems: string[] = [];
+    if (!name) problems.push("Client not found: type the name.");
+    else if (!k) problems.push("New client (not in your list yet): check the name.");
+    return { client: k?.name ?? name, client_id: k?.id ?? null, email: v.email ?? k?.contact_email ?? null, number: v.number, description: v.description, amount_cents: v.amount_cents, currency: v.currency, due_date: v.due_date, issue_date: v.issue_date, problems };
   });
+  const notes = [
+    ...(list.paid.length ? [`${list.paid.length} row${list.paid.length === 1 ? "" : "s"} shown as paid: left out.`] : []),
+    ...list.skipped.slice(0, 5),
+  ];
+  return { table: true, drafts, notes };
 }

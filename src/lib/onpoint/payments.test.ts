@@ -141,3 +141,26 @@ test("reading a PDF invoice's text: Xero layout and a simple one", async () => {
   const scan = parseInvoiceText("  ", [], own);
   assert.match(scan.problems[0], /No readable text/);
 });
+
+test("a PDF that lists many invoices in a table: one row each; client headings carried down; totals left out", async () => {
+  const { tableFromPdf } = await import("./payments");
+  const at = (y: number, cells: Array<[string, number]>) => cells.map(([str, x]) => ({ str, x, y, w: str.length * 5 }));
+  const rows = tableFromPdf([
+    [
+      ...at(500, [["Aged Receivables Detail", 40]]),
+      ...at(480, [["Invoice Date", 40], ["Invoice Number", 140], ["Due Date", 270], ["Total", 720]]),
+      ...at(460, [["SAMPLE Sigma Freight Pte. Ltd.", 40]]),
+      ...at(444, [["02 Nov 2026", 40], ["SAMPLE-INV-5001", 140], ["16 Nov 2026", 270], ["400.00", 720]]),
+      ...at(428, [["20 Nov 2026", 40], ["SAMPLE-INV-5002", 140], ["4 Dec 2026", 270], ["300.00", 720]]),
+      ...at(412, [["Total SAMPLE Sigma Freight Pte. Ltd.", 40], ["700.00", 720]]),
+    ],
+  ]);
+  assert.ok(rows);
+  const l = readInvoiceList([{ name: "t", rows: rows! }], "t");
+  assert.equal(l.invoices.length, 2);
+  assert.equal(l.invoices[0].client, "SAMPLE Sigma Freight Pte. Ltd.");
+  assert.equal(l.invoices[1].amount_cents, 30000);
+  assert.equal(l.invoices[1].due_date, "2026-12-04");
+  /* a single invoice's items table is not a list of invoices */
+  assert.equal(tableFromPdf([[...at(480, [["Description", 50], ["Quantity", 360], ["Unit Price", 430], ["Amount SGD", 500]]), ...at(460, [["Secretarial fee", 50], ["1.00", 370], ["480.00", 430], ["480.00", 500]])]]), null);
+});

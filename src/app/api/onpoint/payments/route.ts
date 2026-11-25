@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { addInvoice, applyInvoiceImport, readPdfInvoice, errorJson, guard, OpError, paymentRun, savePaySchedule, savePayTemplate, sendPayment, setFiling, setInvoiceStatus } from "@/lib/onpoint/server";
 import { cleanDays, readCsv, readInvoiceList } from "@/lib/onpoint/payments";
 import { noteFile, storeFile } from "@/lib/onpoint/files";
@@ -14,6 +15,7 @@ import { readXlsx } from "@/lib/onpoint/xlsx";
  * POST { action: "send", invoice_id, request_id }: send one reminder now (to the safety-check inbox for now).
  * POST { action: "template", subject, body } · POST { action: "filing", on } (administrators)
  * POST { action: "schedule", before: [7, 0], after: [3, 10, 30] }: the days of the automatic reminders (0282)
+ * POST { action: "auto", on }: automatic reminders on/off (OnPoint administrators, 0287)
  * POST { action: "run" }: Founders Doc, only while emails go to the safety-check inbox: send today's automatic reminders now
  * PATCH { id, status: "paid" | "open" | "cancelled" }
  */
@@ -34,9 +36,9 @@ export async function POST(req: NextRequest) {
       if (/\.pdf$/i.test(f.name)) {
         if (buf.subarray(0, 4).toString("latin1") !== "%PDF") throw new OpError(`${f.name} is not a PDF.`);
         const fileId = await storeFile(m, buf, f.name, "pdf", "application/pdf").catch(() => null);
-        const draft = await readPdfInvoice(m, buf);
-        await noteFile(m, fileId, { details: { read: draft } });
-        return NextResponse.json({ ok: true, kind: "pdf", file_id: fileId, file_name: f.name, draft });
+        const read = await readPdfInvoice(m, buf);
+        await noteFile(m, fileId, { details: { table: read.table, rows: read.drafts.length } });
+        return NextResponse.json({ ok: true, kind: "pdf", file_id: fileId, file_name: f.name, ...read });
       }
       let sheets;
       try {
@@ -56,17 +58,20 @@ export async function POST(req: NextRequest) {
     if (b.action === "add_pdf") {
       /* 0286: the PDF invoices the person checked: each one added, and its file linked to it */
       const m = await guard("edit");
-      const items = (Array.isArray(b.items) ? b.items : []).slice(0, 30) as Array<Record<string, unknown>>;
+      const items = (Array.isArray(b.items) ? b.items : []).slice(0, 200) as Array<Record<string, unknown>>;
       const results = [];
       for (const it of items) {
         try {
           const r = await addInvoice(m, { ...it, source: `PDF · ${String(it.file_name ?? "").slice(0, 150)}` });
-          await noteFile(m, typeof it.file_id === "string" ? it.file_id : null, { invoice_id: r.id });
           results.push({ file_id: it.file_id, ok: true, id: r.id });
         } catch (e) {
           results.push({ file_id: it.file_id, ok: false, error: e instanceof OpError ? e.message : "Not added." });
         }
       }
+      /* each file points to the (first) invoice it became, and says how many it gave */
+      const byFile = new Map<string, string[]>();
+      for (const r of results) if (r.ok && typeof r.file_id === "string") byFile.set(r.file_id, [...(byFile.get(r.file_id) ?? []), String(r.id)]);
+      for (const [fid, ids] of byFile) await noteFile(m, fid, { invoice_id: ids[0], details: { added: ids.length } });
       return NextResponse.json({ ok: results.every((r) => r.ok), results });
     }
     if (b.action === "send_all") {
@@ -101,6 +106,13 @@ export async function POST(req: NextRequest) {
       if (!m.founder) throw new OpError("Only Founders Doc can run this.", 403);
       if (!m.ws.test_inbox?.trim()) throw new OpError("Run now only works while emails go to the safety-check inbox, so nothing reaches a client.", 409);
       return NextResponse.json({ ok: true, ...(await paymentRun(m.ws)) });
+    }
+    if (b.action === "auto") {
+      /* 0287: automatic reminders on/off, by OnPoint's administrators (the plan and the safety-check inbox still apply) */
+      const m = await guard("admin");
+      const r = await supabaseAdmin().from("onpoint_workspaces").update({ auto_send: b.on === true, updated_at: new Date().toISOString() }).eq("id", m.ws.id);
+      if (r.error) throw new OpError(r.error.message, 500);
+      return NextResponse.json({ ok: true, on: b.on === true });
     }
     if (b.action === "filing") {
       await setFiling(await guard("admin"), b.on === true);
