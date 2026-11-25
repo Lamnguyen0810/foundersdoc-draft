@@ -95,4 +95,7 @@ export interface Workspace {
   filing_enabled: boolean;
   pay_subject: string | null;
   pay_body: string | null;
+  /** 0282: automatic payment reminders: days before the due date (0 = on the day) and days after it */
+  pay_before: number[];
+  pay_after: number[];
 }

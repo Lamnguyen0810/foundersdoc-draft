@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Ic, type IconName } from "../esop/[slug]/icons";
 import { countdown, daysBetween, fmtDate } from "@/lib/onpoint/dates";
 import { emailHtml, render, TOKENS, unknownTokens } from "@/lib/onpoint/templates";
-import { DEFAULT_PAY, money, PAY_TOKENS, paymentHtml, renderPayment, unknownPayTokens, type Invoice, type InvoiceStatus } from "@/lib/onpoint/payments";
+import { autoTag, DEFAULT_PAY, money, nextAuto, PAY_TOKENS, paymentHtml, renderPayment, unknownPayTokens, type Invoice, type InvoiceStatus } from "@/lib/onpoint/payments";
 import { OTHERS, TYPE_NAME, TYPE_PICK, TYPES, type Client, type Deadline, type Delivery, type ReminderType, type Template } from "@/lib/onpoint/types";
 
 /**
@@ -15,11 +15,11 @@ import { OTHERS, TYPE_NAME, TYPE_PICK, TYPES, type Client, type Deadline, type D
 
 export interface Snapshot {
   me: { email: string; role: "admin" | "staff" | "viewer"; founder: boolean };
-  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean; filing_enabled: boolean; pay_subject: string | null; pay_body: string | null };
+  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean; filing_enabled: boolean; pay_subject: string | null; pay_body: string | null; pay_before: number[]; pay_after: number[] };
   clients: Client[];
   deadlines: Deadline[];
   deliveries: Delivery[];
-  imports: Array<{ file_name: string; kind: string; summary: Record<string, unknown>; imported_by: string | null; imported_at: string }>;
+  imports: Array<{ id?: number; file_name: string; kind: string; summary: Record<string, unknown>; imported_by: string | null; imported_at: string; undone_at?: string | null }>;
   templates: Record<ReminderType, Template>;
   leads: Record<ReminderType, number[]>;
   /* 0280: payment reminders; payments_ready = supabase/139 has been run */
@@ -199,7 +199,7 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
             {view === "billing" && isAdmin && <Billing preview={preview} founder={s.me.founder} say={say} back={stripeReturn} />}
             {view === "reminders" && <Reminders s={s} setS={setS} byId={byId} live={live} canEdit={canEdit} preview={preview} say={say} reload={reload} focus={focus} />}
             {view === "clients" && <Clients s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={(id) => openPay("open", id)} />}
-            {view === "sources" && <Sources s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={() => openPay("open")} />}
+            {view === "sources" && <Sources s={s} setS={setS} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={() => openPay("open")} />}
           </div>
         </main>
       </div>
@@ -1029,7 +1029,7 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
 
 /* ── Excel sources ─────────────────────────────────────────────────────── */
 
-function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; openPay: () => void }) {
+function Sources(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; openPay: () => void }) {
   const { s } = p;
   const [busy, setBusy] = useState("");
   const [drag, setDrag] = useState(false);
@@ -1163,6 +1163,7 @@ function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
                 <span className="ev-sub"> · {x.kind}</span>
               </span>
               <span className="ev-sub">{new Date(x.imported_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+              {x.undone_at ? <span className="op-pill off">Undone</span> : p.canEdit && x.id ? <UndoImport imp={x} preview={p.preview} say={p.say} reload={p.reload} setS={p.setS} /> : null}
             </div>
           ))}
         </section>
@@ -1190,7 +1191,7 @@ function Sources(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
             </div>
           </div>
           <div className="op-field">
-            <span className="op-lab">Automatic sending (every morning, 8am Singapore)</span>
+            <span className="op-lab">Automatic sending (every morning, 8am Singapore): payment reminders on the days set on Payments{s.ws.filing_enabled ? ", and filing reminders" : ""}</span>
             <button className="ev-btn" disabled={busy === "settings"} onClick={() => void saveSettings({ auto_send: !s.ws.auto_send }, s.ws.auto_send ? "Automatic sending off" : "Automatic sending on")}>
               {s.ws.auto_send ? "On · turn off" : "Off · turn on"}
             </button>
@@ -2051,12 +2052,7 @@ function Payments(p: {
         Your clients&rsquo; unpaid invoices. Preview the reminder, add an email if it&rsquo;s missing, and send it from {s.ws.sender_email || s.ws.sender_name}.
       </PageHead>
       {!s.payments_ready && <div className="op-warn">Payment reminders are not switched on yet: run supabase/139_onpoint_payments.sql in Supabase first.</div>}
-      <div className="op-soonbar" role="note">
-        <span className="op-soontag">Coming soon</span>
-        <span>
-          <b>Automatic reminders</b> before and after each due date. For now, send each reminder with the button: it goes straight away, from your own email.
-        </span>
-      </div>
+      <AutoCard s={s} setS={p.setS} byId={p.byId} canEdit={p.canEdit} preview={p.preview} say={p.say} reload={p.reload} />
       <section className="ev-card op-pad">
         <div className="op-tools">
           <label className="ev-search wide">
@@ -2079,6 +2075,19 @@ function Payments(p: {
           )}
         </div>
         {adding && <AddInvoice s={s} setS={p.setS} preview={p.preview} say={p.say} reload={p.reload} done={(id) => (setAdding(false), setChip("open"), id && setSel(id))} />}
+        {(() => {
+          /* 0282: the latest invoice list, with Undo */
+          const last = s.imports.find((x) => x.kind === "Invoice list" && !x.undone_at);
+          return last && p.canEdit ? (
+            <div className="op-lastimp op-mt">
+              <Ic n="folder" s={13} />
+              <span>
+                Last invoice list: <b>{last.file_name}</b> · {new Date(last.imported_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+              </span>
+              <UndoImport imp={last} preview={p.preview} say={p.say} reload={p.reload} setS={p.setS} />
+            </div>
+          ) : null;
+        })()}
         <p className="ev-sub op-small op-mt">Import: an Excel or CSV list of unpaid invoices (Xero&rsquo;s invoice export works) with a client, an amount and a due date; an email column fills in missing emails. Invoices marked paid in the file are marked paid here.</p>
         <div className="ev-chips" role="group" aria-label="Filter">
           {PAY_CHIPS.map(([k, label]) => (
@@ -2148,7 +2157,14 @@ function Payments(p: {
                         </span>
                       )}
                     </td>
-                    <td>{rem ? <span className="ev-sub">{fmtDate(rem.last.slice(0, 10))}{rem.n > 1 ? ` · ${rem.n} sent` : ""}</span> : <span className="ev-sub">Not yet</span>}</td>
+                    <td>
+                      {rem ? <span className="ev-sub">{fmtDate(rem.last.slice(0, 10))}{rem.n > 1 ? ` · ${rem.n} sent` : ""}</span> : <span className="ev-sub">Not yet</span>}
+                      {(() => {
+                        /* 0282: when the next automatic one would go (shown in grey while automatic sending is off) */
+                        const nx = nextAuto(v, s.today, s.ws.pay_before, s.ws.pay_after);
+                        return nx ? <div className={`op-small ${s.ws.auto_send ? "op-nextauto" : "ev-sub"}`}>Auto: {nx === s.today ? "today" : fmtDate(nx)}{s.ws.auto_send ? "" : " (when on)"}</div> : null;
+                      })()}
+                    </td>
                     <td className="op-right">
                       <span className="op-acts">
                         {v.status === "open" && (
@@ -2499,5 +2515,173 @@ function FilingSwitch(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) =>
         {on ? "Hide filing reminders" : "Show filing reminders"}
       </button>
     </section>
+  );
+}
+
+/* ── Automatic payment reminders and undo import (0282) ────────────────── */
+
+function AutoCard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; byId: Map<string, Client>; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+  const { s } = p;
+  const on = s.ws.auto_send;
+  const founder = s.me.founder;
+  const [busy, setBusy] = useState("");
+  const [add, setAdd] = useState({ before: "", after: "" });
+  const before = s.ws.pay_before;
+  const after = s.ws.pay_after;
+  const today = s.invoices.filter((v) => autoTag(v, s.today, before, after));
+  const noMail = today.filter((v) => !p.byId.get(v.client_id)?.contact_email).length;
+  async function save(b: number[], a: number[]) {
+    const nb = [...new Set(b)].sort((x, y) => y - x);
+    const na = [...new Set(a)].sort((x, y) => x - y);
+    p.setS((x) => ({ ...x, ws: { ...x.ws, pay_before: nb, pay_after: na } }));
+    if (p.preview) return;
+    const r = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "schedule", before: nb, after: na }) });
+    if (!r.ok) {
+      p.say(String(r.j.error ?? "Not saved."));
+      await p.reload();
+    }
+  }
+  function addDay(kind: "before" | "after", n: number) {
+    const min = kind === "before" ? 0 : 1;
+    if (!Number.isInteger(n) || n < min || n > 365) return p.say(`Use a whole number of days from ${min} to 365.`);
+    const list = kind === "before" ? before : after;
+    if (list.includes(n)) return p.say("That day is already set.");
+    if (list.length >= 12) return p.say("Up to 12 days each.");
+    void (kind === "before" ? save([...before, n], after) : save(before, [...after, n]));
+  }
+  async function toggle() {
+    if (!window.confirm(on ? "Turn automatic sending off?" : `Turn automatic sending on? Every morning at 8am the reminders due that day go out by themselves${s.ws.test_inbox ? ` (test mode: to ${s.ws.test_inbox})` : " to the clients"}.`)) return;
+    if (p.preview) {
+      p.setS((x) => ({ ...x, ws: { ...x.ws, auto_send: !on } }));
+      return p.say("Preview: not saved.");
+    }
+    setBusy("toggle");
+    const r = await api("/api/onpoint/settings", { method: "PATCH", body: JSON.stringify({ auto_send: !on }) });
+    setBusy("");
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    p.say(on ? "Automatic sending off" : "Automatic sending on: from tomorrow 8am");
+    await p.reload();
+  }
+  async function run() {
+    if (p.preview) return p.say("Preview: nothing is sent.");
+    if (!window.confirm(`Send today's ${today.length} automatic reminder${today.length === 1 ? "" : "s"} now, to ${s.ws.test_inbox}?`)) return;
+    setBusy("run");
+    const r = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "run" }) });
+    setBusy("");
+    if (!r.ok) return p.say(String(r.j.error ?? "Not run."));
+    const j = r.j as { due: number; sent: number; skipped: number; failed: number };
+    p.say(`Test run: ${j.sent} sent${j.skipped ? `, ${j.skipped} skipped (no email, or already sent today)` : ""}${j.failed ? `, ${j.failed} failed` : ""}.`);
+    await p.reload();
+  }
+  const chip = (label: string, rm: () => void) => (
+    <span key={label} className="op-chip">
+      {label}
+      {p.canEdit && (
+        <button aria-label={`Remove ${label}`} onClick={rm}>
+          <Ic n="close" s={11} w={2.4} />
+        </button>
+      )}
+    </span>
+  );
+  return (
+    <section className="ev-card op-pad op-auto">
+      <div className="op-autoh">
+        <div>
+          <h2 className="op-h2">
+            Automatic reminders <span className={`op-pill ${on ? "ok" : "off"}`}>{on ? "On" : "Off for now"}</span>
+          </h2>
+          <p className="ev-sub op-small">
+            {on
+              ? "Every morning at 8am (Singapore), each unpaid invoice gets its reminder on these days, by itself. Each one goes once; paid invoices stop."
+              : "Import your invoices and set the days: the system tracks every due date. Once switched on, each reminder goes by itself at 8am on these days. Until then, use Preview & send."}
+          </p>
+        </div>
+        <div className="op-autoright">
+          <b>{today.length}</b>
+          <span className="ev-sub op-small">
+            due today{noMail ? ` · ${noMail} without email` : ""}
+          </span>
+        </div>
+      </div>
+      <div className="op-autorows">
+        <div>
+          <span className="op-lab">Before the due date</span>
+          <div className="op-chiprow">
+            {before.length === 0 && <span className="ev-sub op-small">None</span>}
+            {before.map((n) => chip(n === 0 ? "On the due date" : `${n} day${n === 1 ? "" : "s"} before`, () => void save(before.filter((x) => x !== n), after)))}
+          </div>
+          {p.canEdit && (
+            <div className="op-chiprow op-mt">
+              {[14, 7, 3, 0].map((n) => (
+                <button key={n} className="ev-btn sm" disabled={before.includes(n)} onClick={() => addDay("before", n)}>
+                  + {n === 0 ? "On the day" : n}
+                </button>
+              ))}
+              <input className="op-num" inputMode="numeric" placeholder="days" value={add.before} onChange={(e) => setAdd({ ...add, before: e.target.value.replace(/\D/g, "") })} />
+              <button className="ev-btn sm" disabled={!add.before} onClick={() => (addDay("before", Number(add.before)), setAdd({ ...add, before: "" }))}>
+                Add
+              </button>
+            </div>
+          )}
+        </div>
+        <div>
+          <span className="op-lab">After the due date (overdue)</span>
+          <div className="op-chiprow">
+            {after.length === 0 && <span className="ev-sub op-small">None</span>}
+            {after.map((n) => chip(`${n} day${n === 1 ? "" : "s"} overdue`, () => void save(before, after.filter((x) => x !== n))))}
+          </div>
+          {p.canEdit && (
+            <div className="op-chiprow op-mt">
+              {[3, 7, 14, 30].map((n) => (
+                <button key={n} className="ev-btn sm" disabled={after.includes(n)} onClick={() => addDay("after", n)}>
+                  + {n}
+                </button>
+              ))}
+              <input className="op-num" inputMode="numeric" placeholder="days" value={add.after} onChange={(e) => setAdd({ ...add, after: e.target.value.replace(/\D/g, "") })} />
+              <button className="ev-btn sm" disabled={!add.after} onClick={() => (addDay("after", Number(add.after)), setAdd({ ...add, after: "" }))}>
+                Add
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      {founder ? (
+        <div className="op-chiprow op-founderrow">
+          <span className="ev-sub op-small">Founders Doc only:</span>
+          <button className={`ev-btn sm ${on ? "" : "gold"}`} disabled={busy === "toggle"} onClick={() => void toggle()}>
+            {busy === "toggle" ? "Saving…" : on ? "Turn off" : "Turn on"}
+          </button>
+          <button className="ev-btn sm" disabled={busy === "run" || !s.ws.test_inbox || today.length === 0} onClick={() => void run()} title={s.ws.test_inbox ? "Sends today's reminders to the test inbox" : "Only in test mode"}>
+            {busy === "run" ? "Sending…" : "Test run now (to the test inbox)"}
+          </button>
+        </div>
+      ) : !on ? (
+        <p className="ev-sub op-small">Founders Doc switches automatic sending on when you&rsquo;re ready.</p>
+      ) : null}
+    </section>
+  );
+}
+
+function UndoImport(p: { imp: { id?: number; file_name: string }; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; setS: (fn: (s: Snapshot) => Snapshot) => void }) {
+  const [busy, setBusy] = useState(false);
+  async function undo() {
+    if (!p.imp.id) return;
+    if (!window.confirm(`Undo the import of ${p.imp.file_name}? The invoices and deadlines it added are removed. Clients and their emails stay.`)) return;
+    if (p.preview) {
+      p.setS((x) => ({ ...x, imports: x.imports.map((i) => (i.id === p.imp.id ? { ...i, undone_at: new Date().toISOString() } : i)) }));
+      return p.say("Undone (preview only)");
+    }
+    setBusy(true);
+    const r = await api(`/api/onpoint/import?id=${p.imp.id}`, { method: "DELETE" });
+    setBusy(false);
+    if (!r.ok) return p.say(String(r.j.error ?? "Not undone."));
+    const j = r.j as { invoices: number; deadlines: number };
+    p.say(`Import undone: ${j.invoices} invoice${j.invoices === 1 ? "" : "s"}${j.deadlines ? ` and ${j.deadlines} deadline${j.deadlines === 1 ? "" : "s"}` : ""} removed`);
+    await p.reload();
+  }
+  return (
+    <button className="ev-link op-undo" disabled={busy || !p.imp.id} onClick={() => void undo()}>
+      {busy ? "Undoing…" : "Undo"}
+    </button>
   );
 }

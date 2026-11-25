@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addInvoice, applyInvoiceImport, errorJson, guard, OpError, savePayTemplate, sendPayment, setFiling, setInvoiceStatus } from "@/lib/onpoint/server";
-import { readCsv, readInvoiceList } from "@/lib/onpoint/payments";
+import { addInvoice, applyInvoiceImport, errorJson, guard, OpError, paymentRun, savePaySchedule, savePayTemplate, sendPayment, setFiling, setInvoiceStatus } from "@/lib/onpoint/server";
+import { cleanDays, readCsv, readInvoiceList } from "@/lib/onpoint/payments";
 import { readXlsx } from "@/lib/onpoint/xlsx";
 
 /**
@@ -9,6 +9,8 @@ import { readXlsx } from "@/lib/onpoint/xlsx";
  * POST { action: "add", client_id | client_name, email?, contact_name?, number?, description?, amount, due_date }
  * POST { action: "send", invoice_id, request_id }: send one reminder now (to the test inbox while testing).
  * POST { action: "template", subject, body } · POST { action: "filing", on } (administrators)
+ * POST { action: "schedule", before: [7, 0], after: [3, 10, 30] }: the days of the automatic reminders (0282)
+ * POST { action: "run" }: Founders Doc, while in test mode only: send today's automatic reminders now (to the test inbox)
  * PATCH { id, status: "paid" | "open" | "cancelled" }
  */
 export const runtime = "nodejs";
@@ -44,6 +46,20 @@ export async function POST(req: NextRequest) {
     if (b.action === "template") {
       await savePayTemplate(await guard("edit"), String(b.subject ?? ""), String(b.body ?? ""));
       return NextResponse.json({ ok: true });
+    }
+    if (b.action === "schedule") {
+      const m = await guard("edit");
+      const before = cleanDays(b.before, 0);
+      const after = cleanDays(b.after, 1);
+      if (!before || !after) throw new OpError("Use whole numbers of days: 0 to 365 before, 1 to 365 after.");
+      await savePaySchedule(m, before, after);
+      return NextResponse.json({ ok: true, before, after });
+    }
+    if (b.action === "run") {
+      const m = await guard("admin");
+      if (!m.founder) throw new OpError("Only Founders Doc can run this.", 403);
+      if (!m.ws.test_inbox?.trim()) throw new OpError("A test run only works in test mode, so nothing reaches a client.", 409);
+      return NextResponse.json({ ok: true, ...(await paymentRun(m.ws)) });
     }
     if (b.action === "filing") {
       await setFiling(await guard("admin"), b.on === true);

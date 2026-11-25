@@ -388,3 +388,23 @@
 .op-checks li.c-no::before { content: "!"; background: #fdecea; color: #a3271b; }
 .op-checks li.c-opt::before { content: "–"; background: #efefec; color: #666; }
 .op-linkbar { border-style: solid; background: #fff; }
+
+/* 0282 · automatic payment reminders, undo import */
+.esop.ev .op-auto { flex: none; border-left: 3px solid #f3bf4b; }
+.op-autoh { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; }
+.op-autoh .op-h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; }
+.op-autoh p { margin: 0; max-width: 640px; }
+.op-autoright { text-align: right; flex: none; display: flex; flex-direction: column; }
+.op-autoright b { font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; }
+.op-autorows { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 12px; }
+.op-autorows .op-lab { display: block; margin-bottom: 6px; }
+.op-founderrow { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--g2); align-items: center; }
+.op-nextauto { color: #8a5a00; font-weight: 600; }
+.op-lastimp { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #555; }
+.op-undo { margin-left: auto; }
+.op-imp .op-undo, .op-imp .op-pill { margin-left: 8px; }
+@media (max-width: 900px) {
+  .op-autorows { grid-template-columns: 1fr; }
+  .op-autoh { flex-direction: column; }
+  .op-autoright { text-align: left; }
+}

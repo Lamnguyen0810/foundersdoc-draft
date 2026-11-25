@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyImport, errorJson, guard, OpError } from "@/lib/onpoint/server";
+import { applyImport, errorJson, guard, OpError, undoImport } from "@/lib/onpoint/server";
 import { readXlsx } from "@/lib/onpoint/xlsx";
 import { derive } from "@/lib/onpoint/derive";
 import { sgToday } from "@/lib/onpoint/dates";
@@ -39,6 +39,19 @@ export async function POST(req: NextRequest) {
       }
     }
     return NextResponse.json({ ok: true, results });
+  } catch (e) {
+    const { body, status } = errorJson(e);
+    return NextResponse.json(body, { status });
+  }
+}
+
+/** DELETE /api/onpoint/import?id=123: undo an import done by mistake (0282); what it added is removed */
+export async function DELETE(req: NextRequest) {
+  try {
+    const m = await guard("edit");
+    const id = Number(req.nextUrl.searchParams.get("id"));
+    if (!Number.isInteger(id) || id < 1) throw new OpError("Which import?");
+    return NextResponse.json({ ok: true, ...(await undoImport(m, id)) });
   } catch (e) {
     const { body, status } = errorJson(e);
     return NextResponse.json(body, { status });

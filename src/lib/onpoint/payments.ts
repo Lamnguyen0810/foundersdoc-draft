@@ -312,3 +312,40 @@ export function readCsv(text: string, name = "CSV"): Sheet[] {
   }
   return [{ name, rows: rows.filter((r) => r.some((c) => String(c).trim())) }];
 }
+
+/* ── automatic payment reminders (0282) ───────────────────────────────────── */
+
+/** the standard schedule: 7 days before, on the due date, then 3, 10 and 30 days overdue */
+export const DEFAULT_BEFORE = [7, 0];
+export const DEFAULT_AFTER = [3, 10, 30];
+
+/** days before (0 = on the due date) or after the due date: whole numbers 0–365 (after: 1–365), no repeats */
+export function cleanDays(v: unknown, min: number): number[] | null {
+  if (!Array.isArray(v)) return null;
+  const n = v.map(Number);
+  if (n.some((x) => !Number.isInteger(x) || x < min || x > 365)) return null;
+  return [...new Set(n)].sort((a, b) => b - a).slice(0, 12);
+}
+
+/**
+ * Is an automatic reminder due today for this invoice? "b7" = 7 days before, "b0" = on the due date,
+ * "a10" = 10 days overdue. Only unpaid invoices; null = nothing today.
+ */
+export function autoTag(v: Pick<Invoice, "status" | "due_date">, today: string, before: number[], after: number[]): { tag: string; lead: number } | null {
+  if (v.status !== "open") return null;
+  const n = daysBetween(today, v.due_date);
+  if (n >= 0 && before.includes(n)) return { tag: `b${n}`, lead: n };
+  if (n < 0 && after.includes(-n)) return { tag: `a${-n}`, lead: n };
+  return null;
+}
+
+/** the next day (today or later) an automatic reminder would go for this invoice, or null if none is left */
+export function nextAuto(v: Pick<Invoice, "status" | "due_date">, today: string, before: number[], after: number[]): string | null {
+  if (v.status !== "open") return null;
+  const days = [...before.map((b) => -b), ...after].sort((a, b) => a - b); // offsets from the due date
+  const n = daysBetween(v.due_date, today); // today's offset from the due date
+  const next = days.find((d) => d >= n);
+  if (next === undefined) return null;
+  const [y, m, d] = v.due_date.split("-").map(Number) as [number, number, number];
+  return new Date(Date.UTC(y, m - 1, d) + next * 86_400_000).toISOString().slice(0, 10);
+}
