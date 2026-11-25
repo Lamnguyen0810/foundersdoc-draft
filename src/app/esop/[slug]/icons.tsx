@@ -32,6 +32,11 @@ const P = {
   sent: <><circle cx="12" cy="12" r="8.5" /><path d="m8.2 12.2 2.6 2.6 5-5.2" /></>,
   clock: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5V12l3 2" /></>,
   bang: <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v5.5M12 16.2v.3" /></>,
+  /* 0294 (OnPoint): the sidebar toggle, Rules & flows, and "Send now" */
+  menu: <path d="M3.5 6h17M3.5 12h17M3.5 18h17" />,
+  flow: <><circle cx="6" cy="7" r="2.5" /><circle cx="18" cy="7" r="2.5" /><circle cx="12" cy="18" r="2.5" /><path d="M6 9.5v3a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-3M12 14.5v1" /></>,
+  send: <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" />,
+  note: <><path d="M5 3h10l4 4v14H5z" /><path d="M15 3v4h4M8 12h8M8 16h5" /></>,
 } as const;
 
 export type IconName = keyof typeof P;
