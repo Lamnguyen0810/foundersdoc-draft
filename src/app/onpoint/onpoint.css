@@ -424,3 +424,8 @@
 a.op-steplink:hover { text-decoration: underline; }
 @media (max-width: 900px) { .op-steps4 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 520px) { .op-steps4 { grid-template-columns: 1fr; } }
+
+/* 0284 · "for now, emails go to … for a safety check", only where sending happens */
+.op-safety { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border: 1px solid #e3e8f2; background: #f5f8fd; border-radius: 8px; font-size: 13px; color: #34405a; }
+.op-safety svg { flex: none; margin-top: 2px; color: #4a6aa8; }
+.op-modal .op-safety, .ev-card .op-safety { margin-top: 10px; }

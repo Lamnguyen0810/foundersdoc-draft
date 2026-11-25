@@ -120,11 +120,6 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
   return (
     <div className="esop ev op" id="top">
       {preview && <div className="op-preview">Preview with sample companies · nothing is saved or sent</div>}
-      {s.ws.test_inbox && (
-        <div className="op-test" role="note">
-          <b>Test mode.</b> Every reminder goes to {s.ws.test_inbox}, not to the client. {s.ws.auto_send ? "Automatic sending is on." : "Automatic sending is off."}
-        </div>
-      )}
       <div className="ev-body">
         <aside className="ev-side">
           <div className="op-brand">
@@ -339,7 +334,7 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
               <div>
                 <div>
                   {x.status === "sent" ? "Reminder sent" : x.status === "failed" ? "Not sent" : x.status === "queued" ? "Sending" : "Skipped"} to <b>{p.byId.get(x.client_id ?? "")?.name ?? "a client"}</b>: {x.type === "PAYMENT" ? "payment reminder" : (TYPE_NAME[x.type as ReminderType] ?? x.type)}
-                  {x.test ? <span className="op-testtag">test</span> : null}
+                  {x.test ? <span className="op-testtag">safety check</span> : null}
                 </div>
                 {x.error ? <div className="op-late op-small">{x.error}</div> : null}
                 <div className="ev-sub op-small">{new Date(x.requested_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
@@ -665,7 +660,7 @@ function Reminders(p: {
   async function send() {
     if (!picked || !client) return;
     if (p.preview) return p.say("Preview: nothing is sent.");
-    if (!window.confirm(`Send the ${TYPE_PICK[type]} reminder for ${client.name} now?${s.ws.test_inbox ? `\n\nTest mode: it goes to ${s.ws.test_inbox}.` : `\n\nIt goes to ${client.contact_email}.`}`)) return;
+    if (!window.confirm(`Send the ${TYPE_PICK[type]} reminder for ${client.name} now?${s.ws.test_inbox ? `\n\nFor now it goes to ${s.ws.test_inbox} for a safety check.` : `\n\nIt goes to ${client.contact_email}.`}`)) return;
     setBusy("send");
     const res = await api("/api/onpoint/send", { method: "POST", body: JSON.stringify({ deadline_id: picked.id, request_id: crypto.randomUUID() }) });
     setBusy("");
@@ -855,7 +850,7 @@ function Reminders(p: {
               {n}
             </p>
           ))}
-          {s.ws.test_inbox && <p className="ev-sub">Test mode: sending now goes to {s.ws.test_inbox}.</p>}
+          {s.ws.test_inbox && <SafetyNote inbox={s.ws.test_inbox} />}
           {dirty && <p className="ev-sub">Save the template first: the email sent is always the saved version.</p>}
           {p.canEdit && (
             <button className="ev-btn gold op-mt" disabled={!canSend || busy === "send"} onClick={() => void send()}>
@@ -1174,7 +1169,7 @@ function Sources(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
           <h2 className="op-h2">Sending · Founders Doc only</h2>
           <div className="op-field">
             <label className="op-lab" htmlFor="op-inbox">
-              Test inbox (empty = live: reminders go to the clients)
+              Safety-check inbox: for now every email goes here (empty = emails go to the clients)
             </label>
             <div className="op-chiprow">
               <input id="op-inbox" className="op-in" value={inbox} placeholder="administrator@foundersdoc.com" onChange={(e) => setInbox(e.target.value)} />
@@ -1183,7 +1178,7 @@ function Sources(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
                 disabled={busy === "settings" || inbox.trim() === (s.ws.test_inbox ?? "")}
                 onClick={() => {
                   if (!inbox.trim() && !window.confirm("Go live? Reminders will go to the clients' own email addresses.")) return;
-                  void saveSettings({ test_inbox: inbox }, inbox.trim() ? "Test inbox saved" : "Live: reminders now go to clients");
+                  void saveSettings({ test_inbox: inbox }, inbox.trim() ? "Safety-check inbox saved" : "Emails now go to the clients");
                 }}
               >
                 Save
@@ -1578,7 +1573,7 @@ function Billing(p: { preview: boolean; founder: boolean; say: (t: string) => vo
           </span>
         </div>
       )}
-      {b?.mode === "test" && <div className="op-warn">Stripe test mode: no real card is charged here.</div>}
+      {b?.mode === "test" && p.founder && <div className="op-warn">Founders Doc: Stripe is on its practice keys, so no real card is charged here.</div>}
       {err && <div className="op-warn">{err}</div>}
       {!b && !err && <div className="ev-card op-pad ev-sub">Loading…</div>}
       {b && (
@@ -2058,6 +2053,7 @@ function Payments(p: {
           <b>Sending to your clients is paused.</b> Your plan is not active yet: set up the card payment on Billing &amp; plan. Test reminders still work.
         </div>
       )}
+      {s.ws.test_inbox && <SafetyNote inbox={s.ws.test_inbox} />}
       <AutoCard s={s} setS={p.setS} byId={p.byId} canEdit={p.canEdit} preview={p.preview} say={p.say} reload={p.reload} />
       <section className="ev-card op-pad">
         <div className="op-tools">
@@ -2323,7 +2319,7 @@ function PaySend(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
   }
   async function send() {
     if (p.preview) return p.say("Preview: nothing is sent.");
-    if (!window.confirm(`Send the payment reminder (${money(v.amount_cents, v.currency)}) to ${client!.name} now?${s.ws.test_inbox ? `\n\nTest mode: it goes to ${s.ws.test_inbox}.` : `\n\nIt goes to ${client!.contact_email}.`}`)) return;
+    if (!window.confirm(`Send the payment reminder (${money(v.amount_cents, v.currency)}) to ${client!.name} now?${s.ws.test_inbox ? `\n\nFor now it goes to ${s.ws.test_inbox} for a safety check.` : `\n\nIt goes to ${client!.contact_email}.`}`)) return;
     setBusy("send");
     const res = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "send", invoice_id: v.id, request_id: crypto.randomUUID() }) });
     setBusy("");
@@ -2400,7 +2396,7 @@ function PaySend(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
           </p>
         ))}
         {r.unknown.length > 0 && <p className="op-late">Not supported in the wording: {r.unknown.join(", ")}</p>}
-        {s.ws.test_inbox && <p className="ev-sub op-small">Test mode: sending now goes to {s.ws.test_inbox}.</p>}
+        {s.ws.test_inbox && <SafetyNote inbox={s.ws.test_inbox} />}
         <div className="op-chiprow op-mt">
           {p.canEdit && (
             <button className="ev-btn gold" disabled={!canSend || busy === "send"} onClick={() => void send()}>
@@ -2556,7 +2552,7 @@ function AutoCard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => voi
     void (kind === "before" ? save([...before, n], after) : save(before, [...after, n]));
   }
   async function toggle() {
-    if (!window.confirm(on ? "Turn automatic sending off?" : `Turn automatic sending on? Every morning at 8am the reminders due that day go out by themselves${s.ws.test_inbox ? ` (test mode: to ${s.ws.test_inbox})` : " to the clients"}.`)) return;
+    if (!window.confirm(on ? "Turn automatic sending off?" : `Turn automatic sending on? Every morning at 8am the reminders due that day go out by themselves${s.ws.test_inbox ? ` (for now to ${s.ws.test_inbox}, for a safety check)` : " to the clients"}.`)) return;
     if (p.preview) {
       p.setS((x) => ({ ...x, ws: { ...x.ws, auto_send: !on } }));
       return p.say("Preview: not saved.");
@@ -2576,7 +2572,7 @@ function AutoCard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => voi
     setBusy("");
     if (!r.ok) return p.say(String(r.j.error ?? "Not run."));
     const j = r.j as { due: number; sent: number; skipped: number; failed: number };
-    p.say(`Test run: ${j.sent} sent${j.skipped ? `, ${j.skipped} skipped (no email, or already sent today)` : ""}${j.failed ? `, ${j.failed} failed` : ""}.`);
+    p.say(`Run now: ${j.sent} sent to ${s.ws.test_inbox}${j.skipped ? `, ${j.skipped} skipped (no email, or already sent today)` : ""}${j.failed ? `, ${j.failed} failed` : ""}.`);
     await p.reload();
   }
   const chip = (label: string, rm: () => void) => (
@@ -2657,8 +2653,8 @@ function AutoCard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => voi
           <button className={`ev-btn sm ${on ? "" : "gold"}`} disabled={busy === "toggle"} onClick={() => void toggle()}>
             {busy === "toggle" ? "Saving…" : on ? "Turn off" : "Turn on"}
           </button>
-          <button className="ev-btn sm" disabled={busy === "run" || !s.ws.test_inbox || today.length === 0} onClick={() => void run()} title={s.ws.test_inbox ? "Sends today's reminders to the test inbox" : "Only in test mode"}>
-            {busy === "run" ? "Sending…" : "Test run now (to the test inbox)"}
+          <button className="ev-btn sm" disabled={busy === "run" || !s.ws.test_inbox || today.length === 0} onClick={() => void run()} title={s.ws.test_inbox ? `Sends today's reminders to ${s.ws.test_inbox}` : "Only while emails go to the safety-check inbox"}>
+            {busy === "run" ? "Sending…" : `Run today's now (to ${s.ws.test_inbox ?? "the safety-check inbox"})`}
           </button>
         </div>
       ) : !on ? (
@@ -2700,7 +2696,7 @@ function Rollout(p: { s: Snapshot; go: (v: View) => void }) {
   const steps: Array<{ t: string; d: string; done: boolean; view: View; act: string }> = [
     { t: "Connect your data", d: "Import your unpaid invoice list, or add invoices", done: s.invoices.length > 0, view: "payments", act: "Import invoices" },
     { t: "Set the rules", d: "Connect your email, check the reminder days and wording", done: !!s.ws.mail_connected, view: "sources", act: "Connect my email" },
-    { t: "Test run", d: "Send a test reminder: it comes to us, not your client", done: s.deliveries.some((x) => x.test && x.status === "sent"), view: "payments", act: "Preview & send" },
+    { t: "Test run", d: "Send one reminder: it comes to us first, as a safety check", done: s.deliveries.some((x) => x.test && x.status === "sent"), view: "payments", act: "Preview & send" },
     {
       t: "Go live",
       d: plan === "free" ? "Reminders reach your clients. Free while card payment opens soon" : plan === "none" ? "Set up the card payment, then reminders reach your clients" : "Reminders reach your clients; your plan is active",
@@ -2745,5 +2741,17 @@ function Rollout(p: { s: Snapshot; go: (v: View) => void }) {
         ))}
       </ol>
     </section>
+  );
+}
+
+/** 0284: where it matters (sending), say plainly where the emails go for now */
+function SafetyNote({ inbox }: { inbox: string }) {
+  return (
+    <div className="op-safety" role="note">
+      <Ic n="mail" s={14} />
+      <span>
+        For now, every email is sent to <b>{inbox}</b> for a safety check, not to your client. Founders Doc switches it to your clients with you.
+      </span>
+    </div>
   );
 }

@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest) {
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if ("test_inbox" in b) {
       const t = String(b.test_inbox ?? "").trim().toLowerCase();
-      if (t && (!EMAIL.test(t) || !t.endsWith("@foundersdoc.com"))) throw new OpError("The test inbox must be a @foundersdoc.com address, or empty to go live.");
+      if (t && (!EMAIL.test(t) || !t.endsWith("@foundersdoc.com"))) throw new OpError("The safety-check inbox must be a @foundersdoc.com address, or empty to send to the clients.");
       patch.test_inbox = t || null;
       /* 0283: going live (step 4) needs an active plan once card payment is open */
       if (!t) {

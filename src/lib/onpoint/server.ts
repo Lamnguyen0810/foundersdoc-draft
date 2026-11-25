@@ -245,7 +245,7 @@ export type SendResult = { status: "sent" | "duplicate" | "failed" | "blocked"; 
 /**
  * Send one reminder for one deadline. Everything is read again here; nothing the browser sent is trusted
  * but the deadline's id. The delivery row (with its unique key) is written first, so a retry, a double click
- * or two daily runs at once send nothing twice. While the workspace has a test inbox, the email goes there.
+ * or two daily runs at once send nothing twice. While the workspace has a safety-check inbox (test_inbox), the email goes there.
  */
 export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "MANUAL" | "AUTOMATIC", by: string, opts: { requestId?: string; leadDays?: number } = {}): Promise<SendResult> {
   const d = must(await db().from("onpoint_deadlines").select("id, client_id, type, label, due_date, status").eq("workspace_id", ws.id).eq("id", deadlineId).maybeSingle()) as Deadline | null;
@@ -308,7 +308,7 @@ export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "
       /* 0273: no uploaded logo → the sharp "P" mark with the name as text, instead of the small, blurry picture */
       brandName: ws.logo_data ? undefined : ws.custom_name || ws.sender_name,
       deadline: { type: r.typeName, company: c.name, uen: c.uen, due: d.due_date, today },
-      banner: test ? `Test: this reminder would have gone to ${to}.` : undefined,
+      banner: test ? `Safety check: this reminder goes to ${to} once it is switched to the client.` : undefined,
     });
   return dispatch(ws, { deliveryId, to, test, subject: r.subject, text: r.body, look, kind: "onpoint_reminder" });
 }
@@ -338,7 +338,7 @@ async function dispatch(ws: Workspace, m: { deliveryId: string; to: string; test
           kind: m.kind,
           to: dest,
           subject: m.subject,
-          text: m.test ? `[Test: this email would have gone to ${m.to}]\n\n${m.text}` : m.text,
+          text: m.test ? `[Safety check: this email goes to ${m.to} once it is switched to the client]\n\n${m.text}` : m.text,
           html,
           from_name: ws.sender_name,
           test: m.test,
@@ -354,7 +354,7 @@ async function dispatch(ws: Workspace, m: { deliveryId: string; to: string; test
   }
   must(await db().from("onpoint_deliveries").update(ok ? { status: "sent", sent_at: new Date().toISOString() } : { status: "failed", error }).eq("id", m.deliveryId));
   return ok
-    ? { status: "sent", message: m.test ? `Test sent to ${ws.test_inbox} (would go to ${m.to}).` : `Sent to ${m.to}.`, delivery_id: m.deliveryId }
+    ? { status: "sent", message: m.test ? `Sent to ${ws.test_inbox} for a safety check (client: ${m.to}).` : `Sent to ${m.to}.`, delivery_id: m.deliveryId }
     : { status: "failed", message: error ?? "Not sent.", delivery_id: m.deliveryId };
 }
 
@@ -693,7 +693,7 @@ export async function sendPayment(ws: Workspace, invoiceId: string, by: string, 
       currency: v.currency,
       due: v.due_date,
       today,
-      banner: test ? `Test: this reminder would have gone to ${to}.` : undefined,
+      banner: test ? `Safety check: this reminder goes to ${to} once it is switched to the client.` : undefined,
     });
   return dispatch(ws, { deliveryId: (ins.data as { id: string }).id, to, test, subject: r.subject, text: r.body, look, kind: "onpoint_payment_reminder" });
 }
