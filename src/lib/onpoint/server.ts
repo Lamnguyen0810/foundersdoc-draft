@@ -147,15 +147,20 @@ export async function snapshot(m: Me) {
   ]);
   const { logo_data, ...ws } = m.ws;
   /* 0283: the rollout (proposal: connect, set the rules, test run, go live) and the plan */
-  const [mb, plan, addon] = await Promise.all([
+  const [mb, plan, feedbackUntil, feedback, addon] = await Promise.all([
     db().from("onpoint_workspaces").select("mail_provider, mail_token_enc").eq("id", id).maybeSingle().then((r) => (r.data as { mail_provider: string | null; mail_token_enc: string | null } | null) ?? null, () => null),
     import("./billing").then((b) => b.planState(id)).catch(() => "free" as const),
+    /* 0291: feedback (first 3 months) */
+    db().from("onpoint_workspaces").select("feedback_until").eq("id", id).maybeSingle().then((r) => ((r.data as { feedback_until?: string | null } | null)?.feedback_until ?? null), () => null),
+    db().from("onpoint_feedback").select("id, page, message, created_by, created_at, status").eq("workspace_id", id).order("created_at", { ascending: false }).range(0, 299).then((r) => (r.error ? null : r.data ?? []), () => null),
     /* 0285: when the document drafting add-on was enquired about */
     db().from("onpoint_workspaces").select("addon_enquired_at").eq("id", id).maybeSingle().then((r) => ((r.data as { addon_enquired_at?: string | null } | null)?.addon_enquired_at ?? null), () => null),
   ]);
   return {
     me: { email: m.email, role: m.role, founder: m.founder },
-    ws: { ...ws, logo: logo_data ?? null, mail_connected: !!(mb?.mail_provider && mb.mail_token_enc), plan, addon_enquired_at: addon },
+    ws: { ...ws, logo: logo_data ?? null, mail_connected: !!(mb?.mail_provider && mb.mail_token_enc), plan, addon_enquired_at: addon, feedback_until: feedbackUntil },
+    feedback: feedback ?? [],
+    feedback_ready: feedback !== null,
     clients,
     deadlines,
     deliveries,
@@ -779,4 +784,25 @@ export async function readPdfInvoice(m: Me, buf: Buffer): Promise<{ table: boole
     ...list.skipped.slice(0, 5),
   ];
   return { table: true, drafts, notes };
+}
+
+/* ── feedback, page by page (0291) ─────────────────────────────────────── */
+
+export async function addFeedback(m: Me, page: string, message: string) {
+  const text = message.trim().slice(0, 4000);
+  if (!text) throw new OpError("Type your comment first.");
+  const r = await db().from("onpoint_feedback").insert({ workspace_id: m.ws.id, page: page.slice(0, 40) || "general", message: text, created_by: m.email }).select("id").single();
+  if (r.error) throw new OpError(/onpoint_feedback/.test(r.error.message) ? "Run supabase/145_onpoint_feedback.sql first." : r.error.message, 503);
+  const channel = process.env.ONPOINT_SLACK_CHANNEL?.trim();
+  if (channel && !m.founder) {
+    const { teamNotice } = await import("@/lib/sign/slack");
+    await teamNotice(`💬 OnPoint feedback on ${page} (${m.email}): ${text.slice(0, 500)}`, channel).catch(() => false);
+  }
+  return r.data as { id: string };
+}
+
+export async function markFeedback(m: Me, id: string, done: boolean) {
+  if (!m.founder) throw new OpError("Only Founders Doc marks feedback done.", 403);
+  const r = await db().from("onpoint_feedback").update({ status: done ? "done" : "new", done_at: done ? new Date().toISOString() : null }).eq("workspace_id", m.ws.id).eq("id", id);
+  if (r.error) throw new OpError(r.error.message, 500);
 }

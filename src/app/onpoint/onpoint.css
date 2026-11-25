@@ -467,3 +467,17 @@
 .esop.ev .op-autofiling { flex: none; border-left: 3px solid #f3bf4b; }
 .op-autofiling .op-h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 4px; }
 .op-autofiling p { margin: 0; max-width: 760px; }
+
+/* 0291 · feedback, first 3 months */
+.op-fbbanner { display: flex; gap: 12px; align-items: center; padding: 12px 16px; border: 1px solid #cfe0f5; background: #f3f8fe; border-radius: 10px; font-size: 13.5px; color: #24344f; }
+.esop.ev .op-feedback { flex: none; border-style: dashed; border-color: #c9d6ea; background: #fafcff; margin-top: 10px; }
+.op-fbh { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.op-fbh .op-h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.op-feedback > p { margin: 4px 0 0; }
+.op-fbform { display: flex; gap: 10px; align-items: flex-end; margin-top: 10px; }
+.op-fbform textarea { flex: 1; min-width: 0; }
+.op-fblist { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.op-fblist li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: baseline; padding: 8px 10px; border: 1px solid var(--g1); border-radius: 8px; background: #fff; font-size: 13px; }
+.op-fblist li.done .op-fbmsg { color: #888; text-decoration: line-through; }
+.op-fbmsg { overflow-wrap: anywhere; }
+@media (max-width: 700px) { .op-fbform { flex-direction: column; align-items: stretch; } .op-fblist li { grid-template-columns: 1fr; } .op-fbbanner { flex-direction: column; align-items: flex-start; } }

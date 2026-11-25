@@ -22,7 +22,7 @@ export default async function OnPointPage() {
   if (!isSupabaseConfigured()) {
     const demo: Snapshot = {
       me: { email: "preview@example.com", role: "admin", founder: true },
-      ws: { id: "demo", slug: "onpoint", name: "OnPoint Consulting Pte. Ltd.", custom_name: null, logo: null, sender_name: "OnPoint Consulting", sender_email: "sadiq@example.com", test_inbox: "administrator@foundersdoc.com", auto_send: false, filing_enabled: true, pay_subject: null, pay_body: null, pay_before: [7, 0], pay_after: [3, 10, 30], payments_enabled: false, mail_connected: false, plan: "free" },
+      ws: { id: "demo", slug: "onpoint", name: "OnPoint Consulting Pte. Ltd.", custom_name: null, logo: null, sender_name: "OnPoint Consulting", sender_email: "sadiq@example.com", test_inbox: "administrator@foundersdoc.com", auto_send: false, filing_enabled: true, pay_subject: null, pay_body: null, pay_before: [7, 0], pay_after: [3, 10, 30], payments_enabled: false, mail_connected: false, plan: "free", feedback_until: "2027-02-25" },
       clients: DEMO_CLIENTS,
       deadlines: DEMO_DEADLINES,
       deliveries: [],
@@ -32,6 +32,8 @@ export default async function OnPointPage() {
       invoices: DEMO_INVOICES,
       payments_ready: true,
       files_ready: true,
+      feedback_ready: true,
+      feedback: [],
       files: [
         { id: "f1", name: "SAMPLE_invoice_0386.pdf", kind: "pdf", size: 48213, uploaded_by: "sadiq@example.com", uploaded_at: new Date().toISOString(), invoice_id: "v1", import_id: null, details: {} },
         { id: "f2", name: "SAMPLE_invoice_0412.pdf", kind: "pdf", size: 51002, uploaded_by: "sadiq@example.com", uploaded_at: new Date().toISOString(), invoice_id: null, import_id: null, details: {} },

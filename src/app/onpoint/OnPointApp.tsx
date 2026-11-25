@@ -15,7 +15,7 @@ import { OTHERS, TYPE_NAME, TYPE_PICK, TYPES, type Client, type Deadline, type D
 
 export interface Snapshot {
   me: { email: string; role: "admin" | "staff" | "viewer"; founder: boolean };
-  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean; filing_enabled: boolean; pay_subject: string | null; pay_body: string | null; pay_before: number[]; pay_after: number[]; payments_enabled?: boolean; mail_connected?: boolean; plan?: "free" | "active" | "retrying" | "none"; addon_enquired_at?: string | null };
+  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean; filing_enabled: boolean; pay_subject: string | null; pay_body: string | null; pay_before: number[]; pay_after: number[]; payments_enabled?: boolean; mail_connected?: boolean; plan?: "free" | "active" | "retrying" | "none"; addon_enquired_at?: string | null; feedback_until?: string | null };
   clients: Client[];
   deadlines: Deadline[];
   deliveries: Delivery[];
@@ -25,6 +25,9 @@ export interface Snapshot {
   /* 0280: payment reminders; payments_ready = supabase/139 has been run */
   invoices: Invoice[];
   payments_ready: boolean;
+  /* 0291: feedback, page by page, for the first 3 months */
+  feedback?: Feedback[];
+  feedback_ready?: boolean;
   /* 0286: the file folder (every uploaded invoice file) */
   files?: OpFile[];
   files_ready?: boolean;
@@ -32,6 +35,17 @@ export interface Snapshot {
 }
 
 type View = "dashboard" | "payments" | "deadlines" | "calendar" | "reminders" | "clients" | "client" | "files" | "sources" | "billing";
+
+interface Feedback {
+  id: string;
+  page: string;
+  message: string;
+  created_by: string | null;
+  created_at: string;
+  status: "new" | "done";
+}
+const PAGE_NAME: Record<View, string> = { dashboard: "Dashboard", payments: "Payment reminders", deadlines: "Deadlines", calendar: "Calendar", reminders: "Reminder emails", clients: "Clients", client: "Client page", files: "Files", sources: "Excel sources", billing: "Billing & plan" };
+const feedbackOpen = (s: Snapshot) => !!s.feedback_ready && !!s.ws.feedback_until && s.today <= s.ws.feedback_until;
 
 interface OpFile {
   id: string;
@@ -216,7 +230,7 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
           <div className="ev-wrap op-view" key={view}>
             {view === "dashboard" && !filing && payments && <PayDashboard s={s} byId={byId} company={company} go={go} openPay={openPay} />}
             {view === "payments" && <Payments key={payAt.n} s={s} setS={setS} byId={byId} canEdit={canEdit} isAdmin={isAdmin} preview={preview} say={say} reload={reload} initialChip={payAt.chip} openId={payAt.id} openClient={openClient} />}
-            {view === "dashboard" && filing && <Dashboard s={s} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} openDeadlines={(c) => (setChip(c), go("deadlines"))} />}
+            {view === "dashboard" && filing && <Dashboard s={s} setS={setS} preview={preview} say={say} reload={reload} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} openDeadlines={(c) => (setChip(c), go("deadlines"))} />}
             {view === "deadlines" && <Deadlines s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} onPreview={openPreview} initialChip={chip} />}
             {view === "calendar" && <Calendar s={s} byId={byId} onPreview={openPreview} canEdit={canEdit} preview={preview} say={say} reload={reload} />}
             {view === "billing" && isAdmin && <Billing preview={preview} founder={s.me.founder} enquired={s.ws.addon_enquired_at} say={say} back={stripeReturn} />}
@@ -225,6 +239,8 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
             {view === "files" && <Files s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={(id) => openPay("all", id)} />}
             {view === "client" && clientId && <ClientPage key={clientId} s={s} setS={setS} id={clientId} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} back={() => go("clients")} onPreview={openPreview} />}
             {view === "sources" && <Sources s={s} setS={setS} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={() => openPay("open")} />}
+            {/* 0291: temporary, for the first 3 months: comments on this page, bit by bit */}
+            {feedbackOpen(s) && <FeedbackBox key={`fb-${view}`} s={s} setS={setS} page={PAGE_NAME[view]} preview={preview} say={say} reload={reload} />}
           </div>
         </main>
       </div>
@@ -288,7 +304,7 @@ function useCountUp(target: number) {
   return n;
 }
 
-function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]; overdue: Deadline[]; company: string; onPreview: (d: Deadline) => void; go: (v: View) => void; openDeadlines: (c: DChip) => void }) {
+function Dashboard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; byId: Map<string, Client>; live: Deadline[]; overdue: Deadline[]; company: string; onPreview: (d: Deadline) => void; go: (v: View) => void; openDeadlines: (c: DChip) => void }) {
   const { s } = p;
   const fortnight = p.live.filter((d) => d.due_date >= s.today && daysBetween(s.today, d.due_date) <= 14);
   const month = s.today.slice(0, 7);
@@ -305,6 +321,15 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
           Here is where your filings stand today, worked out from your <b>Master List</b>, <b>Job Schedule</b> and <b>Nominee Service</b> sheets. Reminders go to your clients on your behalf before each due date.
         </p>
       </header>
+      {feedbackOpen(s) && (
+        <div className="op-fbbanner" role="note">
+          <span className="op-soontag">First 3 months</span>
+          <span>
+            <b>Tell us what to change, bit by bit.</b> Until {fmtDate(s.ws.feedback_until)}, use the <b>Your feedback</b> box at the bottom of each page to send comments on that page, whenever you like. No call needed. The box is temporary.
+          </span>
+        </div>
+      )}
+      {s.me.founder && (s.feedback ?? []).some((f) => f.status === "new") && <FeedbackInbox s={s} setS={p.setS} preview={p.preview} say={p.say} reload={p.reload} />}
       {s.clients.length === 0 && (
         <div className="ev-card op-empty">
           <b>No clients yet.</b> Import the Master List, Nominee Service and Job Schedule sheets on{" "}
@@ -3420,6 +3445,107 @@ function PaymentsSwitch(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) 
       <button className="ev-btn" disabled={busy} onClick={() => void flip()}>
         {on ? "Hide payment reminders" : "Show payment reminders"}
       </button>
+    </section>
+  );
+}
+
+/* ── Feedback, page by page, for the first 3 months (0291) ──────────────── */
+
+function FeedbackBox(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; page: string; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const mine = (p.s.feedback ?? []).filter((f) => f.page === p.page).slice(0, 6);
+  async function send() {
+    const t = text.trim();
+    if (!t) return p.say("Type your comment first.");
+    if (p.preview) {
+      p.setS((x) => ({ ...x, feedback: [{ id: `f${Date.now()}`, page: p.page, message: t, created_by: x.me.email, created_at: new Date().toISOString(), status: "new" }, ...(x.feedback ?? [])] }));
+      setText("");
+      return p.say("Thank you: sent (preview only)");
+    }
+    setBusy(true);
+    const r = await api("/api/onpoint/feedback", { method: "POST", body: JSON.stringify({ page: p.page, message: t }) });
+    setBusy(false);
+    if (!r.ok) return p.say(String(r.j.error ?? "Not sent."));
+    setText("");
+    p.say("Thank you: we have your comment");
+    await p.reload();
+  }
+  async function mark(f: Feedback) {
+    if (p.preview) {
+      p.setS((x) => ({ ...x, feedback: (x.feedback ?? []).map((k) => (k.id === f.id ? { ...k, status: k.status === "done" ? "new" : "done" } : k)) }));
+      return;
+    }
+    const r = await api("/api/onpoint/feedback", { method: "PATCH", body: JSON.stringify({ id: f.id, done: f.status !== "done" }) });
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    await p.reload();
+  }
+  return (
+    <section className="ev-card op-pad op-feedback" aria-label="Your feedback on this page">
+      <div className="op-fbh">
+        <h2 className="op-h2">
+          <Ic n="mail" s={15} /> Your feedback on {p.page}
+        </h2>
+        <span className="op-soontag muted">Temporary · until {fmtDate(p.s.ws.feedback_until)}</span>
+      </div>
+      <p className="ev-sub op-small">Anything to change, add or fix on this page? Write it here, one point at a time, whenever you notice it. It comes straight to Founders Doc.</p>
+      <div className="op-fbform">
+        <textarea id={`op-fb-${p.page}`} className="op-in" rows={3} maxLength={4000} value={text} placeholder="e.g. Please show the client’s UEN in this list" onChange={(e) => setText(e.target.value)} />
+        <button className="ev-btn gold" disabled={busy || !text.trim()} onClick={() => void send()}>
+          {busy ? "Sending…" : "Send feedback"}
+        </button>
+      </div>
+      {mine.length > 0 && (
+        <ul className="op-fblist">
+          {mine.map((f) => (
+            <li key={f.id} className={f.status}>
+              <span className="op-fbmsg">{f.message}</span>
+              <span className="ev-sub op-small">
+                {new Date(f.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                {f.status === "done" ? " · done" : " · received"}
+              </span>
+              {p.s.me.founder && (
+                <button className="ev-link op-small" onClick={() => void mark(f)}>
+                  {f.status === "done" ? "Reopen" : "Mark done"}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** Founders Doc only: every new comment, from any page */
+function FeedbackInbox(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+  const open = (p.s.feedback ?? []).filter((f) => f.status === "new");
+  async function done(f: Feedback) {
+    if (p.preview) return p.setS((x) => ({ ...x, feedback: (x.feedback ?? []).map((k) => (k.id === f.id ? { ...k, status: "done" } : k)) }));
+    const r = await api("/api/onpoint/feedback", { method: "PATCH", body: JSON.stringify({ id: f.id, done: true }) });
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    await p.reload();
+  }
+  return (
+    <section className="ev-card op-pad op-founder">
+      <h2 className="op-h2">
+        Feedback from OnPoint <span className="ev-sub">· {open.length} new · Founders Doc only</span>
+      </h2>
+      <ul className="op-fblist">
+        {open.slice(0, 20).map((f) => (
+          <li key={f.id}>
+            <span className="op-fbmsg">
+              <b>{f.page}:</b> {f.message}
+            </span>
+            <span className="ev-sub op-small">
+              {f.created_by ?? "—"} · {new Date(f.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </span>
+            <button className="ev-link op-small" onClick={() => void done(f)}>
+              Mark done
+            </button>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
