@@ -19,8 +19,13 @@ export async function PATCH(req: NextRequest) {
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if ("test_inbox" in b) {
       const t = String(b.test_inbox ?? "").trim().toLowerCase();
-      if (t && (!EMAIL.test(t) || !t.endsWith("@foundersdoc.com"))) throw new OpError("The test inbox must be a @foundersdoc.com address, or empty to go live.");
+      if (t && (!EMAIL.test(t) || !t.endsWith("@foundersdoc.com"))) throw new OpError("The safety-check inbox must be a @foundersdoc.com address, or empty to send to the clients.");
       patch.test_inbox = t || null;
+      /* 0283: going live (step 4) needs an active plan once card payment is open */
+      if (!t) {
+        const b = await import("@/lib/onpoint/billing");
+        if (!b.liveAllowed(await b.planState(m.ws.id))) throw new OpError("Card payment is open but OnPoint's plan is not active yet: they set it up on Billing & plan first (or close billing to keep it free).", 409);
+      }
     }
     if ("auto_send" in b) patch.auto_send = b.auto_send === true;
     if ("sender_name" in b) patch.sender_name = String(b.sender_name ?? "").trim().slice(0, 120) || "OnPoint Consulting";

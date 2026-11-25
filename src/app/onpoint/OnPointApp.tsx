@@ -15,7 +15,7 @@ import { OTHERS, TYPE_NAME, TYPE_PICK, TYPES, type Client, type Deadline, type D
 
 export interface Snapshot {
   me: { email: string; role: "admin" | "staff" | "viewer"; founder: boolean };
-  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean; filing_enabled: boolean; pay_subject: string | null; pay_body: string | null; pay_before: number[]; pay_after: number[] };
+  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean; filing_enabled: boolean; pay_subject: string | null; pay_body: string | null; pay_before: number[]; pay_after: number[]; mail_connected?: boolean; plan?: "free" | "active" | "retrying" | "none"; addon_enquired_at?: string | null };
   clients: Client[];
   deadlines: Deadline[];
   deliveries: Delivery[];
@@ -28,7 +28,7 @@ export interface Snapshot {
   today: string;
 }
 
-type View = "dashboard" | "payments" | "deadlines" | "calendar" | "reminders" | "clients" | "sources" | "billing";
+type View = "dashboard" | "payments" | "deadlines" | "calendar" | "reminders" | "clients" | "client" | "sources" | "billing";
 const VIEWS: View[] = ["dashboard", "payments", "deadlines", "calendar", "reminders", "clients", "sources", "billing"];
 const PAGE = 50;
 const DEFAULT_LOGO = "/onpoint/logo.png";
@@ -51,6 +51,8 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
   const [toast, setToast] = useState("");
   const [logoOpen, setLogoOpen] = useState(false);
   const [focus, setFocus] = useState<{ client: string; deadline: string } | null>(null);
+  /* 0285: the client page */
+  const [clientId, setClientId] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const say = useCallback((t: string) => {
     setToast(t);
@@ -96,6 +98,10 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
     setView(v);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+  const openClient = (id: string) => {
+    setClientId(id);
+    go("client");
+  };
   const openPreview = (d: Deadline) => {
     setFocus({ client: d.client_id, deadline: d.id });
     go("reminders");
@@ -120,11 +126,6 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
   return (
     <div className="esop ev op" id="top">
       {preview && <div className="op-preview">Preview with sample companies · nothing is saved or sent</div>}
-      {s.ws.test_inbox && (
-        <div className="op-test" role="note">
-          <b>Test mode.</b> Every reminder goes to {s.ws.test_inbox}, not to the client. {s.ws.auto_send ? "Automatic sending is on." : "Automatic sending is off."}
-        </div>
-      )}
       <div className="ev-body">
         <aside className="ev-side">
           <div className="op-brand">
@@ -192,13 +193,14 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
         <main className="ev-main">
           <div className="ev-wrap op-view" key={view}>
             {view === "dashboard" && !filing && <PayDashboard s={s} byId={byId} company={company} go={go} openPay={openPay} />}
-            {view === "payments" && <Payments key={payAt.n} s={s} setS={setS} byId={byId} canEdit={canEdit} isAdmin={isAdmin} preview={preview} say={say} reload={reload} initialChip={payAt.chip} openId={payAt.id} />}
+            {view === "payments" && <Payments key={payAt.n} s={s} setS={setS} byId={byId} canEdit={canEdit} isAdmin={isAdmin} preview={preview} say={say} reload={reload} initialChip={payAt.chip} openId={payAt.id} openClient={openClient} />}
             {view === "dashboard" && filing && <Dashboard s={s} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} openDeadlines={(c) => (setChip(c), go("deadlines"))} />}
             {view === "deadlines" && <Deadlines s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} onPreview={openPreview} initialChip={chip} />}
             {view === "calendar" && <Calendar s={s} byId={byId} onPreview={openPreview} />}
-            {view === "billing" && isAdmin && <Billing preview={preview} founder={s.me.founder} say={say} back={stripeReturn} />}
+            {view === "billing" && isAdmin && <Billing preview={preview} founder={s.me.founder} enquired={s.ws.addon_enquired_at} say={say} back={stripeReturn} />}
             {view === "reminders" && <Reminders s={s} setS={setS} byId={byId} live={live} canEdit={canEdit} preview={preview} say={say} reload={reload} focus={focus} />}
-            {view === "clients" && <Clients s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={(id) => openPay("open", id)} />}
+            {view === "clients" && <Clients s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={(id) => openPay("open", id)} openClient={openClient} />}
+            {view === "client" && clientId && <ClientPage key={clientId} s={s} setS={setS} id={clientId} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} back={() => go("clients")} onPreview={openPreview} />}
             {view === "sources" && <Sources s={s} setS={setS} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={() => openPay("open")} />}
           </div>
         </main>
@@ -339,7 +341,7 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
               <div>
                 <div>
                   {x.status === "sent" ? "Reminder sent" : x.status === "failed" ? "Not sent" : x.status === "queued" ? "Sending" : "Skipped"} to <b>{p.byId.get(x.client_id ?? "")?.name ?? "a client"}</b>: {x.type === "PAYMENT" ? "payment reminder" : (TYPE_NAME[x.type as ReminderType] ?? x.type)}
-                  {x.test ? <span className="op-testtag">test</span> : null}
+                  {x.test ? <span className="op-testtag">safety check</span> : null}
                 </div>
                 {x.error ? <div className="op-late op-small">{x.error}</div> : null}
                 <div className="ev-sub op-small">{new Date(x.requested_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
@@ -665,7 +667,7 @@ function Reminders(p: {
   async function send() {
     if (!picked || !client) return;
     if (p.preview) return p.say("Preview: nothing is sent.");
-    if (!window.confirm(`Send the ${TYPE_PICK[type]} reminder for ${client.name} now?${s.ws.test_inbox ? `\n\nTest mode: it goes to ${s.ws.test_inbox}.` : `\n\nIt goes to ${client.contact_email}.`}`)) return;
+    if (!window.confirm(`Send the ${TYPE_PICK[type]} reminder for ${client.name} now?${s.ws.test_inbox ? `\n\nFor now it goes to ${s.ws.test_inbox} for a safety check.` : `\n\nIt goes to ${client.contact_email}.`}`)) return;
     setBusy("send");
     const res = await api("/api/onpoint/send", { method: "POST", body: JSON.stringify({ deadline_id: picked.id, request_id: crypto.randomUUID() }) });
     setBusy("");
@@ -855,7 +857,7 @@ function Reminders(p: {
               {n}
             </p>
           ))}
-          {s.ws.test_inbox && <p className="ev-sub">Test mode: sending now goes to {s.ws.test_inbox}.</p>}
+          {s.ws.test_inbox && <SafetyNote inbox={s.ws.test_inbox} />}
           {dirty && <p className="ev-sub">Save the template first: the email sent is always the saved version.</p>}
           {p.canEdit && (
             <button className="ev-btn gold op-mt" disabled={!canSend || busy === "send"} onClick={() => void send()}>
@@ -887,7 +889,7 @@ function Reminders(p: {
 
 /* ── Clients ───────────────────────────────────────────────────────────── */
 
-function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; openPay: (invoiceId?: string) => void }) {
+function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; openPay: (invoiceId?: string) => void; openClient: (id: string) => void }) {
   const { s } = p;
   const [q, setQ] = useState("");
   const [onlyMissing, setOnlyMissing] = useState(false);
@@ -977,7 +979,9 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
                         {initials(c.name)}
                       </span>
                       <div>
-                      <b>{c.name}</b>
+                      <button className="op-namelink" onClick={() => p.openClient(c.id)} title="Open the client page">
+                        <b>{c.name}</b>
+                      </button>
                       <div className="ev-sub">
                         {c.uen ? `UEN ${c.uen}` : "No UEN"}
                         {c.fye ? ` · FYE ${fmtDate(c.fye)}` : ""}
@@ -1174,7 +1178,7 @@ function Sources(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
           <h2 className="op-h2">Sending · Founders Doc only</h2>
           <div className="op-field">
             <label className="op-lab" htmlFor="op-inbox">
-              Test inbox (empty = live: reminders go to the clients)
+              Safety-check inbox: for now every email goes here (empty = emails go to the clients)
             </label>
             <div className="op-chiprow">
               <input id="op-inbox" className="op-in" value={inbox} placeholder="administrator@foundersdoc.com" onChange={(e) => setInbox(e.target.value)} />
@@ -1183,7 +1187,7 @@ function Sources(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
                 disabled={busy === "settings" || inbox.trim() === (s.ws.test_inbox ?? "")}
                 onClick={() => {
                   if (!inbox.trim() && !window.confirm("Go live? Reminders will go to the clients' own email addresses.")) return;
-                  void saveSettings({ test_inbox: inbox }, inbox.trim() ? "Test inbox saved" : "Live: reminders now go to clients");
+                  void saveSettings({ test_inbox: inbox }, inbox.trim() ? "Safety-check inbox saved" : "Emails now go to the clients");
                 }}
               >
                 Save
@@ -1509,7 +1513,7 @@ const SAMPLE_BILLING: BillingData = {
   invoices: [],
 };
 
-function Billing(p: { preview: boolean; founder: boolean; say: (t: string) => void; back: { sessionId: string | null; cancelled: boolean } | null }) {
+function Billing(p: { preview: boolean; founder: boolean; enquired?: string | null; say: (t: string) => void; back: { sessionId: string | null; cancelled: boolean } | null }) {
   const [b, setB] = useState<BillingData | null>(p.preview ? SAMPLE_BILLING : null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState("");
@@ -1563,7 +1567,6 @@ function Billing(p: { preview: boolean; founder: boolean; say: (t: string) => vo
   const st = b?.sub ? (STATUS[b.sub.status] ?? [b.sub.status, "off"]) : null;
   const plan = b?.plan ?? PLAN_FALLBACK;
   const canPay = !!b?.configured && !!b.ready.monthly && (b.open || p.founder);
-  const gst = b?.ready.tax ? "+ GST" : "excl. GST";
   return (
     <>
       <PageHead icon="card" eyebrow="Account" title="Billing & plan">
@@ -1574,11 +1577,11 @@ function Billing(p: { preview: boolean; founder: boolean; say: (t: string) => vo
         <div className="op-soonbar" role="note">
           <span className="op-soontag">Opening soon</span>
           <span>
-            <b>Card payment opens soon.</b> Until then, everything in OnPoint Workflows is free to use. Nothing is charged.
+            <b>Card payment opens soon.</b> Setting up and testing are part of your setup, so everything is free to use until then. Your plan starts when you go live.
           </span>
         </div>
       )}
-      {b?.mode === "test" && <div className="op-warn">Stripe test mode: no real card is charged here.</div>}
+      {b?.mode === "test" && p.founder && <div className="op-warn">Founders Doc: Stripe is on its practice keys, so no real card is charged here.</div>}
       {err && <div className="op-warn">{err}</div>}
       {!b && !err && <div className="ev-card op-pad ev-sub">Loading…</div>}
       {b && (
@@ -1623,7 +1626,7 @@ function Billing(p: { preview: boolean; founder: boolean; say: (t: string) => vo
                   </span>
                 </li>
               </ul>
-              <p className="ev-sub op-small">Prices in Singapore dollars, {gst}. Billed by card through Stripe: the first payment covers the setup and the first month.</p>
+              <p className="ev-sub op-small">Prices in Singapore dollars. Billed by card through Stripe when you go live: the first payment covers the setup and the first month. Signing in, your dashboard and this page always stay open; without an active plan, only the sending to clients pauses.</p>
               {b.sub ? (
                 <div className="op-meta">
                   <div>
@@ -1672,6 +1675,7 @@ function Billing(p: { preview: boolean; founder: boolean; say: (t: string) => vo
               <p className="ev-sub">🔒 The card is entered on Stripe&rsquo;s secure page. Card numbers never reach this system or your Excel sheets.</p>
             </section>
           </div>
+          <AddonCard enquired={p.enquired ?? null} preview={preview} say={say} />
           {p.founder && (
             <section className="ev-card op-pad op-founder">
               <h2 className="op-h2">
@@ -1682,7 +1686,6 @@ function Billing(p: { preview: boolean; founder: boolean; say: (t: string) => vo
                 <li className={b.ready.monthly ? "c-ok" : "c-no"}>Monthly price S$180 (lookup key onpoint_monthly)</li>
                 <li className={b.ready.setup ? "c-ok" : "c-no"}>One-off setup S$280 (lookup key onpoint_setup)</li>
                 <li className={b.ready.coupon ? "c-ok" : "c-no"}>First 3 months at S$80 (coupon onpoint_intro, S$100 off)</li>
-                <li className={b.ready.tax ? "c-ok" : "c-opt"}>GST {b.ready.tax ? "added to each invoice" : "not added (optional: ONPOINT_TAX_RATE_ID on Vercel)"}</li>
                 <li className={b.open ? "c-ok" : "c-opt"}>{b.open ? "Billing open: OnPoint can pay" : "Opening soon: OnPoint sees the plan and uses everything free"}</li>
               </ul>
               <div className="op-chiprow">
@@ -1911,6 +1914,7 @@ function PayDashboard(p: { s: Snapshot; byId: Map<string, Client>; company: stri
         </p>
       </header>
       {!s.payments_ready && <div className="op-warn">Payment reminders are not switched on yet: Founders Doc runs one database update (139) first.</div>}
+      <Rollout s={s} go={p.go} />
       {s.payments_ready && s.invoices.length === 0 && (
         <div className="ev-card op-empty">
           <b>No invoices yet.</b> Import your unpaid invoice list (Excel or CSV, e.g. from Xero) or add one by hand on{" "}
@@ -1995,6 +1999,7 @@ function Payments(p: {
   reload: () => Promise<void>;
   initialChip?: PChip;
   openId?: string | null;
+  openClient?: (id: string) => void;
 }) {
   const { s } = p;
   const [chip, setChip] = useState<PChip>(p.initialChip ?? "overdue");
@@ -2052,6 +2057,12 @@ function Payments(p: {
         Your clients&rsquo; unpaid invoices. Preview the reminder, add an email if it&rsquo;s missing, and send it from {s.ws.sender_email || s.ws.sender_name}.
       </PageHead>
       {!s.payments_ready && <div className="op-warn">Payment reminders are not switched on yet: run supabase/139_onpoint_payments.sql in Supabase first.</div>}
+      {s.ws.plan === "none" && (
+        <div className="op-warn" role="note">
+          <b>Sending to your clients is paused.</b> Your plan is not active yet: set up the card payment on Billing &amp; plan. Test reminders still work.
+        </div>
+      )}
+      {s.ws.test_inbox && <SafetyNote inbox={s.ws.test_inbox} />}
       <AutoCard s={s} setS={p.setS} byId={p.byId} canEdit={p.canEdit} preview={p.preview} say={p.say} reload={p.reload} />
       <section className="ev-card op-pad">
         <div className="op-tools">
@@ -2128,7 +2139,13 @@ function Payments(p: {
                 return (
                   <tr key={v.id}>
                     <td>
-                      <b>{c?.name ?? "—"}</b>
+                      {c && p.openClient ? (
+                        <button className="op-namelink" onClick={() => p.openClient!(c.id)} title="Open the client page">
+                          <b>{c.name}</b>
+                        </button>
+                      ) : (
+                        <b>{c?.name ?? "—"}</b>
+                      )}
                       <div className="ev-sub">
                         {c?.contact_email ? (
                           c.contact_email
@@ -2317,7 +2334,7 @@ function PaySend(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
   }
   async function send() {
     if (p.preview) return p.say("Preview: nothing is sent.");
-    if (!window.confirm(`Send the payment reminder (${money(v.amount_cents, v.currency)}) to ${client!.name} now?${s.ws.test_inbox ? `\n\nTest mode: it goes to ${s.ws.test_inbox}.` : `\n\nIt goes to ${client!.contact_email}.`}`)) return;
+    if (!window.confirm(`Send the payment reminder (${money(v.amount_cents, v.currency)}) to ${client!.name} now?${s.ws.test_inbox ? `\n\nFor now it goes to ${s.ws.test_inbox} for a safety check.` : `\n\nIt goes to ${client!.contact_email}.`}`)) return;
     setBusy("send");
     const res = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "send", invoice_id: v.id, request_id: crypto.randomUUID() }) });
     setBusy("");
@@ -2394,7 +2411,7 @@ function PaySend(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
           </p>
         ))}
         {r.unknown.length > 0 && <p className="op-late">Not supported in the wording: {r.unknown.join(", ")}</p>}
-        {s.ws.test_inbox && <p className="ev-sub op-small">Test mode: sending now goes to {s.ws.test_inbox}.</p>}
+        {s.ws.test_inbox && <SafetyNote inbox={s.ws.test_inbox} />}
         <div className="op-chiprow op-mt">
           {p.canEdit && (
             <button className="ev-btn gold" disabled={!canSend || busy === "send"} onClick={() => void send()}>
@@ -2550,7 +2567,7 @@ function AutoCard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => voi
     void (kind === "before" ? save([...before, n], after) : save(before, [...after, n]));
   }
   async function toggle() {
-    if (!window.confirm(on ? "Turn automatic sending off?" : `Turn automatic sending on? Every morning at 8am the reminders due that day go out by themselves${s.ws.test_inbox ? ` (test mode: to ${s.ws.test_inbox})` : " to the clients"}.`)) return;
+    if (!window.confirm(on ? "Turn automatic sending off?" : `Turn automatic sending on? Every morning at 8am the reminders due that day go out by themselves${s.ws.test_inbox ? ` (for now to ${s.ws.test_inbox}, for a safety check)` : " to the clients"}.`)) return;
     if (p.preview) {
       p.setS((x) => ({ ...x, ws: { ...x.ws, auto_send: !on } }));
       return p.say("Preview: not saved.");
@@ -2570,7 +2587,7 @@ function AutoCard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => voi
     setBusy("");
     if (!r.ok) return p.say(String(r.j.error ?? "Not run."));
     const j = r.j as { due: number; sent: number; skipped: number; failed: number };
-    p.say(`Test run: ${j.sent} sent${j.skipped ? `, ${j.skipped} skipped (no email, or already sent today)` : ""}${j.failed ? `, ${j.failed} failed` : ""}.`);
+    p.say(`Run now: ${j.sent} sent to ${s.ws.test_inbox}${j.skipped ? `, ${j.skipped} skipped (no email, or already sent today)` : ""}${j.failed ? `, ${j.failed} failed` : ""}.`);
     await p.reload();
   }
   const chip = (label: string, rm: () => void) => (
@@ -2651,8 +2668,8 @@ function AutoCard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => voi
           <button className={`ev-btn sm ${on ? "" : "gold"}`} disabled={busy === "toggle"} onClick={() => void toggle()}>
             {busy === "toggle" ? "Saving…" : on ? "Turn off" : "Turn on"}
           </button>
-          <button className="ev-btn sm" disabled={busy === "run" || !s.ws.test_inbox || today.length === 0} onClick={() => void run()} title={s.ws.test_inbox ? "Sends today's reminders to the test inbox" : "Only in test mode"}>
-            {busy === "run" ? "Sending…" : "Test run now (to the test inbox)"}
+          <button className="ev-btn sm" disabled={busy === "run" || !s.ws.test_inbox || today.length === 0} onClick={() => void run()} title={s.ws.test_inbox ? `Sends today's reminders to ${s.ws.test_inbox}` : "Only while emails go to the safety-check inbox"}>
+            {busy === "run" ? "Sending…" : `Run today's now (to ${s.ws.test_inbox ?? "the safety-check inbox"})`}
           </button>
         </div>
       ) : !on ? (
@@ -2683,5 +2700,337 @@ function UndoImport(p: { imp: { id?: number; file_name: string }; preview: boole
     <button className="ev-link op-undo" disabled={busy || !p.imp.id} onClick={() => void undo()}>
       {busy ? "Undoing…" : "Undo"}
     </button>
+  );
+}
+
+/* ── Rollout (0283): the four steps of the fee proposal ────────────────── */
+
+function Rollout(p: { s: Snapshot; go: (v: View) => void }) {
+  const { s } = p;
+  const plan = s.ws.plan ?? "free";
+  const steps: Array<{ t: string; d: string; done: boolean; view: View; act: string }> = [
+    { t: "Connect your data", d: "Import your unpaid invoice list, or add invoices", done: s.invoices.length > 0, view: "payments", act: "Import invoices" },
+    { t: "Set the rules", d: "Connect your email, check the reminder days and wording", done: !!s.ws.mail_connected, view: "sources", act: "Connect my email" },
+    { t: "Test run", d: "Send one reminder: it comes to us first, as a safety check", done: s.deliveries.some((x) => x.test && x.status === "sent"), view: "payments", act: "Preview & send" },
+    {
+      t: "Go live",
+      d: plan === "free" ? "Reminders reach your clients. Free while card payment opens soon" : plan === "none" ? "Set up the card payment, then reminders reach your clients" : "Reminders reach your clients; your plan is active",
+      done: !s.ws.test_inbox && plan !== "none",
+      view: plan === "none" ? "billing" : "payments",
+      act: plan === "none" ? "Set up payment" : "With Founders Doc",
+    },
+  ];
+  const at = steps.findIndex((x) => !x.done);
+  if (at === -1) return null;
+  return (
+    <section className="ev-card op-pad op-rollout" aria-label="Your rollout">
+      <div className="op-rollh">
+        <h2 className="op-h2">Your rollout</h2>
+        <span className="ev-sub op-small">
+          Step {at + 1} of 4 · as in your proposal
+        </span>
+      </div>
+      <ol className="op-steps4">
+        {steps.map((x, i) => (
+          <li key={x.t} className={x.done ? "done" : i === at ? "now" : ""}>
+            <span className="op-stepn" aria-hidden="true">
+              {x.done ? <Ic n="check" s={13} w={2.6} /> : i + 1}
+            </span>
+            <b>{x.t}</b>
+            <span className="ev-sub op-small">{x.d}</span>
+            {i === at && (s.me.role === "admin" || x.view !== "billing") && x.act !== "With Founders Doc" ? (
+              <a
+                href={`#${x.view}`}
+                className="op-steplink"
+                onClick={(e) => {
+                  e.preventDefault();
+                  p.go(x.view);
+                }}
+              >
+                {x.act} →
+              </a>
+            ) : i === at ? (
+              <span className="ev-sub op-small op-steplink">Founders Doc switches this on with you</span>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/** 0284: where it matters (sending), say plainly where the emails go for now */
+function SafetyNote({ inbox }: { inbox: string }) {
+  return (
+    <div className="op-safety" role="note">
+      <Ic n="mail" s={14} />
+      <span>
+        For now, every email is sent to <b>{inbox}</b> for a safety check, not to your client. Founders Doc switches it to your clients with you.
+      </span>
+    </div>
+  );
+}
+
+/* ── Client page (0285): everything about one client, and "Send all" ───── */
+
+function ClientPage(p: {
+  s: Snapshot;
+  setS: (fn: (s: Snapshot) => Snapshot) => void;
+  id: string;
+  byId: Map<string, Client>;
+  canEdit: boolean;
+  preview: boolean;
+  say: (t: string) => void;
+  reload: () => Promise<void>;
+  back: () => void;
+  onPreview: (d: Deadline) => void;
+}) {
+  const { s } = p;
+  const c = p.byId.get(p.id);
+  const [contact, setContact] = useState({ name: c?.contact_name ?? "", email: c?.contact_email ?? "" });
+  const [notes, setNotes] = useState(c?.notes ?? "");
+  const [busy, setBusy] = useState("");
+  const [sel, setSel] = useState<string | null>(null);
+  const reminded = useReminded(s);
+  if (!c) {
+    return (
+      <>
+        <PageHead icon="folder" eyebrow="Client" title="Client not found" />
+        <button className="ev-link" onClick={p.back}>
+          ← All clients
+        </button>
+      </>
+    );
+  }
+  const mine = s.invoices.filter((v) => v.client_id === c.id);
+  const open = mine.filter((v) => v.status === "open").sort((a, b) => a.due_date.localeCompare(b.due_date));
+  const paid = mine.filter((v) => v.status === "paid").sort((a, b) => b.due_date.localeCompare(a.due_date));
+  const late = open.filter((v) => v.due_date < s.today);
+  const deadlines = s.ws.filing_enabled ? s.deadlines.filter((d) => d.client_id === c.id && d.status === "active") : [];
+  const history = s.deliveries.filter((d) => d.client_id === c.id).slice(0, 20);
+  const selected = sel ? s.invoices.find((v) => v.id === sel) : undefined;
+  const changed = contact.name !== (c.contact_name ?? "") || contact.email !== (c.contact_email ?? "");
+
+  async function patch(body: Record<string, unknown>, ok: string, local: Partial<Client>) {
+    if (p.preview) {
+      p.setS((x) => ({ ...x, clients: x.clients.map((k) => (k.id === c!.id ? { ...k, ...local } : k)) }));
+      return p.say(`${ok} (preview only)`);
+    }
+    setBusy(ok);
+    const r = await api("/api/onpoint/client", { method: "PATCH", body: JSON.stringify({ id: c!.id, ...body }) });
+    setBusy("");
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    p.say(ok);
+    await p.reload();
+  }
+  async function sendAll() {
+    if (!open.length) return;
+    if (!c!.contact_email) return p.say("Add the client's email first.");
+    const where = s.ws.test_inbox ? `\n\nFor now they go to ${s.ws.test_inbox} for a safety check.` : `\n\nThey go to ${c!.contact_email}.`;
+    if (!window.confirm(`Send ${open.length} payment reminder${open.length === 1 ? "" : "s"} to ${c!.name} now (one per unpaid invoice)?${where}`)) return;
+    if (p.preview) return p.say("Preview: nothing is sent.");
+    setBusy("all");
+    const ids = open.map((v) => v.id);
+    const r = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "send_all", invoice_ids: ids, confirm_count: ids.length, request_id: crypto.randomUUID() }) });
+    setBusy("");
+    if (!r.ok && !r.j.results) return p.say(String(r.j.error ?? "Not sent."));
+    const res = (r.j.results as Array<{ status: string }>) ?? [];
+    const sent = res.filter((x) => x.status === "sent").length;
+    p.say(`${sent} of ${res.length} sent${sent < res.length ? ": the others were skipped or failed (see Reminder activity)" : ""}.`);
+    await p.reload();
+  }
+
+  return (
+    <>
+      <button className="ev-link op-back" onClick={p.back}>
+        ← All clients
+      </button>
+      <PageHead icon="folder" eyebrow="Client" title={c.name}>
+        {[c.uen ? `UEN ${c.uen}` : null, c.fye ? `FYE ${fmtDate(c.fye)}` : null, `${open.length} unpaid invoice${open.length === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
+      </PageHead>
+      <div className="op-stats op-stats3">
+        <Stat icon="card" tone="gold" label="Owed" value={Math.round(sum(open) / 100)} fmt={dollars} sub={`${open.length} unpaid`} />
+        <Stat icon="alert" tone="red" label="Overdue" value={late.length} sub={late.length ? `${money(sum(late))} past due` : "Nothing overdue"} warn={late.length > 0} />
+        <Stat icon="sent" tone="green" label="Reminders sent" value={history.filter((d) => d.status === "sent").length} sub="Recent, from your email" />
+      </div>
+      {s.ws.test_inbox && <SafetyNote inbox={s.ws.test_inbox} />}
+      <section className="ev-card op-pad">
+        <div className="op-h">
+          <h2 className="op-h2">Unpaid invoices</h2>
+          {p.canEdit && open.length > 0 && (
+            <button className="ev-btn gold" disabled={busy === "all" || !c.contact_email} onClick={() => void sendAll()} title={c.contact_email ? "One reminder per unpaid invoice" : "Add the email first"}>
+              <Ic n="mail" s={14} />
+              {busy === "all" ? "Sending…" : `Send all reminders (${open.length})`}
+            </button>
+          )}
+        </div>
+        {open.length === 0 ? (
+          <p className="ev-sub">Nothing unpaid.</p>
+        ) : (
+          <div className="ev-tablewrap">
+            <table className="ev-table op-table">
+              <thead>
+                <tr>
+                  <th>Invoice</th>
+                  <th className="op-right">Amount</th>
+                  <th>Due</th>
+                  <th>Last reminder</th>
+                  <th className="op-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {open.map((v) => {
+                  const rem = reminded.get(v.id);
+                  return (
+                    <tr key={v.id}>
+                      <td>
+                        <b>{v.number || "—"}</b>
+                        {v.description ? <div className="ev-sub op-clip">{v.description}</div> : null}
+                      </td>
+                      <td className="op-right op-amt">{money(v.amount_cents, v.currency)}</td>
+                      <td>
+                        <div className="op-date2">{fmtDate(v.due_date)}</div>
+                        <span className={dueClass(v.due_date, s.today)}>{countdown(v.due_date, s.today)}</span>
+                      </td>
+                      <td>{rem ? <span className="ev-sub">{fmtDate(rem.last.slice(0, 10))}{rem.n > 1 ? ` · ${rem.n} sent` : ""}</span> : <span className="ev-sub">Not yet</span>}</td>
+                      <td className="op-right">
+                        <button className="ev-btn sm" onClick={() => setSel(v.id)}>
+                          <Ic n="mail" s={13} />
+                          Preview &amp; send
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {paid.length > 0 && (
+          <p className="ev-sub op-small op-mt">
+            Paid: {paid.slice(0, 5).map((v) => `${v.number || "invoice"} ${money(v.amount_cents, v.currency)}`).join(" · ")}
+            {paid.length > 5 ? ` and ${paid.length - 5} more` : ""}
+          </p>
+        )}
+      </section>
+      <div className="op-grid2">
+        <section className="ev-card op-pad">
+          <h2 className="op-h2">Contact</h2>
+          <div className="op-field">
+            <label className="op-lab" htmlFor="op-cname">
+              Contact name
+            </label>
+            <input id="op-cname" className="op-in" value={contact.name} disabled={!p.canEdit} placeholder="e.g. Alex Tan" onChange={(e) => setContact({ ...contact, name: e.target.value })} />
+          </div>
+          <div className="op-field">
+            <label className="op-lab" htmlFor="op-cmail">
+              Email (reminders go here)
+            </label>
+            <input id="op-cmail" className="op-in" type="email" value={contact.email} disabled={!p.canEdit} placeholder="name@company.com" onChange={(e) => setContact({ ...contact, email: e.target.value })} />
+          </div>
+          {p.canEdit && (
+            <button
+              className="ev-btn"
+              disabled={!changed || !!busy}
+              onClick={() => {
+                const email = contact.email.trim().toLowerCase();
+                if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return p.say("Check the email address.");
+                void patch({ contact_name: contact.name, contact_email: email }, "Contact saved", { contact_name: contact.name.trim() || null, contact_email: email || null });
+              }}
+            >
+              {changed ? "Save contact" : "Saved"}
+            </button>
+          )}
+        </section>
+        <section className="ev-card op-pad">
+          <h2 className="op-h2">Notes</h2>
+          <textarea className="op-in" rows={6} value={notes} disabled={!p.canEdit} placeholder="e.g. pays by bank transfer at month end; call before chasing" onChange={(e) => setNotes(e.target.value)} />
+          {p.canEdit && (
+            <button className="ev-btn" disabled={notes === (c.notes ?? "") || !!busy} onClick={() => void patch({ notes }, "Notes saved", { notes: notes.trim() || null })}>
+              {notes === (c.notes ?? "") ? "Saved" : "Save notes"}
+            </button>
+          )}
+          <p className="ev-sub op-small">Only your team sees these notes.</p>
+        </section>
+      </div>
+      {deadlines.length > 0 && (
+        <section className="ev-card op-pad">
+          <h2 className="op-h2">Filing deadlines</h2>
+          {deadlines.map((d) => (
+            <button key={d.id} className="op-row op-next" onClick={() => p.onPreview(d)}>
+              <span className={tagClass(d.type)}>{shortType(d)}</span>
+              <span className="op-date">{fmtDate(d.due_date)}</span>
+              <span className={dueClass(d.due_date, s.today)}>{shortCount(d.due_date, s.today)}</span>
+            </button>
+          ))}
+        </section>
+      )}
+      <section className="ev-card op-pad">
+        <h2 className="op-h2">Reminder history</h2>
+        {history.length === 0 && <p className="ev-sub">No reminders sent to this client yet.</p>}
+        {history.map((x) => (
+          <div key={x.id} className="op-act2">
+            <span className={`op-acticon ${x.status}`} aria-hidden="true">
+              <Ic n={x.status === "sent" ? "sent" : x.status === "failed" ? "bang" : "clock"} s={15} />
+            </span>
+            <div>
+              <div>
+                {x.status === "sent" ? "Sent" : x.status === "failed" ? "Not sent" : x.status === "queued" ? "Sending" : "Skipped"}: {x.subject ?? (x.type === "PAYMENT" ? "payment reminder" : x.type)}
+                {x.trigger === "AUTOMATIC" ? <span className="op-testtag">automatic</span> : null}
+                {x.test ? <span className="op-testtag">safety check</span> : null}
+              </div>
+              {x.error ? <div className="op-late op-small">{x.error}</div> : null}
+              <div className="ev-sub op-small">{new Date(x.requested_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>
+            </div>
+          </div>
+        ))}
+      </section>
+      {selected && <PaySend s={s} setS={p.setS} v={selected} client={c} canEdit={p.canEdit} preview={p.preview} say={p.say} reload={p.reload} onClose={() => setSel(null)} editWording={() => setSel(null)} />}
+    </>
+  );
+}
+
+/* ── Document drafting add-on (0285): from the fee proposal, quoted on request ── */
+
+function AddonCard(p: { enquired: string | null; preview: boolean; say: (t: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(p.enquired);
+  const [note, setNote] = useState("");
+  async function enquire() {
+    if (p.preview) {
+      setDone(new Date().toISOString());
+      return p.say("Enquiry sent (preview only)");
+    }
+    setBusy(true);
+    const r = await api("/api/onpoint/billing", { method: "POST", body: JSON.stringify({ action: "enquire", note }) });
+    setBusy(false);
+    if (!r.ok) return p.say(String(r.j.error ?? "Not sent."));
+    setDone(String(r.j.at ?? new Date().toISOString()));
+    p.say("Enquiry sent: Founders Doc will be in touch");
+  }
+  return (
+    <section className="ev-card op-pad op-addon">
+      <div className="op-addonh">
+        <span className="op-addonicon" aria-hidden="true">📝</span>
+        <div>
+          <h2 className="op-h2">
+            Document drafting &amp; review <span className="op-soontag muted">Optional add-on</span>
+          </h2>
+          <p className="ev-sub op-small">Generate filing documents in OnPoint&rsquo;s house style, or review uploaded documents for issues. Quoted on request.</p>
+        </div>
+      </div>
+      {done ? (
+        <p className="op-addondone">
+          <Ic n="check" s={13} w={2.4} /> Enquiry sent on {fmtDate(done.slice(0, 10))}. Founders Doc will be in touch.
+        </p>
+      ) : (
+        <div className="op-chiprow">
+          <input className="op-in" value={note} maxLength={300} placeholder="What would you like help with? (optional)" onChange={(e) => setNote(e.target.value)} />
+          <button className="ev-btn gold" disabled={busy} onClick={() => void enquire()}>
+            {busy ? "Sending…" : "Enquire about add-on"}
+          </button>
+        </div>
+      )}
+    </section>
   );
 }

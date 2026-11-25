@@ -49,6 +49,7 @@ export async function billingOpen(wsId: string): Promise<boolean> {
 }
 export async function setBillingOpen(m: Me, on: boolean) {
   if (!m.founder) throw new OpError("Only Founders Doc can open billing.", 403);
+  forgetPlan(m.ws.id);
   const r = await db().from("onpoint_workspaces").update({ billing_open: on, updated_at: new Date().toISOString() }).eq("id", m.ws.id);
   if (r.error) {
     const missing = /billing_open/.test(r.error.message);
@@ -237,6 +238,7 @@ export async function confirmCheckout(m: Me, sessionId: string): Promise<boolean
   const session = await stripe().checkout.sessions.retrieve(sessionId).catch(() => null);
   if (!session || session.metadata?.onpoint_workspace !== m.ws.id || session.status !== "complete") return false;
   await remember(m.ws.id, idOf(session.customer), idOf(session.subscription));
+  forgetPlan(m.ws.id);
   return true;
 }
 
@@ -268,3 +270,29 @@ export async function portalUrl(m: Me, origin: string): Promise<string> {
   const session = await s.billingPortal.sessions.create({ customer, return_url: `${origin}/onpoint?view=billing`, configuration: await portalConfig(s) });
   return session.url;
 }
+
+/* ── the plan and going live (0283) ─────────────────────────────────────
+ * As in the proposal's rollout: 1 connect your data, 2 set the rules, 3 test run (all part of the setup, in test
+ * mode), 4 go live = reminders reach the clients. Once card payment is open, going live needs an active plan
+ * (paid, or Stripe still retrying a failed card). Signing in, the dashboard and Billing always work, so OnPoint
+ * can set up, see its data and pay. Like the old design: a plan that ends stops the sending, not the access.
+ */
+export type PlanState = "free" | "active" | "retrying" | "none";
+const planCache = new Map<string, { state: PlanState; until: number }>();
+export async function planState(wsId: string): Promise<PlanState> {
+  const hit = planCache.get(wsId);
+  if (hit && hit.until > Date.now()) return hit.state;
+  let state: PlanState = "free";
+  if (await billingOpen(wsId)) {
+    state = "none";
+    if (isStripeConfigured()) {
+      const sub = await findSubscription(wsId).catch(() => null);
+      state = sub?.status === "active" || sub?.status === "trialing" ? "active" : sub?.status === "past_due" ? "retrying" : "none";
+    }
+  }
+  planCache.set(wsId, { state, until: Date.now() + 5 * 60_000 });
+  return state;
+}
+export const forgetPlan = (wsId: string) => planCache.delete(wsId);
+/** may reminders go to the clients themselves (not the test inbox)? */
+export const liveAllowed = (state: PlanState) => state !== "none";

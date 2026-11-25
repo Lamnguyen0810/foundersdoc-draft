@@ -408,3 +408,39 @@
   .op-autoh { flex-direction: column; }
   .op-autoright { text-align: left; }
 }
+
+/* 0283 · rollout (the proposal's four steps) */
+.esop.ev .op-rollout { flex: none; }
+.op-rollh { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.op-rollh .op-h2 { margin: 0; }
+.op-steps4 { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; counter-reset: none; }
+.op-steps4 li { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--g2); border-radius: 10px; background: #fff; min-width: 0; }
+.op-steps4 li.done { background: #f4f8f1; border-color: #d6e6cc; }
+.op-steps4 li.now { border-color: #f3bf4b; box-shadow: 0 0 0 3px rgba(243, 191, 75, .18); }
+.op-stepn { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: #efefec; color: #555; margin-bottom: 4px; }
+.op-steps4 li.done .op-stepn { background: #3b5c2c; color: #fff; }
+.op-steps4 li.now .op-stepn { background: #f3bf4b; color: #1d1d1d; }
+.op-steplink { margin-top: auto; padding-top: 6px; font-size: 13px; font-weight: 600; color: #8a5a00; text-decoration: none; }
+a.op-steplink:hover { text-decoration: underline; }
+@media (max-width: 900px) { .op-steps4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 520px) { .op-steps4 { grid-template-columns: 1fr; } }
+
+/* 0284 · "for now, emails go to … for a safety check", only where sending happens */
+.op-safety { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border: 1px solid #e3e8f2; background: #f5f8fd; border-radius: 8px; font-size: 13px; color: #34405a; }
+.op-safety svg { flex: none; margin-top: 2px; color: #4a6aa8; }
+.op-modal .op-safety, .ev-card .op-safety { margin-top: 10px; }
+
+/* 0285 · client page, add-on */
+.op-namelink { all: unset; cursor: pointer; }
+.op-namelink b { border-bottom: 1px dashed transparent; transition: border-color .15s ease; }
+.op-namelink:hover b, .op-namelink:focus-visible b { border-bottom-color: currentColor; }
+.op-namelink:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 3px; }
+.esop.ev .op-back { align-self: flex-start; font-size: 13px; }
+.op-stats.op-stats3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.esop.ev .op-addon { flex: none; }
+.op-addonh { display: flex; gap: 12px; align-items: flex-start; }
+.op-addonh .op-h2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 2px; }
+.op-addonh p { margin: 0; }
+.op-addonicon { font-size: 22px; line-height: 1; margin-top: 2px; }
+.op-addondone { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: 13px; color: #2f6b1f; }
+@media (max-width: 900px) { .op-stats.op-stats3 { grid-template-columns: 1fr; } }

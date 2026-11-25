@@ -117,7 +117,10 @@ export async function snapshot(m: Me) {
   const id = m.ws.id;
   const DELIV = "id, client_id, deadline_id, type, trigger, lead_days, to_email, intended_to, subject, status, test, requested_by, requested_at, error";
   const [clients, deadlines, deliveries, imports, templates, leads, invoices] = await Promise.all([
-    all<Client>((f, t) => db().from("onpoint_clients").select("id, key, name, uen, fye, services, contact_name, contact_email, active").eq("workspace_id", id).order("name").range(f, t)),
+    /* 0285: with notes (before 142: without) */
+    all<Client>((f, t) => db().from("onpoint_clients").select("id, key, name, uen, fye, services, contact_name, contact_email, active, notes").eq("workspace_id", id).order("name").range(f, t)).catch(() =>
+      all<Client>((f, t) => db().from("onpoint_clients").select("id, key, name, uen, fye, services, contact_name, contact_email, active").eq("workspace_id", id).order("name").range(f, t)),
+    ),
     all<Deadline>((f, t) =>
       db().from("onpoint_deadlines").select("id, client_id, type, label, due_date, source, source_key, derived, status, done_on").eq("workspace_id", id).neq("status", "cancelled").order("due_date").range(f, t),
     ),
@@ -142,9 +145,16 @@ export async function snapshot(m: Me) {
     all<Invoice>((f, t) => db().from("onpoint_invoices").select(INV).eq("workspace_id", id).neq("status", "cancelled").order("due_date").range(f, t)).catch(() => null),
   ]);
   const { logo_data, ...ws } = m.ws;
+  /* 0283: the rollout (proposal: connect, set the rules, test run, go live) and the plan */
+  const [mb, plan, addon] = await Promise.all([
+    db().from("onpoint_workspaces").select("mail_provider, mail_token_enc").eq("id", id).maybeSingle().then((r) => (r.data as { mail_provider: string | null; mail_token_enc: string | null } | null) ?? null, () => null),
+    import("./billing").then((b) => b.planState(id)).catch(() => "free" as const),
+    /* 0285: when the document drafting add-on was enquired about */
+    db().from("onpoint_workspaces").select("addon_enquired_at").eq("id", id).maybeSingle().then((r) => ((r.data as { addon_enquired_at?: string | null } | null)?.addon_enquired_at ?? null), () => null),
+  ]);
   return {
     me: { email: m.email, role: m.role, founder: m.founder },
-    ws: { ...ws, logo: logo_data ?? null },
+    ws: { ...ws, logo: logo_data ?? null, mail_connected: !!(mb?.mail_provider && mb.mail_token_enc), plan, addon_enquired_at: addon },
     clients,
     deadlines,
     deliveries,
@@ -240,7 +250,7 @@ export type SendResult = { status: "sent" | "duplicate" | "failed" | "blocked"; 
 /**
  * Send one reminder for one deadline. Everything is read again here; nothing the browser sent is trusted
  * but the deadline's id. The delivery row (with its unique key) is written first, so a retry, a double click
- * or two daily runs at once send nothing twice. While the workspace has a test inbox, the email goes there.
+ * or two daily runs at once send nothing twice. While the workspace has a safety-check inbox (test_inbox), the email goes there.
  */
 export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "MANUAL" | "AUTOMATIC", by: string, opts: { requestId?: string; leadDays?: number } = {}): Promise<SendResult> {
   const d = must(await db().from("onpoint_deadlines").select("id, client_id, type, label, due_date, status").eq("workspace_id", ws.id).eq("id", deadlineId).maybeSingle()) as Deadline | null;
@@ -264,6 +274,8 @@ export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "
     if ((recent as unknown[]).length) return { status: "duplicate", message: "This reminder was just sent." };
   }
   const test = !!ws.test_inbox?.trim();
+  /* 0283: once card payment is open, reminders reach clients only with an active plan (test mode always works) */
+  if (!test && !(await import("./billing").then((b) => b.planState(ws.id).then(b.liveAllowed)))) return { status: "blocked", message: "Your plan is not active yet: set up the card payment on Billing & plan to send to your clients." };
   const key = trigger === "AUTOMATIC" ? `automatic:${ws.id}:${d.id}:${opts.leadDays}:${d.due_date}` : `manual:${ws.id}:${d.id}:${tpl.version}:${(opts.requestId ?? "").slice(0, 60) || Date.now()}`;
   const ins = await db()
     .from("onpoint_deliveries")
@@ -301,7 +313,7 @@ export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "
       /* 0273: no uploaded logo → the sharp "P" mark with the name as text, instead of the small, blurry picture */
       brandName: ws.logo_data ? undefined : ws.custom_name || ws.sender_name,
       deadline: { type: r.typeName, company: c.name, uen: c.uen, due: d.due_date, today },
-      banner: test ? `Test: this reminder would have gone to ${to}.` : undefined,
+      banner: test ? `Safety check: this reminder goes to ${to} once it is switched to the client.` : undefined,
     });
   return dispatch(ws, { deliveryId, to, test, subject: r.subject, text: r.body, look, kind: "onpoint_reminder" });
 }
@@ -331,7 +343,7 @@ async function dispatch(ws: Workspace, m: { deliveryId: string; to: string; test
           kind: m.kind,
           to: dest,
           subject: m.subject,
-          text: m.test ? `[Test: this email would have gone to ${m.to}]\n\n${m.text}` : m.text,
+          text: m.test ? `[Safety check: this email goes to ${m.to} once it is switched to the client]\n\n${m.text}` : m.text,
           html,
           from_name: ws.sender_name,
           test: m.test,
@@ -347,7 +359,7 @@ async function dispatch(ws: Workspace, m: { deliveryId: string; to: string; test
   }
   must(await db().from("onpoint_deliveries").update(ok ? { status: "sent", sent_at: new Date().toISOString() } : { status: "failed", error }).eq("id", m.deliveryId));
   return ok
-    ? { status: "sent", message: m.test ? `Test sent to ${ws.test_inbox} (would go to ${m.to}).` : `Sent to ${m.to}.`, delivery_id: m.deliveryId }
+    ? { status: "sent", message: m.test ? `Sent to ${ws.test_inbox} for a safety check (client: ${m.to}).` : `Sent to ${m.to}.`, delivery_id: m.deliveryId }
     : { status: "failed", message: error ?? "Not sent.", delivery_id: m.deliveryId };
 }
 
@@ -646,6 +658,8 @@ export async function sendPayment(ws: Workspace, invoiceId: string, by: string, 
     if ((recent as unknown[]).length) return { status: "duplicate", message: "This reminder was just sent." };
   }
   const test = !!ws.test_inbox?.trim();
+  /* 0283: once card payment is open, reminders reach clients only with an active plan (test mode always works) */
+  if (!test && !(await import("./billing").then((b) => b.planState(ws.id).then(b.liveAllowed)))) return { status: "blocked", message: "Your plan is not active yet: set up the card payment on Billing & plan to send to your clients." };
   const ins = await db()
     .from("onpoint_deliveries")
     .insert({
@@ -684,7 +698,20 @@ export async function sendPayment(ws: Workspace, invoiceId: string, by: string, 
       currency: v.currency,
       due: v.due_date,
       today,
-      banner: test ? `Test: this reminder would have gone to ${to}.` : undefined,
+      banner: test ? `Safety check: this reminder goes to ${to} once it is switched to the client.` : undefined,
     });
   return dispatch(ws, { deliveryId: (ins.data as { id: string }).id, to, test, subject: r.subject, text: r.body, look, kind: "onpoint_payment_reminder" });
+}
+
+/** 0285: the document drafting add-on: tell Founders Doc (Slack, if set up) and remember it was asked */
+export async function enquireAddon(m: Me, note: string) {
+  const at = new Date().toISOString();
+  const r = await db().from("onpoint_workspaces").update({ addon_enquired_at: at, addon_enquired_by: m.email }).eq("id", m.ws.id);
+  if (r.error) throw new OpError(/addon_enquired/.test(r.error.message) ? "Run supabase/142_onpoint_client_notes_addon.sql first." : r.error.message, 503);
+  const channel = process.env.ONPOINT_SLACK_CHANNEL?.trim();
+  if (channel) {
+    const { teamNotice } = await import("@/lib/sign/slack");
+    await teamNotice(`📝 OnPoint asked about the document drafting & review add-on (${m.email})${note ? `: ${note.slice(0, 300)}` : ""}`, channel).catch(() => false);
+  }
+  return { at };
 }
