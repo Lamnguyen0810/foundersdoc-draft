@@ -99,3 +99,22 @@ test("a file without the right columns says so", () => {
   assert.equal(l.sheet, null);
   assert.equal(l.invoices.length, 0);
 });
+
+test("automatic payment reminders: which day, and the next one", async () => {
+  const { autoTag, nextAuto, cleanDays } = await import("./payments");
+  const before = [7, 0];
+  const after = [3, 10, 30];
+  const inv = (due: string, status: "open" | "paid" = "open") => ({ due_date: due, status });
+  assert.deepEqual(autoTag(inv("2026-12-01"), today, before, after), { tag: "b7", lead: 7 });
+  assert.deepEqual(autoTag(inv("2026-11-24"), today, before, after), { tag: "b0", lead: 0 });
+  assert.deepEqual(autoTag(inv("2026-11-14"), today, before, after), { tag: "a10", lead: -10 });
+  assert.equal(autoTag(inv("2026-11-20"), today, before, after), null);
+  assert.equal(autoTag(inv("2026-12-01", "paid"), today, before, after), null);
+  assert.equal(nextAuto(inv("2026-12-10"), today, before, after), "2026-12-03");
+  assert.equal(nextAuto(inv("2026-11-24"), today, before, after), "2026-11-24");
+  assert.equal(nextAuto(inv("2026-11-20"), today, before, after), "2026-11-30");
+  assert.equal(nextAuto(inv("2026-09-01"), today, before, after), null);
+  assert.deepEqual(cleanDays([0, 7, 7, "3"], 0), [7, 3, 0]);
+  assert.equal(cleanDays([0], 1), null);
+  assert.equal(cleanDays([1.5], 0), null);
+});

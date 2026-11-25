@@ -7,7 +7,7 @@ import type { Derived } from "./derive";
 import { DEFAULT_LEADS, DEFAULT_TEMPLATES, emailHtml, logoUrl, render } from "./templates";
 import { siteUrl } from "@/lib/billing/stripe";
 import { sendFromMailbox, usesMailbox, type InlineImage } from "./mailbox";
-import { DEFAULT_PAY, paymentHtml, renderPayment, type Invoice, type InvoiceList } from "./payments";
+import { autoTag, DEFAULT_AFTER, DEFAULT_BEFORE, DEFAULT_PAY, paymentHtml, renderPayment, type Invoice, type InvoiceList } from "./payments";
 import { clientKey } from "./derive";
 import { TYPES, type Client, type Deadline, type ReminderType, type Template, type Workspace } from "./types";
 
@@ -43,8 +43,15 @@ const must = <T>(r: { data: T; error: { message: string } | null }): T => {
 const WS = "id, slug, name, custom_name, logo_data, sender_name, sender_email, test_inbox, auto_send";
 export async function workspace(): Promise<Workspace> {
   /* 0280: before supabase/139 is run, the new columns are not there yet: filing stays on, payments wait */
-  const r = await db().from("onpoint_workspaces").select(`${WS}, filing_enabled, pay_subject, pay_body`).eq("slug", SLUG).maybeSingle();
-  const w = (r.error ? { ...(must(await db().from("onpoint_workspaces").select(WS).eq("slug", SLUG).maybeSingle()) as object | null), filing_enabled: true, pay_subject: null, pay_body: null } : r.data) as Workspace | null;
+  /* 0282: and before 141, the payment schedule is the standard one */
+  const base = { filing_enabled: true, pay_subject: null, pay_body: null, pay_before: DEFAULT_BEFORE, pay_after: DEFAULT_AFTER };
+  let w: Workspace | null = null;
+  for (const cols of [`${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after`, `${WS}, filing_enabled, pay_subject, pay_body`, WS]) {
+    const r = await db().from("onpoint_workspaces").select(cols).eq("slug", SLUG).maybeSingle();
+    if (r.error && cols !== WS) continue;
+    w = r.data ? ({ ...base, ...(must(r) as object) } as Workspace) : null;
+    break;
+  }
   if (!w || !w.id) throw new OpError("Run supabase/136_onpoint.sql first.", 503);
   return w;
 }
@@ -121,7 +128,14 @@ export async function snapshot(m: Me) {
       .order("requested_at", { ascending: false })
       .range(0, 299)
       .then(async (r) => (r.error ? ((await db().from("onpoint_deliveries").select(DELIV).eq("workspace_id", id).order("requested_at", { ascending: false }).range(0, 299)).data ?? []) : r.data ?? [])),
-    db().from("onpoint_imports").select("file_name, kind, summary, imported_by, imported_at").eq("workspace_id", id).order("imported_at", { ascending: false }).range(0, 29).then((r) => r.data ?? []),
+    /* 0282: with its id and whether it was undone (before 141: without) */
+    db()
+      .from("onpoint_imports")
+      .select("id, file_name, kind, summary, imported_by, imported_at, undone_at")
+      .eq("workspace_id", id)
+      .order("imported_at", { ascending: false })
+      .range(0, 29)
+      .then(async (r) => (r.error ? ((await db().from("onpoint_imports").select("file_name, kind, summary, imported_by, imported_at").eq("workspace_id", id).order("imported_at", { ascending: false }).range(0, 29)).data ?? []) : r.data ?? [])),
     currentTemplates(id),
     schedules(id),
     /* 0280: null = supabase/139 not run yet */
@@ -180,10 +194,14 @@ export async function applyImport(m: Me, fileName: string, d: Derived) {
   const keys = dl.map((x) => x.source_key);
   /* marked done / waived / not applicable in the app: kept while the sheet still shows the item open */
   const manual = new Map<string, { status: string; done_on: string | null }>();
+  const seen = new Set<string>();
   /* 0275: 100 at a time, so the request address stays well under the gateway's limit (300 came close to 16 KB) */
   for (let i = 0; i < keys.length; i += 100) {
     const got = (must(await db().from("onpoint_deadlines").select("source_key, status, done_on").eq("workspace_id", id).in("source_key", keys.slice(i, i + 100))) ?? []) as Array<{ source_key: string; status: string; done_on: string | null }>;
-    for (const g of got) if (g.status === "completed" || g.status === "waived" || g.status === "not_applicable") manual.set(g.source_key, g);
+    for (const g of got) {
+      seen.add(g.source_key);
+      if (g.status === "completed" || g.status === "waived" || g.status === "not_applicable") manual.set(g.source_key, g);
+    }
   }
   for (const x of dl) {
     const k = manual.get(x.source_key);
@@ -192,7 +210,11 @@ export async function applyImport(m: Me, fileName: string, d: Derived) {
       x.done_on = k.done_on;
     }
   }
-  for (let i = 0; i < dl.length; i += 500) must(await db().from("onpoint_deadlines").upsert(dl.slice(i, i + 500), { onConflict: "workspace_id,source_key" }));
+  /* 0282: a new deadline remembers this import, so the import can be undone; known ones keep theirs */
+  const imp = await openImport(m, fileName, d.kinds.join(", ") || "Not recognised");
+  const fresh2 = dl.filter((x) => !seen.has(x.source_key)).map((x) => (imp.link ? { ...x, import_id: imp.id } : x));
+  const old2 = dl.filter((x) => seen.has(x.source_key));
+  for (const part of [fresh2, old2]) for (let i = 0; i < part.length; i += 500) must(await db().from("onpoint_deadlines").upsert(part.slice(i, i + 500), { onConflict: "workspace_id,source_key" }));
 
   /* a newer Master List supersedes an older one: per client and type, only the latest due date stays live */
   const live = await all<{ id: string; client_id: string; type: string; due_date: string; source_key: string }>((f, t) =>
@@ -206,8 +228,8 @@ export async function applyImport(m: Me, fileName: string, d: Derived) {
   const old = live.filter((x) => newest.get(`${x.client_id}|${x.type}`)! > x.due_date).map((x) => x.id);
   for (let i = 0; i < old.length; i += 100) must(await db().from("onpoint_deadlines").update({ status: "cancelled" }).in("id", old.slice(i, i + 100)));
 
-  const summary = { kinds: d.kinds, clients: d.clients.length, deadlines: dl.length, contacts, superseded: old.length, skipped: d.skipped };
-  must(await db().from("onpoint_imports").insert({ workspace_id: id, file_name: fileName.slice(0, 200), kind: d.kinds.join(", ") || "Not recognised", summary, imported_by: m.email }));
+  const summary = { kinds: d.kinds, clients: d.clients.length, deadlines: dl.length, added: fresh2.length, contacts, superseded: old.length, skipped: d.skipped };
+  await closeImport(imp.id, summary);
   return summary;
 }
 
@@ -330,31 +352,101 @@ async function dispatch(ws: Workspace, m: { deliveryId: string; to: string; test
 }
 
 /** The daily run: every active deadline whose days-to-due is one of its type's lead times. */
-export async function dailyRun(): Promise<{ checked: number; due: number; sent: number; skipped: number; failed: number; off?: boolean }> {
+export interface RunTotals {
+  checked: number;
+  due: number;
+  sent: number;
+  skipped: number;
+  failed: number;
+}
+const zero = (): RunTotals => ({ checked: 0, due: 0, sent: 0, skipped: 0, failed: 0 });
+const count = (t: RunTotals, r: SendResult) => (r.status === "sent" ? t.sent++ : r.status === "failed" ? t.failed++ : t.skipped++);
+
+/**
+ * The daily run (8am Singapore), while "Automatic sending" is on (Founders Doc switches it on):
+ * payment reminders on the days set on Payments (0282), and filing reminders if they are shown.
+ */
+export async function dailyRun(): Promise<RunTotals & { off?: boolean; payments: RunTotals; filing: RunTotals }> {
   const ws = await workspace();
-  /* 0280: filing reminders are optional; automatic payment reminders are not built yet */
-  if (!ws.auto_send || !ws.filing_enabled) return { checked: 0, due: 0, sent: 0, skipped: 0, failed: 0, off: true };
+  if (!ws.auto_send) return { ...zero(), off: true, payments: zero(), filing: zero() };
+  const payments = await paymentRun(ws).catch(() => zero());
+  const filing = ws.filing_enabled ? await filingRun(ws) : zero();
+  const sum = (k: keyof RunTotals) => payments[k] + filing[k];
+  return { checked: sum("checked"), due: sum("due"), sent: sum("sent"), skipped: sum("skipped"), failed: sum("failed"), payments, filing };
+}
+
+async function filingRun(ws: Workspace): Promise<RunTotals> {
   const leads = await schedules(ws.id);
   const today = sgToday();
   const live = await all<Pick<Deadline, "id" | "client_id" | "type" | "label" | "due_date" | "status">>((f, t) => db().from("onpoint_deadlines").select("id, client_id, type, label, due_date, status").eq("workspace_id", ws.id).eq("status", "active").gte("due_date", today).range(f, t));
-  let due = 0,
-    sent = 0,
-    skipped = 0,
-    failed = 0;
+  const t = zero();
+  t.checked = live.length;
   for (const d of live) {
     const n = daysBetween(today, d.due_date);
     if (!leads[d.type]?.includes(n)) continue;
-    due++;
+    t.due++;
     try {
-      const r = await sendReminder(ws, d.id, "AUTOMATIC", "daily run", { leadDays: n });
-      if (r.status === "sent") sent++;
-      else if (r.status === "failed") failed++;
-      else skipped++;
+      count(t, await sendReminder(ws, d.id, "AUTOMATIC", "daily run", { leadDays: n }));
     } catch {
-      failed++;
+      t.failed++;
     }
   }
-  return { checked: live.length, due, sent, skipped, failed };
+  return t;
+}
+
+/** every unpaid invoice whose day it is (before, on or after the due date); each one once (0282) */
+export async function paymentRun(ws: Workspace): Promise<RunTotals> {
+  const today = sgToday();
+  const open = await all<Invoice>((f, t) => db().from("onpoint_invoices").select(INV).eq("workspace_id", ws.id).eq("status", "open").range(f, t));
+  const t = zero();
+  t.checked = open.length;
+  for (const v of open) {
+    const a = autoTag(v, today, ws.pay_before, ws.pay_after);
+    if (!a) continue;
+    t.due++;
+    try {
+      count(t, await sendPayment(ws, v.id, "daily run", "", a));
+    } catch {
+      t.failed++;
+    }
+  }
+  return t;
+}
+
+/* ── imports that can be undone (0282) ────────────────────────────────── */
+
+/** the import's row first, so what it adds can point to it (link = false before supabase/141: it cannot be undone) */
+async function openImport(m: Me, fileName: string, kind: string): Promise<{ id: number; link: boolean }> {
+  const [p1, p2] = await Promise.all([db().from("onpoint_invoices").select("import_id").limit(1), db().from("onpoint_deadlines").select("import_id").limit(1)]);
+  const r = await db().from("onpoint_imports").insert({ workspace_id: m.ws.id, file_name: fileName.slice(0, 200), kind, summary: { running: true }, imported_by: m.email }).select("id").single();
+  if (r.error) throw new OpError(r.error.message, 500);
+  return { id: (r.data as { id: number }).id, link: !p2.error && (!p1.error || !/import_id/.test(p1.error.message)) };
+}
+async function closeImport(id: number, summary: Record<string, unknown>) {
+  must(await db().from("onpoint_imports").update({ summary }).eq("id", id));
+}
+
+/**
+ * Undo an import done by mistake: the invoices and deadlines it added are removed (emails already sent stay in
+ * the history). Clients and their emails stay; amounts or dates it changed on items that were already there stay.
+ */
+export async function undoImport(m: Me, importId: number) {
+  const imp = must(await db().from("onpoint_imports").select("id, undone_at").eq("workspace_id", m.ws.id).eq("id", importId).maybeSingle()) as { id: number; undone_at?: string | null } | null;
+  if (!imp) throw new OpError("That import is no longer there.", 404);
+  if (imp.undone_at) throw new OpError("That import was already undone.", 409);
+  const inv = await db().from("onpoint_invoices").delete().eq("workspace_id", m.ws.id).eq("import_id", importId).select("id");
+  const dl = await db().from("onpoint_deadlines").delete().eq("workspace_id", m.ws.id).eq("import_id", importId).select("id");
+  if ((inv.error && /import_id/.test(inv.error.message)) || (dl.error && /import_id/.test(dl.error.message))) throw new OpError("Undo needs supabase/141_onpoint_auto_undo.sql first.", 503);
+  if (inv.error && !/onpoint_invoices/.test(inv.error.message)) throw new OpError(inv.error.message, 500);
+  if (dl.error) throw new OpError(dl.error.message, 500);
+  must(await db().from("onpoint_imports").update({ undone_at: new Date().toISOString(), undone_by: m.email }).eq("id", importId));
+  return { invoices: (inv.data ?? []).length, deadlines: (dl.data ?? []).length };
+}
+
+/** the days of the automatic payment reminders (before / after the due date) */
+export async function savePaySchedule(m: Me, before: number[], after: number[]) {
+  const r = await db().from("onpoint_workspaces").update({ pay_before: before, pay_after: after, updated_at: new Date().toISOString() }).eq("id", m.ws.id);
+  if (r.error) throw new OpError(/pay_before|pay_after/.test(r.error.message) ? "Run supabase/141_onpoint_auto_undo.sql first." : r.error.message, 503);
 }
 
 export const errorJson = (e: unknown) => {
@@ -519,7 +611,11 @@ export async function applyInvoiceImport(m: Me, fileName: string, list: InvoiceL
       created_by: m.email,
       updated_at: now,
     }));
-  for (let i = 0; i < rows.length; i += 500) mustP(await db().from("onpoint_invoices").upsert(rows.slice(i, i + 500), { onConflict: "workspace_id,source_key" }));
+  /* 0282: a new invoice remembers this import, so the import can be undone; known ones keep theirs */
+  const imp = await openImport(m, fileName, "Invoice list");
+  const newRows = rows.filter((r) => !had.has(r.source_key)).map((r) => (imp.link ? { ...r, import_id: imp.id } : r));
+  const oldRows = rows.filter((r) => had.has(r.source_key));
+  for (const part of [newRows, oldRows]) for (let i = 0; i < part.length; i += 500) mustP(await db().from("onpoint_invoices").upsert(part.slice(i, i + 500), { onConflict: "workspace_id,source_key" }));
   /* shown as paid in the list → paid here */
   let paid = 0;
   const paidKeys = [...new Set(list.paid)];
@@ -528,12 +624,12 @@ export async function applyInvoiceImport(m: Me, fileName: string, list: InvoiceL
     paid += r?.length ?? 0;
   }
   const summary = { invoices: rows.length, added: rows.filter((r) => !had.has(r.source_key)).length, new_clients: freshRows.length, emails, marked_paid: paid, skipped: list.skipped.slice(0, 50) };
-  must(await db().from("onpoint_imports").insert({ workspace_id: id, file_name: fileName.slice(0, 200), kind: "Invoice list", summary, imported_by: m.email }));
+  await closeImport(imp.id, summary);
   return summary;
 }
 
 /** Send one payment reminder now (a button; automatic payment reminders come later). Same safeguards as filing. */
-export async function sendPayment(ws: Workspace, invoiceId: string, by: string, requestId: string): Promise<SendResult> {
+export async function sendPayment(ws: Workspace, invoiceId: string, by: string, requestId: string, auto?: { tag: string; lead: number }): Promise<SendResult> {
   const v = mustP(await db().from("onpoint_invoices").select(INV).eq("workspace_id", ws.id).eq("id", invoiceId).maybeSingle()) as Invoice | null;
   if (!v) return { status: "blocked", message: "That invoice is no longer there." };
   if (v.status !== "open") return { status: "blocked", message: "That invoice is already paid or removed." };
@@ -544,9 +640,11 @@ export async function sendPayment(ws: Workspace, invoiceId: string, by: string, 
   const today = sgToday();
   const r = renderPayment(payTemplate(ws), { company: c.name, contact: c.contact_name, number: v.number, description: v.description, amount_cents: v.amount_cents, currency: v.currency, due: v.due_date, today });
   if (r.unknown.length) return { status: "blocked", message: `The email has unsupported tokens: ${r.unknown.join(", ")}.` };
-  const since = new Date(Date.now() - 120_000).toISOString();
-  const recent = must(await db().from("onpoint_deliveries").select("id").eq("invoice_id", v.id).in("status", ["queued", "sent"]).gte("requested_at", since).limit(1));
-  if ((recent as unknown[]).length) return { status: "duplicate", message: "This reminder was just sent." };
+  if (!auto) {
+    const since = new Date(Date.now() - 120_000).toISOString();
+    const recent = must(await db().from("onpoint_deliveries").select("id").eq("invoice_id", v.id).in("status", ["queued", "sent"]).gte("requested_at", since).limit(1));
+    if ((recent as unknown[]).length) return { status: "duplicate", message: "This reminder was just sent." };
+  }
   const test = !!ws.test_inbox?.trim();
   const ins = await db()
     .from("onpoint_deliveries")
@@ -555,7 +653,8 @@ export async function sendPayment(ws: Workspace, invoiceId: string, by: string, 
       client_id: c.id,
       invoice_id: v.id,
       type: "PAYMENT",
-      trigger: "MANUAL",
+      trigger: auto ? "AUTOMATIC" : "MANUAL",
+      lead_days: auto?.lead ?? null,
       from_name: ws.sender_name,
       to_email: test ? ws.test_inbox!.trim().toLowerCase() : to,
       intended_to: to,
@@ -563,7 +662,8 @@ export async function sendPayment(ws: Workspace, invoiceId: string, by: string, 
       body: r.body,
       status: "queued",
       test,
-      idem_key: `pay:${ws.id}:${v.id}:${requestId.slice(0, 60) || Date.now()}`,
+      /* automatic: once per invoice, due date and day (a second run the same day, or a retry, sends nothing) */
+      idem_key: auto ? `payauto:${ws.id}:${v.id}:${v.due_date}:${auto.tag}` : `pay:${ws.id}:${v.id}:${requestId.slice(0, 60) || Date.now()}`,
       requested_by: by,
     })
     .select("id")
