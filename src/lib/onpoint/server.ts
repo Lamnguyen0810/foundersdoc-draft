@@ -117,7 +117,10 @@ export async function snapshot(m: Me) {
   const id = m.ws.id;
   const DELIV = "id, client_id, deadline_id, type, trigger, lead_days, to_email, intended_to, subject, status, test, requested_by, requested_at, error";
   const [clients, deadlines, deliveries, imports, templates, leads, invoices] = await Promise.all([
-    all<Client>((f, t) => db().from("onpoint_clients").select("id, key, name, uen, fye, services, contact_name, contact_email, active").eq("workspace_id", id).order("name").range(f, t)),
+    /* 0285: with notes (before 142: without) */
+    all<Client>((f, t) => db().from("onpoint_clients").select("id, key, name, uen, fye, services, contact_name, contact_email, active, notes").eq("workspace_id", id).order("name").range(f, t)).catch(() =>
+      all<Client>((f, t) => db().from("onpoint_clients").select("id, key, name, uen, fye, services, contact_name, contact_email, active").eq("workspace_id", id).order("name").range(f, t)),
+    ),
     all<Deadline>((f, t) =>
       db().from("onpoint_deadlines").select("id, client_id, type, label, due_date, source, source_key, derived, status, done_on").eq("workspace_id", id).neq("status", "cancelled").order("due_date").range(f, t),
     ),
@@ -143,13 +146,15 @@ export async function snapshot(m: Me) {
   ]);
   const { logo_data, ...ws } = m.ws;
   /* 0283: the rollout (proposal: connect, set the rules, test run, go live) and the plan */
-  const [mb, plan] = await Promise.all([
+  const [mb, plan, addon] = await Promise.all([
     db().from("onpoint_workspaces").select("mail_provider, mail_token_enc").eq("id", id).maybeSingle().then((r) => (r.data as { mail_provider: string | null; mail_token_enc: string | null } | null) ?? null, () => null),
     import("./billing").then((b) => b.planState(id)).catch(() => "free" as const),
+    /* 0285: when the document drafting add-on was enquired about */
+    db().from("onpoint_workspaces").select("addon_enquired_at").eq("id", id).maybeSingle().then((r) => ((r.data as { addon_enquired_at?: string | null } | null)?.addon_enquired_at ?? null), () => null),
   ]);
   return {
     me: { email: m.email, role: m.role, founder: m.founder },
-    ws: { ...ws, logo: logo_data ?? null, mail_connected: !!(mb?.mail_provider && mb.mail_token_enc), plan },
+    ws: { ...ws, logo: logo_data ?? null, mail_connected: !!(mb?.mail_provider && mb.mail_token_enc), plan, addon_enquired_at: addon },
     clients,
     deadlines,
     deliveries,
@@ -696,4 +701,17 @@ export async function sendPayment(ws: Workspace, invoiceId: string, by: string, 
       banner: test ? `Safety check: this reminder goes to ${to} once it is switched to the client.` : undefined,
     });
   return dispatch(ws, { deliveryId: (ins.data as { id: string }).id, to, test, subject: r.subject, text: r.body, look, kind: "onpoint_payment_reminder" });
+}
+
+/** 0285: the document drafting add-on: tell Founders Doc (Slack, if set up) and remember it was asked */
+export async function enquireAddon(m: Me, note: string) {
+  const at = new Date().toISOString();
+  const r = await db().from("onpoint_workspaces").update({ addon_enquired_at: at, addon_enquired_by: m.email }).eq("id", m.ws.id);
+  if (r.error) throw new OpError(/addon_enquired/.test(r.error.message) ? "Run supabase/142_onpoint_client_notes_addon.sql first." : r.error.message, 503);
+  const channel = process.env.ONPOINT_SLACK_CHANNEL?.trim();
+  if (channel) {
+    const { teamNotice } = await import("@/lib/sign/slack");
+    await teamNotice(`📝 OnPoint asked about the document drafting & review add-on (${m.email})${note ? `: ${note.slice(0, 300)}` : ""}`, channel).catch(() => false);
+  }
+  return { at };
 }

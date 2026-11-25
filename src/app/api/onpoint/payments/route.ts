@@ -7,6 +7,7 @@ import { readXlsx } from "@/lib/onpoint/xlsx";
  * Payment reminders (0280).
  * POST (multipart, field "file"): import an invoice list (.xlsx or .csv; read here, never kept).
  * POST { action: "add", client_id | client_name, email?, contact_name?, number?, description?, amount, due_date }
+ * POST { action: "send_all", invoice_ids, confirm_count, request_id }: the client page's "Send all" (0285)
  * POST { action: "send", invoice_id, request_id }: send one reminder now (to the safety-check inbox for now).
  * POST { action: "template", subject, body } · POST { action: "filing", on } (administrators)
  * POST { action: "schedule", before: [7, 0], after: [3, 10, 30] }: the days of the automatic reminders (0282)
@@ -38,6 +39,16 @@ export async function POST(req: NextRequest) {
     }
     const b = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     if (b.action === "add") return NextResponse.json({ ok: true, ...(await addInvoice(await guard("edit"), b)) });
+    if (b.action === "send_all") {
+      /* 0285: the client page's "Send all": one reminder per invoice, confirmed count */
+      const m = await guard("edit");
+      const ids = [...new Set((Array.isArray(b.invoice_ids) ? b.invoice_ids : []).map(String))].slice(0, 50);
+      if (!ids.length || Number(b.confirm_count) !== ids.length) throw new OpError("The number of reminders changed. Please check and confirm again.", 409);
+      const rid = String(b.request_id ?? "").slice(0, 40);
+      const results = [];
+      for (const id of ids) results.push({ id, ...(await sendPayment(m.ws, id, m.email, `${rid}:${id}`)) });
+      return NextResponse.json({ ok: results.every((r) => r.status === "sent"), results });
+    }
     if (b.action === "send") {
       const m = await guard("edit");
       const r = await sendPayment(m.ws, String(b.invoice_id ?? ""), m.email, String(b.request_id ?? ""));

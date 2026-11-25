@@ -41,6 +41,8 @@ export interface Client {
   contact_name: string | null;
   contact_email: string | null;
   active: boolean;
+  /** 0285: free notes on the client page */
+  notes?: string | null;
 }
 
 export interface Deadline {

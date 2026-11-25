@@ -429,3 +429,18 @@ a.op-steplink:hover { text-decoration: underline; }
 .op-safety { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border: 1px solid #e3e8f2; background: #f5f8fd; border-radius: 8px; font-size: 13px; color: #34405a; }
 .op-safety svg { flex: none; margin-top: 2px; color: #4a6aa8; }
 .op-modal .op-safety, .ev-card .op-safety { margin-top: 10px; }
+
+/* 0285 · client page, add-on */
+.op-namelink { all: unset; cursor: pointer; }
+.op-namelink b { border-bottom: 1px dashed transparent; transition: border-color .15s ease; }
+.op-namelink:hover b, .op-namelink:focus-visible b { border-bottom-color: currentColor; }
+.op-namelink:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 3px; }
+.esop.ev .op-back { align-self: flex-start; font-size: 13px; }
+.op-stats.op-stats3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.esop.ev .op-addon { flex: none; }
+.op-addonh { display: flex; gap: 12px; align-items: flex-start; }
+.op-addonh .op-h2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 0 2px; }
+.op-addonh p { margin: 0; }
+.op-addonicon { font-size: 22px; line-height: 1; margin-top: 2px; }
+.op-addondone { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; font-size: 13px; color: #2f6b1f; }
+@media (max-width: 900px) { .op-stats.op-stats3 { grid-template-columns: 1fr; } }
