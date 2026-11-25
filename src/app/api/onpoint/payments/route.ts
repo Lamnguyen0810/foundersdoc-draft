@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { addInvoice, applyInvoiceImport, readPdfInvoice, errorJson, guard, OpError, paymentRun, savePaySchedule, savePayTemplate, sendPayment, setFiling, setInvoiceStatus } from "@/lib/onpoint/server";
+import { addInvoice, applyInvoiceImport, readPdfInvoice, setPayments, errorJson, guard, OpError, paymentRun, savePaySchedule, savePayTemplate, sendPayment, setFiling, setInvoiceStatus } from "@/lib/onpoint/server";
 import { cleanDays, readCsv, readInvoiceList } from "@/lib/onpoint/payments";
 import { noteFile, storeFile } from "@/lib/onpoint/files";
 import { readXlsx } from "@/lib/onpoint/xlsx";
@@ -113,6 +113,10 @@ export async function POST(req: NextRequest) {
       const r = await supabaseAdmin().from("onpoint_workspaces").update({ auto_send: b.on === true, updated_at: new Date().toISOString() }).eq("id", m.ws.id);
       if (r.error) throw new OpError(r.error.message, 500);
       return NextResponse.json({ ok: true, on: b.on === true });
+    }
+    if (b.action === "payments") {
+      await setPayments(await guard("admin"), b.on === true);
+      return NextResponse.json({ ok: true });
     }
     if (b.action === "filing") {
       await setFiling(await guard("admin"), b.on === true);

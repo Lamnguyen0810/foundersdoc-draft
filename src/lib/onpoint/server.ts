@@ -44,9 +44,10 @@ const WS = "id, slug, name, custom_name, logo_data, sender_name, sender_email, t
 export async function workspace(): Promise<Workspace> {
   /* 0280: before supabase/139 is run, the new columns are not there yet: filing stays on, payments wait */
   /* 0282: and before 141, the payment schedule is the standard one */
-  const base = { filing_enabled: true, pay_subject: null, pay_body: null, pay_before: DEFAULT_BEFORE, pay_after: DEFAULT_AFTER };
+  /* 0290: before 144, payments stay shown as they were */
+  const base = { filing_enabled: true, pay_subject: null, pay_body: null, pay_before: DEFAULT_BEFORE, pay_after: DEFAULT_AFTER, payments_enabled: true };
   let w: Workspace | null = null;
-  for (const cols of [`${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after`, `${WS}, filing_enabled, pay_subject, pay_body`, WS]) {
+  for (const cols of [`${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after, payments_enabled`, `${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after`, `${WS}, filing_enabled, pay_subject, pay_body`, WS]) {
     const r = await db().from("onpoint_workspaces").select(cols).eq("slug", SLUG).maybeSingle();
     if (r.error && cols !== WS) continue;
     w = r.data ? ({ ...base, ...(must(r) as object) } as Workspace) : null;
@@ -146,15 +147,34 @@ export async function snapshot(m: Me) {
   ]);
   const { logo_data, ...ws } = m.ws;
   /* 0283: the rollout (proposal: connect, set the rules, test run, go live) and the plan */
-  const [mb, plan, addon] = await Promise.all([
+  const [mb, plan, feedbackUntil, feedback, addon] = await Promise.all([
     db().from("onpoint_workspaces").select("mail_provider, mail_token_enc").eq("id", id).maybeSingle().then((r) => (r.data as { mail_provider: string | null; mail_token_enc: string | null } | null) ?? null, () => null),
     import("./billing").then((b) => b.planState(id)).catch(() => "free" as const),
+    /* 0291: feedback (first 3 months) */
+    db().from("onpoint_workspaces").select("feedback_until").eq("id", id).maybeSingle().then((r) => ((r.data as { feedback_until?: string | null } | null)?.feedback_until ?? null), () => null),
+    /* 0292: with its kind and whether it has a screenshot (before 146: without) */
+    db()
+      .from("onpoint_feedback")
+      .select("id, page, message, created_by, created_at, status, kind, shot_path")
+      .eq("workspace_id", id)
+      .order("created_at", { ascending: false })
+      .range(0, 299)
+      .then(async (r) =>
+        r.error
+          ? ((await db().from("onpoint_feedback").select("id, page, message, created_by, created_at, status").eq("workspace_id", id).order("created_at", { ascending: false }).range(0, 299)).data ?? null)
+          : (r.data ?? []).map((f) => {
+              const { shot_path, ...rest } = f as { shot_path: string | null } & Record<string, unknown>;
+              return { ...rest, shot: !!shot_path };
+            }),
+      ),
     /* 0285: when the document drafting add-on was enquired about */
     db().from("onpoint_workspaces").select("addon_enquired_at").eq("id", id).maybeSingle().then((r) => ((r.data as { addon_enquired_at?: string | null } | null)?.addon_enquired_at ?? null), () => null),
   ]);
   return {
     me: { email: m.email, role: m.role, founder: m.founder },
-    ws: { ...ws, logo: logo_data ?? null, mail_connected: !!(mb?.mail_provider && mb.mail_token_enc), plan, addon_enquired_at: addon },
+    ws: { ...ws, logo: logo_data ?? null, mail_connected: !!(mb?.mail_provider && mb.mail_token_enc), plan, addon_enquired_at: addon, feedback_until: feedbackUntil },
+    feedback: feedback ?? [],
+    feedback_ready: feedback !== null,
     clients,
     deadlines,
     deliveries,
@@ -386,7 +406,7 @@ const count = (t: RunTotals, r: SendResult) => (r.status === "sent" ? t.sent++ :
 export async function dailyRun(): Promise<RunTotals & { off?: boolean; payments: RunTotals; filing: RunTotals }> {
   const ws = await workspace();
   if (!ws.auto_send) return { ...zero(), off: true, payments: zero(), filing: zero() };
-  const payments = await paymentRun(ws).catch(() => zero());
+  const payments = ws.payments_enabled ? await paymentRun(ws).catch(() => zero()) : zero();
   const filing = ws.filing_enabled ? await filingRun(ws) : zero();
   const sum = (k: keyof RunTotals) => payments[k] + filing[k];
   return { checked: sum("checked"), due: sum("due"), sent: sum("sent"), skipped: sum("skipped"), failed: sum("failed"), payments, filing };
@@ -572,6 +592,12 @@ export async function savePayTemplate(m: Me, subject: string, body: string) {
   const bad = renderPayment({ subject: s, body: b }, { company: "x", contact: null, number: null, description: null, amount_cents: 1, currency: "SGD", due: sgToday(), today: sgToday() }).unknown;
   if (bad.length) throw new OpError(`Not supported: ${bad.join(", ")}`);
   mustP(await db().from("onpoint_workspaces").update({ pay_subject: s, pay_body: b, updated_at: new Date().toISOString() }).eq("id", m.ws.id));
+}
+
+/** 0290: payment reminders shown or hidden (optional) */
+export async function setPayments(m: Me, on: boolean) {
+  const r = await db().from("onpoint_workspaces").update({ payments_enabled: on, updated_at: new Date().toISOString() }).eq("id", m.ws.id);
+  if (r.error) throw new OpError(/payments_enabled/.test(r.error.message) ? "Run supabase/144_onpoint_deadlines_first.sql first." : r.error.message, 503);
 }
 
 export async function setFiling(m: Me, on: boolean) {
@@ -772,4 +798,49 @@ export async function readPdfInvoice(m: Me, buf: Buffer): Promise<{ table: boole
     ...list.skipped.slice(0, 5),
   ];
   return { table: true, drafts, notes };
+}
+
+/* ── feedback, page by page (0291) ─────────────────────────────────────── */
+
+const KINDS = ["change", "add", "fix", "question"] as const;
+const KIND_LABEL: Record<string, string> = { change: "Change something", add: "Add something", fix: "Something is wrong", question: "Question" };
+
+export async function addFeedback(m: Me, page: string, message: string, kind = "change", shot?: { buf: Buffer; type: string } | null) {
+  const text = message.trim().slice(0, 4000);
+  if (!text) throw new OpError("Type your comment first.");
+  const k = (KINDS as readonly string[]).includes(kind) ? kind : "change";
+  /* 0292: an optional screenshot, kept privately with the files */
+  let shot_path: string | null = null;
+  if (shot) {
+    if (!/^image\/(png|jpeg|webp|gif)$/.test(shot.type)) throw new OpError("The screenshot must be a PNG, JPG, WEBP or GIF image.");
+    if (shot.buf.length > 4 * 1024 * 1024) throw new OpError("The screenshot is larger than 4 MB.");
+    shot_path = `${m.ws.id}/feedback/${crypto.randomUUID()}.${shot.type.split("/")[1].replace("jpeg", "jpg")}`;
+    const up = await db().storage.from("onpoint-files").upload(shot_path, shot.buf, { contentType: shot.type, upsert: false });
+    if (up.error) throw new OpError(`The screenshot could not be kept: ${up.error.message}`, 500);
+  }
+  let r = await db().from("onpoint_feedback").insert({ workspace_id: m.ws.id, page: page.slice(0, 40) || "general", message: text, created_by: m.email, kind: k, shot_path }).select("id").single();
+  /* before 146: without kind and screenshot */
+  if (r.error && /kind|shot_path/.test(r.error.message)) r = await db().from("onpoint_feedback").insert({ workspace_id: m.ws.id, page: page.slice(0, 40) || "general", message: `[${KIND_LABEL[k]}] ${text}`, created_by: m.email }).select("id").single();
+  if (r.error) throw new OpError(/onpoint_feedback/.test(r.error.message) ? "Run supabase/145_onpoint_feedback.sql first." : r.error.message, 503);
+  const channel = process.env.ONPOINT_SLACK_CHANNEL?.trim();
+  if (channel && !m.founder) {
+    const { teamNotice } = await import("@/lib/sign/slack");
+    await teamNotice(`💬 OnPoint feedback · ${KIND_LABEL[k]} · ${page} (${m.email}): ${text.slice(0, 500)}${shot_path ? " [screenshot attached]" : ""}`, channel).catch(() => false);
+  }
+  return r.data as { id: string };
+}
+
+export async function markFeedback(m: Me, id: string, done: boolean) {
+  if (!m.founder) throw new OpError("Only Founders Doc marks feedback done.", 403);
+  const r = await db().from("onpoint_feedback").update({ status: done ? "done" : "new", done_at: done ? new Date().toISOString() : null }).eq("workspace_id", m.ws.id).eq("id", id);
+  if (r.error) throw new OpError(r.error.message, 500);
+}
+
+/** the screenshot attached to a comment: a private link that works for one minute */
+export async function feedbackShot(m: Me, id: string): Promise<string> {
+  const f = (await db().from("onpoint_feedback").select("shot_path").eq("workspace_id", m.ws.id).eq("id", id).maybeSingle()).data as { shot_path?: string | null } | null;
+  if (!f?.shot_path) throw new OpError("No screenshot.", 404);
+  const s = await db().storage.from("onpoint-files").createSignedUrl(f.shot_path, 60);
+  if (s.error || !s.data?.signedUrl) throw new OpError("The screenshot could not be opened.", 500);
+  return s.data.signedUrl;
 }

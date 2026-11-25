@@ -15,7 +15,7 @@ import { OTHERS, TYPE_NAME, TYPE_PICK, TYPES, type Client, type Deadline, type D
 
 export interface Snapshot {
   me: { email: string; role: "admin" | "staff" | "viewer"; founder: boolean };
-  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean; filing_enabled: boolean; pay_subject: string | null; pay_body: string | null; pay_before: number[]; pay_after: number[]; mail_connected?: boolean; plan?: "free" | "active" | "retrying" | "none"; addon_enquired_at?: string | null };
+  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean; filing_enabled: boolean; pay_subject: string | null; pay_body: string | null; pay_before: number[]; pay_after: number[]; payments_enabled?: boolean; mail_connected?: boolean; plan?: "free" | "active" | "retrying" | "none"; addon_enquired_at?: string | null; feedback_until?: string | null };
   clients: Client[];
   deadlines: Deadline[];
   deliveries: Delivery[];
@@ -25,6 +25,9 @@ export interface Snapshot {
   /* 0280: payment reminders; payments_ready = supabase/139 has been run */
   invoices: Invoice[];
   payments_ready: boolean;
+  /* 0291: feedback, page by page, for the first 3 months */
+  feedback?: Feedback[];
+  feedback_ready?: boolean;
   /* 0286: the file folder (every uploaded invoice file) */
   files?: OpFile[];
   files_ready?: boolean;
@@ -32,6 +35,26 @@ export interface Snapshot {
 }
 
 type View = "dashboard" | "payments" | "deadlines" | "calendar" | "reminders" | "clients" | "client" | "files" | "sources" | "billing";
+
+interface Feedback {
+  id: string;
+  page: string;
+  message: string;
+  created_by: string | null;
+  created_at: string;
+  status: "new" | "done";
+  /* 0292 */
+  kind?: "change" | "add" | "fix" | "question";
+  shot?: boolean;
+}
+const KINDS: Array<["change" | "add" | "fix" | "question", string, string]> = [
+  ["change", "✏️", "Change something"],
+  ["add", "➕", "Add something"],
+  ["fix", "⚠️", "Something is wrong"],
+  ["question", "❓", "A question"],
+];
+const PAGE_NAME: Record<View, string> = { dashboard: "Dashboard", payments: "Payment reminders", deadlines: "Deadlines", calendar: "Calendar", reminders: "Reminder emails", clients: "Clients", client: "Client page", files: "Files", sources: "Excel sources", billing: "Billing & plan" };
+const feedbackOpen = (s: Snapshot) => !!s.feedback_ready && !!s.ws.feedback_until && s.today <= s.ws.feedback_until;
 
 interface OpFile {
   id: string;
@@ -113,7 +136,9 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
 
   const [chip, setChip] = useState<DChip>("overdue");
   const [payAt, setPayAt] = useState<{ chip: PChip; id: string | null; n: number }>({ chip: "overdue", id: null, n: 0 });
+  /* 0290: deadline tracking is the system (as in the approved mock-ups); payment reminders are optional */
   const filing = s.ws.filing_enabled;
+  const payments = s.ws.payments_enabled !== false;
   const payLate = s.invoices.filter((v) => v.status === "open" && v.due_date < s.today).length;
   const openPay = (c: PChip, id?: string) => (setPayAt((x) => ({ chip: c, id: id ?? null, n: x.n + 1 })), go("payments"));
   const go = (v: View) => {
@@ -165,22 +190,19 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
             <div className="ev-grp">
               <div className="ev-h">Overview</div>
               {nav("dashboard", "overview", "Dashboard")}
-              {nav("payments", "card", "Payments", payLate)}
+              {filing && nav("deadlines", "esop", "Deadlines", overdue.length)}
+              {filing && nav("calendar", "calendar", "Calendar")}
             </div>
-            {/* 0280: filing reminders are optional (OnPoint sends payment reminders) */}
-            {filing && (
-              <div className="ev-grp">
-                <div className="ev-h">Filing reminders</div>
-                {nav("deadlines", "esop", "Deadlines", overdue.length)}
-                {nav("calendar", "calendar", "Calendar")}
-                {nav("reminders", "mail", "Reminder emails")}
-              </div>
-            )}
+            <div className="ev-grp">
+              <div className="ev-h">Automation</div>
+              {filing && nav("reminders", "mail", "Reminder emails")}
+              {payments && nav("payments", "card", "Payment reminders", payLate)}
+            </div>
             <div className="ev-grp">
               <div className="ev-h">Records</div>
               {nav("clients", "folder", "Clients")}
-              {nav("files", "folder", "Invoice files")}
               {nav("sources", "upload", "Excel sources")}
+              {nav("files", "folder", "Files")}
             </div>
             {isAdmin && (
               <div className="ev-grp">
@@ -215,17 +237,20 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
 
         <main className="ev-main">
           <div className="ev-wrap op-view" key={view}>
-            {view === "dashboard" && !filing && <PayDashboard s={s} byId={byId} company={company} go={go} openPay={openPay} />}
+            {view === "dashboard" && !filing && payments && <PayDashboard s={s} byId={byId} company={company} go={go} openPay={openPay} />}
             {view === "payments" && <Payments key={payAt.n} s={s} setS={setS} byId={byId} canEdit={canEdit} isAdmin={isAdmin} preview={preview} say={say} reload={reload} initialChip={payAt.chip} openId={payAt.id} openClient={openClient} />}
-            {view === "dashboard" && filing && <Dashboard s={s} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} openDeadlines={(c) => (setChip(c), go("deadlines"))} />}
+            {view === "dashboard" && filing && <Dashboard s={s} setS={setS} preview={preview} say={say} reload={reload} byId={byId} live={live} overdue={overdue} company={company} onPreview={openPreview} go={go} openDeadlines={(c) => (setChip(c), go("deadlines"))} />}
             {view === "deadlines" && <Deadlines s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} onPreview={openPreview} initialChip={chip} />}
-            {view === "calendar" && <Calendar s={s} byId={byId} onPreview={openPreview} />}
+            {view === "calendar" && <Calendar s={s} byId={byId} onPreview={openPreview} canEdit={canEdit} preview={preview} say={say} reload={reload} />}
             {view === "billing" && isAdmin && <Billing preview={preview} founder={s.me.founder} enquired={s.ws.addon_enquired_at} say={say} back={stripeReturn} />}
             {view === "reminders" && <Reminders s={s} setS={setS} byId={byId} live={live} canEdit={canEdit} preview={preview} say={say} reload={reload} focus={focus} />}
             {view === "clients" && <Clients s={s} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={(id) => openPay("open", id)} openClient={openClient} />}
             {view === "files" && <Files s={s} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={(id) => openPay("all", id)} />}
             {view === "client" && clientId && <ClientPage key={clientId} s={s} setS={setS} id={clientId} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} back={() => go("clients")} onPreview={openPreview} />}
             {view === "sources" && <Sources s={s} setS={setS} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={() => openPay("open")} />}
+            {/* 0291: temporary, for the first 3 months: comments on this page, bit by bit */}
+            {/* 0292: a Feedback button on every page opens a panel: + New feedback → page, kind, comment, screenshot → Submit */}
+            {feedbackOpen(s) && <FeedbackLauncher s={s} setS={setS} page={PAGE_NAME[view]} preview={preview} say={say} reload={reload} />}
           </div>
         </main>
       </div>
@@ -289,7 +314,7 @@ function useCountUp(target: number) {
   return n;
 }
 
-function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]; overdue: Deadline[]; company: string; onPreview: (d: Deadline) => void; go: (v: View) => void; openDeadlines: (c: DChip) => void }) {
+function Dashboard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; preview: boolean; say: (t: string) => void; reload: () => Promise<void>; byId: Map<string, Client>; live: Deadline[]; overdue: Deadline[]; company: string; onPreview: (d: Deadline) => void; go: (v: View) => void; openDeadlines: (c: DChip) => void }) {
   const { s } = p;
   const fortnight = p.live.filter((d) => d.due_date >= s.today && daysBetween(s.today, d.due_date) <= 14);
   const month = s.today.slice(0, 7);
@@ -306,6 +331,15 @@ function Dashboard(p: { s: Snapshot; byId: Map<string, Client>; live: Deadline[]
           Here is where your filings stand today, worked out from your <b>Master List</b>, <b>Job Schedule</b> and <b>Nominee Service</b> sheets. Reminders go to your clients on your behalf before each due date.
         </p>
       </header>
+      {feedbackOpen(s) && (
+        <div className="op-fbbanner" role="note">
+          <span className="op-soontag">First 3 months</span>
+          <span>
+            <b>Tell us what to change, bit by bit.</b> Until {fmtDate(s.ws.feedback_until)}, press <b>Feedback</b> at the bottom right of any page, then <b>+ New feedback</b>, whenever you notice something. No call needed. This is temporary.
+          </span>
+        </div>
+      )}
+      {s.me.founder && (s.feedback ?? []).some((f) => f.status === "new") && <FeedbackInbox s={s} setS={p.setS} preview={p.preview} say={p.say} reload={p.reload} />}
       {s.clients.length === 0 && (
         <div className="ev-card op-empty">
           <b>No clients yet.</b> Import the Master List, Nominee Service and Job Schedule sheets on{" "}
@@ -704,6 +738,7 @@ function Reminders(p: {
       <PageHead icon="mail" eyebrow="Automation" title="Reminder emails">
         The emails your clients receive, sent on {s.ws.sender_name}&rsquo;s behalf. Each filing type has its own wording and timing.
       </PageHead>
+      <AutoFiling s={s} setS={p.setS} preview={p.preview} say={p.say} reload={p.reload} />
       {missingClient && <div className="op-warn">That client or deadline is no longer there. Pick another below.</div>}
       <div className="op-grid2 wide">
         <section className="ev-card op-pad">
@@ -986,7 +1021,7 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
               <tr>
                 <th>Client</th>
                 {s.ws.filing_enabled && <th>Live deadlines</th>}
-                <th>Unpaid</th>
+                {s.ws.payments_enabled !== false && <th>Unpaid</th>}
                 <th>Contact name</th>
                 <th>Email</th>
                 <th className="op-right" />
@@ -1018,7 +1053,7 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
                         <span className={`op-count ${count.get(c.id) ? "" : "zero"}`}>{count.get(c.id) ?? 0}</span>
                       </td>
                     )}
-                    <td>
+                    {s.ws.payments_enabled !== false && <td>
                       {(() => {
                         const u = owed.get(c.id);
                         return u ? (
@@ -1029,7 +1064,7 @@ function Clients(p: { s: Snapshot; canEdit: boolean; preview: boolean; say: (t: 
                           <span className="ev-sub">–</span>
                         );
                       })()}
-                    </td>
+                    </td>}
                     <td>
                       <input className="op-in sm" value={e.contact_name} disabled={!p.canEdit} placeholder="e.g. Alex Tan" onChange={(x) => setEdit((m) => ({ ...m, [c.id]: { ...e, contact_name: x.target.value } }))} />
                     </td>
@@ -1103,7 +1138,7 @@ function Sources(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
         The sheets this system reads. Upload them again any time; your files are never changed.
       </PageHead>
       {/* 0281: the invoice list (payment reminders) is imported on Payments; these sheets add clients and their emails */}
-      <div className="op-soonbar op-linkbar" role="note">
+      {p.s.ws.payments_enabled !== false && <div className="op-soonbar op-linkbar" role="note">
         <Ic n="card" s={16} />
         <span>
           <b>Unpaid invoices</b> are uploaded on{" "}
@@ -1112,7 +1147,7 @@ function Sources(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
           </a>
           . The sheets below add your clients and their contact emails{p.s.ws.filing_enabled ? ", and the filing deadlines" : ""}.
         </span>
-      </div>
+      </div>}
       {p.canEdit && (
         <section
           className={`ev-card op-drop ${drag ? "on" : ""}`}
@@ -1196,6 +1231,7 @@ function Sources(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void
           ))}
         </section>
       </div>
+      {s.me.role === "admin" && <PaymentsSwitch s={s} setS={p.setS} preview={p.preview} say={p.say} reload={p.reload} />}
       {s.me.role === "admin" && <MailboxCard preview={p.preview} say={p.say} reload={p.reload} defaultEmail={s.ws.sender_email ?? ""} founder={s.me.founder} myEmail={s.me.email} />}
       {s.me.founder && (
         <section className="ev-card op-pad">
@@ -1378,7 +1414,7 @@ const initials = (name: string) =>
     .join("") || "·";
 const iso = (y: number, m: number, d: number) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 
-function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: Deadline) => void }) {
+function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: Deadline) => void; canEdit?: boolean; preview?: boolean; say?: (t: string) => void; reload?: () => Promise<void> }) {
   const { s } = p;
   const [ym, setYm] = useState(() => s.today.slice(0, 7));
   const [type, setType] = useState<"" | ReminderType>("");
@@ -1472,7 +1508,13 @@ function Calendar(p: { s: Snapshot; byId: Map<string, Client>; onPreview: (d: De
       </section>
       {day && (
         <section className="ev-card op-pad">
-          <h2 className="op-h2">{fmtDate(day)}</h2>
+          <div className="op-h">
+            <h2 className="op-h2">{fmtDate(day)}</h2>
+            {/* 0290: as in the mock-up, send every reminder due on this day at once */}
+            {p.canEdit && list.filter((d) => d.status === "active" && p.byId.get(d.client_id)?.contact_email).length > 1 && (
+              <SendAllDeadlines ids={list.filter((d) => d.status === "active" && p.byId.get(d.client_id)?.contact_email).map((d) => d.id)} label="on this day" s={s} preview={!!p.preview} say={p.say ?? (() => {})} reload={p.reload ?? (async () => {})} />
+            )}
+          </div>
           {list.length === 0 && <p className="ev-sub">Nothing due on this day.</p>}
           {list
             .slice()
@@ -2167,7 +2209,7 @@ function Payments(p: {
           ) : null;
         })()}
         <p className="ev-sub op-small op-mt">
-          <b>Upload invoices:</b> one or many files at once. <b>PDF invoices</b>, or a PDF listing many invoices in a table, are read for you to check before they are added; an <b>Excel or CSV list</b> (Xero&rsquo;s export works) is added straight away. Every file is kept in <b>Invoice files</b>, with the day it was uploaded.
+          <b>Upload invoices:</b> one or many files at once. <b>PDF invoices</b>, or a PDF listing many invoices in a table, are read for you to check before they are added; an <b>Excel or CSV list</b> (Xero&rsquo;s export works) is added straight away. Every file is kept in <b>Files</b>, with the day it was uploaded.
         </p>
         <div className="ev-chips" role="group" aria-label="Filter">
           {PAY_CHIPS.map(([k, label]) => (
@@ -2294,7 +2336,6 @@ function Payments(p: {
         <Pager page={page} pages={pages} total={rows.length} setPage={setPage} />
       </section>
       <PayWording s={s} setS={p.setS} canEdit={p.canEdit} preview={p.preview} say={p.say} reload={p.reload} open={wording} setOpen={setWording} />
-      {p.isAdmin && <FilingSwitch s={s} setS={p.setS} preview={p.preview} say={p.say} reload={p.reload} />}
       {selected && <PaySend s={s} setS={p.setS} v={selected} client={p.byId.get(selected.client_id)} canEdit={p.canEdit} preview={p.preview} say={p.say} reload={p.reload} onClose={() => setSel(null)} editWording={() => (setSel(null), setWording(true))} />}
       {review && <PdfReview s={s} reads={review} preview={p.preview} say={p.say} reload={p.reload} onClose={() => setReview(null)} />}
     </>
@@ -2585,33 +2626,6 @@ function PayWording(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => v
   );
 }
 
-function FilingSwitch(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
-  const on = p.s.ws.filing_enabled;
-  const [busy, setBusy] = useState(false);
-  async function flip() {
-    if (p.preview) {
-      p.setS((x) => ({ ...x, ws: { ...x.ws, filing_enabled: !on } }));
-      return p.say(on ? "Filing reminders hidden (preview only)" : "Filing reminders shown (preview only)");
-    }
-    setBusy(true);
-    const r = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "filing", on: !on }) });
-    setBusy(false);
-    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
-    p.say(on ? "Filing reminders hidden" : "Filing reminders switched on");
-    await p.reload();
-  }
-  return (
-    <section className="ev-card op-pad op-mt2 op-optional">
-      <div>
-        <b>Filing reminders</b> <span className="op-soontag muted">Optional</span>
-        <p className="ev-sub op-small">ACRA and IRAS deadline reminders (AR, ECI, AGM…) worked out from the Master List. {on ? "Shown in the menu." : "Hidden: you only send payment reminders."}</p>
-      </div>
-      <button className="ev-btn" disabled={busy} onClick={() => void flip()}>
-        {on ? "Hide filing reminders" : "Show filing reminders"}
-      </button>
-    </section>
-  );
-}
 
 /* ── Automatic payment reminders and undo import (0282) ────────────────── */
 
@@ -2835,7 +2849,11 @@ function ClientPage(p: {
   const open = mine.filter((v) => v.status === "open").sort((a, b) => a.due_date.localeCompare(b.due_date));
   const paid = mine.filter((v) => v.status === "paid").sort((a, b) => b.due_date.localeCompare(a.due_date));
   const late = open.filter((v) => v.due_date < s.today);
-  const deadlines = s.ws.filing_enabled ? s.deadlines.filter((d) => d.client_id === c.id && d.status === "active") : [];
+  const deadlines = s.ws.filing_enabled ? s.deadlines.filter((d) => d.client_id === c.id && d.status === "active").sort((a, b) => a.due_date.localeCompare(b.due_date)) : [];
+  const payOn = s.ws.payments_enabled !== false;
+  const lateDl = deadlines.filter((d) => d.due_date < s.today);
+  /* "Send all due reminders" (mock-up): overdue and due in the next 30 days */
+  const dueDl = deadlines.filter((d) => daysBetween(s.today, d.due_date) <= 30);
   const history = s.deliveries.filter((d) => d.client_id === c.id).slice(0, 20);
   const selected = sel ? s.invoices.find((v) => v.id === sel) : undefined;
   const changed = contact.name !== (c.contact_name ?? "") || contact.email !== (c.contact_email ?? "");
@@ -2875,15 +2893,39 @@ function ClientPage(p: {
         ← All clients
       </button>
       <PageHead icon="folder" eyebrow="Client" title={c.name}>
-        {[c.uen ? `UEN ${c.uen}` : null, c.fye ? `FYE ${fmtDate(c.fye)}` : null, `${open.length} unpaid invoice${open.length === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
+        {[c.uen ? `UEN ${c.uen}` : null, c.fye ? `FYE ${fmtDate(c.fye)}` : null, payOn ? `${open.length} unpaid invoice${open.length === 1 ? "" : "s"}` : `${deadlines.length} live deadline${deadlines.length === 1 ? "" : "s"}`].filter(Boolean).join(" · ")}
       </PageHead>
       <div className="op-stats op-stats3">
-        <Stat icon="card" tone="gold" label="Owed" value={Math.round(sum(open) / 100)} fmt={dollars} sub={`${open.length} unpaid`} />
-        <Stat icon="alert" tone="red" label="Overdue" value={late.length} sub={late.length ? `${money(sum(late))} past due` : "Nothing overdue"} warn={late.length > 0} />
+        {/* 0290: deadlines first; what they owe only when payment reminders are shown */}
+        {payOn ? (
+          <Stat icon="card" tone="gold" label="Owed" value={Math.round(sum(open) / 100)} fmt={dollars} sub={`${open.length} unpaid`} />
+        ) : (
+          <Stat icon="clipboard" tone="gold" label="Live deadlines" value={deadlines.length} sub={deadlines[0] ? `Next ${fmtDate(deadlines[0].due_date)}` : "Nothing due"} />
+        )}
+        {payOn ? (
+          <Stat icon="alert" tone="red" label="Overdue" value={late.length} sub={late.length ? `${money(sum(late))} past due` : "Nothing overdue"} warn={late.length > 0} />
+        ) : (
+          <Stat icon="alert" tone="red" label="Overdue" value={lateDl.length} sub={lateDl.length ? "Requires attention" : "All on time"} warn={lateDl.length > 0} />
+        )}
         <Stat icon="sent" tone="green" label="Reminders sent" value={history.filter((d) => d.status === "sent").length} sub="Recent, from your email" />
       </div>
       {s.ws.test_inbox && <SafetyNote inbox={s.ws.test_inbox} />}
-      <section className="ev-card op-pad">
+      {deadlines.length > 0 && (
+        <section className="ev-card op-pad">
+          <div className="op-h">
+            <h2 className="op-h2">Filing deadlines</h2>
+            {p.canEdit && c.contact_email && dueDl.length > 0 && <SendAllDeadlines ids={dueDl.map((d) => d.id)} label="due" s={s} preview={p.preview} say={p.say} reload={p.reload} />}
+          </div>
+          {deadlines.map((d) => (
+            <button key={d.id} className="op-row op-next" onClick={() => p.onPreview(d)}>
+              <span className={tagClass(d.type)}>{shortType(d)}</span>
+              <span className="op-date">{fmtDate(d.due_date)}</span>
+              <span className={dueClass(d.due_date, s.today)}>{shortCount(d.due_date, s.today)}</span>
+            </button>
+          ))}
+        </section>
+      )}
+      {payOn && <section className="ev-card op-pad">
         <div className="op-h">
           <h2 className="op-h2">Unpaid invoices</h2>
           {p.canEdit && open.length > 0 && (
@@ -2941,7 +2983,7 @@ function ClientPage(p: {
             {paid.length > 5 ? ` and ${paid.length - 5} more` : ""}
           </p>
         )}
-      </section>
+      </section>}
       <div className="op-grid2">
         <section className="ev-card op-pad">
           <h2 className="op-h2">Contact</h2>
@@ -2973,7 +3015,7 @@ function ClientPage(p: {
         </section>
         <section className="ev-card op-pad">
           <h2 className="op-h2">Notes</h2>
-          <textarea className="op-in" rows={6} value={notes} disabled={!p.canEdit} placeholder="e.g. pays by bank transfer at month end; call before chasing" onChange={(e) => setNotes(e.target.value)} />
+          <textarea className="op-in" rows={6} value={notes} disabled={!p.canEdit} placeholder="e.g. director prefers WhatsApp; AGM usually held in March" onChange={(e) => setNotes(e.target.value)} />
           {p.canEdit && (
             <button className="ev-btn" disabled={notes === (c.notes ?? "") || !!busy} onClick={() => void patch({ notes }, "Notes saved", { notes: notes.trim() || null })}>
               {notes === (c.notes ?? "") ? "Saved" : "Save notes"}
@@ -2982,18 +3024,6 @@ function ClientPage(p: {
           <p className="ev-sub op-small">Only your team sees these notes.</p>
         </section>
       </div>
-      {deadlines.length > 0 && (
-        <section className="ev-card op-pad">
-          <h2 className="op-h2">Filing deadlines</h2>
-          {deadlines.map((d) => (
-            <button key={d.id} className="op-row op-next" onClick={() => p.onPreview(d)}>
-              <span className={tagClass(d.type)}>{shortType(d)}</span>
-              <span className="op-date">{fmtDate(d.due_date)}</span>
-              <span className={dueClass(d.due_date, s.today)}>{shortCount(d.due_date, s.today)}</span>
-            </button>
-          ))}
-        </section>
-      )}
       <section className="ev-card op-pad">
         <h2 className="op-h2">Reminder history</h2>
         {history.length === 0 && <p className="ev-sub">No reminders sent to this client yet.</p>}
@@ -3126,7 +3156,7 @@ function PdfReview(p: { s: Snapshot; reads: PdfRead[]; preview: boolean; say: (t
             <Ic n="close" s={14} />
           </button>
         </div>
-        <p className="ev-sub op-small">We read these from the PDFs (a PDF with a table of invoices gives one row each). Check each one and correct anything, then add them. Nothing is added until you press the button. The files are already kept in Invoice files.</p>
+        <p className="ev-sub op-small">We read these from the PDFs (a PDF with a table of invoices gives one row each). Check each one and correct anything, then add them. Nothing is added until you press the button. The files are already kept in Files.</p>
         {rows.length > 3 && (
           <div className="op-chiprow op-mt">
             <button className="ev-link" onClick={() => setRows((x) => x.map((r) => ({ ...r, on: true })))}>
@@ -3186,7 +3216,7 @@ function PdfReview(p: { s: Snapshot; reads: PdfRead[]; preview: boolean; say: (t
             {busy ? "Adding…" : `Add ${ready.length} invoice${ready.length === 1 ? "" : "s"}`}
           </button>
           <button className="ev-link" onClick={p.onClose}>
-            Not now (the files stay in Invoice files)
+            Not now (the files stay in Files)
           </button>
         </div>
       </div>
@@ -3236,8 +3266,8 @@ function Files(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean; pr
   };
   return (
     <>
-      <PageHead icon="folder" eyebrow="Records" title="Invoice files">
-        Every file you upload is kept here, by day: PDF invoices, invoice lists and client sheets. Only your team can open them.
+      <PageHead icon="folder" eyebrow="Records" title="Files">
+        Every file you upload is kept here, by day: your Master List, Nominee Service and Job Schedule sheets{s.ws.payments_enabled !== false ? ", and invoices" : ""}. Only your team can open them.
       </PageHead>
       {s.files_ready === false && <div className="op-warn">The file folder is not switched on yet: run supabase/143_onpoint_files.sql in Supabase first.</div>}
       <section className="ev-card op-pad">
@@ -3327,6 +3357,352 @@ function Files(p: { s: Snapshot; byId: Map<string, Client>; canEdit: boolean; pr
           </div>
         ))}
       </section>
+    </>
+  );
+}
+
+/* ── Deadline tracking first (0290) ─────────────────────────────────────── */
+
+/** Automatic filing reminders on/off (OnPoint's administrators), on the Reminder emails page */
+function AutoFiling(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+  const { s } = p;
+  const on = s.ws.auto_send;
+  const [busy, setBusy] = useState(false);
+  async function toggle() {
+    if (!window.confirm(on ? "Turn automatic reminders off?" : `Turn automatic reminders on? Every morning at 8am, each deadline gets its reminder on the days set for its type${s.ws.test_inbox ? ` (for now to ${s.ws.test_inbox}, for a safety check)` : ", sent to the client"}.`)) return;
+    if (p.preview) {
+      p.setS((x) => ({ ...x, ws: { ...x.ws, auto_send: !on } }));
+      return p.say("Preview: not saved.");
+    }
+    setBusy(true);
+    const r = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "auto", on: !on }) });
+    setBusy(false);
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    p.say(on ? "Automatic reminders off" : "Automatic reminders on: the first ones go at 8am");
+    await p.reload();
+  }
+  return (
+    <section className="ev-card op-pad op-autofiling">
+      <div>
+        <h2 className="op-h2">
+          Automatic reminders
+          {s.me.role === "admin" ? (
+            <button type="button" role="switch" aria-checked={on} className={`op-switch ${on ? "on" : ""}`} disabled={busy} onClick={() => void toggle()}>
+              <i aria-hidden="true" />
+              <span>{busy ? "Saving…" : on ? "On" : "Off"}</span>
+            </button>
+          ) : (
+            <span className={`op-pill ${on ? "ok" : "off"}`}>{on ? "On" : "Off"}</span>
+          )}
+        </h2>
+        <p className="ev-sub op-small">
+          {on
+            ? "Every morning at 8am (Singapore), each deadline gets its reminder on the days set under “Send automatically” for its type. Each one goes once; a deadline marked done stops."
+            : "The system tracks every deadline from your sheets. Switch it on and each reminder goes by itself at 8am on the days set for its type. While it is off, use “Send this reminder now”."}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/** Send every reminder in a list of deadlines at once (the mock-up's "Send all"), after confirming the number */
+function SendAllDeadlines(p: { ids: string[]; label: string; s: Snapshot; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const ids = p.ids.slice(0, 50);
+  async function go() {
+    const where = p.s.ws.test_inbox ? `\n\nFor now they go to ${p.s.ws.test_inbox} for a safety check.` : "\n\nThey go to each client's email.";
+    if (!window.confirm(`Send ${ids.length} reminder${ids.length === 1 ? "" : "s"} ${p.label} now?${where}`)) return;
+    if (p.preview) return p.say("Preview: nothing is sent.");
+    setBusy(true);
+    const r = await api("/api/onpoint/send", { method: "POST", body: JSON.stringify({ deadline_ids: ids, confirm_count: ids.length, request_id: crypto.randomUUID() }) });
+    setBusy(false);
+    const res = (r.j.results as Array<{ status: string }>) ?? [];
+    if (!res.length) return p.say(String(r.j.error ?? "Not sent."));
+    const sent = res.filter((x) => x.status === "sent").length;
+    p.say(`${sent} of ${res.length} sent${sent < res.length ? ": the others were skipped (already sent, or no email)" : ""}.`);
+    await p.reload();
+  }
+  return (
+    <button className="ev-btn gold sm" disabled={busy || !ids.length} onClick={() => void go()}>
+      <Ic n="mail" s={13} />
+      {busy ? "Sending…" : `Send all ${ids.length} reminder${ids.length === 1 ? "" : "s"}`}
+    </button>
+  );
+}
+
+/** Payment reminders (invoices): optional, hidden unless switched on (OnPoint's system is deadline tracking) */
+function PaymentsSwitch(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+  const on = p.s.ws.payments_enabled !== false;
+  const [busy, setBusy] = useState(false);
+  async function flip() {
+    if (p.preview) {
+      p.setS((x) => ({ ...x, ws: { ...x.ws, payments_enabled: !on } }));
+      return p.say(on ? "Payment reminders hidden (preview only)" : "Payment reminders shown (preview only)");
+    }
+    setBusy(true);
+    const r = await api("/api/onpoint/payments", { method: "POST", body: JSON.stringify({ action: "payments", on: !on }) });
+    setBusy(false);
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    p.say(on ? "Payment reminders hidden" : "Payment reminders shown");
+    await p.reload();
+  }
+  return (
+    <section className="ev-card op-pad op-optional">
+      <div>
+        <b>Payment reminders</b> <span className="op-soontag muted">Optional</span>
+        <p className="ev-sub op-small">Reminders about unpaid invoices, separate from your filing deadlines. {on ? "Shown in the menu." : "Hidden: your reminders are about filing deadlines."}</p>
+      </div>
+      <button className="ev-btn" disabled={busy} onClick={() => void flip()}>
+        {on ? "Hide payment reminders" : "Show payment reminders"}
+      </button>
+    </section>
+  );
+}
+
+/* ── Feedback, page by page, for the first 3 months (0291) ──────────────── */
+
+
+/** Founders Doc only: every new comment, from any page */
+function FeedbackInbox(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+  const open = (p.s.feedback ?? []).filter((f) => f.status === "new");
+  async function done(f: Feedback) {
+    if (p.preview) return p.setS((x) => ({ ...x, feedback: (x.feedback ?? []).map((k) => (k.id === f.id ? { ...k, status: "done" } : k)) }));
+    const r = await api("/api/onpoint/feedback", { method: "PATCH", body: JSON.stringify({ id: f.id, done: true }) });
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    await p.reload();
+  }
+  return (
+    <section className="ev-card op-pad op-founder">
+      <h2 className="op-h2">
+        Feedback from OnPoint <span className="ev-sub">· {open.length} new · Founders Doc only</span>
+      </h2>
+      <ul className="op-fblist">
+        {open.slice(0, 20).map((f) => (
+          <li key={f.id}>
+            <span className="op-fbmsg">
+              <b>{f.page}</b> · {KINDS.find((k) => k[0] === f.kind)?.[2] ?? "Comment"}: {f.message}
+              {f.shot ? (
+                <>
+                  {" "}
+                  <a className="op-pdflink" href={`/api/onpoint/feedback?shot=${f.id}`} target="_blank" rel="noopener noreferrer">
+                    Screenshot
+                  </a>
+                </>
+              ) : null}
+            </span>
+            <span className="ev-sub op-small">
+              {f.created_by ?? "—"} · {new Date(f.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+            </span>
+            <button className="ev-link op-small" onClick={() => void done(f)}>
+              Mark done
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/* ── Feedback panel (0292): Feedback → + New feedback → page, kind, comment, screenshot → Submit ── */
+
+function FeedbackLauncher(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; page: string; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+  const { s } = p;
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"list" | "new">("list");
+  const [tab, setTab] = useState<"page" | "all">("all");
+  const [form, setForm] = useState({ page: p.page, kind: "" as "" | "change" | "add" | "fix" | "question", message: "" });
+  const [shot, setShot] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [thanks, setThanks] = useState(false);
+  const all = s.feedback ?? [];
+  const list = (tab === "page" ? all.filter((f) => f.page === p.page) : all).slice(0, 40);
+  const fresh = all.filter((f) => f.status === "new").length;
+  const pages = [...new Set([...Object.values(PAGE_NAME).filter((n) => n !== "Payment reminders" || s.ws.payments_enabled !== false), "Anything else"])];
+  const start = () => {
+    setForm({ page: p.page, kind: "", message: "" });
+    setShot(null);
+    setThanks(false);
+    setMode("new");
+  };
+  function pickShot(f: File | null | undefined) {
+    if (!f) return;
+    if (!/^image\//.test(f.type)) return p.say("Choose an image (PNG or JPG).");
+    if (f.size > 4 * 1024 * 1024) return p.say("The screenshot is larger than 4 MB.");
+    setShot(f);
+  }
+  async function submit() {
+    if (!form.kind) return p.say("Choose what kind of feedback it is.");
+    if (!form.message.trim()) return p.say("Write your comment first.");
+    if (p.preview) {
+      p.setS((x) => ({ ...x, feedback: [{ id: `f${Date.now()}`, page: form.page, message: form.message.trim(), created_by: x.me.email, created_at: new Date().toISOString(), status: "new", kind: form.kind || "change", shot: !!shot }, ...(x.feedback ?? [])] }));
+    } else {
+      setBusy(true);
+      const fd = new FormData();
+      fd.append("page", form.page);
+      fd.append("kind", form.kind);
+      fd.append("message", form.message.trim());
+      if (shot) fd.append("shot", shot);
+      const r = await api("/api/onpoint/feedback", { method: "POST", body: fd });
+      setBusy(false);
+      if (!r.ok) return p.say(String(r.j.error ?? "Not sent."));
+      await p.reload();
+    }
+    setThanks(true);
+    setMode("list");
+    setTab("all");
+  }
+  async function mark(f: Feedback) {
+    if (p.preview) return p.setS((x) => ({ ...x, feedback: (x.feedback ?? []).map((k) => (k.id === f.id ? { ...k, status: k.status === "done" ? "new" : "done" } : k)) }));
+    const r = await api("/api/onpoint/feedback", { method: "PATCH", body: JSON.stringify({ id: f.id, done: f.status !== "done" }) });
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    await p.reload();
+  }
+  return (
+    <>
+      <button type="button" className="op-fbfab" onClick={() => (setOpen(true), setMode("list"), setThanks(false))} aria-haspopup="dialog">
+        <span aria-hidden="true">💬</span> Feedback
+        {s.me.founder && fresh > 0 ? <i>{fresh}</i> : null}
+      </button>
+      {open && (
+        <>
+          <button className="ev-scrim top" aria-label="Close feedback" onClick={() => setOpen(false)} />
+          <aside className="op-fbpanel" role="dialog" aria-modal="true" aria-labelledby="op-fbt">
+            <header className="op-fbph">
+              <div>
+                <h2 id="op-fbt">Your feedback</h2>
+                <span className="op-soontag muted">Temporary · until {fmtDate(s.ws.feedback_until)}</span>
+              </div>
+              <button className="ev-link" aria-label="Close" onClick={() => setOpen(false)}>
+                <Ic n="close" s={15} />
+              </button>
+            </header>
+            {mode === "list" ? (
+              <div className="op-fbbody">
+                {thanks && (
+                  <p className="op-fbthanks">
+                    <Ic n="check" s={14} w={2.4} /> Thank you! We&rsquo;ve got it, and you&rsquo;ll see it marked done when it&rsquo;s sorted.
+                  </p>
+                )}
+                <p className="ev-sub op-small">Tell us what to change, one point at a time, whenever you notice it. No call needed.</p>
+                <button className="ev-btn gold op-fbnew" onClick={start}>
+                  <Ic n="plus" s={15} /> New feedback
+                </button>
+                <div className="ev-chips op-mt" role="group" aria-label="Show">
+                  <button className={tab === "all" ? "on" : ""} aria-pressed={tab === "all"} onClick={() => setTab("all")}>
+                    All <span>{all.length}</span>
+                  </button>
+                  <button className={tab === "page" ? "on" : ""} aria-pressed={tab === "page"} onClick={() => setTab("page")}>
+                    This page <span>{all.filter((f) => f.page === p.page).length}</span>
+                  </button>
+                </div>
+                {list.length === 0 ? (
+                  <p className="ev-sub op-small op-mt">Nothing sent yet{tab === "page" ? " about this page" : ""}.</p>
+                ) : (
+                  <ul className="op-fbcards">
+                    {list.map((f) => {
+                      const k = KINDS.find((x) => x[0] === f.kind);
+                      return (
+                        <li key={f.id} className={f.status}>
+                          <div className="op-fbmeta">
+                            <span className="op-fbkind">{k ? `${k[1]} ${k[2]}` : "💬 Comment"}</span>
+                            <span className="ev-sub op-small">{f.page}</span>
+                            <span className={`op-pill ${f.status === "done" ? "ok" : "warn"}`}>{f.status === "done" ? "Done" : "Received"}</span>
+                          </div>
+                          <p>{f.message}</p>
+                          <div className="op-fbfoot">
+                            <span className="ev-sub op-small">{new Date(f.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                            {f.shot ? (
+                              <a className="ev-link op-small" href={`/api/onpoint/feedback?shot=${f.id}`} target="_blank" rel="noopener noreferrer">
+                                Screenshot
+                              </a>
+                            ) : null}
+                            {s.me.founder && (
+                              <button className="ev-link op-small" onClick={() => void mark(f)}>
+                                {f.status === "done" ? "Reopen" : "Mark done"}
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <div className="op-fbbody">
+                <div className="op-field">
+                  <label className="op-lab op-step" htmlFor="op-fbpage">
+                    <i>1</i>Which page is it about?
+                  </label>
+                  <label className="ev-select">
+                    <span className="ev-sr">Page</span>
+                    <select id="op-fbpage" value={form.page} onChange={(e) => setForm({ ...form, page: e.target.value })}>
+                      {pages.map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="op-field">
+                  <span className="op-lab op-step">
+                    <i>2</i>What kind of feedback?
+                  </span>
+                  <div className="op-fbkinds" role="radiogroup" aria-label="Kind of feedback">
+                    {KINDS.map(([v, icon, label]) => (
+                      <button key={v} type="button" role="radio" aria-checked={form.kind === v} className={form.kind === v ? "on" : ""} onClick={() => setForm({ ...form, kind: v })}>
+                        <span aria-hidden="true">{icon}</span> {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="op-field">
+                  <label className="op-lab op-step" htmlFor="op-fbmsg">
+                    <i>3</i>Your comment
+                  </label>
+                  <textarea
+                    id="op-fbmsg"
+                    className="op-in"
+                    rows={5}
+                    maxLength={4000}
+                    value={form.message}
+                    placeholder="e.g. Please show the client’s UEN next to the name"
+                    onChange={(e) => setForm({ ...form, message: e.target.value })}
+                    onPaste={(e) => pickShot([...e.clipboardData.files].find((f) => f.type.startsWith("image/")))}
+                  />
+                </div>
+                <div className="op-field">
+                  <span className="op-lab op-step">
+                    <i>4</i>Screenshot <span className="ev-sub">(optional)</span>
+                  </span>
+                  {shot ? (
+                    <div className="op-fbshot">
+                      <Ic n="check" s={13} w={2.4} /> {shot.name || "Pasted image"}
+                      <button className="ev-link op-small" onClick={() => setShot(null)}>
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="op-fbdrop">
+                      <input type="file" accept="image/*" hidden onChange={(e) => pickShot(e.target.files?.[0])} />
+                      Choose an image, or paste one into the comment box
+                    </label>
+                  )}
+                </div>
+                <div className="op-chiprow op-mt">
+                  <button className="ev-btn gold" disabled={busy || !form.kind || !form.message.trim()} onClick={() => void submit()}>
+                    {busy ? "Sending…" : "Submit feedback"}
+                  </button>
+                  <button className="ev-link" onClick={() => setMode("list")}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </aside>
+        </>
+      )}
     </>
   );
 }
