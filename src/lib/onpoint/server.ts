@@ -142,9 +142,14 @@ export async function snapshot(m: Me) {
     all<Invoice>((f, t) => db().from("onpoint_invoices").select(INV).eq("workspace_id", id).neq("status", "cancelled").order("due_date").range(f, t)).catch(() => null),
   ]);
   const { logo_data, ...ws } = m.ws;
+  /* 0283: the rollout (proposal: connect, set the rules, test run, go live) and the plan */
+  const [mb, plan] = await Promise.all([
+    db().from("onpoint_workspaces").select("mail_provider, mail_token_enc").eq("id", id).maybeSingle().then((r) => (r.data as { mail_provider: string | null; mail_token_enc: string | null } | null) ?? null, () => null),
+    import("./billing").then((b) => b.planState(id)).catch(() => "free" as const),
+  ]);
   return {
     me: { email: m.email, role: m.role, founder: m.founder },
-    ws: { ...ws, logo: logo_data ?? null },
+    ws: { ...ws, logo: logo_data ?? null, mail_connected: !!(mb?.mail_provider && mb.mail_token_enc), plan },
     clients,
     deadlines,
     deliveries,
@@ -264,6 +269,8 @@ export async function sendReminder(ws: Workspace, deadlineId: string, trigger: "
     if ((recent as unknown[]).length) return { status: "duplicate", message: "This reminder was just sent." };
   }
   const test = !!ws.test_inbox?.trim();
+  /* 0283: once card payment is open, reminders reach clients only with an active plan (test mode always works) */
+  if (!test && !(await import("./billing").then((b) => b.planState(ws.id).then(b.liveAllowed)))) return { status: "blocked", message: "Your plan is not active yet: set up the card payment on Billing & plan to send to your clients." };
   const key = trigger === "AUTOMATIC" ? `automatic:${ws.id}:${d.id}:${opts.leadDays}:${d.due_date}` : `manual:${ws.id}:${d.id}:${tpl.version}:${(opts.requestId ?? "").slice(0, 60) || Date.now()}`;
   const ins = await db()
     .from("onpoint_deliveries")
@@ -646,6 +653,8 @@ export async function sendPayment(ws: Workspace, invoiceId: string, by: string, 
     if ((recent as unknown[]).length) return { status: "duplicate", message: "This reminder was just sent." };
   }
   const test = !!ws.test_inbox?.trim();
+  /* 0283: once card payment is open, reminders reach clients only with an active plan (test mode always works) */
+  if (!test && !(await import("./billing").then((b) => b.planState(ws.id).then(b.liveAllowed)))) return { status: "blocked", message: "Your plan is not active yet: set up the card payment on Billing & plan to send to your clients." };
   const ins = await db()
     .from("onpoint_deliveries")
     .insert({

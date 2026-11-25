@@ -15,7 +15,7 @@ import { OTHERS, TYPE_NAME, TYPE_PICK, TYPES, type Client, type Deadline, type D
 
 export interface Snapshot {
   me: { email: string; role: "admin" | "staff" | "viewer"; founder: boolean };
-  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean; filing_enabled: boolean; pay_subject: string | null; pay_body: string | null; pay_before: number[]; pay_after: number[] };
+  ws: { id: string; slug: string; name: string; custom_name: string | null; logo: string | null; sender_name: string; sender_email: string | null; test_inbox: string | null; auto_send: boolean; filing_enabled: boolean; pay_subject: string | null; pay_body: string | null; pay_before: number[]; pay_after: number[]; mail_connected?: boolean; plan?: "free" | "active" | "retrying" | "none" };
   clients: Client[];
   deadlines: Deadline[];
   deliveries: Delivery[];
@@ -1574,7 +1574,7 @@ function Billing(p: { preview: boolean; founder: boolean; say: (t: string) => vo
         <div className="op-soonbar" role="note">
           <span className="op-soontag">Opening soon</span>
           <span>
-            <b>Card payment opens soon.</b> Until then, everything in OnPoint Workflows is free to use. Nothing is charged.
+            <b>Card payment opens soon.</b> Setting up and testing are part of your setup, so everything is free to use until then. Your plan starts when you go live.
           </span>
         </div>
       )}
@@ -1623,7 +1623,7 @@ function Billing(p: { preview: boolean; founder: boolean; say: (t: string) => vo
                   </span>
                 </li>
               </ul>
-              <p className="ev-sub op-small">Prices in Singapore dollars, {gst}. Billed by card through Stripe: the first payment covers the setup and the first month.</p>
+              <p className="ev-sub op-small">Prices in Singapore dollars, {gst}. Billed by card through Stripe when you go live: the first payment covers the setup and the first month. Signing in, your dashboard and this page always stay open; without an active plan, only the sending to clients pauses.</p>
               {b.sub ? (
                 <div className="op-meta">
                   <div>
@@ -1911,6 +1911,7 @@ function PayDashboard(p: { s: Snapshot; byId: Map<string, Client>; company: stri
         </p>
       </header>
       {!s.payments_ready && <div className="op-warn">Payment reminders are not switched on yet: Founders Doc runs one database update (139) first.</div>}
+      <Rollout s={s} go={p.go} />
       {s.payments_ready && s.invoices.length === 0 && (
         <div className="ev-card op-empty">
           <b>No invoices yet.</b> Import your unpaid invoice list (Excel or CSV, e.g. from Xero) or add one by hand on{" "}
@@ -2052,6 +2053,11 @@ function Payments(p: {
         Your clients&rsquo; unpaid invoices. Preview the reminder, add an email if it&rsquo;s missing, and send it from {s.ws.sender_email || s.ws.sender_name}.
       </PageHead>
       {!s.payments_ready && <div className="op-warn">Payment reminders are not switched on yet: run supabase/139_onpoint_payments.sql in Supabase first.</div>}
+      {s.ws.plan === "none" && (
+        <div className="op-warn" role="note">
+          <b>Sending to your clients is paused.</b> Your plan is not active yet: set up the card payment on Billing &amp; plan. Test reminders still work.
+        </div>
+      )}
       <AutoCard s={s} setS={p.setS} byId={p.byId} canEdit={p.canEdit} preview={p.preview} say={p.say} reload={p.reload} />
       <section className="ev-card op-pad">
         <div className="op-tools">
@@ -2683,5 +2689,61 @@ function UndoImport(p: { imp: { id?: number; file_name: string }; preview: boole
     <button className="ev-link op-undo" disabled={busy || !p.imp.id} onClick={() => void undo()}>
       {busy ? "Undoing…" : "Undo"}
     </button>
+  );
+}
+
+/* ── Rollout (0283): the four steps of the fee proposal ────────────────── */
+
+function Rollout(p: { s: Snapshot; go: (v: View) => void }) {
+  const { s } = p;
+  const plan = s.ws.plan ?? "free";
+  const steps: Array<{ t: string; d: string; done: boolean; view: View; act: string }> = [
+    { t: "Connect your data", d: "Import your unpaid invoice list, or add invoices", done: s.invoices.length > 0, view: "payments", act: "Import invoices" },
+    { t: "Set the rules", d: "Connect your email, check the reminder days and wording", done: !!s.ws.mail_connected, view: "sources", act: "Connect my email" },
+    { t: "Test run", d: "Send a test reminder: it comes to us, not your client", done: s.deliveries.some((x) => x.test && x.status === "sent"), view: "payments", act: "Preview & send" },
+    {
+      t: "Go live",
+      d: plan === "free" ? "Reminders reach your clients. Free while card payment opens soon" : plan === "none" ? "Set up the card payment, then reminders reach your clients" : "Reminders reach your clients; your plan is active",
+      done: !s.ws.test_inbox && plan !== "none",
+      view: plan === "none" ? "billing" : "payments",
+      act: plan === "none" ? "Set up payment" : "With Founders Doc",
+    },
+  ];
+  const at = steps.findIndex((x) => !x.done);
+  if (at === -1) return null;
+  return (
+    <section className="ev-card op-pad op-rollout" aria-label="Your rollout">
+      <div className="op-rollh">
+        <h2 className="op-h2">Your rollout</h2>
+        <span className="ev-sub op-small">
+          Step {at + 1} of 4 · as in your proposal
+        </span>
+      </div>
+      <ol className="op-steps4">
+        {steps.map((x, i) => (
+          <li key={x.t} className={x.done ? "done" : i === at ? "now" : ""}>
+            <span className="op-stepn" aria-hidden="true">
+              {x.done ? <Ic n="check" s={13} w={2.6} /> : i + 1}
+            </span>
+            <b>{x.t}</b>
+            <span className="ev-sub op-small">{x.d}</span>
+            {i === at && (s.me.role === "admin" || x.view !== "billing") && x.act !== "With Founders Doc" ? (
+              <a
+                href={`#${x.view}`}
+                className="op-steplink"
+                onClick={(e) => {
+                  e.preventDefault();
+                  p.go(x.view);
+                }}
+              >
+                {x.act} →
+              </a>
+            ) : i === at ? (
+              <span className="ev-sub op-small op-steplink">Founders Doc switches this on with you</span>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
