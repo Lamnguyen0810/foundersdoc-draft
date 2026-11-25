@@ -4,7 +4,7 @@ import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { getUser, isAdmin } from "@/lib/supabase/server";
 import { sgToday, daysBetween } from "./dates";
 import type { Derived } from "./derive";
-import { DEFAULT_LEADS, DEFAULT_TEMPLATES, emailHtml, logoUrl, render } from "./templates";
+import { bodyHtml, DEFAULT_LEADS, DEFAULT_TEMPLATES, emailHtml, logoUrl, render } from "./templates";
 import { siteUrl } from "@/lib/billing/stripe";
 import { sendFromMailbox, usesMailbox, type InlineImage } from "./mailbox";
 import { autoTag, DEFAULT_AFTER, DEFAULT_BEFORE, DEFAULT_PAY, paymentHtml, renderPayment, type Invoice, type InvoiceList, type PdfDraft, type PdfItem } from "./payments";
@@ -45,9 +45,10 @@ export async function workspace(): Promise<Workspace> {
   /* 0280: before supabase/139 is run, the new columns are not there yet: filing stays on, payments wait */
   /* 0282: and before 141, the payment schedule is the standard one */
   /* 0290: before 144, payments stay shown as they were */
-  const base = { filing_enabled: true, pay_subject: null, pay_body: null, pay_before: DEFAULT_BEFORE, pay_after: DEFAULT_AFTER, payments_enabled: true };
+  /* 0294: before 148, no type is paused (Rules & flows) */
+  const base = { filing_enabled: true, pay_subject: null, pay_body: null, pay_before: DEFAULT_BEFORE, pay_after: DEFAULT_AFTER, payments_enabled: true, paused_types: [] as string[] };
   let w: Workspace | null = null;
-  for (const cols of [`${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after, payments_enabled`, `${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after`, `${WS}, filing_enabled, pay_subject, pay_body`, WS]) {
+  for (const cols of [`${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after, payments_enabled, paused_types`, `${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after, payments_enabled`, `${WS}, filing_enabled, pay_subject, pay_body, pay_before, pay_after`, `${WS}, filing_enabled, pay_subject, pay_body`, WS]) {
     const r = await db().from("onpoint_workspaces").select(cols).eq("slug", SLUG).maybeSingle();
     if (r.error && cols !== WS) continue;
     w = r.data ? ({ ...base, ...(must(r) as object) } as Workspace) : null;
@@ -103,7 +104,7 @@ export async function schedules(wsId: string): Promise<Record<ReminderType, numb
 }
 
 /** every row, 1,000 at a time (Supabase returns at most 1,000 per request) */
-async function all<T>(q: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>, cap = 20_000): Promise<T[]> {
+export async function all<T>(q: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>, cap = 20_000): Promise<T[]> {
   const out: T[] = [];
   for (let from = 0; from < cap; from += 1000) {
     const r = await q(from, from + 999);
@@ -185,6 +186,11 @@ export async function snapshot(m: Me) {
     leads,
     invoices: invoices ?? [],
     payments_ready: invoices !== null,
+    /* 0294: Rules & flows, calendar notes and the connections (null before supabase/148) */
+    ...(await import("./rules").then(async (r) => {
+      const x = await r.rulesSnapshot(id).catch(() => null);
+      return x ? { ...x, rules_ready: true } : { flows: [], runs: [], notes: [], connections: { team_email: null, monday_email: null, slack: false, zapier: false }, paused: [], rules_ready: false };
+    })),
     /* 0286: the file folder (null before supabase/143) */
     ...(await import("./files").then(async (f) => {
       const files = await f.listFiles(id);
@@ -390,6 +396,31 @@ async function dispatch(ws: Workspace, m: { deliveryId: string; to: string; test
     : { status: "failed", message: error ?? "Not sent.", delivery_id: m.deliveryId };
 }
 
+/**
+ * 0294: a plain email to OnPoint's own team or a Monday.com board (Rules & flows): same route as the reminders
+ * (the connected mailbox, else the Zapier email hook). While the safety-check inbox is set, it goes there instead.
+ */
+export async function sendPlain(ws: Workspace, mail: { to: string; subject: string; text: string; kind: string }): Promise<{ ok: boolean; error: string | null; dest: string }> {
+  const test = !!ws.test_inbox?.trim();
+  const dest = test ? ws.test_inbox!.trim() : mail.to;
+  const banner = test ? `Safety check: this goes to ${mail.to} once sending is switched to live.` : undefined;
+  const html = bodyHtml(mail.text, banner);
+  if (await usesMailbox(ws.id)) return { ...(await sendFromMailbox(ws.id, { to: dest, subject: mail.subject, html })), dest };
+  const hook = process.env.ONPOINT_HOOK_URL?.trim() ?? "";
+  if (!/^https:\/\/hooks\.zapier\.com\//.test(hook)) return { ok: false, error: "Sending is not set up yet: connect the mailbox.", dest };
+  try {
+    const res = await fetch(hook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: mail.kind, to: dest, subject: mail.subject, text: banner ? `[${banner}]\n\n${mail.text}` : mail.text, html, from_name: ws.sender_name, test }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    return { ok: res.ok, error: res.ok ? null : `The email Zap answered ${res.status}.`, dest };
+  } catch {
+    return { ok: false, error: "The email Zap could not be reached.", dest };
+  }
+}
+
 /** The daily run: every active deadline whose days-to-due is one of its type's lead times. */
 export interface RunTotals {
   checked: number;
@@ -398,20 +429,22 @@ export interface RunTotals {
   skipped: number;
   failed: number;
 }
-const zero = (): RunTotals => ({ checked: 0, due: 0, sent: 0, skipped: 0, failed: 0 });
-const count = (t: RunTotals, r: SendResult) => (r.status === "sent" ? t.sent++ : r.status === "failed" ? t.failed++ : t.skipped++);
+export const zero = (): RunTotals => ({ checked: 0, due: 0, sent: 0, skipped: 0, failed: 0 });
+export const count = (t: RunTotals, r: SendResult) => (r.status === "sent" ? t.sent++ : r.status === "failed" ? t.failed++ : t.skipped++);
 
 /**
  * The daily run (8am Singapore), while "Automatic sending" is on (Founders Doc switches it on):
  * payment reminders on the days set on Payments (0282), and filing reminders if they are shown.
  */
-export async function dailyRun(): Promise<RunTotals & { off?: boolean; payments: RunTotals; filing: RunTotals }> {
+export async function dailyRun(): Promise<RunTotals & { off?: boolean; payments: RunTotals; filing: RunTotals; flows?: RunTotals }> {
   const ws = await workspace();
   if (!ws.auto_send) return { ...zero(), off: true, payments: zero(), filing: zero() };
   const payments = ws.payments_enabled ? await paymentRun(ws).catch(() => zero()) : zero();
   const filing = ws.filing_enabled ? await filingRun(ws) : zero();
-  const sum = (k: keyof RunTotals) => payments[k] + filing[k];
-  return { checked: sum("checked"), due: sum("due"), sent: sum("sent"), skipped: sum("skipped"), failed: sum("failed"), payments, filing };
+  /* 0294: Rules & flows (escalations, Slack, Monday.com, Zapier, extra client emails) */
+  const flows = ws.filing_enabled ? await import("./rules").then((r) => r.flowRun(ws)).catch((e) => (console.error("[onpoint flows]", e), zero())) : zero();
+  const sum = (k: keyof RunTotals) => payments[k] + filing[k] + flows[k];
+  return { checked: sum("checked"), due: sum("due"), sent: sum("sent"), skipped: sum("skipped"), failed: sum("failed"), payments, filing, flows };
 }
 
 async function filingRun(ws: Workspace): Promise<RunTotals> {
@@ -420,9 +453,11 @@ async function filingRun(ws: Workspace): Promise<RunTotals> {
   const live = await all<Pick<Deadline, "id" | "client_id" | "type" | "label" | "due_date" | "status">>((f, t) => db().from("onpoint_deadlines").select("id, client_id, type, label, due_date, status").eq("workspace_id", ws.id).eq("status", "active").gte("due_date", today).range(f, t));
   const t = zero();
   t.checked = live.length;
+  /* 0294: a type whose chase is switched off on Rules & flows gets no automatic client emails */
+  const paused = new Set(ws.paused_types ?? []);
   for (const d of live) {
     const n = daysBetween(today, d.due_date);
-    if (!leads[d.type]?.includes(n)) continue;
+    if (paused.has(d.type) || !leads[d.type]?.includes(n)) continue;
     t.due++;
     try {
       count(t, await sendReminder(ws, d.id, "AUTOMATIC", "daily run", { leadDays: n }));
@@ -747,6 +782,18 @@ export async function enquireAddon(m: Me, note: string) {
     await teamNotice(`📝 OnPoint asked about the document drafting & review add-on (${m.email})${note ? `: ${note.slice(0, 300)}` : ""}`, channel).catch(() => false);
   }
   return { at };
+}
+
+/** 0294 (mock-up, Billing): "Request scope change": Founders Doc hears about it on Slack */
+export async function requestScope(m: Me, note: string) {
+  const t = note.trim().slice(0, 300);
+  if (!t) throw new OpError("Say what you would like to change.");
+  const channel = process.env.ONPOINT_SLACK_CHANNEL?.trim();
+  if (!channel) throw new OpError("Requests are not set up yet: please write to Founders Doc instead.", 503);
+  const { teamNotice } = await import("@/lib/sign/slack");
+  const ok = await teamNotice(`🧭 OnPoint asked for a scope change (${m.email}): ${t}`, channel).catch(() => false);
+  if (!ok) throw new OpError("Not sent: please write to Founders Doc instead.", 502);
+  return { at: new Date().toISOString() };
 }
 
 /* ── PDF invoices (0286) ──────────────────────────────────────────────── */

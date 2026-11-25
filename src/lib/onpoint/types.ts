@@ -102,4 +102,6 @@ export interface Workspace {
   pay_after: number[];
   /** 0290: payment reminders (invoices) are optional; OnPoint's system is deadline tracking */
   payments_enabled: boolean;
+  /** 0294: types whose automatic client chase is switched off on Rules & flows */
+  paused_types?: string[];
 }
