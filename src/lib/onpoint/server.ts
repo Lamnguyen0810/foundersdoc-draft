@@ -152,7 +152,21 @@ export async function snapshot(m: Me) {
     import("./billing").then((b) => b.planState(id)).catch(() => "free" as const),
     /* 0291: feedback (first 3 months) */
     db().from("onpoint_workspaces").select("feedback_until").eq("id", id).maybeSingle().then((r) => ((r.data as { feedback_until?: string | null } | null)?.feedback_until ?? null), () => null),
-    db().from("onpoint_feedback").select("id, page, message, created_by, created_at, status").eq("workspace_id", id).order("created_at", { ascending: false }).range(0, 299).then((r) => (r.error ? null : r.data ?? []), () => null),
+    /* 0292: with its kind and whether it has a screenshot (before 146: without) */
+    db()
+      .from("onpoint_feedback")
+      .select("id, page, message, created_by, created_at, status, kind, shot_path")
+      .eq("workspace_id", id)
+      .order("created_at", { ascending: false })
+      .range(0, 299)
+      .then(async (r) =>
+        r.error
+          ? ((await db().from("onpoint_feedback").select("id, page, message, created_by, created_at, status").eq("workspace_id", id).order("created_at", { ascending: false }).range(0, 299)).data ?? null)
+          : (r.data ?? []).map((f) => {
+              const { shot_path, ...rest } = f as { shot_path: string | null } & Record<string, unknown>;
+              return { ...rest, shot: !!shot_path };
+            }),
+      ),
     /* 0285: when the document drafting add-on was enquired about */
     db().from("onpoint_workspaces").select("addon_enquired_at").eq("id", id).maybeSingle().then((r) => ((r.data as { addon_enquired_at?: string | null } | null)?.addon_enquired_at ?? null), () => null),
   ]);
@@ -788,15 +802,30 @@ export async function readPdfInvoice(m: Me, buf: Buffer): Promise<{ table: boole
 
 /* ── feedback, page by page (0291) ─────────────────────────────────────── */
 
-export async function addFeedback(m: Me, page: string, message: string) {
+const KINDS = ["change", "add", "fix", "question"] as const;
+const KIND_LABEL: Record<string, string> = { change: "Change something", add: "Add something", fix: "Something is wrong", question: "Question" };
+
+export async function addFeedback(m: Me, page: string, message: string, kind = "change", shot?: { buf: Buffer; type: string } | null) {
   const text = message.trim().slice(0, 4000);
   if (!text) throw new OpError("Type your comment first.");
-  const r = await db().from("onpoint_feedback").insert({ workspace_id: m.ws.id, page: page.slice(0, 40) || "general", message: text, created_by: m.email }).select("id").single();
+  const k = (KINDS as readonly string[]).includes(kind) ? kind : "change";
+  /* 0292: an optional screenshot, kept privately with the files */
+  let shot_path: string | null = null;
+  if (shot) {
+    if (!/^image\/(png|jpeg|webp|gif)$/.test(shot.type)) throw new OpError("The screenshot must be a PNG, JPG, WEBP or GIF image.");
+    if (shot.buf.length > 4 * 1024 * 1024) throw new OpError("The screenshot is larger than 4 MB.");
+    shot_path = `${m.ws.id}/feedback/${crypto.randomUUID()}.${shot.type.split("/")[1].replace("jpeg", "jpg")}`;
+    const up = await db().storage.from("onpoint-files").upload(shot_path, shot.buf, { contentType: shot.type, upsert: false });
+    if (up.error) throw new OpError(`The screenshot could not be kept: ${up.error.message}`, 500);
+  }
+  let r = await db().from("onpoint_feedback").insert({ workspace_id: m.ws.id, page: page.slice(0, 40) || "general", message: text, created_by: m.email, kind: k, shot_path }).select("id").single();
+  /* before 146: without kind and screenshot */
+  if (r.error && /kind|shot_path/.test(r.error.message)) r = await db().from("onpoint_feedback").insert({ workspace_id: m.ws.id, page: page.slice(0, 40) || "general", message: `[${KIND_LABEL[k]}] ${text}`, created_by: m.email }).select("id").single();
   if (r.error) throw new OpError(/onpoint_feedback/.test(r.error.message) ? "Run supabase/145_onpoint_feedback.sql first." : r.error.message, 503);
   const channel = process.env.ONPOINT_SLACK_CHANNEL?.trim();
   if (channel && !m.founder) {
     const { teamNotice } = await import("@/lib/sign/slack");
-    await teamNotice(`💬 OnPoint feedback on ${page} (${m.email}): ${text.slice(0, 500)}`, channel).catch(() => false);
+    await teamNotice(`💬 OnPoint feedback · ${KIND_LABEL[k]} · ${page} (${m.email}): ${text.slice(0, 500)}${shot_path ? " [screenshot attached]" : ""}`, channel).catch(() => false);
   }
   return r.data as { id: string };
 }
@@ -805,4 +834,13 @@ export async function markFeedback(m: Me, id: string, done: boolean) {
   if (!m.founder) throw new OpError("Only Founders Doc marks feedback done.", 403);
   const r = await db().from("onpoint_feedback").update({ status: done ? "done" : "new", done_at: done ? new Date().toISOString() : null }).eq("workspace_id", m.ws.id).eq("id", id);
   if (r.error) throw new OpError(r.error.message, 500);
+}
+
+/** the screenshot attached to a comment: a private link that works for one minute */
+export async function feedbackShot(m: Me, id: string): Promise<string> {
+  const f = (await db().from("onpoint_feedback").select("shot_path").eq("workspace_id", m.ws.id).eq("id", id).maybeSingle()).data as { shot_path?: string | null } | null;
+  if (!f?.shot_path) throw new OpError("No screenshot.", 404);
+  const s = await db().storage.from("onpoint-files").createSignedUrl(f.shot_path, 60);
+  if (s.error || !s.data?.signedUrl) throw new OpError("The screenshot could not be opened.", 500);
+  return s.data.signedUrl;
 }

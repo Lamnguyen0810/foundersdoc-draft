@@ -43,7 +43,16 @@ interface Feedback {
   created_by: string | null;
   created_at: string;
   status: "new" | "done";
+  /* 0292 */
+  kind?: "change" | "add" | "fix" | "question";
+  shot?: boolean;
 }
+const KINDS: Array<["change" | "add" | "fix" | "question", string, string]> = [
+  ["change", "✏️", "Change something"],
+  ["add", "➕", "Add something"],
+  ["fix", "⚠️", "Something is wrong"],
+  ["question", "❓", "A question"],
+];
 const PAGE_NAME: Record<View, string> = { dashboard: "Dashboard", payments: "Payment reminders", deadlines: "Deadlines", calendar: "Calendar", reminders: "Reminder emails", clients: "Clients", client: "Client page", files: "Files", sources: "Excel sources", billing: "Billing & plan" };
 const feedbackOpen = (s: Snapshot) => !!s.feedback_ready && !!s.ws.feedback_until && s.today <= s.ws.feedback_until;
 
@@ -240,7 +249,8 @@ export default function OnPointApp({ initial, preview = false }: { initial: Snap
             {view === "client" && clientId && <ClientPage key={clientId} s={s} setS={setS} id={clientId} byId={byId} canEdit={canEdit} preview={preview} say={say} reload={reload} back={() => go("clients")} onPreview={openPreview} />}
             {view === "sources" && <Sources s={s} setS={setS} canEdit={canEdit} preview={preview} say={say} reload={reload} openPay={() => openPay("open")} />}
             {/* 0291: temporary, for the first 3 months: comments on this page, bit by bit */}
-            {feedbackOpen(s) && <FeedbackBox key={`fb-${view}`} s={s} setS={setS} page={PAGE_NAME[view]} preview={preview} say={say} reload={reload} />}
+            {/* 0292: a Feedback button on every page opens a panel: + New feedback → page, kind, comment, screenshot → Submit */}
+            {feedbackOpen(s) && <FeedbackLauncher s={s} setS={setS} page={PAGE_NAME[view]} preview={preview} say={say} reload={reload} />}
           </div>
         </main>
       </div>
@@ -325,7 +335,7 @@ function Dashboard(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => vo
         <div className="op-fbbanner" role="note">
           <span className="op-soontag">First 3 months</span>
           <span>
-            <b>Tell us what to change, bit by bit.</b> Until {fmtDate(s.ws.feedback_until)}, use the <b>Your feedback</b> box at the bottom of each page to send comments on that page, whenever you like. No call needed. The box is temporary.
+            <b>Tell us what to change, bit by bit.</b> Until {fmtDate(s.ws.feedback_until)}, press <b>Feedback</b> at the bottom right of any page, then <b>+ New feedback</b>, whenever you notice something. No call needed. This is temporary.
           </span>
         </div>
       )}
@@ -3451,71 +3461,6 @@ function PaymentsSwitch(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) 
 
 /* ── Feedback, page by page, for the first 3 months (0291) ──────────────── */
 
-function FeedbackBox(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; page: string; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const mine = (p.s.feedback ?? []).filter((f) => f.page === p.page).slice(0, 6);
-  async function send() {
-    const t = text.trim();
-    if (!t) return p.say("Type your comment first.");
-    if (p.preview) {
-      p.setS((x) => ({ ...x, feedback: [{ id: `f${Date.now()}`, page: p.page, message: t, created_by: x.me.email, created_at: new Date().toISOString(), status: "new" }, ...(x.feedback ?? [])] }));
-      setText("");
-      return p.say("Thank you: sent (preview only)");
-    }
-    setBusy(true);
-    const r = await api("/api/onpoint/feedback", { method: "POST", body: JSON.stringify({ page: p.page, message: t }) });
-    setBusy(false);
-    if (!r.ok) return p.say(String(r.j.error ?? "Not sent."));
-    setText("");
-    p.say("Thank you: we have your comment");
-    await p.reload();
-  }
-  async function mark(f: Feedback) {
-    if (p.preview) {
-      p.setS((x) => ({ ...x, feedback: (x.feedback ?? []).map((k) => (k.id === f.id ? { ...k, status: k.status === "done" ? "new" : "done" } : k)) }));
-      return;
-    }
-    const r = await api("/api/onpoint/feedback", { method: "PATCH", body: JSON.stringify({ id: f.id, done: f.status !== "done" }) });
-    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
-    await p.reload();
-  }
-  return (
-    <section className="ev-card op-pad op-feedback" aria-label="Your feedback on this page">
-      <div className="op-fbh">
-        <h2 className="op-h2">
-          <Ic n="mail" s={15} /> Your feedback on {p.page}
-        </h2>
-        <span className="op-soontag muted">Temporary · until {fmtDate(p.s.ws.feedback_until)}</span>
-      </div>
-      <p className="ev-sub op-small">Anything to change, add or fix on this page? Write it here, one point at a time, whenever you notice it. It comes straight to Founders Doc.</p>
-      <div className="op-fbform">
-        <textarea id={`op-fb-${p.page}`} className="op-in" rows={3} maxLength={4000} value={text} placeholder="e.g. Please show the client’s UEN in this list" onChange={(e) => setText(e.target.value)} />
-        <button className="ev-btn gold" disabled={busy || !text.trim()} onClick={() => void send()}>
-          {busy ? "Sending…" : "Send feedback"}
-        </button>
-      </div>
-      {mine.length > 0 && (
-        <ul className="op-fblist">
-          {mine.map((f) => (
-            <li key={f.id} className={f.status}>
-              <span className="op-fbmsg">{f.message}</span>
-              <span className="ev-sub op-small">
-                {new Date(f.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                {f.status === "done" ? " · done" : " · received"}
-              </span>
-              {p.s.me.founder && (
-                <button className="ev-link op-small" onClick={() => void mark(f)}>
-                  {f.status === "done" ? "Reopen" : "Mark done"}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
 
 /** Founders Doc only: every new comment, from any page */
 function FeedbackInbox(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
@@ -3535,7 +3480,15 @@ function FeedbackInbox(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) =
         {open.slice(0, 20).map((f) => (
           <li key={f.id}>
             <span className="op-fbmsg">
-              <b>{f.page}:</b> {f.message}
+              <b>{f.page}</b> · {KINDS.find((k) => k[0] === f.kind)?.[2] ?? "Comment"}: {f.message}
+              {f.shot ? (
+                <>
+                  {" "}
+                  <a className="op-pdflink" href={`/api/onpoint/feedback?shot=${f.id}`} target="_blank" rel="noopener noreferrer">
+                    Screenshot
+                  </a>
+                </>
+              ) : null}
             </span>
             <span className="ev-sub op-small">
               {f.created_by ?? "—"} · {new Date(f.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
@@ -3547,5 +3500,209 @@ function FeedbackInbox(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) =
         ))}
       </ul>
     </section>
+  );
+}
+
+/* ── Feedback panel (0292): Feedback → + New feedback → page, kind, comment, screenshot → Submit ── */
+
+function FeedbackLauncher(p: { s: Snapshot; setS: (fn: (s: Snapshot) => Snapshot) => void; page: string; preview: boolean; say: (t: string) => void; reload: () => Promise<void> }) {
+  const { s } = p;
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"list" | "new">("list");
+  const [tab, setTab] = useState<"page" | "all">("all");
+  const [form, setForm] = useState({ page: p.page, kind: "" as "" | "change" | "add" | "fix" | "question", message: "" });
+  const [shot, setShot] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [thanks, setThanks] = useState(false);
+  const all = s.feedback ?? [];
+  const list = (tab === "page" ? all.filter((f) => f.page === p.page) : all).slice(0, 40);
+  const fresh = all.filter((f) => f.status === "new").length;
+  const pages = [...new Set([...Object.values(PAGE_NAME).filter((n) => n !== "Payment reminders" || s.ws.payments_enabled !== false), "Anything else"])];
+  const start = () => {
+    setForm({ page: p.page, kind: "", message: "" });
+    setShot(null);
+    setThanks(false);
+    setMode("new");
+  };
+  function pickShot(f: File | null | undefined) {
+    if (!f) return;
+    if (!/^image\//.test(f.type)) return p.say("Choose an image (PNG or JPG).");
+    if (f.size > 4 * 1024 * 1024) return p.say("The screenshot is larger than 4 MB.");
+    setShot(f);
+  }
+  async function submit() {
+    if (!form.kind) return p.say("Choose what kind of feedback it is.");
+    if (!form.message.trim()) return p.say("Write your comment first.");
+    if (p.preview) {
+      p.setS((x) => ({ ...x, feedback: [{ id: `f${Date.now()}`, page: form.page, message: form.message.trim(), created_by: x.me.email, created_at: new Date().toISOString(), status: "new", kind: form.kind || "change", shot: !!shot }, ...(x.feedback ?? [])] }));
+    } else {
+      setBusy(true);
+      const fd = new FormData();
+      fd.append("page", form.page);
+      fd.append("kind", form.kind);
+      fd.append("message", form.message.trim());
+      if (shot) fd.append("shot", shot);
+      const r = await api("/api/onpoint/feedback", { method: "POST", body: fd });
+      setBusy(false);
+      if (!r.ok) return p.say(String(r.j.error ?? "Not sent."));
+      await p.reload();
+    }
+    setThanks(true);
+    setMode("list");
+    setTab("all");
+  }
+  async function mark(f: Feedback) {
+    if (p.preview) return p.setS((x) => ({ ...x, feedback: (x.feedback ?? []).map((k) => (k.id === f.id ? { ...k, status: k.status === "done" ? "new" : "done" } : k)) }));
+    const r = await api("/api/onpoint/feedback", { method: "PATCH", body: JSON.stringify({ id: f.id, done: f.status !== "done" }) });
+    if (!r.ok) return p.say(String(r.j.error ?? "Not saved."));
+    await p.reload();
+  }
+  return (
+    <>
+      <button type="button" className="op-fbfab" onClick={() => (setOpen(true), setMode("list"), setThanks(false))} aria-haspopup="dialog">
+        <span aria-hidden="true">💬</span> Feedback
+        {s.me.founder && fresh > 0 ? <i>{fresh}</i> : null}
+      </button>
+      {open && (
+        <>
+          <button className="ev-scrim top" aria-label="Close feedback" onClick={() => setOpen(false)} />
+          <aside className="op-fbpanel" role="dialog" aria-modal="true" aria-labelledby="op-fbt">
+            <header className="op-fbph">
+              <div>
+                <h2 id="op-fbt">Your feedback</h2>
+                <span className="op-soontag muted">Temporary · until {fmtDate(s.ws.feedback_until)}</span>
+              </div>
+              <button className="ev-link" aria-label="Close" onClick={() => setOpen(false)}>
+                <Ic n="close" s={15} />
+              </button>
+            </header>
+            {mode === "list" ? (
+              <div className="op-fbbody">
+                {thanks && (
+                  <p className="op-fbthanks">
+                    <Ic n="check" s={14} w={2.4} /> Thank you! We&rsquo;ve got it, and you&rsquo;ll see it marked done when it&rsquo;s sorted.
+                  </p>
+                )}
+                <p className="ev-sub op-small">Tell us what to change, one point at a time, whenever you notice it. No call needed.</p>
+                <button className="ev-btn gold op-fbnew" onClick={start}>
+                  <Ic n="plus" s={15} /> New feedback
+                </button>
+                <div className="ev-chips op-mt" role="group" aria-label="Show">
+                  <button className={tab === "all" ? "on" : ""} aria-pressed={tab === "all"} onClick={() => setTab("all")}>
+                    All <span>{all.length}</span>
+                  </button>
+                  <button className={tab === "page" ? "on" : ""} aria-pressed={tab === "page"} onClick={() => setTab("page")}>
+                    This page <span>{all.filter((f) => f.page === p.page).length}</span>
+                  </button>
+                </div>
+                {list.length === 0 ? (
+                  <p className="ev-sub op-small op-mt">Nothing sent yet{tab === "page" ? " about this page" : ""}.</p>
+                ) : (
+                  <ul className="op-fbcards">
+                    {list.map((f) => {
+                      const k = KINDS.find((x) => x[0] === f.kind);
+                      return (
+                        <li key={f.id} className={f.status}>
+                          <div className="op-fbmeta">
+                            <span className="op-fbkind">{k ? `${k[1]} ${k[2]}` : "💬 Comment"}</span>
+                            <span className="ev-sub op-small">{f.page}</span>
+                            <span className={`op-pill ${f.status === "done" ? "ok" : "warn"}`}>{f.status === "done" ? "Done" : "Received"}</span>
+                          </div>
+                          <p>{f.message}</p>
+                          <div className="op-fbfoot">
+                            <span className="ev-sub op-small">{new Date(f.created_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                            {f.shot ? (
+                              <a className="ev-link op-small" href={`/api/onpoint/feedback?shot=${f.id}`} target="_blank" rel="noopener noreferrer">
+                                Screenshot
+                              </a>
+                            ) : null}
+                            {s.me.founder && (
+                              <button className="ev-link op-small" onClick={() => void mark(f)}>
+                                {f.status === "done" ? "Reopen" : "Mark done"}
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            ) : (
+              <div className="op-fbbody">
+                <div className="op-field">
+                  <label className="op-lab op-step" htmlFor="op-fbpage">
+                    <i>1</i>Which page is it about?
+                  </label>
+                  <label className="ev-select">
+                    <span className="ev-sr">Page</span>
+                    <select id="op-fbpage" value={form.page} onChange={(e) => setForm({ ...form, page: e.target.value })}>
+                      {pages.map((n) => (
+                        <option key={n} value={n}>
+                          {n}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="op-field">
+                  <span className="op-lab op-step">
+                    <i>2</i>What kind of feedback?
+                  </span>
+                  <div className="op-fbkinds" role="radiogroup" aria-label="Kind of feedback">
+                    {KINDS.map(([v, icon, label]) => (
+                      <button key={v} type="button" role="radio" aria-checked={form.kind === v} className={form.kind === v ? "on" : ""} onClick={() => setForm({ ...form, kind: v })}>
+                        <span aria-hidden="true">{icon}</span> {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="op-field">
+                  <label className="op-lab op-step" htmlFor="op-fbmsg">
+                    <i>3</i>Your comment
+                  </label>
+                  <textarea
+                    id="op-fbmsg"
+                    className="op-in"
+                    rows={5}
+                    maxLength={4000}
+                    value={form.message}
+                    placeholder="e.g. Please show the client’s UEN next to the name"
+                    onChange={(e) => setForm({ ...form, message: e.target.value })}
+                    onPaste={(e) => pickShot([...e.clipboardData.files].find((f) => f.type.startsWith("image/")))}
+                  />
+                </div>
+                <div className="op-field">
+                  <span className="op-lab op-step">
+                    <i>4</i>Screenshot <span className="ev-sub">(optional)</span>
+                  </span>
+                  {shot ? (
+                    <div className="op-fbshot">
+                      <Ic n="check" s={13} w={2.4} /> {shot.name || "Pasted image"}
+                      <button className="ev-link op-small" onClick={() => setShot(null)}>
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="op-fbdrop">
+                      <input type="file" accept="image/*" hidden onChange={(e) => pickShot(e.target.files?.[0])} />
+                      Choose an image, or paste one into the comment box
+                    </label>
+                  )}
+                </div>
+                <div className="op-chiprow op-mt">
+                  <button className="ev-btn gold" disabled={busy || !form.kind || !form.message.trim()} onClick={() => void submit()}>
+                    {busy ? "Sending…" : "Submit feedback"}
+                  </button>
+                  <button className="ev-link" onClick={() => setMode("list")}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </aside>
+        </>
+      )}
+    </>
   );
 }

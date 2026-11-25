@@ -481,3 +481,31 @@
 .op-fblist li.done .op-fbmsg { color: #888; text-decoration: line-through; }
 .op-fbmsg { overflow-wrap: anywhere; }
 @media (max-width: 700px) { .op-fbform { flex-direction: column; align-items: stretch; } .op-fblist li { grid-template-columns: 1fr; } .op-fbbanner { flex-direction: column; align-items: flex-start; } }
+
+/* 0292 · feedback button and panel */
+.esop.ev .op-fbfab { position: fixed; right: calc(20px + env(safe-area-inset-right, 0px)); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); z-index: 60; display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border: 0; border-radius: 999px; background: #1d2219; color: #fff; font: 600 14px Inter, sans-serif; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,.22); transition: transform .15s ease, box-shadow .15s ease; }
+.esop.ev .op-fbfab:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,.28); }
+.esop.ev .op-fbfab:focus-visible { outline: 3px solid #f3bf4b; outline-offset: 2px; }
+.op-fbfab i { font-style: normal; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #f3bf4b; color: #1d1d1d; font-size: 12px; line-height: 20px; text-align: center; }
+.esop.ev .op-fbpanel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 80; width: min(440px, 100vw); background: #fff; box-shadow: -10px 0 30px rgba(0,0,0,.18); display: flex; flex-direction: column; animation: op-slide .22s ease-out; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+@keyframes op-slide { from { transform: translateX(30px); opacity: .4; } to { transform: none; opacity: 1; } }
+.op-fbph { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 18px 20px 12px; border-bottom: 1px solid var(--g2); }
+.op-fbph h2 { margin: 0 0 6px; font: 600 20px/1.2 Geist, Inter, sans-serif; }
+.op-fbbody { padding: 16px 20px 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+.op-fbbody > p { margin: 0; }
+.esop.ev .op-fbnew { align-self: flex-start; }
+.op-fbthanks { display: flex; gap: 8px; align-items: center; margin: 0; padding: 10px 12px; border-radius: 8px; background: #e6f2e0; color: #2f6b1f; font-size: 13px; }
+.op-fbcards { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.op-fbcards li { border: 1px solid var(--g2); border-radius: 10px; padding: 10px 12px; background: #fcfcfa; }
+.op-fbcards li.done { opacity: .7; }
+.op-fbcards p { margin: 6px 0; font-size: 13.5px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.op-fbmeta, .op-fbfoot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.op-fbmeta .op-pill { margin-left: auto; }
+.op-fbkind { font-size: 13px; font-weight: 600; }
+.op-fbkinds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.op-fbkinds button { padding: 10px 12px; border: 1px solid var(--g2); border-radius: 10px; background: #fff; font: 500 13.5px Inter, sans-serif; text-align: left; cursor: pointer; }
+.op-fbkinds button.on { border-color: #f3bf4b; background: #fff8e6; box-shadow: 0 0 0 2px rgba(243,191,75,.35); }
+.op-fbdrop { display: block; padding: 12px; border: 1px dashed #c9c9c2; border-radius: 10px; text-align: center; font-size: 13px; color: #666; cursor: pointer; }
+.op-fbdrop:hover { border-color: #f3bf4b; background: #fffbf0; }
+.op-fbshot { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #2f6b1f; }
+@media (prefers-reduced-motion: reduce) { .esop.ev .op-fbpanel { animation: none; } }
