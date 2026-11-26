@@ -87,6 +87,23 @@ test("no plan: when the week is over, no free requests are left", async (t) => {
   assert.match(blockReason(after)!, /free week has ended/);
 });
 
+test("an admin account: no free week and no limit, even after the week is over", async (t) => {
+  const s = store();
+  const start = Date.now();
+  t.mock.timers.enable({ apis: ["Date"], now: start });
+  await sendOne(s);
+  t.mock.timers.setTime(start + FREE_SIGN_DAYS * DAY + 60_000);
+  process.env.FD_SIGN_PREVIEW_ADMIN = "1";
+  try {
+    const a = await allowance(ME, s);
+    assert.deepEqual([a.admin, a.limit, a.premium, a.label], [true, null, true, "Admin account"]);
+    assert.equal(blockReason({ ...a, used: 100_000 }), null, "not even the fair-use cap");
+  } finally {
+    delete process.env.FD_SIGN_PREVIEW_ADMIN;
+  }
+  assert.match(blockReason(await allowance(ME, s))!, /free week has ended/, "anyone else: as before");
+});
+
 test("a plan: its monthly limit, premium or not, and the message at the limit", async () => {
   const s = store();
   withTier("sign_personal");

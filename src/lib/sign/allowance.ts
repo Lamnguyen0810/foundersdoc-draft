@@ -26,6 +26,15 @@ export interface Allowance {
   premium: boolean;
   /** 0236: the free week's last moment (ISO), once it has started; null = not started yet */
   endsAt?: string | null;
+  /** 0302: a Founders Doc admin account: no free week, no limit */
+  admin?: boolean;
+}
+
+/** 0302: a Founders Doc admin account (profiles.role = 'admin', the same as /admin): FD Sign has no limit for it */
+export async function isSignAdmin(userId: string): Promise<boolean> {
+  if (!isSupabaseConfigured() || !isAdminClientConfigured()) return process.env.FD_SIGN_PREVIEW_ADMIN === "1";
+  const { data } = await supabaseAdmin().from("profiles").select("role").eq("id", userId).maybeSingle();
+  return (data as { role?: string } | null)?.role === "admin";
 }
 
 export async function tierOf(userId: string): Promise<SignTier> {
@@ -47,7 +56,8 @@ export async function allowance(me: SignAccount, store: SignStore): Promise<Allo
   if (!signPricingLive()) {
     return { live: false, tier: "none", label: "Beta", per: "day", used: await store.sentSince(me.id, startOfDaySgt()), limit: dailyLimit(), premium: false };
   }
-  const tier = await tierOf(me.id);
+  const [tier, admin] = await Promise.all([tierOf(me.id), isSignAdmin(me.id).catch(() => false)]);
+  if (admin) return { live: true, tier: "unlimited", label: "Admin account", per: "month", used: await store.sentSince(me.id, startOfMonthSgt()), limit: null, premium: true, admin: true };
   /* 0236: no plan yet = a free week, up to FREE_SIGN requests, from their first request after launch (FREE_SIGN_SINCE).
      Once the week is over, no more free requests (limit = what they used, so none are left). */
   if (tier === "none") {
@@ -63,6 +73,7 @@ export async function allowance(me: SignAccount, store: SignStore): Promise<Allo
 
 /** null = may send; otherwise the message to show. The signing code (email, WhatsApp or SMS) is part of the request. */
 export function blockReason(a: Allowance): string | null {
+  if (a.admin) return null;
   if (a.live && a.limit === 0) return "FD Sign is part of the paid plans. Choose a plan to send documents for signing.";
   if (a.per === "free" && a.used >= (a.limit ?? 0)) {
     return a.endsAt && Date.now() > Date.parse(a.endsAt)
