@@ -182,6 +182,10 @@ export interface SignStore {
   setViewerToken(id: string, tokenHash: string): Promise<void>;
   viewerEnvelopes(tokenHash: string): Promise<string[]>;
   viewersReady(): Promise<boolean>;
+  /** 0296 (SQL 149): key controllers, who get a status email each time someone signs. Before 149: none. */
+  addControllers(envelopeId: string, emails: string[]): Promise<void>;
+  controllers(envelopeId: string): Promise<string[]>;
+  controllersReady(): Promise<boolean>;
   /* ── FD Sign for everyone (SQL 119). None of these touch ESOP rows (owner_id is null on those). ── */
   /** Is SQL 119 run? */
   ownersReady(): Promise<boolean>;
@@ -376,6 +380,19 @@ function supabaseStore(): SignStore {
       if (r.error) return [];
       return (r.data ?? []).map((x) => (x as { envelope_id: string }).envelope_id);
     },
+    async addControllers(envelopeId, emails) {
+      if (!emails.length) return;
+      must(await db.from("sign_controllers").upsert(emails.map((email) => ({ envelope_id: envelopeId, email })), { onConflict: "envelope_id,email", ignoreDuplicates: true }));
+    },
+    async controllers(envelopeId) {
+      const r = await db.from("sign_controllers").select("email").eq("envelope_id", envelopeId);
+      if (r.error) return []; // 149 not run yet
+      return ((r.data ?? []) as Array<{ email: string }>).map((x) => x.email);
+    },
+    async controllersReady() {
+      const r = await db.from("sign_controllers").select("id").limit(1);
+      return !r.error;
+    },
     async viewersReady() {
       const r = await db.from("sign_viewers").select("id").limit(1);
       return !r.error;
@@ -469,6 +486,7 @@ interface Mem {
   fld: Map<string, SignField[]>;
   codes: Map<string, SignCode>;
   view: Array<{ id: string; envelope_id: string; email: string; token_hash: string | null; sent_at: string | null }>;
+  ctl?: Array<{ envelope_id: string; email: string }>;
   env: Map<string, Envelope & { original: Uint8Array; owner_id?: string; owner_email?: string; owner_name?: string; folder_id?: string | null }>;
   folders: Array<SignFolder & { owner_id: string }>;
   sig: Map<string, Signer & { png: Uint8Array | null }>;
@@ -624,6 +642,16 @@ function memoryStore(): SignStore {
       return m.view.filter((v) => v.token_hash === tokenHash).map((v) => v.envelope_id);
     },
     async viewersReady() {
+      return true;
+    },
+    async addControllers(envelopeId, emails) {
+      m.ctl ??= [];
+      for (const email of emails) if (!m.ctl.some((c) => c.envelope_id === envelopeId && c.email === email)) m.ctl.push({ envelope_id: envelopeId, email });
+    },
+    async controllers(envelopeId) {
+      return (m.ctl ?? []).filter((c) => c.envelope_id === envelopeId).map((c) => c.email);
+    },
+    async controllersReady() {
       return true;
     },
     async ownersReady() {

@@ -15,7 +15,9 @@ import { CHANNEL_TEXT, normalisePhone, type CodeChannel } from "@/lib/sign/phone
  * POST /api/fd-sign/send — anyone with an FD AI account sends their own PDF for signing.
  * multipart/form-data: "file" (PDF, ≤ 10 MB) + "meta" (JSON):
  *   { title, message?, folderId?, signers: [{ name, email, role? }] (1–10, in signing order),
- *     cc?: [email] (≤ 5), fields: [{ position, kind: signature|date|name, page, x, y, w, h }] }
+ *     cc?: [email] (≤ 5), fields: [{ position, kind: signature|date|name, page, x, y, w, h }],
+ *     controllers?: [email] (≤ 3, 0296: key controllers, a status email each time someone signs),
+ *     supplements?: [line] (≤ 10, 0296: supplemental documents already inserted in the PDF, for the audit trail) }
  * Every signer needs at least one signature box. Signers confirm an email code before signing.
  * Never touches ESOP: no holder link, owner_id set (SQL 119), nothing posted to Slack.
  */
@@ -85,6 +87,15 @@ export async function POST(req: NextRequest) {
   if (cc.length > 5 || cc.some((e) => !EMAIL.test(e) || e.length > 200)) return NextResponse.json({ error: "Up to 5 valid emails can get a copy." }, { status: 400 });
   if (cc.length && !(await store.viewersReady())) return NextResponse.json({ error: "Copies are being set up (run supabase/115_fd_sign_copies.sql)." }, { status: 503 });
 
+  /* 0296: key controllers (status emails after each signature) and the supplemental documents inserted */
+  const controllers = [...new Set((Array.isArray(meta.controllers) ? meta.controllers : []).map((e) => String(e ?? "").trim().toLowerCase()).filter(Boolean))];
+  if (controllers.length > 3 || controllers.some((e) => !EMAIL.test(e) || e.length > 200)) return NextResponse.json({ error: "Status updates: up to 3 valid email addresses." }, { status: 400 });
+  if (controllers.length && !(await store.controllersReady())) return NextResponse.json({ error: "Status updates are being set up (run supabase/149_fd_sign_supplements_controllers.sql)." }, { status: 503 });
+  const supplements = (Array.isArray(meta.supplements) ? meta.supplements : [])
+    .map((l) => String(l ?? "").replace(/[\u0000-\u001f]/g, " ").trim().slice(0, 200))
+    .filter(Boolean)
+    .slice(0, 10);
+
   const fields = parseFields(meta.fields, signers.length);
   const missing = signers.findIndex((_, i) => !fields.some((f) => f.position === i + 1 && f.kind === "signature"));
   if (missing >= 0) return NextResponse.json({ error: `${signers[missing].name} needs a signature box on the document.` }, { status: 400 });
@@ -105,7 +116,7 @@ export async function POST(req: NextRequest) {
   const senderName = typedName.length >= 2 ? typedName : me.name;
   try {
     const res = await createSend(store, {
-      docs: [{ title, fileName: file.name.slice(0, 200) || "document.pdf", bytes, esopHolderId: null, esopTranche: null, signers, cc, fields }],
+      docs: [{ title, fileName: file.name.slice(0, 200) || "document.pdf", bytes, esopHolderId: null, esopTranche: null, signers, cc, controllers, supplements, fields }],
       batch: false,
       message,
       createdBy: me.email,

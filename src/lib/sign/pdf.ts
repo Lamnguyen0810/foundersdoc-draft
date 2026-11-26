@@ -61,6 +61,8 @@ const EVENT_TEXT: Record<string, string> = {
   code_locked: "Code locked after 5 wrong tries",
   voided: "Request cancelled by Founders Doc",
   copy_sent: "Signed copy sent (CC)",
+  supplement: "Supplemental document inserted",
+  controller: "Key controller added (status updates)",
 };
 
 function wrap(text: string, font: PDFFont, size: number, width: number, t: (s: string) => string = pdfText): string[] {
