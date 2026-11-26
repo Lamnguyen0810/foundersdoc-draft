@@ -12,6 +12,7 @@ import type { DraftBlock } from "@/lib/sign/draft-pdf";
 import { Ic, SignCredits, signLeft, useList, type SignAllowanceView } from "./ui";
 import PageEditor, { type EditSummary } from "./PageEditor";
 import ExitAsk, { type ExitAnswer } from "./ExitAsk";
+import Supplements from "./Supplements";
 
 /* New signing request, in 4 steps: Document → People → Fields → Review and send.
    Signers sign in the order listed; each gets an email when it's their turn and
@@ -103,6 +104,10 @@ export default function Wizard({
   const [folderId, setFolderId] = useState("");
   const [people, setPeople] = useState<Person[]>([blank()]);
   const [cc, setCc] = useState("");
+  /* 0296: key controllers (a status email each time someone signs), and the supplemental documents inserted */
+  const [ctl, setCtl] = useState("");
+  const [ctlMe, setCtlMe] = useState(false);
+  const [inserted, setInserted] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   /* 0199: the name signers see ("Rachel Wong sent you a document"); starts as the account name */
   const [fromName, setFromName] = useState<string | null>(null);
@@ -168,6 +173,7 @@ export default function Wizard({
     setPlaced(false);
     setUntrimmed(null);
     setTrimming(false);
+    setInserted([]);
     if (!title) setTitle(f.name.replace(/\.pdf$/i, "").replace(/[_]+/g, " ").slice(0, 200));
   }
 
@@ -192,8 +198,15 @@ export default function Wizard({
       setFileErr("The edited PDF could not be opened. Please try again.");
     }
   }
+  /* 0296: the document with its supplemental documents inserted (restorable, like an edit) */
+  async function applyInserted(f: File, lines: string[], pages: number) {
+    const before = info?.pages.length ?? 0;
+    await applyTrimmed(f, { texts: 0, whiteouts: 0, removed: 0, added: Math.max(0, pages - before), rotated: 0, moved: false });
+    setInserted((l) => [...l, ...lines].slice(0, 10));
+  }
   function restorePages() {
     if (!untrimmed) return;
+    setInserted([]);
     setFile(untrimmed.file);
     setInfo(untrimmed.info);
     setUntrimmed(null);
@@ -264,6 +277,19 @@ export default function Wizard({
     .split(/[\s,;]+/)
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
+  const myEmail = me?.email;
+  const ctlList = useMemo(
+    () => [
+      ...new Set([
+        ...ctl
+          .split(/[\s,;]+/)
+          .map((e) => e.trim().toLowerCase())
+          .filter(Boolean),
+        ...(ctlMe && myEmail ? [myEmail] : []),
+      ]),
+    ],
+    [ctl, ctlMe, myEmail],
+  );
 
   const problems = useMemo(() => {
     const p: Record<number, string> = {};
@@ -276,11 +302,12 @@ export default function Wizard({
     else if (filled.some((x) => !EMAIL.test(x.email.trim()))) p[2] = "Check the email addresses.";
     else if (new Set(filled.map((x) => x.email.trim().toLowerCase())).size !== filled.length) p[2] = "Each person needs their own email address.";
     else if (ccList.length > 5 || ccList.some((e) => !EMAIL.test(e))) p[2] = "Copies: up to 5 valid email addresses.";
+    else if (ctlList.length > 3 || ctlList.some((e) => !EMAIL.test(e))) p[2] = "Status updates: up to 3 valid email addresses.";
     else if (filled.some((x) => x.via !== "email" && !normalisePhone(x.phone))) p[2] = "Add a mobile number with the country code (e.g. +65 9123 4567) for WhatsApp / SMS codes.";
     const missing = filled.findIndex((_, i) => !boxes.some((b) => b.position === i + 1 && b.kind === "signature"));
     if (missing >= 0) p[3] = `${filled[missing].name || `Person ${missing + 1}`} needs a signature box.`;
     return p;
-  }, [file, title, people, boxes, ccList]);
+  }, [file, title, people, boxes, ccList, ctlList]);
   const signers = people.filter((x) => x.name.trim() || x.email.trim());
 
   /* Boxes for everyone: from an FD AI draft, person 1 signs block 1, person 2 block 2 …;
@@ -397,6 +424,8 @@ export default function Wizard({
             ...(s.via !== "email" && channels.includes(s.via) ? { channel: s.via, phone: normalisePhone(s.phone) } : {}),
           })),
           cc: ccList,
+          controllers: ctlList,
+          supplements: inserted,
           fields: boxes.map(({ position, kind, page, x, y, w, h, label, required }) => ({ position, kind, page, x, y, w, h, ...(asks(kind) ? { label: label?.trim() || undefined, required: !!required } : {}) })),
         }),
       );
@@ -562,6 +591,11 @@ export default function Wizard({
                   <small>
                     {info?.pages.length ?? "?"} {info?.pages.length === 1 ? "page" : "pages"} · {Math.max(1, Math.round(file.size / 1024))} KB · <span className="fds-ok">✓ Ready</span>
                   </small>
+                  {inserted.length > 0 && (
+                    <small className="fds-trimmed">
+                      Supplemental: {inserted.join(" · ")}
+                    </small>
+                  )}
                   {untrimmed && (
                     <small className="fds-trimmed">
                       Edited: {editLine(untrimmed.edits)} ·{" "}
@@ -582,6 +616,7 @@ export default function Wizard({
               </div>
             )}
             {file && trimming && <PageEditor file={file} onDone={(f, edits) => void applyTrimmed(f, edits)} onClose={() => setTrimming(false)} />}
+            {file && info && !trimming && <Supplements key={`${file.name}:${file.size}:${info.pages.length}`} file={file} info={info} toPdf={fromWord} onInserted={(f, lines, pages) => void applyInserted(f, lines, pages)} />}
             <div className="fds-f2">
               <div className="fds-fld">
                 <label htmlFor="fds-title">Document name (people see this)</label>
@@ -707,6 +742,18 @@ export default function Wizard({
               <label htmlFor="fds-cc">Send a copy of the signed document to (optional)</label>
               <input id="fds-cc" className="fds-inp" value={cc} onChange={(e) => setCc(e.target.value)} placeholder="finance@company.com, partner@company.com" />
             </div>
+            <div className="fds-fld" style={{ marginTop: 16 }}>
+              <label htmlFor="fds-ctl">Status updates to a key controller (optional)</label>
+              <input id="fds-ctl" className="fds-inp" value={ctl} onChange={(e) => setCtl(e.target.value)} placeholder="cosec@company.com" />
+              <small className="fds-hint">
+                The person who follows this signing, e.g. the company secretary, the lawyer or the deal lead. They get an email each time someone signs, showing who has signed and who hasn&rsquo;t. They don&rsquo;t sign and don&rsquo;t get the document. Up to 3.
+              </small>
+              {me && (
+                <label className="fds-chk">
+                  <input type="checkbox" checked={ctlMe} onChange={(e) => setCtlMe(e.target.checked)} /> Send these updates to me too ({me.email})
+                </label>
+              )}
+            </div>
           </div>
           <aside className="fds-aside">
             {fromDraft && fromDraft.blocks.length > 0 && (
@@ -746,6 +793,14 @@ export default function Wizard({
                 </span>
               </div>
             </div>
+            {ctlList.length > 0 && (
+              <div className="fds-note">
+                <Ic n="mail" s={16} />
+                <span>
+                  {ctlList.length === 1 ? "1 key controller gets" : `${ctlList.length} key controllers get`} a status email each time someone signs.
+                </span>
+              </div>
+            )}
             <div className="fds-note">
               <Ic n="lock" s={16} />
               <span>Each person confirms a 6-digit code sent to their email before they can sign.</span>
@@ -903,7 +958,34 @@ export default function Wizard({
                   </span>
                 </div>
               ))}
+              {ctlList.map((e) => (
+                <div className="fds-prow" key={`k${e}`}>
+                  <span className="fds-av" style={{ background: "#2f6fdb", width: 28, height: 28 }}>
+                    <Ic n="mail" s={13} />
+                  </span>
+                  <span>
+                    <b>{e === me?.email ? `${e} (you)` : e}</b>
+                    <small>key controller: a status update after each signature</small>
+                  </span>
+                </div>
+              ))}
             </div>
+            {inserted.length > 0 && (
+              <div className="fds-sec">
+                <h3>
+                  <Ic n="doc" s={16} />
+                  Supplemental documents
+                  <button className="r" onClick={() => go(1)}>
+                    Edit
+                  </button>
+                </h3>
+                {inserted.map((l) => (
+                  <p key={l} className="fds-muted" style={{ margin: "4px 0" }}>
+                    {l}
+                  </p>
+                ))}
+              </div>
+            )}
             <div className="fds-sec">
               <h3>
                 <Ic n="user" s={16} />

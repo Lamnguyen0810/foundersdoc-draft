@@ -8,6 +8,8 @@ import { certificateSubject } from "./esop-subject";
 import { signerStep, slack, what } from "./slack";
 import type { Envelope, SignField, SignStore, Signer } from "./store";
 import { cleanText, signerSize } from "./fields";
+import { statusMail, type StatusEvent } from "./controller";
+import { sendEmail } from "./notify";
 
 /**
  * FD Sign rules, in one place:
@@ -43,6 +45,10 @@ export interface DocInput {
   signers: Array<{ name: string; email: string; role: string; phone?: string | null; channel?: "email" | "whatsapp" | "sms" }>;
   /** CC: get the signed copy when everyone has signed */
   cc?: string[];
+  /** 0296: key controllers: a status email each time someone signs (who has signed, who hasn't) */
+  controllers?: string[];
+  /** 0296: supplemental documents inserted into the PDF before sending, for the audit trail */
+  supplements?: string[];
   fields: SignField[];
 }
 
@@ -131,6 +137,11 @@ export async function createSend(
         if (s.phone && s.channel && s.channel !== "email") await store.setSignerPhone(sid, s.phone, s.channel);
       }
       if (d.cc?.length) await store.addViewers(id, d.cc);
+      if (d.controllers?.length) {
+        await store.addControllers(id, d.controllers);
+        for (const c of d.controllers) await store.addEvent({ envelope_id: id, signer_id: null, event: "controller", ip: null, user_agent: null, detail: c });
+      }
+      for (const line of d.supplements ?? []) await store.addEvent({ envelope_id: id, signer_id: null, event: "supplement", ip: null, user_agent: null, detail: line.slice(0, 200) });
       await store.insertFields(id, d.fields.filter((f) => f.position >= 1 && f.position <= d.signers.length && f.page >= 1 && f.page <= pages));
       const rows = await store.signers(id);
       firsts.push({ row: rows[0], title: d.title });
@@ -334,6 +345,8 @@ export async function submitSignature(
   for (const m of open) signedTitles.push((await store.envelope(m.envelope_id))?.title ?? "Document");
   await slack(store, open.map((m) => m.envelope_id), `✅ *${open[0].name}* (${open[0].role}) signed ${what(signedTitles)}`);
   for (const m of open) await signerStep(store, m.envelope_id, m.position, "signed"); // 0221
+  /* 0296: the key controllers hear who has signed and who hasn't (the completed email follows for the last one) */
+  for (const m of open) if (!toComplete.includes(m.envelope_id)) await tellControllers(store, m.envelope_id, { kind: "signed", name: m.name, role: m.role });
   /* finish the documents everyone has now signed (after the "signed" update, so Slack reads in order) */
   for (const id of toComplete) {
     await complete(store, id, input.origin, input.who, { token: input.token, ids: new Set(open.map((o) => o.id)) });
@@ -404,6 +417,7 @@ async function complete(store: SignStore, envelopeId: string, origin: string, wh
     });
     await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "copy_sent", ip: null, user_agent: null, detail: v.email });
   }
+  await tellControllers(store, envelopeId, { kind: "completed" });
   const filed = (await store.envelope(envelopeId))?.filed_document_id;
   const copies = (await store.viewers(envelopeId)).map((v) => v.email);
   await slack(
@@ -438,7 +452,30 @@ export async function voidEnvelope(store: SignStore, envelopeId: string, who: Wh
   await store.updateEnvelope(envelopeId, { status: "voided" });
   await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "voided", ip: who.ip, user_agent: who.ua, detail: by });
   await slack(store, [envelopeId], `❌ Cancelled by ${by.split("@")[0]}: ${env.title}`);
+  await tellControllers(store, envelopeId, { kind: "voided" });
   return true;
+}
+
+/**
+ * 0296: a status email to each key controller of this document: what just happened, and every signer with
+ * signed / not signed yet. Names, roles and times only; never a link to the document. A failed email is logged,
+ * never stops the signing.
+ */
+export async function tellControllers(store: SignStore, envelopeId: string, event: StatusEvent): Promise<number> {
+  const to = await store.controllers(envelopeId).catch(() => [] as string[]);
+  if (!to.length) return 0;
+  const env = await store.envelope(envelopeId);
+  if (!env) return 0;
+  const signers = (await store.signers(envelopeId)).sort((a, b) => a.position - b.position);
+  const sender = await senderOf(store, envelopeId);
+  const mail = statusMail({ title: env.title, signers: signers.map((s) => ({ name: s.name, role: s.role, status: s.status, signedAt: s.signed_at })), event, from: sender?.name ?? null });
+  let sent = 0;
+  for (const email of to) {
+    const ok = await sendEmail({ kind: "status_update", to: email, name: email.split("@")[0], subject: mail.subject, html: mail.html, text: mail.text, link: "" }).catch(() => false);
+    if (ok) sent++;
+  }
+  if (sent < to.length) console.error(`[sign] status update: ${to.length - sent} of ${to.length} key controller email(s) not sent`);
+  return sent;
 }
 
 /** May this token see this envelope's files? */

@@ -676,3 +676,25 @@ html[data-theme="dark"] .fck-note b { color: #f3bf4b; }
 @media (max-width: 760px) { .fds-mail { display: none; } }
 /* 0236: "Remind" from the status email */
 .fds-btn.pulse { box-shadow: 0 0 0 3px color-mix(in srgb, var(--fds-gold) 55%, transparent); }
+
+/* 0296: supplemental documents (choose where each goes) and the key controller's status updates */
+.fds-supp { margin-top: 14px; border: 1px dashed var(--fds-line2); border-radius: 14px; background: var(--fds-card); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.fds-supp-h { display: flex; align-items: center; gap: 12px; }
+.fds-supp-h > span { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fds-supp-h small, .fds-supp-go small { color: var(--fds-tx3); font-size: 12.5px; line-height: 1.45; }
+.fds-supp-row { display: flex; align-items: flex-start; gap: 10px; padding-top: 10px; border-top: 1px solid var(--fds-line); }
+.fds-supp-n { width: 22px; height: 22px; flex: none; border-radius: 50%; display: grid; place-items: center; background: var(--fds-gold-soft); color: var(--fds-gold-tx); font-size: 12px; font-weight: 700; margin-top: 2px; }
+.fds-supp-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.fds-supp-main b { word-break: break-word; }
+.fds-supp-main > small { color: var(--fds-tx3); }
+.fds-supp-where { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; font-size: 13.5px; color: var(--fds-tx2); }
+.fds-supp-where .fds-inp { height: 36px; font-size: 13.5px; width: auto; flex: 1 1 180px; min-width: 0; }
+.fds-supp-where select.fds-inp { flex: 0 1 auto; }
+.fds-supp-where .fds-inp.num { flex: 0 0 90px; }
+.fds-supp-ok { color: var(--fds-green-tx) !important; font-weight: 500; }
+.fds-supp-bad { color: var(--fds-red-tx) !important; }
+.fds-supp-go { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; padding-top: 10px; border-top: 1px solid var(--fds-line); }
+.fds-hint { display: block; margin-top: 6px; color: var(--fds-tx3); font-size: 12.5px; line-height: 1.5; }
+.fds-chk { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13.5px; color: var(--fds-tx2); cursor: pointer; }
+.fds-chk input { accent-color: var(--fds-ink); width: 16px; height: 16px; }
+@media (max-width: 560px) { .fds-supp-h { flex-direction: column; align-items: flex-start; } }
