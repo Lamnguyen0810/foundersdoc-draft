@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "test:seo": "npx --yes tsx --test src/lib/seo-audit/checks.test.ts src/lib/seo-agent/score.test.ts src/lib/seo-audit/places.test.ts src/lib/seo-regions/figures.test.ts && npx --yes tsx --conditions=react-server --test src/lib/seo-regions/gsc.test.ts",
-    "test:sign": "npx --yes tsx --conditions=react-server --test src/lib/sign/flow.test.ts src/lib/sign/plans.test.ts src/lib/sign/ready/rules.test.ts src/lib/sign/supplements.test.ts",
+    "test:sign": "npx --yes tsx --conditions=react-server --test src/lib/sign/flow.test.ts src/lib/sign/plans.test.ts src/lib/sign/ready/rules.test.ts src/lib/sign/supplements.test.ts src/lib/sign/word.test.ts",
     "test:master": "npx --yes tsx --test src/lib/master/figures.test.ts",
     "test:esop": "npx --yes tsx --conditions=react-server --test src/lib/esop/one-look.test.ts src/lib/esop/client-view.test.ts src/lib/esop/access.test.ts",
     "test:onpoint": "npx --yes tsx --test src/lib/onpoint/onpoint.test.ts src/lib/onpoint/seal.test.ts src/lib/onpoint/payments.test.ts src/lib/onpoint/flows.test.ts",

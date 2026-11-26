@@ -225,6 +225,10 @@ export async function blocksPdf(input: { title: string; blocks: Block[]; fonts: 
       case "notes-title":
       case "note":
         break; // drafter's notes never go on the signed document
+      case "page-break":
+        /* Word's page break (an appendix's cover page): a new page, unless this one is still empty */
+        if (y < H - MT - 1) newPage();
+        break;
       case "sign-head":
       case "sign":
         /* a signature line the pairing left on its own */
@@ -235,7 +239,7 @@ export async function blocksPdf(input: { title: string; blocks: Block[]; fonts: 
         /* a Word table row (lib/sign/word.ts): its cells side by side, as text, no rule or boxes */
         if (b.num === "table") {
           const n = Math.max(cols.length, 1);
-          const gap = 18;
+          const gap = n > 3 ? 10 : 18;
           const cwT = (CW - gap * (n - 1)) / n;
           const laid = cols.map((lines) => lines.flatMap((l) => lay(runsOf(l), cwT, SIZE)));
           const rowsT = Math.max(...laid.map((l) => l.length), 1);
