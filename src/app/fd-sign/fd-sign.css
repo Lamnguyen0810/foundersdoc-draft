@@ -747,3 +747,4 @@ html[data-theme="dark"] .fck-note b { color: #f3bf4b; }
 .fds-gap.has { padding-right: 0; }
 .fds-supp-ph .fds-supp-dl { margin-left: auto; }
 .fds-supp-card .ops { gap: 2px; }
+.fds-supp-edit { display: flex; flex-direction: column; gap: 8px; }

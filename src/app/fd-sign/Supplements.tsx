@@ -6,6 +6,7 @@ import type { PdfInfo } from "@/lib/sign/boxes";
 import { assemble, attachmentPages, bestPage, findPages, insideText, pageOrder, placeText } from "@/lib/sign/supplements";
 import { openPdf, readPdf } from "../sign/PdfPages";
 import { Ic } from "./ui";
+import PageEditor from "./PageEditor";
 
 /**
  * Supplemental documents (0296 · 0298 visual): attach other documents and SEE where each goes. The main
@@ -36,6 +37,8 @@ interface Item {
   after: number;
   /** its text, to find a page inside it ("Schedule 1") */
   info: PdfInfo;
+  /** 0301: the file as added, kept while it has been edited (to restore) */
+  orig: File | null;
   /** how it was placed, for the audit trail: a page number, or the words on that page */
   words: string | null;
 }
@@ -71,6 +74,8 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
   const strip = useRef<HTMLDivElement>(null);
   const [find, setFind] = useState<Record<string, string>>({});
   const [big, setBig] = useState<number | null>(null);
+  /* 0301: a supplemental document open in the page editor (the same one as "Edit document") */
+  const [editing, setEditing] = useState<string | null>(null);
   const [mainDoc, setMainDoc] = useState<PDFDocumentProxy | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const n = info.pages.length;
@@ -256,6 +261,7 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
           parent: null,
           after: cover ? cover.page : n,
           info: i,
+          orig: null,
           words: cover ? cover.heading : null,
         });
       } catch {
@@ -292,6 +298,28 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
     setFind((f) => ({ ...f, [it.key]: words }));
     const hit = search(it, words);
     if (hit) set(it.key, { parent: hit.at.parent, after: hit.at.after, words: words.trim() });
+  }
+  /* the edited copy replaces it; the documents inside it stay inside, within its new page count */
+  async function edited(it: Item, f: File, restore = false) {
+    setErr("");
+    try {
+      const doc = await openPdf(f);
+      const i = await readPdf(doc);
+      void it.doc.destroy();
+      const pages = i.pages.length;
+      setItems((l) =>
+        l.map((x) =>
+          x.key === it.key
+            ? { ...x, file: f, doc, pages, info: i, orig: restore ? null : (x.orig ?? x.file) }
+            : x.parent === it.key && x.after > pages
+              ? { ...x, after: pages, words: null }
+              : x,
+        ),
+      );
+      setEditing(null);
+    } catch {
+      setErr("The edited PDF could not be opened. Please try again.");
+    }
   }
   function remove(it: Item) {
     void it.doc.destroy();
@@ -425,7 +453,15 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
       </div>
       {busy && busy !== "insert" && <p className="fds-muted">Reading {busy}…</p>}
 
-      {items.length > 0 && (
+      {editing && byKey(editing) && (
+        <div className="fds-supp-edit">
+          <p className="fds-muted">
+            Editing <b>{byKey(editing)!.label || byKey(editing)!.file.name}</b>. When you are done, it goes back in its place.
+          </p>
+          <PageEditor file={byKey(editing)!.file} onDone={(f) => void edited(byKey(editing)!, f)} onClose={() => setEditing(null)} />
+        </div>
+      )}
+      {items.length > 0 && !editing && (
         <>
           <div className="fds-supp-list">
             {items.map((it) => {
@@ -438,6 +474,14 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
                     <input className="fds-inp fds-supp-label" value={it.label} maxLength={120} aria-label="Label for this document" placeholder="Label, e.g. Restated Constitution" onChange={(e) => set(it.key, { label: e.target.value })} />
                     <small>
                       {it.file.name} · {it.pages} {it.pages === 1 ? "page" : "pages"} · <b className="fds-supp-ok">goes {placeLine(it)}</b>
+                      {it.orig && (
+                        <>
+                          {" · Edited · "}
+                          <button type="button" className="fds-linkbtn" onClick={() => void edited(it, it.orig!, true)}>
+                            Restore original
+                          </button>
+                        </>
+                      )}
                     </small>
                     <div className="fds-supp-where">
                       <button type="button" className={`fds-btn sm ${sel === it.key ? "ink" : ""}`} onClick={() => setSel(sel === it.key ? null : it.key)}>
@@ -455,6 +499,9 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
                     )}
                   </div>
                   <span className="ops">
+                    <button className="fds-ico" aria-label={`Edit ${it.label}`} title="Edit it: add text, white out, remove, add, turn or move pages" onClick={() => setEditing(it.key)}>
+                      <Ic n="pen" s={15} />
+                    </button>
                     <button className="fds-ico" aria-label={`See the pages of ${it.label}`} title="See its pages" onClick={() => setBig(slides.findIndex((x) => x.src === it.key))}>
                       <Ic n="eye" s={15} />
                     </button>
