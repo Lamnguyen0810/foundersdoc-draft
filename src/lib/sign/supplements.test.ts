@@ -2,7 +2,7 @@ import { emptyStore } from "./test-guard";
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import { attachmentPages, bestPage, findPages, insertPdfs, placeText } from "./supplements";
+import { assemble, attachmentPages, bestPage, findPages, insertPdfs, insideText, pageOrder, placeText } from "./supplements";
 import { statusLines, statusMail } from "./controller";
 import { signStore, type SignStore } from "./store";
 import { createSend, reissueLink, submitSignature, voidEnvelope } from "./service";
@@ -45,6 +45,37 @@ test("supplements: each goes after its page of the main document, in the order g
   ]);
   await assert.rejects(insertPdfs(main, [{ name: "Lost", bytes: await pdf("Lost", 1), place: { mode: "text", text: "Appendix Z", page: null } }]), /Choose where “Lost” goes/);
   await assert.rejects(insertPdfs(main, [{ name: "Broken", bytes: new Uint8Array([1, 2, 3]), place: { mode: "end" } }]), /could not be read/);
+});
+
+test("supplements: a document inside a supplemental document (a schedule inside the Constitution)", async () => {
+  const main = await pdf("Main", 3);
+  const out = await assemble(main, [
+    { key: "c", name: "Constitution", bytes: await pdf("Constitution", 3), parent: null, after: 2, words: "Appendix A" },
+    { key: "s", name: "Schedule", bytes: await pdf("Schedule", 2), parent: "c", after: 1 },
+    { key: "f", name: "Form", bytes: await pdf("Form", 1), parent: "s", after: 2 },
+    { key: "r", name: "Resolution", bytes: await pdf("Resolution", 1), parent: null, after: 3 },
+  ]);
+  assert.equal(out.pages, 10);
+  assert.deepEqual(await order(out.bytes), ["Main 1", "Main 2", "Constitution 1", "Schedule 1", "Schedule 2", "Form 1", "Constitution 2", "Constitution 3", "Main 3", "Resolution 1"]);
+  assert.deepEqual(out.lines, [
+    "Constitution (3 pages) after “Appendix A” (page 2)",
+    "Schedule (2 pages) after page 1 of “Constitution”",
+    "Form (1 page) at the end of “Schedule”",
+    "Resolution (1 page) at the end",
+  ]);
+  assert.equal(insideText(null, 0, 5, "Constitution"), "at the start of “Constitution”");
+  /* a loop (each inside the other) is never reached from the main document */
+  await assert.rejects(
+    assemble(main, [
+      { key: "a", name: "A", bytes: await pdf("A", 1), parent: "b", after: 1 },
+      { key: "b", name: "B", bytes: await pdf("B", 1), parent: "a", after: 1 },
+    ]),
+    /Choose where “A” goes/,
+  );
+  assert.deepEqual(
+    pageOrder(2, [{ key: "x", parent: null, after: 1, pages: 1 }, { key: "y", parent: "x", after: 0, pages: 1 }]).map((o) => `${o.src}${o.page}`),
+    ["main1", "y1", "x1", "main2"],
+  );
 });
 
 test("supplements: find the page by its words, however they are spaced or cased", () => {

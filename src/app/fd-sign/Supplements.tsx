@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import type { PdfInfo } from "@/lib/sign/boxes";
-import { attachmentPages, bestPage, findPages, insertPdfs, placeText, type Place } from "@/lib/sign/supplements";
+import { assemble, attachmentPages, bestPage, findPages, insideText, pageOrder, placeText } from "@/lib/sign/supplements";
 import { openPdf, readPdf } from "../sign/PdfPages";
 import { Ic } from "./ui";
 
@@ -15,6 +15,10 @@ import { Ic } from "./ui";
  * words on the page (e.g. "Appendix B"). A newly added one goes to the
  * next appendix cover page found ("APPENDIX A", "Annex 1" …), else to the end. Click any page to see it large.
  * "Insert" then makes one PDF in the browser, which goes through Fields like any upload.
+ *
+ * 0300: every supplemental document shows its own pages in the strip (click one to see it large), and a document
+ * can go INSIDE another one: drop it between the Constitution's pages and it goes there ("after page 3 of
+ * “Constitution”"). Each one can be downloaded, or all of them together as the final PDF.
  */
 
 const MAX = 10 * 1024 * 1024;
@@ -26,12 +30,32 @@ interface Item {
   pages: number;
   doc: PDFDocumentProxy;
   tone: string;
-  /** pages of the main document before it (0 = at the start, n = at the end) */
+  /** where it goes: inside the main document (null) or inside another supplemental document (its key) */
+  parent: string | null;
+  /** pages of its parent before it (0 = at the start, all = at the end) */
   after: number;
+  /** its text, to find a page inside it ("Schedule 1") */
+  info: PdfInfo;
   /** how it was placed, for the audit trail: a page number, or the words on that page */
   words: string | null;
 }
-type Slide = { src: "main"; page: number } | { src: string; page: number };
+type Slide = { src: string; page: number };
+type At = { parent: string | null; after: number };
+const gid = (a: At) => `${a.parent ?? "main"}:${a.after}`;
+/** a file name from a label: no characters Windows refuses */
+const fileName = (s: string) => `${s.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 120) || "Document"}.pdf`;
+/** hand the viewer a file to save */
+export function saveFile(data: Blob | Uint8Array, name: string) {
+  const blob = data instanceof Blob ? data : new Blob([data as BlobPart], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+}
 let seq = 0;
 
 export default function Supplements({ file, info, toPdf, onInserted }: { file: File; info: PdfInfo; toPdf: (f: File) => Promise<File | null>; onInserted: (f: File, lines: string[], pages: number) => void }) {
@@ -40,7 +64,7 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
   const [busy, setBusy] = useState("");
   const [sel, setSel] = useState<string | null>(null);
   /* drag and hold (0298): while the mouse or finger is down, the block moves through the pages live; let go to place it */
-  const [live, setLive] = useState<{ key: string; gap: number } | null>(null);
+  const [live, setLive] = useState<{ key: string; at: At } | null>(null);
   const [ghost, setGhost] = useState<{ x: number; y: number; label: string; tone: string } | null>(null);
   const press = useRef<{ key: string; x: number; y: number; moved: boolean; id: number } | null>(null);
   const pointer = useRef<{ x: number; y: number } | null>(null);
@@ -69,38 +93,53 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
 
   const set = (k: string, patch: Partial<Item>) => setItems((l) => l.map((x) => (x.key === k ? { ...x, ...patch } : x)));
   /* where a document is shown: while it is being dragged, where it would land */
-  const at = (it: Item) => (live && live.key === it.key ? live.gap : it.after);
-  const placeOf = (it: Item): Place => (it.words ? { mode: "text", text: it.words, page: it.after } : it.after >= n ? { mode: "end" } : it.after === 0 ? { mode: "start" } : { mode: "page", page: it.after });
-  /* the final order, page by page: what the preview and the large view walk through */
-  const slides = useMemo<Slide[]>(() => {
-    const out: Slide[] = [];
-    const put = (g: number) => items.filter((i) => (live && live.key === i.key ? live.gap : i.after) === g).forEach((i) => Array.from({ length: i.pages }, (_, k) => out.push({ src: i.key, page: k + 1 })));
-    put(0);
-    for (let p = 1; p <= n; p++) {
-      out.push({ src: "main", page: p });
-      put(p);
+  const where = (it: Item): At => (live && live.key === it.key ? live.at : { parent: it.parent, after: it.after });
+  const byKey = (k: string | null) => (k ? (items.find((i) => i.key === k) ?? null) : null);
+  const pagesOf = (k: string | null) => (k ? (byKey(k)?.pages ?? 0) : n);
+  /* "after page 5" · "after page 3 of “Constitution”" */
+  const placeLine = (it: Item, at: At = { parent: it.parent, after: it.after }, words = it.words) => {
+    const parent = byKey(at.parent);
+    if (!parent) return placeText(words ? { mode: "text", text: words, page: at.after } : at.after >= n ? { mode: "end" } : at.after === 0 ? { mode: "start" } : { mode: "page", page: at.after }, n);
+    return insideText(words, at.after, parent.pages, parent.label || parent.file.name);
+  };
+  /* a document and the ones inside it (it cannot go inside those) */
+  const family = (key: string) => {
+    const out = new Set([key]);
+    for (let grew = true; grew; ) {
+      grew = false;
+      for (const i of items)
+        if (i.parent && out.has(i.parent) && !out.has(i.key)) {
+          out.add(i.key);
+          grew = true;
+        }
     }
     return out;
-  }, [items, n, live]);
+  };
+  /* the final order, page by page: what the preview and the large view walk through */
+  const slides = useMemo<Slide[]>(
+    () => pageOrder(n, items.map((i) => ({ key: i.key, pages: i.pages, ...(live && live.key === i.key ? live.at : { parent: i.parent, after: i.after }) }))),
+    [items, n, live],
+  );
 
   /* the gap nearest the pointer: the point where a document would start (a gap's left edge, at mid-height).
      A little stickiness, so the pages moving aside never make it jump back and forth. */
-  function nearest(x: number, y: number, current: number | null): number | null {
+  function nearest(x: number, y: number, current: string | null): At | null {
     const els = strip.current?.querySelectorAll<HTMLElement>("[data-gap]");
     if (!els?.length) return null;
-    let best: { g: number; d: number } | null = null;
+    let best: { g: string; at: At; d: number } | null = null;
     let cur: number | null = null;
     for (const el of els) {
       const r = el.getBoundingClientRect();
-      const g = Number(el.dataset.gap);
+      const g = el.dataset.gap!;
+      const at: At = { parent: el.dataset.parent || null, after: Number(el.dataset.after) };
       const ax = r.left + 6;
       const ay = r.top + Math.min(r.height, 140) / 2;
       const d = Math.hypot((x - ax) * 1, (y - ay) * 1.6);
       if (g === current) cur = d;
-      if (!best || d < best.d) best = { g, d };
+      if (!best || d < best.d) best = { g, at, d };
     }
-    if (best && current !== null && cur !== null && best.g !== current && cur - best.d < 24) return current;
-    return best?.g ?? null;
+    if (best && current !== null && cur !== null && best.g !== current && cur - best.d < 24) return null;
+    return best?.at ?? null;
   }
   /* near the top or bottom of the strip (or the window) while dragging: scroll, so far pages can be reached */
   useEffect(() => {
@@ -138,11 +177,11 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
       pr.moved = true;
       pointer.current = { x: ev.clientX, y: ev.clientY };
       setGhost({ x: ev.clientX, y: ev.clientY, label: it.label || it.file.name, tone: it.tone });
-      const cur = liveRef.current?.key === it.key ? liveRef.current.gap : it.after;
+      const cur = gid(liveRef.current?.key === it.key ? liveRef.current.at : { parent: it.parent, after: it.after });
       const g = nearest(ev.clientX, ev.clientY, cur);
-      if (g !== null && g !== liveRef.current?.gap) {
-        liveRef.current = { key: it.key, gap: g };
-        setLive({ key: it.key, gap: g });
+      if (g !== null && gid(g) !== cur) {
+        liveRef.current = { key: it.key, at: g };
+        setLive({ key: it.key, at: g });
       }
     };
     const onUp = (ev: PointerEvent) => {
@@ -158,8 +197,9 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
       liveRef.current = null;
       setLive(null);
       if (!pr) return;
-      if (!pr.moved) return void setSel((x) => (x === it.key ? null : it.key));
-      if (ev.type !== "pointercancel" && l?.key === it.key && l.gap !== it.after) putAt(it.key, l.gap);
+      /* a click (no drag): see its pages large */
+      if (!pr.moved) return void setBig(slides.findIndex((x) => x.src === it.key));
+      if (ev.type !== "pointercancel" && l?.key === it.key && gid(l.at) !== gid({ parent: it.parent, after: it.after })) putAt(it.key, l.at);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -167,10 +207,11 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
   };
   /* the same with the keyboard: ← → move it one gap, Home / End to the start or the end */
   const keys = (e: React.KeyboardEvent<HTMLButtonElement>, it: Item) => {
-    const to = e.key === "ArrowLeft" || e.key === "ArrowUp" ? it.after - 1 : e.key === "ArrowRight" || e.key === "ArrowDown" ? it.after + 1 : e.key === "Home" ? 0 : e.key === "End" ? n : null;
+    const max = pagesOf(it.parent);
+    const to = e.key === "ArrowLeft" || e.key === "ArrowUp" ? it.after - 1 : e.key === "ArrowRight" || e.key === "ArrowDown" ? it.after + 1 : e.key === "Home" ? 0 : e.key === "End" ? max : null;
     if (to === null) return;
     e.preventDefault();
-    putAt(it.key, Math.max(0, Math.min(n, to)));
+    putAt(it.key, { parent: it.parent, after: Math.max(0, Math.min(max, to)) });
   };
   /* where each block starts in the final document ("pages 6–29") */
   const startOf = (key: string) => slides.findIndex((x) => x.src === key) + 1;
@@ -188,7 +229,7 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
 
   async function add(list: FileList | null) {
     setErr("");
-    const taken = new Set(items.map((i) => i.after));
+    const taken = new Set(items.filter((i) => !i.parent).map((i) => i.after));
     const fresh: Item[] = [];
     for (const raw of [...(list ?? [])].slice(0, 5)) {
       let f: File | null = raw;
@@ -212,7 +253,9 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
           pages: i.pages.length,
           doc,
           tone: TONES[(items.length + fresh.length) % TONES.length]!,
+          parent: null,
           after: cover ? cover.page : n,
+          info: i,
           words: cover ? cover.heading : null,
         });
       } catch {
@@ -226,30 +269,61 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
     if (input.current) input.current.value = "";
   }
 
-  function putAt(key: string | null, gap: number) {
-    if (!key) return;
-    set(key, { after: gap, words: null });
+  function putAt(key: string | null, at: At) {
+    if (!key || (at.parent && family(key).has(at.parent))) return;
+    set(key, { parent: at.parent, after: at.after, words: null });
     setFind((f) => ({ ...f, [key]: "" }));
   }
+  /* the words are looked for in the main document first, then in the other supplemental documents */
+  const search = (it: Item, words: string): { at: At; hits: number[]; in: string } | null => {
+    const q = words.trim();
+    if (q.length < 2) return null;
+    const p = bestPage(info, q);
+    if (p) return { at: { parent: null, after: p }, hits: findPages(info, q), in: "" };
+    const mine = family(it.key);
+    for (const o of items) {
+      if (mine.has(o.key)) continue;
+      const op = bestPage(o.info, q);
+      if (op) return { at: { parent: o.key, after: op }, hits: findPages(o.info, q), in: o.label || o.file.name };
+    }
+    return null;
+  };
   function byWords(it: Item, words: string) {
     setFind((f) => ({ ...f, [it.key]: words }));
-    const p = words.trim().length >= 2 ? bestPage(info, words) : null;
-    if (p) set(it.key, { after: p, words: words.trim() });
+    const hit = search(it, words);
+    if (hit) set(it.key, { parent: hit.at.parent, after: hit.at.after, words: words.trim() });
   }
   function remove(it: Item) {
     void it.doc.destroy();
-    setItems((l) => l.filter((x) => x.key !== it.key));
+    /* the documents inside it stay where it was */
+    setItems((l) => l.filter((x) => x.key !== it.key).map((x) => (x.parent === it.key ? { ...x, parent: it.parent, after: it.after, words: null } : x)));
     if (sel === it.key) setSel(null);
+  }
+
+  /* one PDF in the final order (for Insert, and for Download all) */
+  const together = async () =>
+    assemble(
+      new Uint8Array(await file.arrayBuffer()),
+      await Promise.all(items.map(async (it) => ({ key: it.key, name: it.label.trim() || it.file.name.replace(/\.pdf$/i, ""), bytes: new Uint8Array(await it.file.arrayBuffer()), parent: it.parent, after: it.after, words: it.words }))),
+    );
+  async function downloadAll() {
+    setErr("");
+    setBusy("download");
+    try {
+      const out = await together();
+      saveFile(out.bytes, fileName(`${file.name.replace(/\.pdf$/i, "")} (with supplemental documents)`));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "The documents could not be put together.");
+    } finally {
+      setBusy("");
+    }
   }
 
   async function insert() {
     setErr("");
     setBusy("insert");
     try {
-      const out = await insertPdfs(
-        new Uint8Array(await file.arrayBuffer()),
-        await Promise.all(items.map(async (it) => ({ name: it.label.trim() || it.file.name.replace(/\.pdf$/i, ""), bytes: new Uint8Array(await it.file.arrayBuffer()), place: placeOf(it) }))),
-      );
+      const out = await together();
       const merged = new File([out.bytes as BlobPart], file.name, { type: "application/pdf" });
       if (merged.size > MAX) throw new Error("Together the documents are over 10 MB. Please make the files smaller and try again.");
       onInserted(merged, out.lines, out.pages);
@@ -266,45 +340,75 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
   const itemOf = (s: Slide) => (s.src === "main" ? null : (items.find((i) => i.key === s.src) ?? null));
   const coverAt = (p: number) => covers.find((c) => c.page === p);
 
-  /* one gap between pages: shows the documents placed there; while one is chosen, a "+" to put it here */
-  const gap = (g: number) => {
-    const here = items.filter((i) => at(i) === g);
-    const target = !!sel && !live;
-    return (
-      <div key={`g${g}`} data-gap={g} className={`fds-gap ${here.length ? "has" : ""} ${target ? "target" : ""} ${live?.gap === g ? "over" : ""}`}>
-        {here.map((it) => (
-          <button
-            key={it.key}
-            type="button"
-            className={`fds-block ${sel === it.key ? "on" : ""} ${live?.key === it.key ? "lifting" : ""}`}
-            style={{ ["--t" as string]: it.tone }}
-            onPointerDown={(e) => down(e, it)}
-            onKeyDown={(e) => keys(e, it)}
-            aria-label={`${it.label}, ${placeText(placeOf(it), n)}. Drag it, or use the arrow keys, to move it`}
-            title="Hold and drag to move it; let go where it should go"
-          >
-            <Thumb doc={it.doc} page={1} w={62} />
-            <span>
-              <b>{it.label || it.file.name}</b>
-              <small>
-                {it.pages} {it.pages === 1 ? "page" : "pages"} · p{startOf(it.key)}–{startOf(it.key) + it.pages - 1}
-              </small>
-            </span>
-          </button>
-        ))}
+  /* one gap between pages (of the main document, or of a supplemental one): the documents placed there come
+     right after it, each a coloured tab followed by its own pages. While one is chosen, a "+" to put it here. */
+  const gap = (parent: string | null, g: number, out: ReactNode[]) => {
+    const here = items.filter((i) => gid(where(i)) === gid({ parent, after: g }));
+    const chosen = sel ? family(sel) : null;
+    const target = !!sel && !live && !(parent && chosen?.has(parent));
+    const pages = pagesOf(parent);
+    const label = parent ? insideText(null, g, pages, byKey(parent)?.label ?? "") : g === 0 ? "at the start" : g >= n ? "at the end" : `after page ${g}`;
+    out.push(
+      <div key={`g${gid({ parent, after: g })}`} data-gap={gid({ parent, after: g })} data-parent={parent ?? ""} data-after={g} className={`fds-gap ${here.length ? "has" : ""} ${target ? "target" : ""} ${live && gid(live.at) === gid({ parent, after: g }) ? "over" : ""}`}>
         {target && !here.some((i) => i.key === sel) && (
-          <button
-            type="button"
-            className="fds-gap-put"
-            onClick={() => (putAt(sel, g), setSel(null))}
-            aria-label={g === 0 ? "Put it at the start" : g >= n ? "Put it at the end" : `Put it after page ${g}`}
-            title={g === 0 ? "Put it at the start" : g >= n ? "Put it at the end" : `Put it after page ${g}`}
-          >
+          <button type="button" className="fds-gap-put" onClick={() => (putAt(sel, { parent, after: g }), setSel(null))} aria-label={`Put it ${label}`} title={`Put it ${label}`}>
             <Ic n="plus" s={13} />
           </button>
         )}
-      </div>
+      </div>,
     );
+    for (const it of here) {
+      out.push(
+        <button
+          key={`b${it.key}`}
+          type="button"
+          className={`fds-block ${sel === it.key ? "on" : ""} ${live?.key === it.key ? "lifting" : ""}`}
+          style={{ ["--t" as string]: it.tone }}
+          onPointerDown={(e) => down(e, it)}
+          onKeyDown={(e) => keys(e, it)}
+          aria-label={`${it.label}, ${placeLine(it)}. Drag it, or use the arrow keys, to move it. Click to see its pages`}
+          title="Hold and drag to move it (between any pages, even inside another document). Click to see its pages"
+        >
+          <span className="grip" aria-hidden="true">⠿</span>
+          <b>{it.label || it.file.name}</b>
+          <small>
+            {it.pages} {it.pages === 1 ? "page" : "pages"} · p{startOf(it.key)}–{startOf(it.key) + it.pages - 1}
+          </small>
+        </button>,
+      );
+      /* its own pages (not while it is being dragged: then only its tab moves) */
+      if (live?.key !== it.key) run(it.key, out);
+    }
+  };
+  /* a document's pages with the gaps between them, in order */
+  const run = (src: string | null, out: ReactNode[]) => {
+    const it = byKey(src);
+    const pages = pagesOf(src);
+    gap(src, 0, out);
+    for (let p = 1; p <= pages; p++) {
+      const cover = !it ? coverAt(p) : undefined;
+      out.push(
+        <button
+          key={`p${src ?? "main"}:${p}`}
+          type="button"
+          role="listitem"
+          className={`fds-pg ${it ? "sub" : ""}`}
+          style={it ? { ["--t" as string]: it.tone } : undefined}
+          onClick={() => setBig(slides.findIndex((x) => x.src === (src ?? "main") && x.page === p))}
+          aria-label={it ? `${it.label}, its page ${p}` : `Page ${p}${cover ? `, ${cover.heading}` : ""}`}
+        >
+          <Thumb doc={it ? it.doc : mainDoc} page={p} w={70} />
+          <i>{p}</i>
+          {cover && <em>{cover.heading}</em>}
+        </button>,
+      );
+      gap(src, p, out);
+    }
+  };
+  const stripNodes = () => {
+    const out: ReactNode[] = [];
+    run(null, out);
+    return out;
   };
 
   return (
@@ -325,15 +429,15 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
         <>
           <div className="fds-supp-list">
             {items.map((it) => {
-              const hits = findPages(info, find[it.key] ?? "");
               const typed = (find[it.key] ?? "").trim();
+              const hit = typed.length >= 2 ? search(it, typed) : null;
               return (
                 <div key={it.key} className={`fds-supp-card ${sel === it.key ? "on" : ""}`} style={{ ["--t" as string]: it.tone }}>
                   <span className="dot" />
                   <div className="fds-supp-main">
                     <input className="fds-inp fds-supp-label" value={it.label} maxLength={120} aria-label="Label for this document" placeholder="Label, e.g. Restated Constitution" onChange={(e) => set(it.key, { label: e.target.value })} />
                     <small>
-                      {it.file.name} · {it.pages} {it.pages === 1 ? "page" : "pages"} · <b className="fds-supp-ok">goes {placeText(placeOf(it), n)}</b>
+                      {it.file.name} · {it.pages} {it.pages === 1 ? "page" : "pages"} · <b className="fds-supp-ok">goes {placeLine(it)}</b>
                     </small>
                     <div className="fds-supp-where">
                       <button type="button" className={`fds-btn sm ${sel === it.key ? "ink" : ""}`} onClick={() => setSel(sel === it.key ? null : it.key)}>
@@ -342,9 +446,21 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
                       <span>or find the page that says</span>
                       <input className="fds-inp" value={find[it.key] ?? ""} maxLength={80} placeholder="e.g. Appendix B" aria-label="Words on the page" onChange={(e) => byWords(it, e.target.value)} />
                     </div>
-                    {typed.length >= 2 && <small className={hits.length ? "fds-supp-ok" : "fds-supp-bad"}>{hits.length ? `Found on page${hits.length > 1 ? "s" : ""} ${hits.join(", ")}: placed after page ${bestPage(info, typed)}${hits.length > 1 ? " (its heading page)" : ""}` : `“${typed}” is not in the document. Check the spelling, or choose on the pages.`}</small>}
+                    {typed.length >= 2 && (
+                      <small className={hit ? "fds-supp-ok" : "fds-supp-bad"}>
+                        {hit
+                          ? `Found on page${hit.hits.length > 1 ? "s" : ""} ${hit.hits.join(", ")}${hit.in ? ` of “${hit.in}”` : ""}: placed after page ${hit.at.after}${hit.hits.length > 1 ? " (its heading page)" : ""}`
+                          : `“${typed}” is not in the document or the other supplemental documents. Check the spelling, or choose on the pages.`}
+                      </small>
+                    )}
                   </div>
                   <span className="ops">
+                    <button className="fds-ico" aria-label={`See the pages of ${it.label}`} title="See its pages" onClick={() => setBig(slides.findIndex((x) => x.src === it.key))}>
+                      <Ic n="eye" s={15} />
+                    </button>
+                    <button className="fds-ico" aria-label={`Download ${it.label}`} title="Download it" onClick={() => saveFile(it.file, fileName(it.label || it.file.name.replace(/\.pdf$/i, "")))}>
+                      <Ic n="download" s={15} />
+                    </button>
                     <button className="fds-ico" aria-label={`Remove ${it.label}`} onClick={() => remove(it)}>
                       <Ic n="x" s={15} />
                     </button>
@@ -357,20 +473,13 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
           <div className="fds-supp-preview">
             <div className="fds-supp-ph">
               <b>Preview: {slides.length} pages</b>
-              <small>{live ? "Let go where it should go." : sel ? "Click a + to put it there, or hold the coloured block and drag it." : "Hold a coloured block and drag it between the pages; let go where it should go. Click a page to see it large."}</small>
+              <small>{live ? "Let go where it should go." : sel ? "Click a + to put it there, or hold the coloured tab and drag it." : "Hold a coloured tab and drag it between any pages, even inside another document. Click a page to see it large."}</small>
+              <button type="button" className="fds-btn sm fds-supp-dl" disabled={!!busy} onClick={() => void downloadAll()}>
+                <Ic n="download" s={14} /> {busy === "download" ? "Preparing…" : "Download all as one PDF"}
+              </button>
             </div>
             <div ref={strip} className={`fds-strip ${live ? "dragging" : ""}`} role="list" aria-label="Pages of the final document">
-              {gap(0)}
-              {Array.from({ length: n }, (_, i) => i + 1).map((p) => (
-                <span key={p} style={{ display: "contents" }}>
-                  <button type="button" role="listitem" className="fds-pg" onClick={() => setBig(slides.findIndex((x) => x.src === "main" && x.page === p))} aria-label={`Page ${p}${coverAt(p) ? `, ${coverAt(p)!.heading}` : ""}`}>
-                    <Thumb doc={mainDoc} page={p} w={70} />
-                    <i>{p}</i>
-                    {coverAt(p) && <em>{coverAt(p)!.heading}</em>}
-                  </button>
-                  {gap(p)}
-                </span>
-              ))}
+              {stripNodes()}
             </div>
           </div>
 
@@ -386,7 +495,7 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
       {ghost && (
         <div className="fds-ghost" style={{ left: ghost.x + 12, top: ghost.y + 12, ["--t" as string]: ghost.tone }} aria-hidden="true">
           {ghost.label}
-          {live && <small>{placeText({ mode: live.gap >= n ? "end" : live.gap === 0 ? "start" : "page", page: live.gap } as Place, n)}</small>}
+          {live && byKey(live.key) && <small>{placeLine(byKey(live.key)!, live.at, null)}</small>}
         </div>
       )}
 

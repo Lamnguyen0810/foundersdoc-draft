@@ -739,3 +739,11 @@ html[data-theme="dark"] .fck-note b { color: #f3bf4b; }
 .fds-gap.over:has(.lifting) { background: color-mix(in srgb, var(--fds-blue-soft) 70%, transparent); }
 .fds-ghost { position: fixed; z-index: 95; pointer-events: none; max-width: 220px; padding: 6px 10px; border-radius: 8px; background: var(--t); color: #fff; font-size: 12.5px; font-weight: 600; box-shadow: 0 8px 20px -8px rgba(0, 0, 0, .4); display: flex; flex-direction: column; }
 .fds-ghost small { font-weight: 500; opacity: .85; font-size: 11px; }
+/* 0300: each supplemental document shows its own pages (framed in its colour) after a tab you drag; a document can go inside another */
+.fds-block { width: 64px; justify-content: center; align-items: flex-start; gap: 4px; align-self: stretch; min-height: 96px; }
+.fds-block .grip { font-size: 14px; line-height: 1; color: var(--t); }
+.fds-pg.sub { border: 2px solid var(--t); }
+.fds-pg.sub i { background: var(--t); }
+.fds-gap.has { padding-right: 0; }
+.fds-supp-ph .fds-supp-dl { margin-left: auto; }
+.fds-supp-card .ops { gap: 2px; }
