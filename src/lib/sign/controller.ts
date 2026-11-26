@@ -34,7 +34,9 @@ export function statusLines(signers: StatusSigner[], voided = false): Array<{ na
   });
 }
 
-export function statusMail(p: { title: string; signers: StatusSigner[]; event: StatusEvent; from: string | null }): { subject: string; html: string; text: string } {
+export function statusMail(p: { title: string; signers: StatusSigner[]; event: StatusEvent; from: string | null; to?: "controller" | "sender" }): { subject: string; html: string; text: string } {
+  /* 0303: the sender gets the same update after each signature, with their own footer */
+  const mine = p.to === "sender";
   const done = p.signers.filter((s) => s.status === "signed").length;
   const total = p.signers.length;
   const voided = p.event.kind === "voided";
@@ -47,7 +49,8 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
   const count = voided ? `${done} of ${total} signed before it was cancelled` : `${done} of ${total} signed`;
   const subject = `${p.event.kind === "completed" ? "All signed" : voided ? "Cancelled" : `${done} of ${total} signed`}: ${p.title}`.slice(0, 200);
   const lines = statusLines(p.signers, voided);
-  const by = p.from ? ` sent by ${p.from}` : "";
+  const by = p.from && !mine ? ` sent by ${p.from}` : "";
+  const why = mine ? "You get these updates because you sent this document for signing." : "You get these updates as the key controller for this document. You do not need to do anything.";
   const text = [
     `${head}.`,
     "",
@@ -58,7 +61,7 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
     "",
     p.event.kind === "completed" ? "The signed copy has gone to everyone who signed, and to anyone given a copy." : voided ? "" : "You will get an email each time someone signs.",
     "",
-    `You get these updates as the key controller for this document. You do not need to do anything.`,
+    why,
   ]
     .filter((x, i, a) => !(x === "" && a[i - 1] === ""))
     .join("\n");
@@ -87,7 +90,7 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
 <tr><td style="padding:10px 32px 0 32px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">${rows}</table></td></tr>
 <tr><td style="padding:22px 32px 28px 32px;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;color:#8a8a86;">
 ${p.event.kind === "completed" ? `<p style="margin:0 0 10px 0;color:#666666;">The signed copy has gone to everyone who signed, and to anyone given a copy.</p>` : voided ? "" : `<p style="margin:0 0 10px 0;color:#666666;">You will get an email each time someone signs.</p>`}
-<p style="margin:0;">You get these updates as the <b style="color:#666666;">key controller</b> for this document. You do not need to do anything.</p>
+<p style="margin:0;">${mine ? "You get these updates because you sent this document for signing." : `You get these updates as the <b style="color:#666666;">key controller</b> for this document. You do not need to do anything.`}</p>
 <p style="margin:10px 0 0 0;">Sent with FD Sign by Founders Doc.</p></td></tr>
 </table></td></tr></table></body></html>`;
   return { subject, html, text };

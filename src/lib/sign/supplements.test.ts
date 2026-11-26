@@ -118,6 +118,7 @@ test("key controller: the status email says who has signed and who hasn't, with 
   assert.ok(m.html.includes("Shareholders' Agreement &lt;draft&gt;"), "the title is escaped");
   assert.ok(!/href=/.test(m.html.replace(/<img[^>]*>/g, "")), "no link to the document");
   assert.equal(statusMail({ title: "X", signers, event: { kind: "completed" }, from: null }).subject, "All signed: X");
+  assert.match(statusMail({ title: "X", signers, event: { kind: "signed", name: "Alex Tan", role: "Director" }, from: "Example Consulting", to: "sender" }).text, /because you sent this document/);
   assert.match(statusMail({ title: "X", signers, event: { kind: "voided" }, from: null }).text, /1 of 3 signed before it was cancelled/);
 });
 
@@ -155,10 +156,14 @@ test("key controller: an email after each signature, then when all have signed; 
     const statuses = () => sent.filter((x) => x.kind === "status_update" && x.to === "cosec@example.com").map((x) => x.subject);
     await submitSignature(s, { token: links[0]!.link.split("/sign/")[1]!, kind: "type", png: null, typed: "Alex Tan", origin: "http://localhost:3000", who });
     assert.deepEqual(statuses(), ["1 of 2 signed: Shareholders' Agreement"]);
+    /* 0303: the sender hears too, after each signature (their own footer) */
+    const mine = () => sent.filter((x) => x.kind === "status_update" && x.to === "owner@example.com").map((x) => x.subject);
+    assert.deepEqual(mine(), ["1 of 2 signed: Shareholders' Agreement"]);
     const second = (await s.signers(id)).find((x) => x.position === 2)!;
     const l2 = (await reissueLink(s, second.id, "http://localhost:3000", who, id))!;
     await submitSignature(s, { token: l2.link.split("/sign/")[1]!, kind: "type", png: null, typed: "Jamie Lee", origin: "http://localhost:3000", who });
     assert.deepEqual(statuses(), ["1 of 2 signed: Shareholders' Agreement", "All signed: Shareholders' Agreement"], "the last signature sends 'all signed' only");
+    assert.deepEqual(mine(), ["1 of 2 signed: Shareholders' Agreement"], "the sender's 'all signed' is the completed email they already get");
 
     /* cancelled: the controller hears; a document without a controller sends no status email */
     const two = await createSend(s, { docs: [{ title: "Loan Note", fileName: "n.pdf", bytes: await pdf("Note", 1), esopHolderId: null, esopTranche: null, signers, fields, controllers: ["cosec@example.com"] }], batch: false, message: null, createdBy: "test", origin: "http://localhost:3000", who });

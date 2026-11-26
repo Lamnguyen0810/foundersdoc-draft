@@ -346,7 +346,7 @@ export async function submitSignature(
   await slack(store, open.map((m) => m.envelope_id), `✅ *${open[0].name}* (${open[0].role}) signed ${what(signedTitles)}`);
   for (const m of open) await signerStep(store, m.envelope_id, m.position, "signed"); // 0221
   /* 0296: the key controllers hear who has signed and who hasn't (the completed email follows for the last one) */
-  for (const m of open) if (!toComplete.includes(m.envelope_id)) await tellControllers(store, m.envelope_id, { kind: "signed", name: m.name, role: m.role });
+  for (const m of open) if (!toComplete.includes(m.envelope_id)) await tellControllers(store, m.envelope_id, { kind: "signed", name: m.name, role: m.role }, m.email);
   /* finish the documents everyone has now signed (after the "signed" update, so Slack reads in order) */
   for (const id of toComplete) {
     await complete(store, id, input.origin, input.who, { token: input.token, ids: new Set(open.map((o) => o.id)) });
@@ -461,20 +461,25 @@ export async function voidEnvelope(store: SignStore, envelopeId: string, who: Wh
  * signed / not signed yet. Names, roles and times only; never a link to the document. A failed email is logged,
  * never stops the signing.
  */
-export async function tellControllers(store: SignStore, envelopeId: string, event: StatusEvent): Promise<number> {
-  const to = await store.controllers(envelopeId).catch(() => [] as string[]);
-  if (!to.length) return 0;
+export async function tellControllers(store: SignStore, envelopeId: string, event: StatusEvent, signerEmail?: string): Promise<number> {
+  const controllers = (await store.controllers(envelopeId).catch(() => [] as string[])).map((e) => e.toLowerCase());
+  const sender = await senderOf(store, envelopeId);
+  /* 0303: the sender hears after each signature too (not for their own signature; the completed email covers the last) */
+  const own = sender?.email?.toLowerCase() ?? "";
+  const toSender = event.kind === "signed" && !!own && own !== signerEmail?.toLowerCase() && !controllers.includes(own);
+  if (!controllers.length && !toSender) return 0;
   const env = await store.envelope(envelopeId);
   if (!env) return 0;
   const signers = (await store.signers(envelopeId)).sort((a, b) => a.position - b.position);
-  const sender = await senderOf(store, envelopeId);
-  const mail = statusMail({ title: env.title, signers: signers.map((s) => ({ name: s.name, role: s.role, status: s.status, signedAt: s.signed_at })), event, from: sender?.name ?? null });
+  const rows = signers.map((s) => ({ name: s.name, role: s.role, status: s.status, signedAt: s.signed_at }));
+  const list: Array<{ email: string; to: "controller" | "sender" }> = [...controllers.map((email) => ({ email, to: "controller" as const })), ...(toSender ? [{ email: own, to: "sender" as const }] : [])];
   let sent = 0;
-  for (const email of to) {
-    const ok = await sendEmail({ kind: "status_update", to: email, name: email.split("@")[0], subject: mail.subject, html: mail.html, text: mail.text, link: "" }).catch(() => false);
+  for (const r of list) {
+    const mail = statusMail({ title: env.title, signers: rows, event, from: sender?.name ?? null, to: r.to });
+    const ok = await sendEmail({ kind: "status_update", to: r.email, name: r.to === "sender" ? (sender?.name ?? "") : r.email.split("@")[0], subject: mail.subject, html: mail.html, text: mail.text, link: "" }).catch(() => false);
     if (ok) sent++;
   }
-  if (sent < to.length) console.error(`[sign] status update: ${to.length - sent} of ${to.length} key controller email(s) not sent`);
+  if (sent < list.length) console.error(`[sign] status update: ${list.length - sent} of ${list.length} email(s) not sent`);
   return sent;
 }
 
