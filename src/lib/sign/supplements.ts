@@ -39,21 +39,49 @@ export function bestPage(info: Pick<PdfInfo, "texts" | "pages">, words: string):
   const all = findPages(info, words);
   if (!all.length) return null;
   const q = norm(words);
-  for (const p of all) {
-    const items = info.texts.filter((t) => t.page === p).sort((a, b) => a.y - b.y || a.x - b.x);
-    const lines: Array<{ y: number; h: number; text: string }> = [];
-    for (const t of items) {
-      const l = lines.find((x) => Math.abs(x.y - t.y) < Math.max(t.h, x.h) * 0.6);
-      if (l) l.text += ` ${t.str}`;
-      else lines.push({ y: t.y, h: t.h, text: t.str });
-    }
-    if (lines.some((l) => {
-      const t = norm(l.text);
-      return t === q || (t.startsWith(q) && t.length <= q.length + 40 && !/[a-z]/.test(t.charAt(q.length)));
-    }))
+  for (const p of all)
+    if (
+      linesOf(info, p).some((l) => {
+        const t = norm(l);
+        return t === q || (t.startsWith(q) && t.length <= q.length + 40 && !/[a-z]/.test(t.charAt(q.length)));
+      })
+    )
       return p;
-  }
   return all[all.length - 1]!;
+}
+
+/** a page's text as lines, top to bottom (pieces on the same baseline joined) */
+export function linesOf(info: Pick<PdfInfo, "texts">, page: number): string[] {
+  const items = info.texts.filter((t) => t.page === page).sort((a, b) => a.y - b.y || a.x - b.x);
+  const lines: Array<{ y: number; h: number; text: string }> = [];
+  for (const t of items) {
+    const l = lines.find((x) => Math.abs(x.y - t.y) < Math.max(t.h, x.h, 0.004) * 0.6);
+    if (l) l.text += ` ${t.str}`;
+    else lines.push({ y: t.y, h: t.h, text: t.str });
+  }
+  return lines.map((l) => l.text.replace(/\s+/g, " ").trim());
+}
+
+/**
+ * The attachment cover pages of a document, in order: a page with a heading line like "APPENDIX A", "Annex 1",
+ * "Schedule 2: Terms" or "Exhibit B" (not a sentence that mentions one). A newly added supplemental document is
+ * suggested for the first one still free, so the Constitution lands on Appendix A and the resolution on Appendix B.
+ */
+export function attachmentPages(info: Pick<PdfInfo, "texts" | "pages">): Array<{ page: number; heading: string }> {
+  const out: Array<{ page: number; heading: string }> = [];
+  const seen = new Set<string>();
+  for (let p = 1; p <= info.pages.length; p++) {
+    for (const l of linesOf(info, p).slice(0, 6)) {
+      const m = l.match(/^(appendix|annex|annexure|schedule|exhibit|attachment|enclosure)\s+([A-Z]{1,2}|\d{1,2}|[IVX]{1,4})\b(?![a-z])/i);
+      if (!m || l.length > 80) continue;
+      const heading = `${m[1]!.toUpperCase()} ${m[2]!.toUpperCase()}`;
+      if (seen.has(heading)) continue;
+      seen.add(heading);
+      out.push({ page: p, heading });
+      break;
+    }
+  }
+  return out;
 }
 
 /** how many pages of the main document come before the inserted one (0 = at the start); null = cannot be placed yet */

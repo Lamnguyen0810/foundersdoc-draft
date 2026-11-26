@@ -2,7 +2,7 @@ import { emptyStore } from "./test-guard";
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import { bestPage, findPages, insertPdfs, placeText } from "./supplements";
+import { attachmentPages, bestPage, findPages, insertPdfs, placeText } from "./supplements";
 import { statusLines, statusMail } from "./controller";
 import { signStore, type SignStore } from "./store";
 import { createSend, reissueLink, submitSignature, voidEnvelope } from "./service";
@@ -65,6 +65,7 @@ test("supplements: find the page by its words, however they are spaced or cased"
   assert.equal(bestPage(info, "Appendix A"), 2, "the heading page, not the contents line");
   assert.equal(bestPage(info, "Appendix B"), 3, "a heading that goes on: 'Appendix B — Share resolution'");
   assert.equal(bestPage(info, "Appendix C"), null);
+  assert.deepEqual(attachmentPages(info), [{ page: 2, heading: "APPENDIX A" }, { page: 3, heading: "APPENDIX B" }], "the contents line on page 1 is not a cover page");
   assert.equal(placeText({ mode: "page", page: 3 }, 3), "at the end");
   assert.equal(placeText({ mode: "page", page: 0 }, 3), "at the start");
 });
