@@ -106,7 +106,6 @@ export default function Wizard({
   const [cc, setCc] = useState("");
   /* 0296: key controllers (a status email each time someone signs), and the supplemental documents inserted */
   const [ctl, setCtl] = useState("");
-  const [ctlMe, setCtlMe] = useState(false);
   const [inserted, setInserted] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   /* 0199: the name signers see ("Rachel Wong sent you a document"); starts as the account name */
@@ -277,7 +276,6 @@ export default function Wizard({
     .split(/[\s,;]+/)
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean);
-  const myEmail = me?.email;
   const ctlList = useMemo(
     () => [
       ...new Set([
@@ -285,10 +283,9 @@ export default function Wizard({
           .split(/[\s,;]+/)
           .map((e) => e.trim().toLowerCase())
           .filter(Boolean),
-        ...(ctlMe && myEmail ? [myEmail] : []),
       ]),
     ],
-    [ctl, ctlMe, myEmail],
+    [ctl],
   );
 
   const problems = useMemo(() => {
@@ -752,11 +749,7 @@ export default function Wizard({
               <small className="fds-hint">
                 The person who follows this signing, e.g. the company secretary, the lawyer or the deal lead. They get an email each time someone signs, showing who has signed and who hasn&rsquo;t. They don&rsquo;t sign and don&rsquo;t get the document. Up to 3.
               </small>
-              {me && (
-                <label className="fds-chk">
-                  <input type="checkbox" checked={ctlMe} onChange={(e) => setCtlMe(e.target.checked)} /> Send these updates to me too ({me.email})
-                </label>
-              )}
+              {me && <small className="fds-hint">You ({me.email}) get these updates anyway: an email each time someone signs, and one when everyone has.</small>}
             </div>
           </div>
           <aside className="fds-aside">
