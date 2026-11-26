@@ -12,7 +12,7 @@ import type { DraftBlock } from "@/lib/sign/draft-pdf";
 import { Ic, SignCredits, signLeft, useList, type SignAllowanceView } from "./ui";
 import PageEditor, { type EditSummary } from "./PageEditor";
 import ExitAsk, { type ExitAnswer } from "./ExitAsk";
-import Supplements from "./Supplements";
+import Supplements, { saveFile } from "./Supplements";
 
 /* New signing request, in 4 steps: Document → People → Fields → Review and send.
    Signers sign in the order listed; each gets an email when it's their turn and
@@ -605,6 +605,10 @@ export default function Wizard({
                     </small>
                   )}
                 </div>
+                {/* 0300: the document as it stands (with any supplemental documents inserted), to check it or keep it */}
+                <button className="fds-ico" aria-label="Download this PDF" title="Download this PDF" onClick={() => saveFile(file, file.name.replace(/\.docx$/i, ".pdf"))}>
+                  <Ic n="download" s={16} />
+                </button>
                 {!trimming && (
                   <button className="fds-btn sm" onClick={() => setTrimming(true)}>
                     <Ic n="pen" s={14} /> Edit document

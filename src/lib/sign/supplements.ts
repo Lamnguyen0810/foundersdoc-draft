@@ -101,10 +101,99 @@ export function placeText(place: Place, pages: number): string {
   return place.page ? `after “${place.text.trim()}” (page ${place.page})` : `after “${place.text.trim()}” (not found)`;
 }
 
+/** where a document goes inside another supplemental document: "after page 3 of “Constitution”" (0300) */
+export function insideText(words: string | null, after: number, pages: number, parent: string): string {
+  const of = `“${parent.trim() || "the document"}”`;
+  if (words?.trim()) return `after “${words.trim()}” (page ${after} of ${of})`;
+  if (after <= 0) return `at the start of ${of}`;
+  if (after >= pages) return `at the end of ${of}`;
+  return `after page ${after} of ${of}`;
+}
+
 export interface Insert {
   name: string;
   bytes: Uint8Array;
   place: Place;
+}
+
+/**
+ * A supplemental document, placed after a page of the main document (parent null) or after a page of another
+ * supplemental document (parent = its key): a document inside a document, e.g. a schedule inside the Constitution
+ * (0300). Page numbers are the parent's own, so moving one never moves where another goes.
+ */
+export interface Part {
+  key: string;
+  name: string;
+  bytes: Uint8Array;
+  parent: string | null;
+  /** pages of the parent before it (0 = at its start) */
+  after: number;
+  /** the words it was placed by ("Appendix A"), for the audit trail */
+  words?: string | null;
+}
+
+/** the final order, page by page: [source, page] where source is "main" or a part's key */
+export function pageOrder(mainPages: number, parts: Array<Pick<Part, "key" | "parent" | "after"> & { pages: number }>): Array<{ src: string; page: number }> {
+  const out: Array<{ src: string; page: number }> = [];
+  const seen = new Set<string>();
+  const walk = (src: string, parent: string | null, pages: number) => {
+    const put = (g: number) => {
+      for (const p of parts)
+        if (p.parent === parent && Math.min(Math.max(p.after, 0), pages) === g && !seen.has(p.key)) {
+          seen.add(p.key);
+          walk(p.key, p.key, p.pages);
+        }
+    };
+    put(0);
+    for (let i = 1; i <= pages; i++) {
+      out.push({ src, page: i });
+      put(i);
+    }
+  };
+  walk("main", null, mainPages);
+  return out;
+}
+
+/** The main PDF with every part in its place, parts inside parts too. Returns the PDF and a line per part. */
+export async function assemble(main: Uint8Array, parts: Part[]): Promise<{ bytes: Uint8Array; pages: number; lines: string[] }> {
+  const base = await PDFDocument.load(main);
+  const n = base.getPageCount();
+  const docs = new Map<string, PDFDocument>([["main", base]]);
+  for (const it of parts) {
+    try {
+      docs.set(it.key, await PDFDocument.load(it.bytes));
+    } catch {
+      throw new Error(`“${it.name}” could not be read. If it has a password, remove it and try again.`);
+    }
+  }
+  const pagesOf = (key: string | null) => docs.get(key ?? "main")!.getPageCount();
+  const nameOf = (key: string) => parts.find((x) => x.key === key)?.name ?? "";
+  const lines: string[] = [];
+  for (const it of parts) {
+    if (it.parent !== null && (!docs.has(it.parent) || it.parent === it.key)) throw new Error(`Choose where “${it.name}” goes.`);
+    const pp = pagesOf(it.parent);
+    if (!Number.isInteger(it.after) || it.after < 0 || it.after > pp) throw new Error(`Choose where “${it.name}” goes.`);
+    const k = pagesOf(it.key);
+    const where =
+      it.parent === null
+        ? placeText(it.words?.trim() ? { mode: "text", text: it.words, page: it.after } : it.after >= n ? { mode: "end" } : it.after === 0 ? { mode: "start" } : { mode: "page", page: it.after }, n)
+        : insideText(it.words ?? null, it.after, pp, nameOf(it.parent));
+    lines.push(`${it.name} (${k} ${k === 1 ? "page" : "pages"}) ${where}`);
+  }
+  const order = pageOrder(
+    n,
+    parts.map((p) => ({ key: p.key, parent: p.parent, after: p.after, pages: pagesOf(p.key) })),
+  );
+  const placed = new Set(order.map((o) => o.src));
+  const lost = parts.find((p) => !placed.has(p.key) && pagesOf(p.key) > 0);
+  /* a document inside itself (a loop) is never reached from the main document */
+  if (lost) throw new Error(`Choose where “${lost.name}” goes.`);
+  const out = await PDFDocument.create();
+  const copied = new Map<string, Awaited<ReturnType<PDFDocument["copyPages"]>>>();
+  for (const [key, d] of docs) copied.set(key, await out.copyPages(d, d.getPageIndices()));
+  for (const o of order) out.addPage(copied.get(o.src)![o.page - 1]!);
+  const bytes = await out.save();
+  return { bytes, pages: out.getPageCount(), lines };
 }
 
 /**
@@ -113,33 +202,11 @@ export interface Insert {
  * Returns the new PDF, and a line per document for the audit trail.
  */
 export async function insertPdfs(main: Uint8Array, items: Insert[]): Promise<{ bytes: Uint8Array; pages: number; lines: string[] }> {
-  const base = await PDFDocument.load(main);
-  const n = base.getPageCount();
-  const out = await PDFDocument.create();
-  const mainPages = await out.copyPages(base, base.getPageIndices());
-  const slots = new Map<number, Array<{ name: string; doc: PDFDocument }>>();
-  const lines: string[] = [];
-  for (const it of items) {
+  const n = (await PDFDocument.load(main)).getPageCount();
+  const parts: Part[] = items.map((it, i) => {
     const at = afterPage(it.place, n);
     if (at === null) throw new Error(`Choose where “${it.name}” goes.`);
-    let doc: PDFDocument;
-    try {
-      doc = await PDFDocument.load(it.bytes);
-    } catch {
-      throw new Error(`“${it.name}” could not be read. If it has a password, remove it and try again.`);
-    }
-    slots.set(at, [...(slots.get(at) ?? []), { name: it.name, doc }]);
-    const k = doc.getPageCount();
-    lines.push(`${it.name} (${k} ${k === 1 ? "page" : "pages"}) ${placeText(it.place, n)}`);
-  }
-  const add = async (at: number) => {
-    for (const s of slots.get(at) ?? []) for (const p of await out.copyPages(s.doc, s.doc.getPageIndices())) out.addPage(p);
-  };
-  await add(0);
-  for (let i = 0; i < n; i++) {
-    out.addPage(mainPages[i]!);
-    await add(i + 1);
-  }
-  const bytes = await out.save();
-  return { bytes, pages: out.getPageCount(), lines };
+    return { key: `p${i}`, name: it.name, bytes: it.bytes, parent: null, after: at, words: it.place.mode === "text" ? it.place.text : null };
+  });
+  return assemble(main, parts);
 }
