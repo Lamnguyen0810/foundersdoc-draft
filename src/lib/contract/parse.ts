@@ -37,6 +37,8 @@ export type BlockKind =
   | "sign"
   /** Signature blocks side by side: one row, up to two parties (pairSignatures). */
   | "sign-row"
+  /** A Word page break (lib/sign/word.ts): what follows starts a new page. */
+  | "page-break"
   | "plain";
 
 export interface Block {

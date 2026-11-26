@@ -8,6 +8,11 @@ import type { Block } from "@/lib/contract/parse";
  * tables; lib/sign/draft-pdf.ts typesets them. Layout details (fonts, exact
  * spacing, headers and footers, images, text boxes) are not kept, which the
  * Document step says, with the advice to save as PDF in Word for an exact copy.
+ *
+ * 0299: Word's page breaks are kept (an appendix cover page stays its own page), and a document laid out in
+ * tables (a constitution whose clauses sit in table cells, tables inside tables) keeps all its words: a cell
+ * that holds paragraphs, lists or other tables is read as text in order, and a "(a) | text" row is a numbered
+ * line. Only a row of plain short cells (a data table, signature blocks) stays side by side.
  */
 
 export interface WordResult {
@@ -68,6 +73,9 @@ function roman(n: number): string {
   return out;
 }
 
+/** a Word page break, as a line of its own (mammoth writes it as <hr>, see the style map) */
+const BREAK = "\f";
+
 /** Inline text with **bold**; lines split at <br>. Lists and tables inside are handled by the caller. */
 function inline(n: Node | string, bold = false, out: string[] = [""]): string[] {
   if (typeof n === "string") {
@@ -79,12 +87,24 @@ function inline(n: Node | string, bold = false, out: string[] = [""]): string[] 
     out.push("");
     return out;
   }
+  if (n.tag === "hr") {
+    out.push(BREAK, "");
+    return out;
+  }
   if (["ol", "ul", "table", "img"].includes(n.tag)) return out;
   const b = bold || n.tag === "strong" || n.tag === "b";
   for (const k of n.kids) inline(k, b, out);
   return out;
 }
 const tidy = (s: string) => s.replace(/\*\*\s*\*\*/g, "").replace(/\s{2,}/g, " ").trim();
+const el = (k: Node | string): k is Node => typeof k !== "string";
+/** a cell (or anything) that holds paragraphs of its own: lists or tables inside */
+const deep = (n: Node): boolean => n.kids.some((k) => el(k) && (["table", "ol", "ul"].includes(k.tag) || deep(k)));
+/** a table's own rows (not the rows of tables inside its cells) */
+const rowsOf = (t: Node): Node[] => t.kids.filter(el).flatMap((k) => (k.tag === "tr" ? [k] : ["thead", "tbody", "tfoot"].includes(k.tag) ? rowsOf(k) : []));
+/** "(a)", "1.", "(iv)", "2.1", "(A)", "•": the number cell of a "(a) | text" row */
+const NUMCELL = /^(\((?:[a-z]{1,2}|[ivxlc]{1,6}|\d{1,3})\)|(?:[a-z]|\d{1,3})[.)]|\d{1,3}(?:\.\d{1,3})+\.?|[•·▪–-])$/i;
+const levelOf = (num: string): 1 | 2 | 3 => (/^\([ivxlc]+\)$/.test(num) && num !== "(c)" && num !== "(l)" ? 2 : /^\([A-Z]{1,2}\)$/.test(num) ? 3 : 1);
 
 export async function wordToBlocks(bytes: Uint8Array): Promise<WordResult> {
   const warnings = new Set<string>();
@@ -92,13 +112,17 @@ export async function wordToBlocks(bytes: Uint8Array): Promise<WordResult> {
     { buffer: Buffer.from(bytes) },
     {
       /* Word's own Title / Subtitle styles read as headings */
-      styleMap: ["p[style-name='Title'] => h1:fresh", "p[style-name='Subtitle'] => h2:fresh"],
+      styleMap: ["p[style-name='Title'] => h1:fresh", "p[style-name='Subtitle'] => h2:fresh", "br[type='page'] => hr"],
       convertImage: mammoth.images.imgElement(async () => ({ src: "" })),
     },
   );
   const root = parse(res.value);
   const blocks: Block[] = [];
   let titled = false;
+  /* a new page, once, and never at the very start */
+  const pageBreak = () => {
+    if (blocks.length && blocks[blocks.length - 1]!.kind !== "page-break") blocks.push({ kind: "page-break", num: "", text: "" });
+  };
 
   const walk = (n: Node | string, depth = 0) => {
     if (typeof n === "string") {
@@ -123,11 +147,18 @@ export async function wordToBlocks(bytes: Uint8Array): Promise<WordResult> {
       }
       case "p": {
         for (const line of inline(n)) {
+          if (line === BREAK) {
+            pageBreak();
+            continue;
+          }
           const t = tidy(line);
           if (t) blocks.push({ kind: "plain", num: "", text: t });
         }
         return;
       }
+      case "hr":
+        pageBreak();
+        return;
       case "ol":
       case "ul": {
         let i = 0;
@@ -143,28 +174,39 @@ export async function wordToBlocks(bytes: Uint8Array): Promise<WordResult> {
       }
       case "table": {
         warnings.add("Tables keep their columns, but not their borders or shading.");
-        const rows: Node[] = [];
-        const collect = (x: Node) => x.kids.forEach((k) => typeof k !== "string" && (k.tag === "tr" ? rows.push(k) : collect(k)));
-        collect(n);
-        for (const tr of rows) {
-          const cells = tr.kids
-            .filter((k): k is Node => typeof k !== "string" && (k.tag === "td" || k.tag === "th"))
-            .map((td) => {
-              const lines: string[] = [];
-              for (const k of td.kids) {
-                if (typeof k === "string") lines.push(tidy(k));
-                else if (k.tag === "p" || k.tag === "h1" || k.tag === "h2" || k.tag === "h3") lines.push(...inline(k).map(tidy));
-                else lines.push(...inline(k).map(tidy));
-              }
-              /* blank lines inside a cell stay (the space to sign above a line), but not at its edges */
-              while (lines.length && !lines[0]) lines.shift();
-              while (lines.length && !lines[lines.length - 1]) lines.pop();
-              return lines;
-            });
-          /* side by side (signature tables stay two columns); a one-cell row is just its lines */
-          const full = cells.filter((c) => c.length);
-          if (cells.length >= 2 && full.length >= 1) blocks.push({ kind: "sign-row", num: "table", text: "", cols: cells.slice(0, 4) });
-          else for (const l of full.flat()) blocks.push({ kind: "plain", num: "", text: l });
+        const lines = (td: Node) => {
+          const out: string[] = [];
+          for (const k of td.kids) out.push(...(typeof k === "string" ? [tidy(k)] : inline(k).filter((l) => l !== BREAK).map(tidy)));
+          /* blank lines inside a cell stay (the space to sign above a line), but not at its edges */
+          while (out.length && !out[0]) out.shift();
+          while (out.length && !out[out.length - 1]) out.pop();
+          return out;
+        };
+        for (const tr of rowsOf(n)) {
+          const tds = tr.kids.filter((k): k is Node => el(k) && (k.tag === "td" || k.tag === "th"));
+          const cells = tds.map(lines);
+          const full = tds.filter((_, i) => cells[i]!.length || deep(tds[i]!));
+          /* "(a) | the text": a numbered line, however deep the text goes */
+          const num = full.length === 2 && cells[tds.indexOf(full[0]!)]!.length === 1 ? cells[tds.indexOf(full[0]!)]![0]!.replace(/\*\*/g, "") : "";
+          if (num && NUMCELL.test(num)) {
+            const body = full[1]!;
+            const at = blocks.length;
+            for (const k of body.kids) walk(k, depth);
+            const first = blocks[at];
+            const level = levelOf(num);
+            if (first && first.kind === "plain") blocks[at] = { kind: "subclause", num, text: first.text, level };
+            else blocks.splice(at, 0, { kind: "subclause", num, text: "", level });
+            /* the cell's further paragraphs stay in line with its text */
+            for (let i = at + 1; i < blocks.length; i++) if (blocks[i]!.kind === "plain") blocks[i] = { kind: "subclause", num: "", text: blocks[i]!.text, level };
+            continue;
+          }
+          /* a layout row: cells that hold paragraphs, lists or tables are read in order, as text */
+          if (full.length <= 1 || full.some(deep)) {
+            for (const td of full) for (const k of td.kids) walk(k, depth);
+            continue;
+          }
+          /* side by side: a data table or signature blocks (up to 6 columns) */
+          blocks.push({ kind: "sign-row", num: "table", text: "", cols: cells.slice(0, 6) });
         }
         return;
       }
@@ -177,7 +219,7 @@ export async function wordToBlocks(bytes: Uint8Array): Promise<WordResult> {
   };
   walk(root);
   for (const m of res.messages ?? []) if (/image/i.test(m.message)) warnings.add("Images and logos are left out.");
-  /* empty spacer paragraphs at the end */
-  while (blocks.length && !blocks[blocks.length - 1].cols && !blocks[blocks.length - 1].text.trim()) blocks.pop();
+  /* empty spacer paragraphs and page breaks at the end */
+  while (blocks.length && !blocks[blocks.length - 1].cols && !blocks[blocks.length - 1].text.trim() && !blocks[blocks.length - 1].num) blocks.pop();
   return { blocks, warnings: [...warnings] };
 }
