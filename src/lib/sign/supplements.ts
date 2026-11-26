@@ -29,6 +29,33 @@ export function findPages(info: Pick<PdfInfo, "texts" | "pages">, words: string)
   return out;
 }
 
+/**
+ * The page the words are a HEADING on: a line that is just those words, or starts with them (e.g. "APPENDIX A" or
+ * "Appendix B: Shareholder's Resolutions"). A resolution usually names "Appendix A" in its text on page 1 too
+ * ("attached hereto as Appendix A"), and the cover page that says only "APPENDIX A" comes later: that is where
+ * the attachment goes. No heading: the last page that mentions the words.
+ */
+export function bestPage(info: Pick<PdfInfo, "texts" | "pages">, words: string): number | null {
+  const all = findPages(info, words);
+  if (!all.length) return null;
+  const q = norm(words);
+  for (const p of all) {
+    const items = info.texts.filter((t) => t.page === p).sort((a, b) => a.y - b.y || a.x - b.x);
+    const lines: Array<{ y: number; h: number; text: string }> = [];
+    for (const t of items) {
+      const l = lines.find((x) => Math.abs(x.y - t.y) < Math.max(t.h, x.h) * 0.6);
+      if (l) l.text += ` ${t.str}`;
+      else lines.push({ y: t.y, h: t.h, text: t.str });
+    }
+    if (lines.some((l) => {
+      const t = norm(l.text);
+      return t === q || (t.startsWith(q) && t.length <= q.length + 40 && !/[a-z]/.test(t.charAt(q.length)));
+    }))
+      return p;
+  }
+  return all[all.length - 1]!;
+}
+
 /** how many pages of the main document come before the inserted one (0 = at the start); null = cannot be placed yet */
 export function afterPage(place: Place, pages: number): number | null {
   if (place.mode === "end") return pages;

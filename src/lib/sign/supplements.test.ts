@@ -2,7 +2,7 @@ import { emptyStore } from "./test-guard";
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { PDFDocument, StandardFonts } from "pdf-lib";
-import { findPages, insertPdfs, placeText } from "./supplements";
+import { bestPage, findPages, insertPdfs, placeText } from "./supplements";
 import { statusLines, statusMail } from "./controller";
 import { signStore, type SignStore } from "./store";
 import { createSend, reissueLink, submitSignature, voidEnvelope } from "./service";
@@ -51,16 +51,20 @@ test("supplements: find the page by its words, however they are spaced or cased"
   const info = {
     pages: [{ w: 1, h: 1 }, { w: 1, h: 1 }, { w: 1, h: 1 }],
     texts: [
-      { page: 1, str: "Contents: Appendix A, Appendix B", x: 0, y: 0, w: 0, h: 0 },
-      { page: 2, str: "APPENDIX", x: 0, y: 0, w: 0, h: 0 },
-      { page: 2, str: "A", x: 0, y: 0, w: 0, h: 0 },
-      { page: 3, str: "Appendix  B — Share resolution", x: 0, y: 0, w: 0, h: 0 },
+      { page: 1, str: "Contents: Appendix A, Appendix B", x: 0, y: 0.1, w: 0, h: 0.01 },
+      { page: 2, str: "APPENDIX", x: 0.4, y: 0.08, w: 0, h: 0.012 },
+      { page: 2, str: "A", x: 0.55, y: 0.081, w: 0, h: 0.012 },
+      { page: 3, str: "Appendix  B — Share resolution", x: 0, y: 0.1, w: 0, h: 0.01 },
+      { page: 3, str: "The shareholders resolve that the Appendix A form is adopted.", x: 0, y: 0.3, w: 0, h: 0.01 },
     ],
   };
-  assert.deepEqual(findPages(info, "appendix a"), [1, 2]);
+  assert.deepEqual(findPages(info, "appendix a"), [1, 2, 3]);
   assert.deepEqual(findPages(info, "Appendix B"), [1, 3]);
   assert.deepEqual(findPages(info, "Appendix C"), []);
   assert.deepEqual(findPages(info, "a"), [], "too short to look for");
+  assert.equal(bestPage(info, "Appendix A"), 2, "the heading page, not the contents line");
+  assert.equal(bestPage(info, "Appendix B"), 3, "a heading that goes on: 'Appendix B — Share resolution'");
+  assert.equal(bestPage(info, "Appendix C"), null);
   assert.equal(placeText({ mode: "page", page: 3 }, 3), "at the end");
   assert.equal(placeText({ mode: "page", page: 0 }, 3), "at the start");
 });

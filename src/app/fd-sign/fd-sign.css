@@ -698,3 +698,4 @@ html[data-theme="dark"] .fck-note b { color: #f3bf4b; }
 .fds-chk { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13.5px; color: var(--fds-tx2); cursor: pointer; }
 .fds-chk input { accent-color: var(--fds-ink); width: 16px; height: 16px; }
 @media (max-width: 560px) { .fds-supp-h { flex-direction: column; align-items: flex-start; } }
+.fds-supp-main .fds-supp-label { height: 36px; font-weight: 600; font-size: 14px; }

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { PdfInfo } from "@/lib/sign/boxes";
-import { findPages, insertPdfs, placeText, type Place } from "@/lib/sign/supplements";
+import { bestPage, findPages, insertPdfs, placeText, type Place } from "@/lib/sign/supplements";
 import { openPdf, readPdf } from "../sign/PdfPages";
 import { Ic } from "./ui";
 
@@ -17,6 +17,8 @@ type Mode = "end" | "page" | "text";
 interface Item {
   key: string;
   file: File;
+  /** what it is called in the list and the audit trail (Rachel: "upload and label those documents") */
+  label: string;
   pages: number;
   mode: Mode;
   page: string;
@@ -39,7 +41,12 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
     if (it.mode === "end") return { mode: "end" };
     if (it.mode === "page") return { mode: "page", page: Number(it.page) };
     const h = hits(it);
-    return { mode: "text", text: it.text, page: it.hit && h.includes(it.hit) ? it.hit : (h[0] ?? null) };
+    /* the cover page that says just "APPENDIX B", not page 1 that mentions it, unless another page is picked */
+    return { mode: "text", text: it.text, page: it.hit && h.includes(it.hit) ? it.hit : bestPage(info, it.text) };
+  };
+  const chosen = (it: Item) => {
+    const pl = placeOf(it);
+    return pl.mode === "text" || pl.mode === "page" ? pl.page : null;
   };
   const problem = (it: Item): string | null => {
     if (it.mode === "page") {
@@ -72,7 +79,7 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
         const doc = await openPdf(f);
         const i = await readPdf(doc);
         void doc.destroy();
-        const it: Item = { key: `s${Date.now().toString(36)}${seq++}`, file: f, pages: i.pages.length, mode: "end", page: "", text: "", hit: null };
+        const it: Item = { key: `s${Date.now().toString(36)}${seq++}`, file: f, label: f.name.replace(/\.(pdf|docx)$/i, "").replace(/_+/g, " ").trim().slice(0, 120), pages: i.pages.length, mode: "end", page: "", text: "", hit: null };
         setItems((l) => [...l, it].slice(0, 10));
       } catch {
         setErr(`${f.name} could not be opened. Upload a PDF or Word file (.docx); if it has a password, remove it first.`);
@@ -90,7 +97,7 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
     try {
       const out = await insertPdfs(
         new Uint8Array(await file.arrayBuffer()),
-        await Promise.all(items.map(async (it) => ({ name: it.file.name.replace(/\.pdf$/i, ""), bytes: new Uint8Array(await it.file.arrayBuffer()), place: placeOf(it) }))),
+        await Promise.all(items.map(async (it) => ({ name: it.label.trim() || it.file.name.replace(/\.pdf$/i, ""), bytes: new Uint8Array(await it.file.arrayBuffer()), place: placeOf(it) }))),
       );
       const merged = new File([out.bytes as BlobPart], file.name, { type: "application/pdf" });
       if (merged.size > MAX) throw new Error("Together the documents are over 10 MB. Please make the files smaller and try again.");
@@ -123,9 +130,9 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
           <div className="fds-supp-row" key={it.key}>
             <span className="fds-supp-n">{i + 1}</span>
             <div className="fds-supp-main">
-              <b>{it.file.name}</b>
+              <input className="fds-inp fds-supp-label" value={it.label} maxLength={120} aria-label="Label for this document" placeholder="Label, e.g. Restated Constitution" onChange={(e) => set(it.key, { label: e.target.value })} />
               <small>
-                {it.pages} {it.pages === 1 ? "page" : "pages"}
+                {it.file.name} · {it.pages} {it.pages === 1 ? "page" : "pages"}
               </small>
               <div className="fds-supp-where" role="radiogroup" aria-label={`Where ${it.file.name} goes`}>
                 <span>Insert</span>
@@ -137,7 +144,7 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
                 {it.mode === "page" && <input className="fds-inp num" inputMode="numeric" value={it.page} placeholder={`1–${n}`} aria-label="Page number" onChange={(e) => set(it.key, { page: e.target.value.replace(/\D/g, "").slice(0, 4) })} />}
                 {it.mode === "text" && <input className="fds-inp" value={it.text} maxLength={80} placeholder="e.g. Appendix B" aria-label="Words on the page" onChange={(e) => set(it.key, { text: e.target.value, hit: null })} />}
                 {it.mode === "text" && h.length > 1 && (
-                  <select className="fds-inp" value={String(it.hit ?? h[0])} aria-label="Which page" onChange={(e) => set(it.key, { hit: Number(e.target.value) })}>
+                  <select className="fds-inp" value={String(it.hit ?? bestPage(info, it.text) ?? h[0])} aria-label="Which page" onChange={(e) => set(it.key, { hit: Number(e.target.value) })}>
                     {h.map((p) => (
                       <option key={p} value={p}>
                         page {p}
@@ -146,7 +153,7 @@ export default function Supplements({ file, info, toPdf, onInserted }: { file: F
                   </select>
                 )}
               </div>
-              <small className={pr ? "fds-supp-bad" : "fds-supp-ok"}>{pr ?? `Goes ${placeText(placeOf(it), n)}${it.mode === "text" && h.length > 1 ? ` · found on pages ${h.join(", ")}` : ""}`}</small>
+              <small className={pr ? "fds-supp-bad" : "fds-supp-ok"}>{pr ?? `Goes ${placeText(placeOf(it), n)}${it.mode === "text" && h.length > 1 ? ` · also mentioned on page${h.length > 2 ? "s" : ""} ${h.filter((x) => x !== chosen(it)).join(", ")}: change the page if needed` : ""}`}</small>
             </div>
             <span className="ops">
               <button className="fds-ico" aria-label="Move up" disabled={i === 0} onClick={() =>
