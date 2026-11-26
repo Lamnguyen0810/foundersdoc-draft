@@ -871,18 +871,33 @@ export async function addFeedback(m: Me, page: string, message: string, kind = "
   /* before 146: without kind and screenshot */
   if (r.error && /kind|shot_path/.test(r.error.message)) r = await db().from("onpoint_feedback").insert({ workspace_id: m.ws.id, page: page.slice(0, 40) || "general", message: `[${KIND_LABEL[k]}] ${text}`, created_by: m.email }).select("id").single();
   if (r.error) throw new OpError(/onpoint_feedback/.test(r.error.message) ? "Run supabase/145_onpoint_feedback.sql first." : r.error.message, 503);
-  const channel = process.env.ONPOINT_SLACK_CHANNEL?.trim();
-  if (channel && !m.founder) {
-    const { teamNotice } = await import("@/lib/sign/slack");
-    await teamNotice(`💬 OnPoint feedback · ${KIND_LABEL[k]} · ${page} (${m.email}): ${text.slice(0, 500)}${shot_path ? " [screenshot attached]" : ""}`, channel).catch(() => false);
-  }
+  if (!m.founder) await feedbackSlack(m, "new", { page, kind: k, message: text, shot: !!shot_path });
   return r.data as { id: string };
+}
+
+/**
+ * 0295: every step of a comment is announced in OnPoint's Slack channel (ONPOINT_SLACK_CHANNEL): new, edited and
+ * deleted (by OnPoint), done and reopened (by Founders Doc). Only the page, the kind and the comment's text; a
+ * screenshot is only mentioned, never sent. Slack being down never stops the comment itself.
+ */
+const FB_EVENT = { new: "💬 New", edited: "✏️ Edited", deleted: "🗑️ Deleted", done: "✅ Done", reopened: "↩️ Reopened" } as const;
+async function feedbackSlack(m: Me, event: keyof typeof FB_EVENT, f: { page?: string | null; kind?: string | null; message?: string | null; shot?: boolean; by?: string | null }) {
+  const channel = process.env.ONPOINT_SLACK_CHANNEL?.trim();
+  if (!channel) return;
+  const kind = KIND_LABEL[(f.kind ?? "change") as (typeof KINDS)[number]] ?? "Comment";
+  const who = event === "done" || event === "reopened" ? `marked by ${m.email}${f.by ? `, from ${f.by}` : ""}` : m.email;
+  const text = (f.message ?? "").replace(/\s+/g, " ").trim().slice(0, 500);
+  const line = `${FB_EVENT[event]} · OnPoint feedback · ${kind} · ${f.page || "general"} (${who})${text ? `: ${text}` : ""}${f.shot ? " [screenshot attached]" : ""}`;
+  const { teamNotice } = await import("@/lib/sign/slack");
+  await teamNotice(line, channel).catch(() => false);
 }
 
 export async function markFeedback(m: Me, id: string, done: boolean) {
   if (!m.founder) throw new OpError("Only Founders Doc marks feedback done.", 403);
-  const r = await db().from("onpoint_feedback").update({ status: done ? "done" : "new", done_at: done ? new Date().toISOString() : null }).eq("workspace_id", m.ws.id).eq("id", id);
+  const r = await db().from("onpoint_feedback").update({ status: done ? "done" : "new", done_at: done ? new Date().toISOString() : null }).eq("workspace_id", m.ws.id).eq("id", id).select("page, kind, message, created_by").maybeSingle();
   if (r.error) throw new OpError(r.error.message, 500);
+  const f = r.data as { page: string; kind?: string | null; message: string; created_by: string | null } | null;
+  if (f) await feedbackSlack(m, done ? "done" : "reopened", { page: f.page, kind: f.kind, message: f.message, by: f.created_by });
 }
 
 /** the screenshot attached to a comment: a private link that works for one minute */
@@ -896,7 +911,8 @@ export async function feedbackShot(m: Me, id: string): Promise<string> {
 
 /* 0293: the person who wrote a comment can change or delete it while it is not done yet (Founders Doc can too) */
 async function ownFeedback(m: Me, id: string) {
-  const f = (await db().from("onpoint_feedback").select("id, created_by, status, shot_path").eq("workspace_id", m.ws.id).eq("id", id).maybeSingle()).data as { id: string; created_by: string | null; status: string; shot_path?: string | null } | null;
+  const q = await db().from("onpoint_feedback").select("id, created_by, status, shot_path, page, kind, message").eq("workspace_id", m.ws.id).eq("id", id).maybeSingle();
+  const f = (q.error ? (await db().from("onpoint_feedback").select("id, created_by, status, page, message").eq("workspace_id", m.ws.id).eq("id", id).maybeSingle()).data : q.data) as { id: string; created_by: string | null; status: string; shot_path?: string | null; page: string; kind?: string | null; message: string } | null;
   if (!f) throw new OpError("That comment is no longer there.", 404);
   if (!m.founder && f.created_by !== m.email) throw new OpError("You can only change your own comments.", 403);
   if (!m.founder && f.status === "done") throw new OpError("This one is already done, so it can't be changed. Send a new comment instead.", 409);
@@ -904,13 +920,14 @@ async function ownFeedback(m: Me, id: string) {
 }
 
 export async function editFeedback(m: Me, id: string, message: string, kind?: string) {
-  await ownFeedback(m, id);
+  const was = await ownFeedback(m, id);
   const text = message.trim().slice(0, 4000);
   if (!text) throw new OpError("Write your comment first.");
   const k = kind && (KINDS as readonly string[]).includes(kind) ? { kind } : {};
   let r = await db().from("onpoint_feedback").update({ message: text, ...k, edited_at: new Date().toISOString() }).eq("workspace_id", m.ws.id).eq("id", id);
   if (r.error && /edited_at|kind/.test(r.error.message)) r = await db().from("onpoint_feedback").update({ message: text }).eq("workspace_id", m.ws.id).eq("id", id);
   if (r.error) throw new OpError(r.error.message, 500);
+  if (!m.founder && (text !== was.message || (kind && kind !== was.kind))) await feedbackSlack(m, "edited", { page: was.page, kind: kind ?? was.kind, message: text, shot: !!was.shot_path });
 }
 
 export async function deleteFeedback(m: Me, id: string) {
@@ -918,4 +935,5 @@ export async function deleteFeedback(m: Me, id: string) {
   if (f.shot_path) await db().storage.from("onpoint-files").remove([f.shot_path]);
   const r = await db().from("onpoint_feedback").delete().eq("workspace_id", m.ws.id).eq("id", id);
   if (r.error) throw new OpError(r.error.message, 500);
+  if (!m.founder) await feedbackSlack(m, "deleted", { page: f.page, kind: f.kind, message: f.message });
 }
