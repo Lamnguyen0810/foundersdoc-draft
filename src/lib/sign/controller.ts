@@ -18,6 +18,14 @@ export interface StatusSigner {
   notNeeded?: string;
   /** 0312: their signing step (same number = at the same time), for "after the directors" */
   step?: number;
+  /** 0317: when their link was emailed ("Emailed 27 Nov, 11:20 am") */
+  invitedAt?: string | null;
+  /** 0317: an approver: the first name of the person whose signature they approve */
+  approvesFor?: string;
+  /** 0317: an approver where one approval is enough ("Any 1 of 2") */
+  anyOne?: boolean;
+  /** 0317: a signer who needs an approval first (shown in the step after their approvers) */
+  afterApproval?: boolean;
 }
 export type StatusEvent = { kind: "signed"; name: string; role: string; /** 0312 */ did?: "signed" | "approved" | "filled" } | { kind: "completed" } | { kind: "voided" };
 
@@ -54,7 +62,7 @@ export function statusLines(signers: StatusSigner[], voided = false): Array<{ na
   });
 }
 
-export function statusMail(p: { title: string; signers: StatusSigner[]; event: StatusEvent; from: string | null; to?: "controller" | "sender" }): { subject: string; html: string; text: string } {
+export function statusMail(p: { title: string; signers: StatusSigner[]; event: StatusEvent; from: string | null; to?: "controller" | "sender"; /** 0317: when it was sent */ sentAt?: string | null }): { subject: string; html: string; text: string } {
   /* 0303: the sender gets the same update after each signature, with their own footer */
   const mine = p.to === "sender";
   const done = p.signers.filter((s) => s.status === "signed").length;
@@ -86,34 +94,43 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
   ]
     .filter((x, i, a) => !(x === "" && a[i - 1] === ""))
     .join("\n");
-  /* 0312: a modern, formal status email: a dark header with a live-status badge, three figures (done, still to do,
-     who is next), a segmented bar (one segment per person), then the people grouped by signing step with their
-     status and time. Tables and inline styles only (Outlook and Gmail); no images, no link to the document. */
+  /* 0317 (Rachel: "this looks better", with colours other than yellow): a formal status email. A dark header,
+     what just happened, the document, a progress card (one bar split by action: green = signed, blue = approved,
+     orange = their turn, grey = not yet), done / pending / next, then a signing register: step, party, status,
+     date and time. Tables and inline styles only (Outlook and Gmail); no images, no link to the document. */
   const F = "font-family:Arial,Helvetica,sans-serif;";
   const MONO = "font-family:'SFMono-Regular',Menlo,Consolas,'Courier New',monospace;";
   type L = (typeof lines)[number];
-  const kind = (l: L) =>
+  type K = "skip" | "approved" | "done" | "now" | "wait";
+  const kind = (l: L): K =>
     /^Not needed/.test(l.text) ? "skip" : /^Approved/.test(l.text) ? "approved" : /^(Signed|Filled in)/.test(l.text) ? "done" : /their turn now/.test(l.text) ? "now" : "wait";
-  const C = {
-    done: { dot: "#16a34a", bg: "#e8f7ee", fg: "#15803d", label: "SIGNED" },
-    approved: { dot: "#2563eb", bg: "#e8effd", fg: "#1d4ed8", label: "APPROVED" },
-    now: { dot: "#d4a017", bg: "#fdf4d8", fg: "#8a6200", label: "THEIR TURN" },
-    wait: { dot: "#c9ccd3", bg: "#f2f3f5", fg: "#6b7280", label: "WAITING" },
-    skip: { dot: "#e2e4e8", bg: "#f2f3f5", fg: "#9ca3af", label: "NOT NEEDED" },
-  } as const;
-  const labelOf = (l: L) => (kind(l) === "done" && /^Filled in/.test(l.text) ? "FILLED IN" : voided && kind(l) !== "done" && kind(l) !== "approved" ? "NOT SIGNED" : C[kind(l)].label);
-  const when = (l: L) => {
-    const m = /^(?:Signed|Approved|Filled in)\s+(.+)$/.exec(l.text);
-    if (m) return m[1]!;
-    if (kind(l) === "skip") return l.text.replace(/^Not needed:\s*/, "");
-    const t = l.text.replace(/^Not (signed|approved|filled in) yet:\s*/, "");
-    return /^their turn now$/.test(t) || voided ? "" : t.charAt(0).toUpperCase() + t.slice(1);
-  };
-  const steps = p.signers.map((x, i) => x.step ?? i + 1);
-  const grouped = p.signers.some((x) => x.step !== undefined) && new Set(steps).size < steps.length;
-  const turn = lines.filter((l) => kind(l) === "now").map((l) => l.name.split(/\s+/)[0]!);
-  const left = lines.filter((l) => kind(l) === "now" || kind(l) === "wait").length;
+  const first = (n: string) => n.split(/\s+/)[0]!;
   const listNames = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}` : (xs[0] ?? ""));
+  const short = (iso: string) => sgtTime(iso).replace(/ \d{4},/, ",");
+  const GREEN = "#16a34a";
+  const BLUE = "#2563eb";
+  const ORANGE = "#f97316";
+  const GREY = "#e5e7eb";
+  /* the register's rows in signing order. Within a step, approvers are listed first, and someone who needs their
+     approval in that same step moves to the next step shown (they are emailed only once it is approved). */
+  type R = { s: StatusSigner; l: L; k: K; i: number; step: number; sub: number };
+  const stepAt = (s: StatusSigner, i: number) => s.step ?? i + 1;
+  const rows: R[] = p.signers
+    .map((s, i) => {
+      const step = stepAt(s, i);
+      const heldHere = !!s.afterApproval && p.signers.some((x, j) => x.does === "approve" && x.approvesFor === s.name.split(/\s+/)[0] && stepAt(x, j) === step);
+      return { s, l: lines[i]!, k: kind(lines[i]!), i, step, sub: heldHere ? 1 : 0 };
+    })
+    .sort((a, b) => a.step - b.step || a.sub - b.sub || (a.s.does === "approve" ? 0 : 1) - (b.s.does === "approve" ? 0 : 1) || a.i - b.i);
+  const keyOf = (r: R) => `${r.step}.${r.sub}`;
+  const groupNo = new Map<string, number>();
+  for (const r of rows) if (!groupNo.has(keyOf(r))) groupNo.set(keyOf(r), groupNo.size + 1);
+  const act = (r: R) => (r.s.does === "approve" ? "Approve" : r.s.does === "fill" ? "Fill in" : "Sign");
+  const isDone = (r: R) => r.k === "done" || r.k === "approved";
+  const colour = (r: R) => (isDone(r) ? (r.k === "approved" || r.s.does === "approve" ? BLUE : GREEN) : r.k === "now" && !voided ? ORANGE : GREY);
+  const ink = (c: string) => (c === GREEN ? "#15803d" : c === BLUE ? "#1d4ed8" : c === ORANGE ? "#c2410c" : "#9ca3af");
+  const counted = rows.filter((r) => r.k !== "skip");
+  const turn = counted.filter((r) => r.k === "now").map((r) => first(r.s.name));
   const next =
     p.event.kind === "completed"
       ? "Everyone has signed. The signed copy has gone to everyone who signed, and to anyone given a copy."
@@ -122,139 +139,134 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
         : turn.length
           ? `Now with ${listNames(turn)}. You will get an email each time someone signs.`
           : "You will get an email each time someone signs.";
-  const badge =
-    p.event.kind === "completed" ? { t: "COMPLETED", c: "#22c55e" } : voided ? { t: "CANCELLED", c: "#9ca3af" } : { t: "LIVE STATUS", c: "#22c55e" };
+  /* under the heading: who has just been emailed because of this step */
+  const ev = p.event;
+  const evAt = ev.kind === "signed" ? p.signers.find((s) => s.name === ev.name && s.status === "signed")?.signedAt : null;
+  const fresh = counted.filter((r) => r.k === "now" && r.s.invitedAt && evAt && Date.parse(r.s.invitedAt) >= Date.parse(evAt) - 60_000);
+  const freshVerb = fresh.every((r) => r.s.does === "approve") ? "approve" : fresh.every((r) => r.s.does === "fill") ? "fill in their part" : "sign";
+  const subline =
+    ev.kind === "completed"
+      ? "The signed copy has gone to everyone who signed, and to anyone given a copy."
+      : voided
+        ? "Nobody else will be asked to sign."
+        : fresh.length
+          ? `${listNames(fresh.map((r) => first(r.s.name)))} ${fresh.length > 1 ? "have" : "has"} now been emailed to ${freshVerb}.`
+          : turn.length
+            ? `Still with ${listNames(turn)}.`
+            : "";
+  const badge = ev.kind === "completed" ? { t: "COMPLETED", c: "#22c55e" } : voided ? { t: "CANCELLED", c: "#9ca3af" } : { t: "LIVE STATUS", c: "#22c55e" };
   const stamp = sgtTime(new Date().toISOString());
-  /* a person icon drawn with HTML (no images: email apps block them, and Gmail drops SVG):
-     black once they have signed or approved, grey while not yet, pale when no longer needed */
-  const ink = (l: L) => (kind(l) === "done" || kind(l) === "approved" ? "#0f1115" : kind(l) === "skip" ? "#e5e7eb" : "#c4c7ce");
-  const human = (color: string, size = 1, ring = false) => {
-    const h = Math.round(9 * size);
-    const bw = Math.round(17 * size);
-    const bh = Math.round(9 * size);
-    return (
-      `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;${ring ? `border-bottom:2px solid #d4a017;padding-bottom:2px;` : ""}"><tr><td align="center" style="padding:0;line-height:0;font-size:0;">` +
-      `<div style="width:${h}px;height:${h}px;border-radius:${h}px;background-color:${color};margin:0 auto;font-size:0;line-height:0;">&nbsp;</div>` +
-      `<div style="width:${bw}px;height:${bh}px;border-radius:${bh}px ${bh}px 3px 3px;background-color:${color};margin:${Math.round(2 * size)}px auto 0 auto;font-size:0;line-height:0;">&nbsp;</div>` +
-      `</td></tr></table>`
-    );
+  const pc = total ? Math.round((done / total) * 100) : 0;
+  /* the bar: one part per action, side by side parts of the same colour and action merged ("SIGN ×2") */
+  const segs: Array<{ c: string; a: string; n: number }> = [];
+  for (const r of counted) {
+    const c = colour(r);
+    const last = segs[segs.length - 1];
+    if (last && last.c === c && last.a === act(r)) last.n++;
+    else segs.push({ c, a: act(r), n: 1 });
+  }
+  const pct = (n: number) => ((n / Math.max(counted.length, 1)) * 100).toFixed(2);
+  const bar =
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;table-layout:fixed;margin-top:14px;"><tr>` +
+    segs.map((g) => `<td width="${pct(g.n)}%" style="height:8px;background-color:${g.c};font-size:1px;line-height:1px;">&nbsp;</td>`).join("") +
+    `</tr><tr>` +
+    segs
+      .map(
+        (g, i) =>
+          `<td width="${pct(g.n)}%" align="${i === segs.length - 1 && segs.length > 1 ? "right" : "left"}" style="padding-top:7px;${MONO}font-size:10px;line-height:13px;letter-spacing:1.5px;font-weight:bold;color:${ink(g.c)};white-space:nowrap;overflow:hidden;">${g.a.toUpperCase()}${g.n > 1 ? ` &times;${g.n}` : ""}</td>`,
+      )
+      .join("") +
+    `</tr></table>`;
+  const cell = (label: string, dot: string, names: string[], lastCell = false) =>
+    `<td width="33%" valign="top" style="padding:14px 18px 16px 18px;${lastCell ? "" : "border-right:1px solid #e5e7eb;"}">` +
+    `<div style="${MONO}font-size:10px;line-height:14px;letter-spacing:1.5px;color:#6b7280;"><span style="display:inline-block;width:7px;height:7px;border-radius:4px;background-color:${dot};margin-right:7px;">&nbsp;</span>${label}</div>` +
+    `<div style="${F}font-size:15px;line-height:21px;font-weight:bold;color:#0f1115;margin-top:6px;">${names.length ? esc(names.join(", ")) : "&ndash;"}</div></td>`;
+  const card =
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border:1px solid #e5e7eb;border-radius:12px;">` +
+    `<tr><td style="padding:18px 18px 16px 18px;">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;"><tr>` +
+    `<td valign="bottom"><span style="${F}font-size:28px;line-height:32px;font-weight:bold;color:#0f1115;">${pc}%</span><span style="${F}font-size:14px;line-height:20px;color:#6b7280;"> &nbsp;complete &middot; ${done} of ${total} actions</span></td>` +
+    `<td align="right" valign="bottom" style="${F}font-size:13.5px;line-height:20px;color:#374151;">${ev.kind === "completed" ? "<b>All done</b>" : voided ? "<b>Cancelled</b>" : turn.length ? `Now with <b style="color:#0f1115;">${esc(turn.join(", "))}</b>` : ""}</td>` +
+    `</tr></table>${bar}</td></tr>` +
+    `<tr><td bgcolor="#f8f9fb" style="background-color:#f8f9fb;border-top:1px solid #e5e7eb;border-radius:0 0 12px 12px;padding:0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;table-layout:fixed;"><tr>` +
+    cell("DONE", GREEN, counted.filter(isDone).map((r) => first(r.s.name))) +
+    cell(voided ? "NOT SIGNED" : "PENDING", voided ? "#c9ccd3" : ORANGE, voided ? counted.filter((r) => !isDone(r)).map((r) => first(r.s.name)) : turn) +
+    cell("NEXT", "#d1d5db", voided ? [] : counted.filter((r) => r.k === "wait").map((r) => first(r.s.name)), true) +
+    `</tr></table></td></tr></table>`;
+  /* the signing register */
+  const oneOf = (r: R) => rows.filter((x) => x.s.does === "approve" && x.s.approvesFor && x.s.approvesFor === r.s.approvesFor);
+  const pill = (r: R) => {
+    const [t, bg, fg] =
+      r.k === "approved" || (r.k === "done" && r.s.does === "approve")
+        ? ["APPROVED", BLUE, "#ffffff"]
+        : r.k === "done"
+          ? [r.s.does === "fill" ? "FILLED IN" : "SIGNED", GREEN, "#ffffff"]
+          : voided
+            ? ["NOT SIGNED", "#f2f3f5", "#6b7280"]
+            : r.k === "skip"
+              ? ["NOT NEEDED", "#f2f3f5", "#9ca3af"]
+              : r.k === "now"
+                ? ["THEIR TURN", ORANGE, "#ffffff"]
+                : ["NOT YET SENT", "#f2f3f5", "#6b7280"];
+    return `<span style="display:inline-block;padding:4px 9px;border-radius:5px;background-color:${bg};color:${fg};${MONO}font-size:10.5px;line-height:14px;font-weight:bold;letter-spacing:1.5px;white-space:nowrap;">${t}</span>`;
   };
-  const person = (l: L, i: number) => {
-    const k = kind(l);
-    const c = C[k];
-    const w = when(l);
-    return (
-      `<tr><td width="34" valign="top" style="width:34px;padding:12px 0;">${human(ink(l), 1, k === "now" && !voided)}</td>` +
-      `<td valign="top" style="padding:12px 8px 12px 0;${F}"><div style="font-size:15px;line-height:20px;font-weight:bold;color:${k === "skip" ? "#9ca3af" : "#0f1115"};">${esc(l.name)}</div>` +
-      `<div style="font-size:12.5px;line-height:18px;color:#6b7280;">${esc(l.role)}</div></td>` +
-      `<td align="right" valign="top" style="padding:12px 0;"><span style="display:inline-block;padding:3px 8px;border-radius:5px;background-color:${c.bg};color:${c.fg};${MONO}font-size:10.5px;line-height:14px;font-weight:bold;letter-spacing:1px;white-space:nowrap;">${labelOf(l)}</span>` +
-      (w ? `<div style="${MONO}font-size:11px;line-height:16px;color:#9ca3af;margin-top:5px;white-space:nowrap;">${esc(w)}</div>` : "") +
-      `</td></tr>` +
-      (i < lines.length - 1 ? `<tr><td colspan="3" style="border-top:1px solid #f0f1f3;font-size:1px;line-height:1px;">&nbsp;</td></tr>` : "")
-    );
+  const whenOf = (r: R) => {
+    if (isDone(r)) return r.s.signedAt ? short(r.s.signedAt) : "";
+    if (voided) return "Request cancelled";
+    if (r.k === "skip") return `${r.s.notNeeded ?? "Another approver"} approved first`;
+    if (r.k === "now") return r.s.invitedAt ? `Emailed ${short(r.s.invitedAt)}` : "Emailed";
+    if (r.s.heldFor?.length) {
+      const any = rows.some((x) => x.s.does === "approve" && x.s.anyOne && x.s.approvesFor === first(r.s.name));
+      return `Emailed after ${r.s.heldFor.join(any ? " or " : " and ")} ${any || r.s.heldFor.length === 1 ? "approves" : "approve"}`;
+    }
+    const prior = counted.filter((x) => (groupNo.get(keyOf(x)) ?? 0) < (groupNo.get(keyOf(r)) ?? 0) && !isDone(x));
+    const before = prior.map((x) => first(x.s.name));
+    const approving = prior.length > 0 && prior.every((x) => x.s.does === "approve");
+    return before.length ? `Emailed after ${before.length > 3 ? "the people above" : listNames(before)} ${approving ? (before.length === 1 ? "approves" : "approve") : before.length === 1 ? "signs" : "sign"}` : "Emailed next";
   };
-  let people = "";
-  if (grouped) {
-    const order = [...new Set(steps)].sort((x, y) => x - y);
-    people = order
-      .map((st, gi) => {
-        const idx = steps.map((x, i) => (x === st ? i : -1)).filter((i) => i >= 0);
-        const label = `STEP ${gi + 1}${idx.length > 1 ? " &middot; AT THE SAME TIME" : ""}`;
+  const TH = `${MONO}font-size:10px;line-height:14px;letter-spacing:1.5px;color:#6b7280;font-weight:bold;padding:11px 12px;border-bottom:1px solid #e5e7eb;`;
+  const seen = new Set<string>();
+  const register =
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border:1px solid #e5e7eb;border-radius:12px;border-collapse:separate;overflow:hidden;">` +
+    `<tr bgcolor="#f8f9fb"><td width="15%" style="${TH}">STEP</td><td width="35%" style="${TH}">PARTY</td><td width="22%" style="${TH}">STATUS</td><td width="28%" style="${TH}">DATE &amp; TIME</td></tr>` +
+    rows
+      .map((r, idx) => {
+        const g = keyOf(r);
+        const head = !seen.has(g);
+        seen.add(g);
+        const size = rows.filter((x) => keyOf(x) === g).length;
+        const extra =
+          head && r.s.does === "approve" && r.s.anyOne && oneOf(r).length > 1
+            ? ` &middot; Any 1 of ${oneOf(r).length}`
+            : head && size > 1 && r.s.does !== "approve"
+              ? " &middot; At the same time"
+              : "";
+        const bg = r.k === "now" && !voided ? "background-color:#fff7ed;" : "";
+        const line = idx < rows.length - 1 ? "border-bottom:1px solid #eef0f3;" : "";
+        const TD = `vertical-align:top;padding:13px 12px;${bg}${line}`;
         return (
-          `<tr><td colspan="3" style="padding:${gi ? 18 : 4}px 0 2px 0;${MONO}font-size:10px;line-height:14px;letter-spacing:1.5px;color:#9ca3af;">${label}</td></tr>` +
-          idx.map((i, k) => person(lines[i]!, k === idx.length - 1 ? lines.length - 1 : i)).join("")
+          `<tr>` +
+          `<td style="${TD}">${head ? `<div style="${F}font-size:15px;line-height:20px;font-weight:bold;color:#0f1115;">${groupNo.get(g)}</div>` : ""}${head || act(r) !== act(rows.find((x) => keyOf(x) === g)!) ? `<div style="${F}font-size:12.5px;line-height:17px;color:#6b7280;${head ? "" : "padding-top:20px;"}">${act(r)}</div>` : ""}</td>` +
+          `<td style="${TD}"><div style="${F}font-size:15px;line-height:20px;font-weight:bold;color:${r.k === "skip" ? "#9ca3af" : "#0f1115"};">${esc(r.s.name)}</div><div style="${F}font-size:12.5px;line-height:17px;color:#6b7280;">${esc(r.s.role)}${extra}</div></td>` +
+          `<td style="${TD}">${pill(r)}</td>` +
+          `<td style="${TD}${MONO}font-size:11.5px;line-height:17px;color:#6b7280;">${esc(whenOf(r))}</td>` +
+          `</tr>`
         );
       })
-      .join("");
-  } else people = lines.map((l, i) => person(l, i)).join("");
-  /* 0312 (Rachel: "from a glance I still don't get a sense of who has signed and who hasn't and how many more to
-     go"): one panel answers all three. "2 signed · 3 to go" in big type; every person as an icon with their first
-     name under it, black once signed, grey while not yet, a gold line under whoever has it now; then two lists:
-     who has signed, and who still has to (with "their turn" on the ones it is with). */
-  const firstOf = (l: L) => l.name.split(/\s+/)[0]!;
-  /* approvers have their own column: approving is not signing (Lam, 0312) */
-  const isApprover = (l: L) => p.signers[lines.indexOf(l)]?.does === "approve";
-  const doneL = lines.filter((l) => !isApprover(l) && (kind(l) === "done" || kind(l) === "approved"));
-  const todoL = lines.filter((l) => !isApprover(l) && (kind(l) === "now" || kind(l) === "wait"));
-  const apprL = lines.filter(isApprover);
-  /* a loading bar: one segment per person, filling up from the left as people sign. Two colours only (Lam, 0312):
-     green once signed or approved, grey while not yet. With approvers there are two bars, SIGNING and APPROVAL,
-     each with its own count, so it reads at a glance (Rachel). The stripes are a background pattern (Apple Mail, Gmail); where an email app drops
-     it (Outlook) the segment is plain green. The person icons stay in the signing order below. */
-  const pctDone = total ? Math.round((done / total) * 100) : 0;
-  const isDone = (l: L) => kind(l) === "done" || kind(l) === "approved";
-  const fill = (l: L) =>
-    isDone(l)
-      ? "background-color:#16a34a;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,0.18) 0,rgba(255,255,255,0.18) 6px,rgba(255,255,255,0) 6px,rgba(255,255,255,0) 12px);"
-      : "background-color:#e5e7eb;";
-  const shown = lines.filter((l) => kind(l) !== "skip").sort((x, y) => Number(isDone(y)) - Number(isDone(x)));
-  /* one bar: segments for these people, their first names under them */
-  const barOf = (xs: L[], top: number) => {
-    const w = (100 / Math.max(xs.length, 1)).toFixed(2);
-    return (
-      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;table-layout:fixed;margin-top:${top}px;"><tr>` +
-      xs
-        .map(
-          (l, i) =>
-            `<td width="${w}%" style="padding:0 ${i === xs.length - 1 ? 0 : 3}px 0 0;"><div style="height:16px;${fill(l)}border-radius:${i === 0 ? "8px" : "2px"} ${i === xs.length - 1 ? "8px 8px" : "2px 2px"} ${i === 0 ? "8px" : "2px"};font-size:1px;line-height:1px;">&nbsp;</div></td>`,
-        )
-        .join("") +
-      `</tr><tr>` +
-      xs
-        .map(
-          (l) =>
-            `<td width="${w}%" align="center" valign="top" style="padding:6px 3px 0 0;${F}font-size:11px;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${isDone(l) ? "#15803d" : "#9ca3af"};font-weight:${isDone(l) ? "bold" : "normal"};">${esc(firstOf(l))}</td>`,
-        )
-        .join("") +
-      `</tr></table>`
-    );
-  };
-  /* Lam: with approvers, two bars, SIGNING and APPROVAL, each with its own count, so nobody mixes them up */
-  const barHead = (label: string, color: string, xs: L[], top: number) =>
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:${top}px;"><tr>` +
-    `<td style="${MONO}font-size:10px;line-height:14px;letter-spacing:1.5px;font-weight:bold;color:${color};">${label}</td>` +
-    `<td align="right" style="${MONO}font-size:11px;line-height:14px;font-weight:bold;color:#0f1115;">${xs.filter(isDone).length} / ${xs.length}</td>` +
-    `</tr></table>`;
-  const signL = shown.filter((l) => !isApprover(l));
-  const okL = shown.filter(isApprover);
-  const bar = okL.length
-    ? barHead("SIGNING", "#15803d", signL, 16) + barOf(signL, 6) + barHead("APPROVAL", "#1d4ed8", okL, 14) + barOf(okL, 6)
-    : barOf(shown, 14);
-  const nameList = (xs: L[], mark: (l: L) => string) =>
-    xs.length
-      ? xs
-          .map(
-            (l) =>
-              `<div style="${F}font-size:13.5px;line-height:20px;color:#1f2937;padding:2px 0;">${mark(l)} ${esc(l.name)}` +
-              (kind(l) === "now" && !voided ? `<div style="${MONO}font-size:9.5px;line-height:13px;letter-spacing:1px;color:#8a6200;white-space:nowrap;padding-left:16px;">THEIR TURN</div>` : "") +
-              `</div>`,
-          )
-          .join("")
-      : `<div style="${F}font-size:13.5px;line-height:21px;color:#9ca3af;">Nobody yet</div>`;
-  const big = (n: number, label: string, color: string) => `<span style="${F}font-size:34px;line-height:38px;font-weight:bold;color:${color};">${n}</span><span style="${F}font-size:15px;line-height:20px;color:#6b7280;"> ${label}</span>`;
-  const glance =
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border:1px solid #e5e7eb;border-radius:12px;"><tr><td style="padding:20px 20px 18px 20px;">` +
-    `<div style="${MONO}font-size:10px;line-height:14px;letter-spacing:1.5px;color:#9ca3af;">AT A GLANCE</div>` +
-    /* the percentage sits on the headline row, so the bar gets the full width (room for "APPROVAL" on a phone) */
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:8px;"><tr><td valign="bottom">${big(done, apprL.length ? "done" : "signed", "#15803d")}<span style="${F}font-size:22px;color:#d1d5db;"> &nbsp;&middot;&nbsp; </span>${voided ? `<span style="${F}font-size:15px;color:#6b7280;">request cancelled</span>` : p.event.kind === "completed" ? `<span style="${F}font-size:15px;color:#15803d;font-weight:bold;">all done</span>` : big(left, "to go", "#8a6200")}</td><td width="60" align="right" valign="bottom" style="width:60px;padding-bottom:4px;${MONO}font-size:14px;line-height:18px;font-weight:bold;color:#0f1115;">${pctDone}%</td></tr></table>` +
-    bar +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:16px;border-top:1px solid #f0f1f3;"><tr>` +
-    `<td width="${apprL.length ? 34 : 50}%" valign="top" style="padding:12px 10px 0 0;"><div style="${MONO}font-size:10px;line-height:14px;letter-spacing:1.5px;color:#15803d;margin-bottom:4px;">SIGNED (${doneL.length})</div>${nameList(doneL, () => `<span style="color:#16a34a;font-weight:bold;">&#10003;</span>`)}</td>` +
-    `<td width="${apprL.length ? 33 : 50}%" valign="top" style="padding:12px ${apprL.length ? 10 : 0}px 0 10px;"><div style="${MONO}font-size:10px;line-height:14px;letter-spacing:1.5px;color:#8a6200;margin-bottom:4px;">STILL TO ${voided ? "SIGN (CANCELLED)" : "SIGN"} (${todoL.length})</div>${nameList(todoL, () => `<span style="color:#c4c7ce;">&#9675;</span>`)}</td>` +
-    /* 0312: approvers on their own: approved, still to approve, or no longer needed */
-    (apprL.length
-      ? `<td width="33%" valign="top" style="padding:12px 0 0 10px;"><div style="${MONO}font-size:10px;line-height:14px;letter-spacing:1.5px;color:#1d4ed8;margin-bottom:4px;">APPROVAL (${apprL.filter((l) => kind(l) === "approved" || kind(l) === "done").length}/${apprL.filter((l) => kind(l) !== "skip").length || apprL.length})</div>` +
-        apprL
-          .map((l) => {
-            const k = kind(l);
-            const mark = k === "approved" || k === "done" ? `<span style="color:#2563eb;font-weight:bold;">&#10003;</span>` : k === "skip" ? `<span style="color:#d1d5db;">&ndash;</span>` : `<span style="color:#c4c7ce;">&#9675;</span>`;
-            const tag = k === "skip" ? "NOT NEEDED" : k === "now" && !voided ? "TO APPROVE" : "";
-            return `<div style="${F}font-size:13.5px;line-height:20px;color:${k === "skip" ? "#9ca3af" : "#1f2937"};padding:2px 0;">${mark} ${esc(l.name)}${tag ? `<div style="${MONO}font-size:9.5px;line-height:13px;letter-spacing:1px;white-space:nowrap;padding-left:16px;color:${k === "skip" ? "#9ca3af" : "#1d4ed8"};">${tag}</div>` : ""}</div>`;
-          })
-          .join("") +
-        `</td>`
-      : "") +
-    `</tr></table></td></tr></table>`;
+      .join("") +
+    `</table>`;
+  /* e.g. "Step 3 was released when Legal Team approved at 11:20 am. Only one approval is needed in Step 2." */
+  const released = rows
+    .filter((r) => r.s.does === "approve" && isDone(r) && r.s.approvesFor && r.s.signedAt)
+    .map((r) => {
+      const target = rows.find((x) => first(x.s.name) === r.s.approvesFor && x.s.does !== "approve");
+      if (!target || target.k === "wait") return "";
+      const t = sgtTime(r.s.signedAt!).split(", ").pop();
+      return `Step ${groupNo.get(keyOf(target))} was released when ${r.s.name} approved at ${t}.${r.s.anyOne && oneOf(r).length > 1 ? ` Only one approval is needed in Step ${groupNo.get(keyOf(r))}.` : ""}`;
+    })
+    .filter(Boolean)
+    .join(" ");
+  const sentLine = [mine ? "Sent by you" : p.from ? `Sent by ${p.from}` : "", p.sentAt ? sgtTime(p.sentAt) : ""].filter(Boolean).join(" · ");
   const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(subject)}</title></head>
 <body style="margin:0;padding:0;background-color:#eef0f3;">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(`${count}. ${next}`)}</div>
@@ -267,18 +279,19 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
 </tr></table></td></tr>
 <tr><td bgcolor="#ffffff" style="background-color:#ffffff;padding:28px 28px 0 28px;${F}">
 <div style="${MONO}font-size:10.5px;line-height:14px;letter-spacing:1.5px;color:#9ca3af;">STATUS UPDATE &middot; ${esc(stamp.toUpperCase())} SGT</div>
-<div style="font-size:24px;line-height:31px;font-weight:bold;color:#0f1115;margin-top:10px;">${esc(head)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:14px;"><tr><td style="border-left:3px solid #d4a017;padding:2px 0 2px 12px;">
-<div style="${F}font-size:15px;line-height:21px;font-weight:bold;color:#1f2937;">${esc(p.title)}</div>
-${by ? `<div style="${F}font-size:12.5px;line-height:18px;color:#6b7280;margin-top:2px;">${esc(by.trim().replace(/^sent by/, "Sent by"))}</div>` : ""}
+<div style="font-size:25px;line-height:32px;font-weight:bold;color:#0f1115;margin-top:10px;">${esc(head)}</div>
+${subline ? `<div style="font-size:15px;line-height:22px;color:#6b7280;margin-top:6px;">${esc(subline)}</div>` : ""}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:18px;"><tr><td style="border-left:3px solid #0f1115;padding:2px 0 2px 14px;">
+<div style="${F}font-size:15.5px;line-height:22px;font-weight:bold;color:#0f1115;">${esc(p.title)}</div>
+${sentLine ? `<div style="${F}font-size:13px;line-height:19px;color:#6b7280;margin-top:2px;">${esc(sentLine)}</div>` : ""}
 </td></tr></table></td></tr>
-<tr><td bgcolor="#ffffff" style="background-color:#ffffff;padding:22px 28px 0 28px;">
-${glance}
-<div style="${F}font-size:13.5px;line-height:20px;color:#374151;margin-top:12px;">${esc(next)}</div>
+<tr><td bgcolor="#ffffff" style="background-color:#ffffff;padding:22px 28px 0 28px;">${card}</td></tr>
+<tr><td bgcolor="#ffffff" style="background-color:#ffffff;padding:26px 28px 6px 28px;">
+<div style="${MONO}font-size:10.5px;line-height:14px;letter-spacing:2px;color:#6b7280;margin-bottom:12px;">SIGNING REGISTER</div>
+${register}
+${released ? `<div style="${F}font-size:13px;line-height:20px;color:#6b7280;margin-top:12px;">${esc(released)}</div>` : ""}
 </td></tr>
-<tr><td bgcolor="#ffffff" style="background-color:#ffffff;padding:22px 28px 6px 28px;">
-<div style="${MONO}font-size:10px;line-height:14px;letter-spacing:1.5px;color:#9ca3af;padding-bottom:4px;border-bottom:1px solid #e5e7eb;">SIGNING ORDER</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">${people}</table></td></tr>
+<tr><td bgcolor="#ffffff" style="background-color:#ffffff;padding:0 0 16px 0;font-size:1px;line-height:1px;">&nbsp;</td></tr>
 <tr><td bgcolor="#f8f9fb" style="background-color:#f8f9fb;border-top:1px solid #e5e7eb;border-radius:0 0 14px 14px;padding:18px 28px 22px 28px;${F}font-size:12px;line-height:18px;color:#6b7280;">
 <div>${mine ? "You get these updates because you sent this document for signing." : `You get these updates as the <b style="color:#374151;">key controller</b> for this document. You do not need to do anything. For privacy, this email has no link to the document.`}</div>
 <div style="${MONO}font-size:10.5px;line-height:16px;letter-spacing:1px;color:#9ca3af;margin-top:10px;">FD SIGN BY FOUNDERS DOC &middot; EVERY STEP IS RECORDED IN THE AUDIT TRAIL</div>
