@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSend } from "@/lib/sign/service";
-import { cleanSteps } from "@/lib/sign/order";
+import { cleanApprovals, cleanSteps } from "@/lib/sign/order";
 import { parseFields } from "@/lib/sign/fields";
 import { who } from "@/lib/sign/http";
 import { isHookConfigured } from "@/lib/sign/notify";
@@ -103,6 +103,12 @@ export async function POST(req: NextRequest) {
   const steps = meta.steps === undefined ? signers.map((_, i) => i + 1) : cleanSteps(meta.steps, signers.length);
   if (!steps) return NextResponse.json({ error: "The signing order isn't valid. Please check the People step." }, { status: 400 });
   const fill = [...new Set((Array.isArray(meta.fillOnly) ? meta.fillOnly : []).map(Number))].filter((p) => Number.isInteger(p) && p >= 1 && p <= signers.length);
+  /* 0308: [approver, signer] positions: approves first, then that signer gets their link */
+  const approve = cleanApprovals(meta.approve, steps, fill);
+  if (!approve) return NextResponse.json({ error: "Approvals: each approver approves one person who signs, and comes before them or at the same time." }, { status: 400 });
+  const approvers = new Set(approve.map(([a]) => a));
+  /* 0309: for these signers one approval is enough */
+  const anyOf = [...new Set((Array.isArray(meta.approveAny) ? meta.approveAny : []).map(Number))].filter((t) => approve.some(([, x]) => x === t));
   const remindDaily = meta.remindDaily === true;
   /* 0305: save as a draft (SQL 150), send later from the document page */
   const draft = meta.draft === true;
@@ -110,7 +116,9 @@ export async function POST(req: NextRequest) {
   const fields = parseFields(meta.fields, signers.length);
   for (let i = 0; i < signers.length; i++) {
     const mine = fields.filter((f) => f.position === i + 1);
-    if (fill.includes(i + 1)) {
+    if (approvers.has(i + 1)) {
+      if (mine.length) return NextResponse.json({ error: `${signers[i].name} only approves: remove their boxes from the document.` }, { status: 400 });
+    } else if (fill.includes(i + 1)) {
       if (!mine.some((f) => f.kind === "text" || f.kind === "date" || f.kind === "checkbox" || f.kind === "name"))
         return NextResponse.json({ error: `${signers[i].name} fills in only: add a text or date box for them on the document.` }, { status: 400 });
       if (mine.some((f) => f.kind === "signature" || f.kind === "initials"))
@@ -134,7 +142,7 @@ export async function POST(req: NextRequest) {
   const senderName = typedName.length >= 2 ? typedName : me.name;
   try {
     const res = await createSend(store, {
-      docs: [{ title, fileName: file.name.slice(0, 200) || "document.pdf", bytes, esopHolderId: null, esopTranche: null, signers, cc, controllers, supplements, order: { steps, fill }, remindDaily, fields }],
+      docs: [{ title, fileName: file.name.slice(0, 200) || "document.pdf", bytes, esopHolderId: null, esopTranche: null, signers, cc, controllers, supplements, order: { steps, fill, approve, anyOf }, remindDaily, fields }],
       batch: false,
       message,
       createdBy: me.email,

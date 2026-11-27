@@ -157,6 +157,8 @@ export default function SignClient({
   const [consent, setConsent] = useState(false);
   /* 0304: this person only fills in (no signature) */
   const fillOnly = !!view.fillOnly;
+  /* 0308: an approver: reads it and approves (no boxes, no signature) */
+  const approveOnly = !!view.approveOnly;
   const [drawn, setDrawn] = useState(false);
   const [png, setPng] = useState("");
   const [busy, setBusy] = useState(false);
@@ -341,7 +343,7 @@ export default function SignClient({
 
   async function sign() {
     setErr("");
-    if (fillOnly && !consent) return setErr("Please tick the box to agree to complete this electronically.");
+    if (fillOnly && !consent) return setErr(approveOnly ? "Please tick the box to approve." : "Please tick the box to agree to complete this electronically.");
     if (!fillOnly && (!adopted || !consent)) return openSheet(signLeft[0]?.k ?? null);
     if (signLeft.length) {
       goTo(signLeft[0].k);
@@ -594,15 +596,19 @@ export default function SignClient({
           {/* 0304: a person who only fills in (e.g. the date on the dating line): no signature */}
           {view.state === "ready" && ok && fillOnly && (
             <div className="fs-card fs-sigcard">
-              <h2>Fill in and finish</h2>
-              <p className="fs-small fs-tight">No signature is needed from you. Fill in your boxes, then press Finish.</p>
+              <h2>{approveOnly ? "Review and approve" : "Fill in and finish"}</h2>
+              <p className="fs-small fs-tight">
+                {approveOnly
+                  ? "No signature is needed from you. Please read the document, then approve it: the next person is asked to sign once you have."
+                  : "No signature is needed from you. Fill in your boxes, then press Finish."}
+              </p>
               <label className="fs-consent">
                 <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-                <span>I agree to complete this document electronically.</span>
+                <span>{approveOnly ? "I have reviewed this document and approve it." : "I agree to complete this document electronically."}</span>
               </label>
               {err && <p className="fs-err">{err}</p>}
               <button className="fs-btn primary" disabled={busy} onClick={nextOrFinish}>
-                {busy ? "Saving…" : todo.length ? "Next: fill in ↓" : "Finish"}
+                {busy ? "Saving…" : todo.length ? "Next: fill in ↓" : approveOnly ? "Approve" : "Finish"}
               </button>
               <p className="fs-small">
                 Completing as <b>{view.signerName}</b> ({view.signerEmail}). We record the time, your IP address and browser in the audit trail.
@@ -656,7 +662,7 @@ export default function SignClient({
           )}
           {view.state === "signed" && (
             <div className="fs-card done">
-              <h2>✓ {fillOnly ? "Done" : "Signed"}</h2>
+              <h2>✓ {approveOnly ? "Approved" : fillOnly ? "Done" : "Signed"}</h2>
               <p className="fs-small">{done ? "All parties have signed." : "Waiting for the other signers. You'll get the signed copy by email."}</p>
             </div>
           )}

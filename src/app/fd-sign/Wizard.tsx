@@ -50,9 +50,13 @@ interface Person {
   together: boolean;
   /** 0304: only fills in text / date boxes, no signature (e.g. the dating line) */
   fill: boolean;
+  /** 0308: approves first (no boxes, no signature) before this person (their key) signs; "" = signs */
+  approveFor: string;
+  /** 0309: with 2+ approvers, one approval is enough (default) or all of them must approve */
+  allApprove: boolean;
 }
 let seq = 0;
-const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "", via: "email", phone: "", together: false, fill: false });
+const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "", via: "email", phone: "", together: false, fill: false, approveFor: "", allApprove: false });
 
 /** channels = the phone channels switched on in Vercel (lib/sign/phone.ts); none = email codes only, as before */
 /** plan (0223, FD_SIGN_PRICING=on): this month's requests and WhatsApp / SMS codes; null = Beta, nothing shown */
@@ -308,11 +312,27 @@ export default function Wizard({
     else if (ccList.length > 5 || ccList.some((e) => !EMAIL.test(e))) p[2] = "Copies: up to 5 valid email addresses.";
     else if (ctlList.length > 3 || ctlList.some((e) => !EMAIL.test(e))) p[2] = "Status updates: up to 3 valid email addresses.";
     else if (filled.some((x) => x.via !== "email" && !normalisePhone(x.phone))) p[2] = "Add a mobile number with the country code (e.g. +65 9123 4567) for WhatsApp / SMS codes.";
+    else {
+      /* 0308: an approver approves someone who signs, and comes before them or at the same time */
+      const st = stepsFrom(filled.map((x) => x.together));
+      filled.forEach((x, i) => {
+        if (p[2] || !x.approveFor) return;
+        const t = filled.findIndex((y) => y.key === x.approveFor);
+        const who = x.name || `Person ${i + 1}`;
+        if (t < 0) p[2] = `${who}: choose who they approve for.`;
+        else if (filled[t]!.approveFor || filled[t]!.fill) p[2] = `${who} can only approve for someone who signs.`;
+        else if (st[i]! > st[t]!) p[2] = `${who} approves for ${filled[t]!.name || `person ${t + 1}`}, so put them above, or at the same time.`;
+      });
+    }
     /* 0304: a person who only fills in needs a text or date box and no signature box; everyone else a signature box */
     filled.forEach((x, i) => {
       if (p[3]) return;
       const mine = boxes.filter((b) => b.position === i + 1);
       const who = x.name || `Person ${i + 1}`;
+      if (x.approveFor) {
+        if (mine.length) p[3] = `${who} only approves: remove their boxes.`;
+        return;
+      }
       if (x.fill && !mine.some((b) => b.kind === "text" || b.kind === "date" || b.kind === "name" || b.kind === "checkbox")) p[3] = `${who} fills in only: add a text or date box for them.`;
       else if (x.fill && mine.some((b) => b.kind === "signature" || b.kind === "initials")) p[3] = `${who} fills in only: remove their signature box.`;
       else if (!x.fill && !mine.some((b) => b.kind === "signature")) p[3] = `${who} needs a signature box.`;
@@ -326,7 +346,7 @@ export default function Wizard({
   const placeAll = (): Box[] => {
     if (!info) return [];
     /* 0304: no signature box for a person who only fills in (they get text / date boxes by hand) */
-    const auto = autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" })), { everyone: true }).filter((b) => !signers[b.position - 1]?.fill);
+    const auto = autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" })), { everyone: true }).filter((b) => !signers[b.position - 1]?.fill && !signers[b.position - 1]?.approveFor);
     if (!fromDraft?.blocks.length) return auto;
     const out: Box[] = [];
     signers.forEach((_, i) => {
@@ -441,6 +461,11 @@ export default function Wizard({
           /* 0304 */
           steps: stepsFrom(signers.map((s) => s.together)),
           fillOnly: signers.flatMap((s, i) => (s.fill ? [i + 1] : [])),
+          approveAny: signers.flatMap((s, i) => (!s.allApprove && signers.some((y) => y.approveFor === s.key) ? [i + 1] : [])),
+          approve: signers.flatMap((s, i) => {
+            const t = s.approveFor ? signers.findIndex((y) => y.key === s.approveFor) : -1;
+            return t >= 0 ? [[i + 1, t + 1]] : [];
+          }),
           remindDaily: daily,
           draft,
           supplements: inserted,
@@ -755,9 +780,39 @@ export default function Wizard({
                       <input type="checkbox" checked={p.together} onChange={(e) => setP(p.key, { together: e.target.checked })} /> Signs at the same time as person {i}
                     </label>
                   )}
-                  <label className="fds-chk">
-                    <input type="checkbox" checked={p.fill} onChange={(e) => setP(p.key, { fill: e.target.checked })} /> Fills in only, no signature (e.g. the date)
+                  {/* 0308: what this person does: signs, fills in only, or approves first for someone */}
+                  <label className="fds-chk fds-does">
+                    <span>Does:</span>
+                    <select
+                      className="fds-inp"
+                      aria-label={`Person ${i + 1} does`}
+                      value={p.approveFor ? `approve:${p.approveFor}` : p.fill ? "fill" : "sign"}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setP(p.key, v === "fill" ? { fill: true, approveFor: "" } : v.startsWith("approve:") ? { fill: false, approveFor: v.slice(8) } : { fill: false, approveFor: "" });
+                      }}
+                    >
+                      <option value="sign">Signs</option>
+                      <option value="fill">Fills in only, no signature (e.g. the date)</option>
+                      {people
+                        .filter((o) => o.key !== p.key)
+                        .map((o) => (
+                          <option key={o.key} value={`approve:${o.key}`}>
+                            Approves first, before {o.name.trim() || `person ${people.indexOf(o) + 1}`} signs
+                          </option>
+                        ))}
+                    </select>
                   </label>
+                  {/* 0309: two or more approvers: is one approval enough? */}
+                  {people.filter((o) => o.approveFor === p.key).length > 1 && (
+                    <label className="fds-chk fds-does">
+                      <span>Needs:</span>
+                      <select className="fds-inp" aria-label={`Person ${i + 1} needs`} value={p.allApprove ? "all" : "any"} onChange={(e) => setP(p.key, { allApprove: e.target.value === "all" })}>
+                        <option value="any">Any one approval</option>
+                        <option value="all">All approvals</option>
+                      </select>
+                    </label>
+                  )}
                 </div>
               </div>
             ))}
@@ -820,8 +875,14 @@ export default function Wizard({
                               ? "emailed when you send"
                               : i > 0 && st[i] === st[i - 1]
                                 ? `at the same time as ${first(signers[i - 1]!)}`
-                                : `after ${before.map(first).join(" and ")} ${before.length === 1 && first(before[0]!) !== "you" ? "signs" : "sign"}`;
-                          return `${when}${s.fill ? " · fills in only" : ""}`;
+                                : before.length > 2
+                                  ? "after everyone above"
+                                  : `after ${before.map(first).join(" and ")} ${before.length === 1 && first(before[0]!) !== "you" ? "signs" : "sign"}`;
+                          const tgt = s.approveFor ? signers.find((y) => y.key === s.approveFor) : null;
+                          const by = signers.filter((y) => y.approveFor === s.key).map(first);
+                          const list = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}` : (xs[0] ?? ""));
+                          const once = by.length ? (by.length > 1 && !s.allApprove ? `once ${by.join(" or ")} approves` : `once ${list(by)} approve${by.length === 1 ? "s" : ""}`) : "";
+                          return `${once && st[i] === 1 ? once : when}${once && st[i] !== 1 ? `, ${once}` : ""}${s.fill ? " · fills in only" : ""}${tgt ? ` · approves before ${first(tgt)} signs` : ""}`;
                         })()}
                       </small>
                     </span>

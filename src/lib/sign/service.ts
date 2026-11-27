@@ -10,7 +10,7 @@ import type { Envelope, SignField, SignStore, Signer } from "./store";
 import { cleanText, signerSize } from "./fields";
 import { statusMail, type StatusEvent } from "./controller";
 import { sendEmail } from "./notify";
-import { orderLine, parseOrder, type Order } from "./order";
+import { approversOf, approves, orderLine, parseOrder, type Order } from "./order";
 
 /**
  * FD Sign rules, in one place:
@@ -64,6 +64,21 @@ export async function orderOf(store: SignStore, envelopeId: string, n: number): 
 const stepOf = (o: Order, s: Signer) => o.steps[s.position - 1] ?? s.position;
 /** a person who only fills in (no signature) */
 export const fillsOnly = (o: Order, s: Pick<Signer, "position">) => o.fill.includes(s.position);
+/** 0308: waiting for an approval first (their approvers have not all approved) */
+const approvedBy = (o: Order, position: number, all: Signer[]) => approversOf(o, position).filter((a) => all.find((x) => x.position === a)?.status === "signed");
+const held = (o: Order, s: Signer, all: Signer[]) => {
+  const need = approversOf(o, s.position);
+  if (!need.length) return false;
+  const done = approvedBy(o, s.position, all).length;
+  /* 0309: one approval is enough when the sender chose "any one of them" */
+  return (o.anyOf ?? []).includes(s.position) ? done === 0 : done < need.length;
+};
+/** 0309: an approver no longer needed (another approver already approved, and one is enough): they hold nothing up */
+export const needless = (o: Order, s: Signer, all: Signer[]) => {
+  if (s.status === "signed") return false;
+  const t = (o.approve ?? []).find(([a]) => a === s.position)?.[1];
+  return t !== undefined && (o.anyOf ?? []).includes(t) && approvedBy(o, t, all).length > 0;
+};
 
 export interface Who {
   ip: string | null;
@@ -166,7 +181,7 @@ export async function createSend(
       const rows = await store.signers(id);
       /* 0304: everyone in the first step gets their link now (parallel signing) */
       const o = d.order ? parseOrder(orderLine(d.order), rows.length) : null;
-      for (const r of rows) if ((o ? stepOf(o, r) : r.position) === 1) firsts.push({ row: r, title: d.title });
+      for (const r of rows) if ((o ? stepOf(o, r) : r.position) === 1 && !(o && held(o, r, rows))) firsts.push({ row: r, title: d.title });
     }
   } catch (e) {
     /* 0210: a save that fails half way (nothing emailed yet) must not leave a request that looks
@@ -208,7 +223,7 @@ export async function sendDraft(store: SignStore, ownerId: string, envelopeId: s
   if (!(await store.claimEnvelope(envelopeId, "draft", { status: "sent", created_at: new Date().toISOString() }))) throw new SignError("This one has already been sent.", 409);
   await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "created", ip: who.ip, user_agent: who.ua, detail: "sent from a draft" });
   const links: SentLink[] = [];
-  for (const s of all.filter((x) => stepOf(order, x) === 1)) links.push(await invite(store, [s], [env.title], origin, env.message, who, "invited"));
+  for (const s of all.filter((x) => stepOf(order, x) === 1 && !held(order, x, all))) links.push(await invite(store, [s], [env.title], origin, env.message, who, "invited"));
   for (const l of links) await slack(store, [envelopeId], `✍️ Sent for signing to *${l.name}* (${l.role}): ${what(l.documents)}`);
   return links;
 }
@@ -253,6 +268,8 @@ export interface SignView {
   sender: string | null;
   /** 0304: this person only fills in their boxes (no signature) */
   fillOnly?: boolean;
+  /** 0308: this person only approves (no boxes, no signature) */
+  approveOnly?: boolean;
 }
 
 /** What a signing link shows. Null when the link is unknown. */
@@ -264,14 +281,16 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
   let waitingFor: string | null = null;
   let message: string | null = null;
   let fillOnly = false;
+  let approveOnly = false;
   for (const me of mine) {
     const env = await store.envelope(me.envelope_id);
     if (!env) continue;
     message = message ?? env.message;
     const all = await store.signers(env.id);
     const o = await orderOf(store, env.id, all.length);
-    if (fillsOnly(o, me)) fillOnly = true;
-    const before = all.filter((s) => stepOf(o, s) < stepOf(o, me) && s.status !== "signed");
+    if (fillsOnly(o, me) || approves(o, me.position)) fillOnly = true;
+    if (approves(o, me.position)) approveOnly = true;
+    const before = all.filter((s) => stepOf(o, s) < stepOf(o, me) && s.status !== "signed" && !needless(o, s, all));
     if (before.length && !waitingFor) waitingFor = `${before[0].name} (${before[0].role})`;
     docs.push({
       envelopeId: env.id,
@@ -305,6 +324,7 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
     waitingFor,
     sender,
     fillOnly,
+    approveOnly,
   };
 }
 
@@ -351,8 +371,9 @@ export async function submitSignature(
     if (!env || env.status !== "sent") throw new SignError("This document is no longer open for signing.", 409);
     const all = await store.signers(env.id);
     const o = await orderOf(store, env.id, all.length);
-    if (all.some((s) => stepOf(o, s) < stepOf(o, me) && s.status !== "signed")) throw new SignError("It is not your turn yet: an earlier signer still has to sign.", 409);
-    if ((input.kind === "none") !== fillsOnly(o, me)) throw new SignError(input.kind === "none" ? "Please sign first." : "This person only fills in: no signature is needed.", 400);
+    if (all.some((s) => stepOf(o, s) < stepOf(o, me) && s.status !== "signed" && !needless(o, s, all))) throw new SignError("It is not your turn yet: an earlier signer still has to sign.", 409);
+    if ((input.kind === "none") !== (fillsOnly(o, me) || approves(o, me.position)))
+      throw new SignError(input.kind === "none" ? "Please sign first." : approves(o, me.position) ? "This person only approves: no signature is needed." : "This person only fills in: no signature is needed.", 400);
   }
   /* what this signer typed or ticked in their own boxes; a required one left empty stops the signing */
   const answers = new Map<string, Array<{ id: string; value: string; w?: number; h?: number }>>();
@@ -391,27 +412,40 @@ export async function submitSignature(
     if (!mine) throw new SignError("You have already signed.", 409);
     const a = answers.get(me.envelope_id);
     if (a) await store.setFieldValues(me.envelope_id, a);
-    await store.addEvent({ envelope_id: me.envelope_id, signer_id: me.id, event: input.kind === "none" ? "filled" : "signed", ip: input.who.ip, user_agent: input.who.ua, detail: `${input.kind === "draw" ? "drawn signature" : input.kind === "type" ? "typed signature" : "filled in, no signature needed"}${resized ? ` · resized ${resized} text box${resized === 1 ? "" : "es"}` : ""}` });
+    const approving = input.kind === "none" && approves(await orderOf(store, me.envelope_id, (await store.signers(me.envelope_id)).length), me.position);
+    await store.addEvent({ envelope_id: me.envelope_id, signer_id: me.id, event: approving ? "approved" : input.kind === "none" ? "filled" : "signed", ip: input.who.ip, user_agent: input.who.ua, detail: `${input.kind === "draw" ? "drawn signature" : input.kind === "type" ? "typed signature" : approving ? "approved, no signature needed" : "filled in, no signature needed"}${resized ? ` · resized ${resized} text box${resized === 1 ? "" : "es"}` : ""}` });
     const env = (await store.envelope(me.envelope_id))!;
     const all = await store.signers(env.id);
     const o = await orderOf(store, env.id, all.length);
     /* 0304: the next step starts when everyone in this step has signed (parallel signers wait for each other) */
-    const sameStep = all.some((s) => s.id !== me.id && stepOf(o, s) === stepOf(o, me) && s.status !== "signed");
+    const sameStep = all.some((s) => s.id !== me.id && stepOf(o, s) === stepOf(o, me) && s.status !== "signed" && !needless(o, s, all));
     const later = all.filter((s) => s.status === "waiting" && stepOf(o, s) > stepOf(o, me));
     const nextStep = later.length ? Math.min(...later.map((s) => stepOf(o, s))) : null;
+    const queue = (next: Signer) => {
+      const k = person(next); // the same next person on several documents gets one link
+      const g = nextGroups.get(k) ?? { rows: [], titles: [], message: env.message };
+      g.rows.push(next);
+      g.titles.push(env.title);
+      nextGroups.set(k, g);
+    };
+    /* 0308: the last approval lets the person it was for sign (when their turn has come) */
+    for (const [, t] of (o.approve ?? []).filter(([a]) => a === me.position)) {
+      const target = all.find((x) => x.position === t);
+      if (!target || target.status !== "waiting" || held(o, target, all)) continue;
+      if (!all.every((x) => stepOf(o, x) >= stepOf(o, target) || x.status === "signed" || needless(o, x, all))) continue;
+      if (await store.claimSigner(target.id, "waiting", { status: "invited" })) queue(target);
+    }
     if (sameStep) {
       /* others at the same time still to sign */
     } else if (nextStep !== null) {
       for (const next of later.filter((s) => stepOf(o, s) === nextStep)) {
+        /* 0308: someone still waiting for an approval is let in by the last approval instead */
+        if (held(o, next, all)) continue;
         /* 0307: two people of a step signing at the same moment both see the step done; only one invites */
         if (!(await store.claimSigner(next.id, "waiting", { status: "invited" }))) continue;
-        const k = person(next); // the same next person on several documents gets one link
-        const g = nextGroups.get(k) ?? { rows: [], titles: [], message: env.message };
-        g.rows.push(next);
-        g.titles.push(env.title);
-        nextGroups.set(k, g);
+        queue(next);
       }
-    } else if (all.every((s) => s.status === "signed" || s.id === me.id)) {
+    } else if (all.every((s) => s.status === "signed" || s.id === me.id || needless(o, s, all))) {
       /* 0307: and only one of them completes it (one set of signed copies) */
       if (await store.claimEnvelope(env.id, "sent", { status: "completed", completed_at: new Date().toISOString() })) toComplete.push(env.id);
     }
@@ -546,7 +580,19 @@ export async function tellControllers(store: SignStore, envelopeId: string, even
   const env = await store.envelope(envelopeId);
   if (!env) return 0;
   const signers = (await store.signers(envelopeId)).sort((a, b) => a.position - b.position);
-  const rows = signers.map((s) => ({ name: s.name, role: s.role, status: s.status, signedAt: s.signed_at }));
+  const ord = await orderOf(store, envelopeId, signers.length);
+  const nameAt = (p: number) => signers.find((x) => x.position === p)?.name.split(/\s+/)[0] ?? `person ${p}`;
+  const rows = signers.map((s) => ({
+    name: s.name,
+    role: s.role,
+    status: s.status,
+    signedAt: s.signed_at,
+    does: approves(ord, s.position) ? ("approve" as const) : fillsOnly(ord, s) ? ("fill" as const) : ("sign" as const),
+    heldFor: held(ord, s, signers) ? approversOf(ord, s.position).filter((a) => signers.find((x) => x.position === a)?.status !== "signed").map(nameAt) : [],
+    notNeeded: needless(ord, s, signers)
+      ? approvedBy(ord, (ord.approve ?? []).find(([a]) => a === s.position)![1], signers).map(nameAt).join(" and ")
+      : undefined,
+  }));
   const list: Array<{ email: string; to: "controller" | "sender" }> = [...controllers.map((email) => ({ email, to: "controller" as const })), ...(toSender ? [{ email: own, to: "sender" as const }] : [])];
   let sent = 0;
   for (const r of list) {
@@ -589,7 +635,9 @@ export async function remind(store: SignStore, ownerId: string, envelopeId: stri
   const last = (await store.events(envelopeId)).filter((e) => e.event === "reminded").pop();
   if (last && Date.now() - Date.parse(last.at) < 3_600_000) throw new SignError("A reminder went out less than an hour ago.", 429);
   /* 0304: everyone whose turn it is (several when they sign at the same time) */
-  const now = (await store.signers(envelopeId)).filter((s) => s.status === "invited");
+  const everyone = await store.signers(envelopeId);
+  const ord = await orderOf(store, envelopeId, everyone.length);
+  const now = everyone.filter((s) => s.status === "invited" && !needless(ord, s, everyone));
   if (!now.length) throw new SignError("Nobody is waiting to sign.", 409);
   if (now.every(isExpired)) throw new SignError("This request has expired. Cancel it and send it again.", 410);
   const sent: SentLink[] = [];
@@ -608,7 +656,9 @@ export async function remindDaily(store: SignStore, origin: string): Promise<num
     const env = await store.envelope(id);
     if (!env || env.status !== "sent") continue;
     const events = await store.events(id);
-    for (const s of (await store.signers(id)).filter((x) => x.status === "invited" && !isExpired(x))) {
+    const everyone = await store.signers(id);
+    const ord = await orderOf(store, id, everyone.length);
+    for (const s of everyone.filter((x) => x.status === "invited" && !isExpired(x) && !needless(ord, x, everyone))) {
       const last = events.filter((e) => e.signer_id === s.id && (e.event === "invited" || e.event === "reminded" || e.event === "link")).pop();
       if (last && Date.now() - Date.parse(last.at) < 20 * 3_600_000) continue;
       await invite(store, [s], [env.title], origin, env.message, { ip: null, ua: "daily reminder" }, "reminded");
@@ -704,7 +754,9 @@ export async function openForMe(store: SignStore, account: { id: string; email: 
   const all = await store.signers(mine.envelope_id);
   const me = all.find((s) => s.id === signerId);
   if (!me || me.status !== "invited") throw new SignError("Nothing to sign.", 409);
-  if (all.some((s) => s.position < me.position && s.status !== "signed")) throw new SignError("It isn't your turn yet.", 409);
+  /* 0309: by steps (signing at the same time), not only by position */
+  const o = await orderOf(store, mine.envelope_id, all.length);
+  if (all.some((s) => stepOf(o, s) < stepOf(o, me) && s.status !== "signed" && !needless(o, s, all))) throw new SignError("It isn't your turn yet.", 409);
   if (isExpired(me)) throw new SignError("This request has expired. Ask the sender to send it again.", 410);
   const owner = await store.ownerOf(mine.envelope_id);
   if (owner?.owner_id === account.id) return { url: (await invite(store, [me], [mine.title], origin, null, who, "link")).link };

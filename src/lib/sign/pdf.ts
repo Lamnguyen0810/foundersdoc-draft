@@ -67,6 +67,7 @@ const EVENT_TEXT: Record<string, string> = {
   drafted: "Saved as a draft",
   remind_daily: "Daily reminders on",
   filled: "Filled in (no signature needed)",
+  approved: "Approved (no signature needed)",
 };
 
 function wrap(text: string, font: PDFFont, size: number, width: number, t: (s: string) => string = pdfText): string[] {

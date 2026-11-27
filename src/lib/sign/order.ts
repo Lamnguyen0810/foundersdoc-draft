@@ -10,7 +10,17 @@ export interface Order {
   steps: number[];
   /** positions (1 = first person) who only fill in */
   fill: number[];
+  /** 0308: [approver, signer] positions: the approver reviews and approves first, and only then does that signer
+   *  get their link (e.g. AppWorks' legal team and Nathan approve before their director signs). The others are not held up. */
+  approve?: Array<[number, number]>;
+  /** 0309: signers for whom ONE approval is enough (any of their approvers); the others then need not approve */
+  anyOf?: number[];
 }
+
+/** 0308: who must approve before this position may sign */
+export const approversOf = (o: Order, position: number) => (o.approve ?? []).filter(([, t]) => t === position).map(([a]) => a);
+/** 0308: does this position only approve (no boxes, no signature)? */
+export const approves = (o: Order, position: number) => (o.approve ?? []).some(([a]) => a === position);
 
 /** steps from "same time as the person above" ticks: [false, true, true, true, false] → [1, 1, 1, 1, 2] */
 export function stepsFrom(withAbove: boolean[]): number[] {
@@ -33,15 +43,41 @@ const plain = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 /** the audit-trail line, or null when it is the default (one after another, everyone signs) */
 export function orderLine(o: Order): string | null {
   const parallel = o.steps.some((s, i) => s !== i + 1);
-  if (!parallel && !o.fill.length) return null;
-  return [parallel ? `steps ${o.steps.join("-")}` : "", o.fill.length ? `fill-in ${o.fill.join(",")}` : ""].filter(Boolean).join(" · ").slice(0, 200) || null;
+  const ap = o.approve ?? [];
+  if (!parallel && !o.fill.length && !ap.length) return null;
+  const any = (o.anyOf ?? []).filter((t) => ap.some(([, x]) => x === t));
+  return [parallel ? `steps ${o.steps.join("-")}` : "", o.fill.length ? `fill-in ${o.fill.join(",")}` : "", ap.length ? `approve ${ap.map(([a, t]) => `${a}>${t}`).join(",")}` : "", any.length ? `any ${any.join(",")}` : ""].filter(Boolean).join(" · ").slice(0, 200) || null;
+}
+
+/** 0308: approvals that make sense: an approver approves one signer who signs (not themselves, not another approver,
+ *  not someone who only fills in), and does not come after them in the order */
+export function cleanApprovals(raw: unknown, steps: number[], fill: number[]): Array<[number, number]> | null {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) return null;
+  const n = steps.length;
+  const out: Array<[number, number]> = [];
+  for (const x of raw.slice(0, 20)) {
+    if (!Array.isArray(x) || x.length !== 2) return null;
+    const [a, t] = x.map(Number) as [number, number];
+    if (![a, t].every((p) => Number.isInteger(p) && p >= 1 && p <= n) || a === t || fill.includes(a) || fill.includes(t)) return null;
+    if (steps[a - 1]! > steps[t - 1]!) return null;
+    out.push([a, t]);
+  }
+  const who = new Set(out.map(([a]) => a));
+  if (out.some(([, t]) => who.has(t))) return null;
+  if (new Set(out.map(([a]) => a)).size !== out.length) return null;
+  return out;
 }
 
 /** read the line back; anything unreadable is the default */
 export function parseOrder(detail: string | null | undefined, n: number): Order {
   const steps = /steps ([\d-]+)/.exec(detail ?? "")?.[1]?.split("-").map(Number) ?? [];
   const fill = (/fill-in ([\d,]+)/.exec(detail ?? "")?.[1]?.split(",").map(Number) ?? []).filter((p) => Number.isInteger(p) && p >= 1 && p <= n);
-  return { steps: cleanSteps(steps, n) ?? plain(n), fill };
+  const approve = (/approve ([\d>,]+)/.exec(detail ?? "")?.[1]?.split(",") ?? [])
+    .map((x) => x.split(">").map(Number) as [number, number])
+    .filter(([a, t]) => [a, t].every((p) => Number.isInteger(p) && p >= 1 && p <= n));
+  const anyOf = (/(?:^|· )any ([\d,]+)/.exec(detail ?? "")?.[1]?.split(",").map(Number) ?? []).filter((p) => Number.isInteger(p) && p >= 1 && p <= n);
+  return { steps: cleanSteps(steps, n) ?? plain(n), fill, ...(approve.length ? { approve } : {}), ...(anyOf.length ? { anyOf } : {}) };
 }
 
 /** what the "order" line means, in words, for the audit trail */
@@ -50,5 +86,6 @@ export function orderText(o: Order, names: string[]): string {
   o.steps.forEach((s, i) => (groups[s - 1] ??= []).push(names[i] ?? `Person ${i + 1}`));
   const parts = groups.map((g) => (g.length > 1 ? `${g.join(", ")} (at the same time)` : g[0]!));
   const fill = o.fill.map((p) => names[p - 1] ?? `Person ${p}`);
-  return `${parts.join(", then ")}${fill.length ? `. Fill in only, no signature: ${fill.join(", ")}` : ""}`;
+  const ap = (o.approve ?? []).map(([a, t]) => `${names[a - 1] ?? `Person ${a}`} approves before ${names[t - 1] ?? `Person ${t}`}`);
+  return `${parts.join(", then ")}${fill.length ? `. Fill in only, no signature: ${fill.join(", ")}` : ""}${ap.length ? `. ${ap.join("; ")}` : ""}`;
 }
