@@ -48,6 +48,8 @@ export function parseFields(raw: unknown, signerCount: number): SignField[] {
       box.label = String(f.label ?? "").replace(/\s+/g, " ").trim().slice(0, 60) || (kind === "text" ? "Text" : "I agree");
       box.required = f.required === undefined ? kind === "text" : f.required === true;
     }
+    /* 0306: a text box the sender fills in already (the signer can still change it) */
+    if (kind === "text" && typeof f.value === "string" && f.value.trim()) box.value = cleanText(f.value).slice(0, 200);
     out.push(box);
   }
   return out;

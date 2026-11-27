@@ -444,7 +444,7 @@ export default function Wizard({
           remindDaily: daily,
           draft,
           supplements: inserted,
-          fields: boxes.map(({ position, kind, page, x, y, w, h, label, required }) => ({ position, kind, page, x, y, w, h, ...(asks(kind) ? { label: label?.trim() || undefined, required: !!required } : {}) })),
+          fields: boxes.map(({ position, kind, page, x, y, w, h, label, required, value }) => ({ position, kind, page, x, y, w, h, ...(asks(kind) ? { label: label?.trim() || undefined, required: !!required } : {}), ...(kind === "text" && value?.trim() ? { value: value.trim() } : {}) })),
         }),
       );
       const r = await fetch("/api/fd-sign/send", { method: "POST", body: fd });
@@ -928,6 +928,16 @@ export default function Wizard({
                       >
                         {b.required ? "Required" : "Optional"}
                       </button>
+                      {/* 0306: filled in already (e.g. "President"); they can still change it */}
+                      {b.kind === "text" && (
+                        <input
+                          aria-label="Filled in already (optional)"
+                          maxLength={200}
+                          value={b.value ?? ""}
+                          placeholder="Filled in already (optional), e.g. President"
+                          onChange={(e) => setBoxes((l) => l.map((x) => (x.id === b.id ? { ...x, value: e.target.value } : x)))}
+                        />
+                      )}
                     </div>
                   ))}
               </>

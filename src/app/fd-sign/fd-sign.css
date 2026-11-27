@@ -753,3 +753,4 @@ html[data-theme="dark"] .fck-note b { color: #f3bf4b; }
 .fds-pc-opts .fds-chk { margin-top: 0; font-size: 13px; }
 @media (max-width: 560px) { .fds-pc-opts { padding-left: 0; } }
 .fds-pill.draft { background: var(--fds-gold-soft); color: var(--fds-gold-tx); }
+.fds-q { flex-wrap: wrap; } .fds-q input[aria-label^="Filled in already"] { flex-basis: 100%; margin-left: 20px; }

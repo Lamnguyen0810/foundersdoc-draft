@@ -52,6 +52,8 @@ export interface Box {
   /** text / checkbox: what it asks for, and whether the signer must fill it in */
   label?: string;
   required?: boolean;
+  /** 0306: text: filled in already by the sender (e.g. "President"); the signer can still change it */
+  value?: string;
 }
 
 export const COLOURS = ["#b8862b", "#2f6fdb", "#1f9d6b", "#c2410c", "#7c3aed", "#be185d", "#0e7490", "#4d7c0f"];
