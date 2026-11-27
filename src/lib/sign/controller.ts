@@ -10,6 +10,10 @@ export interface StatusSigner {
   role: string;
   status: "waiting" | "invited" | "signed";
   signedAt: string | null;
+  /** 0308: what they do: sign (default), approve, or fill in */
+  does?: "sign" | "approve" | "fill";
+  /** 0308: waiting for these approvers first */
+  heldFor?: string[];
 }
 export type StatusEvent = { kind: "signed"; name: string; role: string } | { kind: "completed" } | { kind: "voided" };
 
@@ -25,12 +29,15 @@ export function sgtTime(iso: string): string {
 /** each signer's line: "Signed 26 Nov 2026, 3:05 pm" · "Their turn now" · "Waiting (signs after Alex)" */
 export function statusLines(signers: StatusSigner[], voided = false): Array<{ name: string; role: string; done: boolean; text: string }> {
   return signers.map((s, i) => {
-    if (s.status === "signed") return { name: s.name, role: s.role, done: true, text: `Signed ${s.signedAt ? sgtTime(s.signedAt) : ""}`.trim() };
+    const verb = s.does === "approve" ? "Approved" : s.does === "fill" ? "Filled in" : "Signed";
+    if (s.status === "signed") return { name: s.name, role: s.role, done: true, text: `${verb} ${s.signedAt ? sgtTime(s.signedAt) : ""}`.trim() };
+    const not = s.does === "approve" ? "Not approved yet" : s.does === "fill" ? "Not filled in yet" : "Not signed yet";
+    if (!voided && s.status === "waiting" && s.heldFor?.length) return { name: s.name, role: s.role, done: false, text: `${not}: waiting for approval by ${s.heldFor.join(" and ")}` };
     if (voided) return { name: s.name, role: s.role, done: false, text: "Not signed (request cancelled)" };
-    if (s.status === "invited") return { name: s.name, role: s.role, done: false, text: "Not signed yet: their turn now" };
+    if (s.status === "invited") return { name: s.name, role: s.role, done: false, text: `${not}: their turn now` };
     const prev = signers[i - 1];
     const next = signers.slice(0, i).every((x) => x.status === "signed");
-    return { name: s.name, role: s.role, done: false, text: next ? "Not signed yet: next to sign" : `Not signed yet: signs after ${prev ? prev.name.split(/\s+/)[0] : "the others"}` };
+    return { name: s.name, role: s.role, done: false, text: next ? `${not}: next to ${s.does === "approve" ? "approve" : s.does === "fill" ? "fill in" : "sign"}` : `${not}: ${s.does === "approve" ? "approves" : s.does === "fill" ? "fills in" : "signs"} after ${prev ? prev.name.split(/\s+/)[0] : "the others"}` };
   });
 }
 

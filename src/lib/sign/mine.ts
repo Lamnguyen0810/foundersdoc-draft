@@ -83,6 +83,7 @@ const EVENT_TEXT: Record<string, string> = {
   /* 0304 · 0305 */
   drafted: "Saved as a draft",
   filled: "Filled in (no signature needed)",
+  approved: "Approved",
   order: "Signing order set",
   remind_daily: "Daily reminders on",
 };

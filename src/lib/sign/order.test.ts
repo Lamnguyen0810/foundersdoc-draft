@@ -2,7 +2,7 @@ import { emptyStore } from "./test-guard";
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { PDFDocument } from "pdf-lib";
-import { cleanSteps, orderLine, orderText, parseOrder, stepsFrom } from "./order";
+import { cleanApprovals, cleanSteps, orderLine, orderText, parseOrder, stepsFrom } from "./order";
 import { signStore, type SignStore } from "./store";
 import { createSend, discardDraft, remindDaily, sendDraft, submitSignature, viewForToken } from "./service";
 import { allowance } from "./allowance";
@@ -180,6 +180,72 @@ test("0307: directors signing at the same moment: the next person is invited onc
     assert.equal((await s.envelope(two.envelopeIds[0]!))!.status, "completed");
     assert.equal((await s.events(two.envelopeIds[0]!)).filter((e) => e.event === "completed").length, 1, "completed once");
     assert.equal(sent.filter((x) => x.kind === "completed").length - before, 3, "signed copies once: 2 signers and the sender");
+  } finally {
+    globalThis.fetch = closed;
+    delete process.env.SIGN_HOOK_URL;
+  }
+});
+
+test("0308: two approvers approve before one director; the other directors are not held up", async () => {
+  const s = signStore() as SignStore;
+  const sent: Array<{ to: string; kind: string; link?: string; subject?: string; text?: string }> = [];
+  const closed = globalThis.fetch;
+  process.env.SIGN_HOOK_URL = "https://hooks.zapier.com/hooks/catch/0/test/";
+  globalThis.fetch = (async (_u: RequestInfo | URL, init?: RequestInit) => {
+    sent.push(JSON.parse(String(init?.body ?? "{}")) as { to: string; kind: string; link?: string });
+    return new Response("{}", { status: 200 });
+  }) as typeof fetch;
+  try {
+    const people = [
+      ["Alex Tan", "Director"],
+      ["Jamie Lee", "Director"],
+      ["Sam Wong", "Director"],
+      ["Chris Lim", "Director"],
+      ["Legal Team", "Approver"],
+      ["Nat Ong", "Approver"],
+      ["Pat Ng", "Company secretary"],
+    ];
+    const signers = people.map(([n, role]) => ({ name: n!, email: `${n!.split(" ")[0]!.toLowerCase()}@example.com`, role: role! }));
+    const fields = [
+      ...[1, 2, 3, 4].map((position) => ({ position, kind: "signature" as const, page: 1, x: 0.1, y: 0.1 * position, w: 0.3, h: 0.05 })),
+      { position: 7, kind: "text" as const, page: 1, x: 0.5, y: 0.9, w: 0.2, h: 0.03, label: "Day", required: true },
+    ];
+    const who = { ip: null, ua: null };
+    const owner = { id: "55555555-5555-4555-8555-555555555555", email: "owner@example.com", name: "Example Consulting", folderId: null };
+    const { envelopeIds, links } = await createSend(s, {
+      docs: [{ title: "Directors' Resolutions", fileName: "d.pdf", bytes: await pdf(), esopHolderId: null, esopTranche: null, signers, fields, controllers: ["keith@example.com"], order: { steps: [1, 1, 1, 1, 1, 1, 2], fill: [7], approve: [[5, 2], [6, 2]] } }],
+      batch: false,
+      message: null,
+      createdBy: "test",
+      origin: "http://localhost:3000",
+      who,
+      owner,
+    });
+    const id = envelopeIds[0]!;
+    assert.deepEqual(links.map((l) => l.name), ["Alex Tan", "Sam Wong", "Chris Lim", "Legal Team", "Nat Ong"], "Jamie waits for the approvals; the others start now");
+    const tok = (name: string) => links.find((l) => l.name === name)!.link.split("/sign/")[1]!;
+    const legalView = (await viewForToken(s, tok("Legal Team"), null))!;
+    assert.equal(legalView.approveOnly, true);
+    assert.equal(legalView.state, "ready");
+    await assert.rejects(submitSignature(s, { token: tok("Legal Team"), kind: "type", png: null, typed: "Legal", origin: "http://localhost:3000", who }), /only approves/);
+
+    for (const n of ["Alex Tan", "Sam Wong", "Chris Lim"]) await submitSignature(s, { token: tok(n), kind: "type", png: null, typed: n, origin: "http://localhost:3000", who });
+    await submitSignature(s, { token: tok("Legal Team"), kind: "none", png: null, typed: null, origin: "http://localhost:3000", who });
+    assert.ok(!sent.some((x) => x.to === "jamie@example.com"), "one approval is not enough");
+    const status = sent.filter((x) => x.to === "keith@example.com").pop()!;
+    assert.match(String(status.text), /Legal Team \(Approver\): Approved/);
+    assert.match(String(status.text), /Jamie Lee \(Director\): Not signed yet: waiting for approval by Nat/);
+
+    await submitSignature(s, { token: tok("Nat Ong"), kind: "none", png: null, typed: null, origin: "http://localhost:3000", who });
+    const jamie = sent.filter((x) => x.to === "jamie@example.com" && x.link?.includes("/sign/"));
+    assert.equal(jamie.length, 1, "the last approval lets Jamie sign");
+    assert.ok(!sent.some((x) => x.to === "pat@example.com"), "the cosec waits for Jamie");
+    await submitSignature(s, { token: jamie[0]!.link!.split("/sign/")[1]!, kind: "type", png: null, typed: "Jamie Lee", origin: "http://localhost:3000", who });
+    assert.ok(sent.some((x) => x.to === "pat@example.com" && x.link?.includes("/sign/")), "then the cosec");
+    assert.equal((await s.events(id)).filter((e) => e.event === "approved").length, 2);
+    assert.deepEqual(cleanApprovals([[5, 2]], [1, 1, 1, 1, 1], []), [[5, 2]]);
+    assert.equal(cleanApprovals([[5, 2]], [1, 2, 3, 4, 5], []), null, "an approver comes before the person they approve for");
+    assert.equal(cleanApprovals([[1, 1]], [1], []), null);
   } finally {
     globalThis.fetch = closed;
     delete process.env.SIGN_HOOK_URL;
