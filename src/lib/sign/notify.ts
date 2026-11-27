@@ -23,12 +23,14 @@ export interface SignMail {
   reminder?: boolean;
   /** 0257: a ready subject (ESOP option certificates carry the vesting's own line); absent = FD Sign's usual one */
   subject?: string;
+  /** 0313: what this person is asked to do: sign (default), approve (an approver), or complete (fills in only) */
+  asks?: "sign" | "approve" | "complete";
 }
 
 const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** The whole email, ready for the Zap's Gmail step (Body = this one field). */
-export function emailHtml(p: { heading: string; documents: string[]; message: string | null; link: string; button: string; from?: string }): string {
+export function emailHtml(p: { heading: string; documents: string[]; message: string | null; link: string; button: string; from?: string; asks?: "sign" | "approve" | "complete" }): string {
   const docs = p.documents.map(esc).join("<br>");
   const link = esc(p.link);
   const msg = p.message ? `<p style="margin:14px 0 0 0;white-space:pre-line;">${esc(p.message)}</p>` : "";
@@ -47,7 +49,7 @@ export function emailHtml(p: { heading: string; documents: string[]; message: st
 <a href="${link}" style="display:inline-block;padding:13px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;">${esc(p.button)} &rarr;</a></td></tr></table></td></tr>
 <tr><td style="padding:18px 32px 0 32px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#9a9a96;">
 <p style="margin:0;">Or open this private link: <a href="${link}" style="color:#666666;word-break:break-all;">${link}</a></p>
-<p style="margin:10px 0 0 0;">This link is personal to you; please don't forward it. Electronic signatures are recognised in Singapore under the Electronic Transactions Act 2010.</p></td></tr>
+<p style="margin:10px 0 0 0;">This link is personal to you; please don't forward it.${p.asks === "approve" ? " No signature is needed from you: please review the document and approve it." : p.asks === "complete" ? " No signature is needed from you: please fill in your part." : " Electronic signatures are recognised in Singapore under the Electronic Transactions Act 2010."}</p></td></tr>
 <tr><td style="padding:24px 32px 28px 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#666666;">
 ${
     p.from
@@ -103,21 +105,26 @@ export async function notify(mail: SignMail): Promise<boolean> {
   }
   const from = mail.sender?.name;
   const first = mail.name.split(/\s+/)[0];
+  /* 0313: an approver is asked to approve, someone who only fills in to complete; everyone else to sign */
+  const asks = mail.asks ?? "sign";
+  const verb = asks === "approve" ? "approve" : asks === "complete" ? "complete" : "sign";
+  const waits = asks === "approve" ? "your approval" : asks === "complete" ? "you to complete it" : "your signature";
   const heading =
     mail.kind === "invite"
       ? from
         ? mail.reminder
-          ? `Reminder: ${from} is waiting for your signature`
-          : `${from} sent you a document to sign`
-        : `${first}, please review and sign`
+          ? `Reminder: ${from} is waiting for ${waits}`
+          : `${from} sent you a document to ${verb}`
+        : `${first}, please review and ${verb}`
       : "All parties have signed";
-  const button = mail.kind === "invite" ? (n === 1 ? "Review & sign" : `Review & sign ${n} documents`) : mail.role === "Sender" ? "Open in FD Sign" : "Download the signed copy";
+  const button = mail.kind === "invite" ? (n === 1 ? `Review & ${verb}` : `Review & ${verb} ${n} documents`) : mail.role === "Sender" ? "Open in FD Sign" : "Download the signed copy";
   const subject =
     mail.subject?.trim() ||
-    (mail.kind === "invite" ? (from ? `${mail.reminder ? "Reminder: " : ""}${from} sent you a document to sign: ${what}` : `Please sign: ${what}`) : `Signed: ${what}`);
+    (mail.kind === "invite" ? (from ? `${mail.reminder ? "Reminder: " : ""}${from} sent you a document to ${verb}: ${what}` : `Please ${verb}: ${what}`) : `Signed: ${what}`);
   const plain: Partial<SignMail> = { ...mail };
   delete plain.sender;
   delete plain.reminder;
+  delete plain.asks;
   const payload = {
     ...plain,
     documents_text: mail.documents.join("\n"),
@@ -130,7 +137,7 @@ export async function notify(mail: SignMail): Promise<boolean> {
     /* 0254: signing emails are never copied to anyone; the field is always there so the Zap can map it */
     cc: "",
     /* the finished email: the Gmail step's Body is just this field */
-    html: emailHtml({ heading, documents: mail.documents, message: mail.message, link: mail.link, button, ...(from ? { from } : {}) }),
+    html: emailHtml({ heading, documents: mail.documents, message: mail.message, link: mail.link, button, asks, ...(from ? { from } : {}) }),
   };
   return post(hook, payload);
 }

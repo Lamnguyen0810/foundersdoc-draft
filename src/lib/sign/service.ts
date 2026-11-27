@@ -118,9 +118,12 @@ async function invite(store: SignStore, rows: Signer[], titles: string[], origin
   const sender = await senderOf(store, first.envelope_id);
   /* 0257: option certificates carry the vesting's own subject line; anything else keeps FD Sign's */
   const subject = reason !== "link" && !sender ? await certificateSubject(await Promise.all(rows.map((r) => store.envelope(r.envelope_id))), "sign", reason === "reminded") : null;
+  /* 0313: an approver's email says "to approve", someone who only fills in "to complete" */
+  const ord = await orderOf(store, first.envelope_id, (await store.signers(first.envelope_id)).length);
+  const asks = approves(ord, first.position) ? ("approve" as const) : fillsOnly(ord, first) ? ("complete" as const) : null;
   const emailed =
     reason !== "link"
-      ? await notify({ kind: "invite", to: first.email, name: first.name, role: first.role, link, documents: titles, message, ...(sender ? { sender } : {}), ...(reason === "reminded" ? { reminder: true } : {}), ...(subject ? { subject } : {}) })
+      ? await notify({ kind: "invite", to: first.email, name: first.name, role: first.role, link, documents: titles, message, ...(sender ? { sender } : {}), ...(reason === "reminded" ? { reminder: true } : {}), ...(subject ? { subject } : {}), ...(asks ? { asks } : {}) })
       : false;
   return { name: first.name, email: first.email, role: first.role, documents: titles, link, emailed };
 }

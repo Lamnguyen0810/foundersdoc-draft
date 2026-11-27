@@ -243,6 +243,13 @@ test("0308: two approvers approve before one director; the other directors are n
     await submitSignature(s, { token: jamie[0]!.link!.split("/sign/")[1]!, kind: "type", png: null, typed: "Jamie Lee", origin: "http://localhost:3000", who });
     assert.ok(sent.some((x) => x.to === "pat@example.com" && x.link?.includes("/sign/")), "then the cosec");
     assert.equal((await s.events(id)).filter((e) => e.event === "approved").length, 2);
+    /* 0313: what each one is asked to do, in the email */
+    const inv = (to: string) => sent.find((x) => x.to === to && (x as { kind: string }).kind === "invite") as unknown as { subject: string; heading: string; button: string; html: string };
+    assert.match(inv("legal@example.com").subject, /sent you a document to approve: Directors' Resolutions/);
+    assert.equal(inv("legal@example.com").button, "Review & approve");
+    assert.match(inv("legal@example.com").html, /No signature is needed from you: please review the document and approve it/);
+    assert.match(inv("pat@example.com").subject, /sent you a document to complete/);
+    assert.equal(inv("alex@example.com").button, "Review & sign");
     assert.deepEqual(cleanApprovals([[5, 2]], [1, 1, 1, 1, 1], []), [[5, 2]]);
     assert.equal(cleanApprovals([[5, 2]], [1, 2, 3, 4, 5], []), null, "an approver comes before the person they approve for");
     assert.equal(cleanApprovals([[1, 1]], [1], []), null);
