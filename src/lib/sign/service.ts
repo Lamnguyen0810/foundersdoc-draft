@@ -204,7 +204,8 @@ export async function sendDraft(store: SignStore, ownerId: string, envelopeId: s
   if (env.status !== "draft") throw new SignError("This one has already been sent.", 409);
   const all = await store.signers(envelopeId);
   const order = await orderOf(store, envelopeId, all.length);
-  await store.updateEnvelope(envelopeId, { status: "sent", created_at: new Date().toISOString() });
+  /* 0307: "Send now" pressed twice sends once */
+  if (!(await store.claimEnvelope(envelopeId, "draft", { status: "sent", created_at: new Date().toISOString() }))) throw new SignError("This one has already been sent.", 409);
   await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "created", ip: who.ip, user_agent: who.ua, detail: "sent from a draft" });
   const links: SentLink[] = [];
   for (const s of all.filter((x) => stepOf(order, x) === 1)) links.push(await invite(store, [s], [env.title], origin, env.message, who, "invited"));
@@ -377,9 +378,8 @@ export async function submitSignature(
   const toComplete: string[] = [];
   const nextGroups = new Map<string, { rows: Signer[]; titles: string[]; message: string | null }>();
   for (const me of open) {
-    const a = answers.get(me.envelope_id);
-    if (a) await store.setFieldValues(me.envelope_id, a);
-    await store.updateSigner(me.id, {
+    /* 0307: signed once only (a double click, or the same link open twice, can't sign twice) */
+    const mine = await store.claimSigner(me.id, "invited", {
       status: "signed",
       signed_at: at,
       signature_kind: input.kind === "none" ? null : input.kind,
@@ -388,6 +388,9 @@ export async function submitSignature(
       ip: input.who.ip,
       user_agent: input.who.ua,
     });
+    if (!mine) throw new SignError("You have already signed.", 409);
+    const a = answers.get(me.envelope_id);
+    if (a) await store.setFieldValues(me.envelope_id, a);
     await store.addEvent({ envelope_id: me.envelope_id, signer_id: me.id, event: input.kind === "none" ? "filled" : "signed", ip: input.who.ip, user_agent: input.who.ua, detail: `${input.kind === "draw" ? "drawn signature" : input.kind === "type" ? "typed signature" : "filled in, no signature needed"}${resized ? ` · resized ${resized} text box${resized === 1 ? "" : "es"}` : ""}` });
     const env = (await store.envelope(me.envelope_id))!;
     const all = await store.signers(env.id);
@@ -400,6 +403,8 @@ export async function submitSignature(
       /* others at the same time still to sign */
     } else if (nextStep !== null) {
       for (const next of later.filter((s) => stepOf(o, s) === nextStep)) {
+        /* 0307: two people of a step signing at the same moment both see the step done; only one invites */
+        if (!(await store.claimSigner(next.id, "waiting", { status: "invited" }))) continue;
         const k = person(next); // the same next person on several documents gets one link
         const g = nextGroups.get(k) ?? { rows: [], titles: [], message: env.message };
         g.rows.push(next);
@@ -407,7 +412,8 @@ export async function submitSignature(
         nextGroups.set(k, g);
       }
     } else if (all.every((s) => s.status === "signed" || s.id === me.id)) {
-      toComplete.push(env.id);
+      /* 0307: and only one of them completes it (one set of signed copies) */
+      if (await store.claimEnvelope(env.id, "sent", { status: "completed", completed_at: new Date().toISOString() })) toComplete.push(env.id);
     }
   }
   const signedTitles: string[] = [];

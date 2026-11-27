@@ -150,6 +150,10 @@ export interface SignStore {
   insertSigner(s: Pick<Signer, "envelope_id" | "position" | "name" | "email" | "role">): Promise<string>;
   updateSigner(id: string, patch: Partial<Signer> & { signature_png?: Uint8Array | null }): Promise<void>;
   updateEnvelope(id: string, patch: Partial<Envelope>): Promise<void>;
+  /** 0307: change a row only if it is still in that status (one at a time: two signatures at the same moment
+   *  can't both invite the next person or both complete it). True = this call made the change. */
+  claimSigner(id: string, from: Signer["status"], patch: Partial<Signer> & { signature_png?: Uint8Array | null }): Promise<boolean>;
+  claimEnvelope(id: string, from: Envelope["status"], patch: Partial<Envelope>): Promise<boolean>;
   signersByToken(hash: string): Promise<Signer[]>;
   signers(envelopeId: string): Promise<Signer[]>;
   signaturePng(signerId: string): Promise<Uint8Array | null>;
@@ -242,6 +246,17 @@ function supabaseStore(): SignStore {
     },
     async updateEnvelope(id, patch) {
       must(await db.from("sign_envelopes").update(patch).eq("id", id));
+    },
+    async claimSigner(id, from, patch) {
+      const { signature_png, ...rest } = patch;
+      const p: Record<string, unknown> = { ...rest };
+      if (signature_png !== undefined) p.signature_png = signature_png ? toHex(signature_png) : null;
+      const rows = must(await db.from("sign_signers").update(p).eq("id", id).eq("status", from).select("id")) as unknown[] | null;
+      return !!rows?.length;
+    },
+    async claimEnvelope(id, from, patch) {
+      const rows = must(await db.from("sign_envelopes").update(patch).eq("id", id).eq("status", from).select("id")) as unknown[] | null;
+      return !!rows?.length;
     },
     async signersByToken(hash) {
       return (must(await db.from("sign_signers").select(SIGNER_COLS).eq("token_hash", hash)) ?? []) as Signer[];
@@ -553,6 +568,20 @@ function memoryStore(): SignStore {
     async updateEnvelope(id, patch) {
       const e = m.env.get(id);
       if (e) Object.assign(e, patch);
+    },
+    async claimSigner(id, from, patch) {
+      const s = m.sig.get(id);
+      if (!s || s.status !== from) return false;
+      const { signature_png, ...rest } = patch;
+      Object.assign(s, rest);
+      if (signature_png !== undefined) s.png = signature_png;
+      return true;
+    },
+    async claimEnvelope(id, from, patch) {
+      const e = m.env.get(id);
+      if (!e || e.status !== from) return false;
+      Object.assign(e, patch);
+      return true;
     },
     async signersByToken(hash) {
       return [...m.sig.values()].filter((s) => s.token_hash === hash).map((s) => strip(s, "png") as Signer);
