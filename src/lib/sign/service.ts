@@ -121,8 +121,11 @@ export async function createSend(
     who: Who;
     /** FD Sign for everyone: the account sending it (never set for Founders Doc / ESOP sends) */
     owner?: { id: string; email: string; name: string; folderId: string | null };
+    /** 0305: save it without sending (own requests only); send later with sendDraft */
+    draft?: boolean;
   },
 ): Promise<{ envelopeIds: string[]; links: SentLink[] }> {
+  const draft = !!input.draft && !!input.owner;
   const batchId = input.batch && input.docs.length > 1 ? crypto.randomUUID() : null;
   const firsts: Array<{ row: Signer; title: string }> = [];
   const envelopeIds: string[] = [];
@@ -141,9 +144,10 @@ export async function createSend(
         esop_tranche: d.esopTranche,
         created_by: input.createdBy,
         ...(input.owner ? { owner_id: input.owner.id, owner_email: input.owner.email, owner_name: input.owner.name, folder_id: input.owner.folderId } : {}),
+        ...(draft ? { status: "draft" as const } : {}),
       });
       envelopeIds.push(id);
-      await store.addEvent({ envelope_id: id, signer_id: null, event: "created", ip: input.who.ip, user_agent: input.who.ua, detail: input.createdBy });
+      await store.addEvent({ envelope_id: id, signer_id: null, event: draft ? "drafted" : "created", ip: input.who.ip, user_agent: input.who.ua, detail: input.createdBy });
       for (let i = 0; i < d.signers.length; i++) {
         const s = d.signers[i];
         const sid = await store.insertSigner({ envelope_id: id, position: i + 1, name: s.name, email: s.email.toLowerCase(), role: s.role });
@@ -173,6 +177,7 @@ export async function createSend(
     }
     throw e;
   }
+  if (draft) return { envelopeIds, links: [] };
   /* First signers: one link per person (a batch groups the same email). */
   const groups = new Map<string, typeof firsts>();
   for (const f of firsts) {
@@ -186,6 +191,35 @@ export async function createSend(
   for (const l of links)
     await slack(store, envelopeIds, `✍️ Sent for signing to *${l.name}* (${l.role}): ${what(l.documents)}${l.emailed ? "" : " · emails off, link to be sent by hand"}`);
   return { envelopeIds, links };
+}
+
+/**
+ * 0305: send a saved draft (the sender's own). Its people, boxes, copies, key controllers, order and reminders
+ * were all saved with it; now everyone in the first step gets their link. The date it was sent counts as its date.
+ */
+export async function sendDraft(store: SignStore, ownerId: string, envelopeId: string, origin: string, who: Who): Promise<SentLink[]> {
+  const o = await store.ownerOf(envelopeId);
+  const env = o?.owner_id === ownerId ? await store.envelope(envelopeId) : null;
+  if (!env) throw new SignError("Not found.", 404);
+  if (env.status !== "draft") throw new SignError("This one has already been sent.", 409);
+  const all = await store.signers(envelopeId);
+  const order = await orderOf(store, envelopeId, all.length);
+  await store.updateEnvelope(envelopeId, { status: "sent", created_at: new Date().toISOString() });
+  await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "created", ip: who.ip, user_agent: who.ua, detail: "sent from a draft" });
+  const links: SentLink[] = [];
+  for (const s of all.filter((x) => stepOf(order, x) === 1)) links.push(await invite(store, [s], [env.title], origin, env.message, who, "invited"));
+  for (const l of links) await slack(store, [envelopeId], `✍️ Sent for signing to *${l.name}* (${l.role}): ${what(l.documents)}`);
+  return links;
+}
+
+/** 0305: throw a draft away (it was never sent: nobody was emailed) */
+export async function discardDraft(store: SignStore, ownerId: string, envelopeId: string, who: Who): Promise<void> {
+  const o = await store.ownerOf(envelopeId);
+  const env = o?.owner_id === ownerId ? await store.envelope(envelopeId) : null;
+  if (!env) throw new SignError("Not found.", 404);
+  if (env.status !== "draft") throw new SignError("Only a draft can be discarded.", 409);
+  await store.updateEnvelope(envelopeId, { status: "voided" });
+  await store.addEvent({ envelope_id: envelopeId, signer_id: null, event: "voided", ip: who.ip, user_agent: who.ua, detail: "draft discarded, never sent" });
 }
 
 /** The boxes stored for a document, or (none stored) boxes placed automatically on its signature lines. */

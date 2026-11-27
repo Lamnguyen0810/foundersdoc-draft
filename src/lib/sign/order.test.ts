@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { PDFDocument } from "pdf-lib";
 import { cleanSteps, orderLine, orderText, parseOrder, stepsFrom } from "./order";
 import { signStore, type SignStore } from "./store";
-import { createSend, remindDaily, submitSignature, viewForToken } from "./service";
+import { createSend, discardDraft, remindDaily, sendDraft, submitSignature, viewForToken } from "./service";
+import { allowance } from "./allowance";
 
 /* 0304 (Rachel's envelopes): directors sign at the same time, then the cosec only fills in the date. Sample names only. */
 
@@ -89,6 +90,47 @@ test("parallel directors, then a person who only fills in; daily reminders", asy
     (ev as { at: string }).at = new Date(Date.now() - 25 * 3_600_000).toISOString();
     assert.equal(await remindDaily(s, "http://localhost:3000"), 1, "a day later: reminded (the completed request is skipped)");
     assert.equal(await remindDaily(s, "http://localhost:3000"), 0, "and not again the same day");
+  } finally {
+    globalThis.fetch = closed;
+    delete process.env.SIGN_HOOK_URL;
+  }
+});
+
+test("a draft: saved with everything, nobody emailed, not counted; then sent, or discarded", async () => {
+  const s = signStore() as SignStore;
+  const sent: string[] = [];
+  const closed = globalThis.fetch;
+  process.env.SIGN_HOOK_URL = "https://hooks.zapier.com/hooks/catch/0/test/";
+  globalThis.fetch = (async (_u: RequestInfo | URL, init?: RequestInit) => {
+    sent.push((JSON.parse(String(init?.body ?? "{}")) as { to: string }).to);
+    return new Response("{}", { status: 200 });
+  }) as typeof fetch;
+  try {
+    const owner = { id: "22222222-2222-4222-8222-222222222222", email: "owner@example.com", name: "Example Consulting", folderId: null };
+    const signers = [
+      { name: "Alex Tan", email: "alex@example.com", role: "Director" },
+      { name: "Jamie Lee", email: "jamie@example.com", role: "Director" },
+    ];
+    const fields = [1, 2].map((position) => ({ position, kind: "signature" as const, page: 1, x: 0.1, y: 0.2 * position, w: 0.3, h: 0.05 }));
+    const who = { ip: null, ua: null };
+    const me = { id: owner.id, email: owner.email, name: owner.name, confirmed: true };
+    const used = (await allowance(me, s)).used;
+    const d = await createSend(s, { docs: [{ title: "Members' Resolutions", fileName: "m.pdf", bytes: await pdf(), esopHolderId: null, esopTranche: null, signers, fields, cc: ["copy@example.com"], order: { steps: [1, 1], fill: [] } }], batch: false, message: null, createdBy: "test", origin: "http://localhost:3000", who, owner, draft: true });
+    const id = d.envelopeIds[0]!;
+    assert.equal(d.links.length, 0);
+    assert.equal((await s.envelope(id))!.status, "draft");
+    assert.deepEqual(sent, [], "nobody is emailed");
+    assert.equal((await allowance(me, s)).used, used, "a draft is not counted");
+    await assert.rejects(sendDraft(s, "33333333-3333-4333-8333-333333333333", id, "http://localhost:3000", who), /Not found/, "only its sender");
+    const links = await sendDraft(s, owner.id, id, "http://localhost:3000", who);
+    assert.deepEqual(links.map((l) => l.name), ["Alex Tan", "Jamie Lee"], "sent as saved: both at the same time");
+    assert.equal((await s.envelope(id))!.status, "sent");
+    assert.deepEqual((await s.viewers(id)).map((v) => v.email), ["copy@example.com"]);
+    await assert.rejects(sendDraft(s, owner.id, id, "http://localhost:3000", who), /already been sent/);
+
+    const other = await createSend(s, { docs: [{ title: "Old", fileName: "o.pdf", bytes: await pdf(), esopHolderId: null, esopTranche: null, signers, fields }], batch: false, message: null, createdBy: "test", origin: "http://localhost:3000", who, owner, draft: true });
+    await discardDraft(s, owner.id, other.envelopeIds[0]!, who);
+    assert.equal((await s.envelope(other.envelopeIds[0]!))!.status, "voided");
   } finally {
     globalThis.fetch = closed;
     delete process.env.SIGN_HOOK_URL;

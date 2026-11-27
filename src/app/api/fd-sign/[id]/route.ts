@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { remind, voidEnvelope } from "@/lib/sign/service";
+import { discardDraft, remind, sendDraft, voidEnvelope } from "@/lib/sign/service";
+import { allowance, blockReason } from "@/lib/sign/allowance";
 import { docEvents, docRow } from "@/lib/sign/mine";
 import { who } from "@/lib/sign/http";
 import { ctx, fail, UUID } from "../common";
 
 /**
  * GET  /api/fd-sign/<id> — one of my requests: people, progress, activity.
- * POST /api/fd-sign/<id> { action: "remind" | "cancel" | "move", folderId? }
+ * POST /api/fd-sign/<id> { action: "remind" | "cancel" | "move" | "send" | "discard", folderId? }
+ *   (0305: "send" sends a saved draft, "discard" throws one away)
  * Only the account that sent it; anything else answers "Not found".
  */
 export const runtime = "nodejs";
@@ -51,6 +53,16 @@ export async function POST(req: NextRequest, { params }: Params) {
     if (body.action === "remind") {
       const r = await remind(c.store, c.me.id, id, req.nextUrl.origin, who(req));
       return NextResponse.json({ ok: true, to: r.name, emailed: r.emailed });
+    }
+    if (body.action === "send") {
+      const blocked = blockReason(await allowance(c.me, c.store));
+      if (blocked) return NextResponse.json({ error: blocked, upgrade: true }, { status: 429 });
+      const links = await sendDraft(c.store, c.me.id, id, req.nextUrl.origin, who(req));
+      return NextResponse.json({ ok: true, to: links.map((l) => l.name).join(", "), emailed: links.every((l) => l.emailed) });
+    }
+    if (body.action === "discard") {
+      await discardDraft(c.store, c.me.id, id, who(req));
+      return NextResponse.json({ ok: true });
     }
     if (body.action === "cancel") {
       const ok = await voidEnvelope(c.store, id, who(req), c.me.email);

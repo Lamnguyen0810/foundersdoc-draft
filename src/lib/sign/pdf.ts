@@ -64,6 +64,7 @@ const EVENT_TEXT: Record<string, string> = {
   supplement: "Supplemental document inserted",
   controller: "Key controller added (status updates)",
   order: "Signing order set",
+  drafted: "Saved as a draft",
   remind_daily: "Daily reminders on",
   filled: "Filled in (no signature needed)",
 };

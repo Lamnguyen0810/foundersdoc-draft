@@ -125,7 +125,7 @@ export default function Wizard({
   const [askReq, setAskReq] = useState(true);
   const [placed, setPlaced] = useState(false);
   const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"" | "draft" | "send">("");
   const input = useRef<HTMLInputElement>(null);
 
   const me = data?.me;
@@ -411,13 +411,14 @@ export default function Wizard({
     window.scrollTo({ top: 0 });
   }
 
-  async function send() {
+  /* 0305: draft = save it without sending (send it later from the document page) */
+  async function send(draft = false) {
     for (const k of [1, 2, 3])
       if (problems[k]) {
         setStep(k);
         return setErr(problems[k]);
       }
-    setBusy(true);
+    setBusy(draft ? "draft" : "send");
     setErr("");
     try {
       const fd = new FormData();
@@ -441,6 +442,7 @@ export default function Wizard({
           steps: stepsFrom(signers.map((s) => s.together)),
           fillOnly: signers.flatMap((s, i) => (s.fill ? [i + 1] : [])),
           remindDaily: daily,
+          draft,
           supplements: inserted,
           fields: boxes.map(({ position, kind, page, x, y, w, h, label, required }) => ({ position, kind, page, x, y, w, h, ...(asks(kind) ? { label: label?.trim() || undefined, required: !!required } : {}) })),
         }),
@@ -454,10 +456,10 @@ export default function Wizard({
         /* preview only */
       }
       progress.current.sent = true;
-      router.push(`/fd-sign/d/${j.id}?sent=${encodeURIComponent(j.emailedTo || signers[0].name)}`);
+      router.push(j.draft ? `/fd-sign/d/${j.id}?draft=1` : `/fd-sign/d/${j.id}?sent=${encodeURIComponent(j.emailedTo || signers[0].name)}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not send.");
-      setBusy(false);
+      setBusy("");
     }
   }
 
@@ -1166,10 +1168,15 @@ export default function Wizard({
             <Ic n="chev" s={16} w={2} />
           </button>
         ) : (
-          <button className="fds-btn gold lg" onClick={() => void send()} disabled={busy}>
-            <Ic n="mail" s={16} w={2} />
-            {busy ? "Sending…" : "Send for signing"}
-          </button>
+          <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="fds-btn lg" onClick={() => void send(true)} disabled={!!busy} title="Keep it to send later: nobody is emailed">
+              {busy === "draft" ? "Saving…" : "Save as draft"}
+            </button>
+            <button className="fds-btn gold lg" onClick={() => void send()} disabled={!!busy}>
+              <Ic n="mail" s={16} w={2} />
+              {busy === "send" ? "Sending…" : "Send for signing"}
+            </button>
+          </span>
         )}
       </div>
     </div>

@@ -10,7 +10,8 @@ import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
  * Documents are small PDFs (certificates), kept as bytea next to their rows.
  */
 
-export type EnvelopeStatus = "sent" | "completed" | "voided";
+/** 0305: "draft" = saved, not sent yet (SQL 150) */
+export type EnvelopeStatus = "draft" | "sent" | "completed" | "voided";
 export type SignerStatus = "waiting" | "invited" | "signed";
 
 export interface Envelope {
@@ -110,6 +111,8 @@ export interface NewEnvelope {
   owner_email?: string;
   owner_name?: string;
   folder_id?: string | null;
+  /** 0305: "draft" = saved without sending (SQL 150); default sent */
+  status?: "draft";
 }
 
 /** Who sent a request (SQL 119). Null for Founders Doc / ESOP requests. owner_id is null if that account was deleted later. */
@@ -450,12 +453,13 @@ function supabaseStore(): SignStore {
         });
     },
     async sentSince(ownerId, sinceIso) {
-      const r = await db.from("sign_envelopes").select("id", { count: "exact", head: true }).eq("owner_id", ownerId).gte("created_at", sinceIso);
+      /* 0305: a draft counts once it is sent (sending a draft moves created_at to then) */
+      const r = await db.from("sign_envelopes").select("id", { count: "exact", head: true }).eq("owner_id", ownerId).neq("status", "draft").gte("created_at", sinceIso);
       if (r.error) throw new Error(r.error.message);
       return r.count ?? 0;
     },
     async firstSentSince(ownerId, sinceIso) {
-      const r = await db.from("sign_envelopes").select("created_at").eq("owner_id", ownerId).gte("created_at", sinceIso).order("created_at").limit(1).maybeSingle();
+      const r = await db.from("sign_envelopes").select("created_at").eq("owner_id", ownerId).neq("status", "draft").gte("created_at", sinceIso).order("created_at").limit(1).maybeSingle();
       if (r.error) throw new Error(r.error.message);
       return (r.data as { created_at?: string } | null)?.created_at ?? null;
     },
@@ -518,7 +522,7 @@ function memoryStore(): SignStore {
     kind: "memory",
     async insertEnvelope(e) {
       const id = crypto.randomUUID();
-      m.env.set(id, { ...e, id, status: "sent", filed_document_id: null, created_at: now(), completed_at: null });
+      m.env.set(id, { ...e, id, status: e.status ?? "sent", filed_document_id: null, created_at: now(), completed_at: null });
       return id;
     },
     async insertSigner(s) {
@@ -685,10 +689,10 @@ function memoryStore(): SignStore {
       return out;
     },
     async sentSince(ownerId, sinceIso) {
-      return [...m.env.values()].filter((e) => e.owner_id === ownerId && e.created_at >= sinceIso).length;
+      return [...m.env.values()].filter((e) => e.owner_id === ownerId && e.status !== "draft" && e.created_at >= sinceIso).length;
     },
     async firstSentSince(ownerId, sinceIso) {
-      const t = [...m.env.values()].filter((e) => e.owner_id === ownerId && e.created_at >= sinceIso).map((e) => e.created_at).sort()[0];
+      const t = [...m.env.values()].filter((e) => e.owner_id === ownerId && e.status !== "draft" && e.created_at >= sinceIso).map((e) => e.created_at).sort()[0];
       return t ?? null;
     },
     async phoneSince(ownerId, sinceIso) {

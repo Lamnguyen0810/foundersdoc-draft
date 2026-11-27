@@ -104,6 +104,8 @@ export async function POST(req: NextRequest) {
   if (!steps) return NextResponse.json({ error: "The signing order isn't valid. Please check the People step." }, { status: 400 });
   const fill = [...new Set((Array.isArray(meta.fillOnly) ? meta.fillOnly : []).map(Number))].filter((p) => Number.isInteger(p) && p >= 1 && p <= signers.length);
   const remindDaily = meta.remindDaily === true;
+  /* 0305: save as a draft (SQL 150), send later from the document page */
+  const draft = meta.draft === true;
 
   const fields = parseFields(meta.fields, signers.length);
   for (let i = 0; i < signers.length; i++) {
@@ -139,7 +141,10 @@ export async function POST(req: NextRequest) {
       origin: req.nextUrl.origin,
       who: who(req),
       owner: { id: me.id, email: me.email, name: senderName, folderId },
+      draft,
     });
+    /* 0305: saved, not sent: nobody is emailed */
+    if (draft) return NextResponse.json({ ok: true, id: res.envelopeIds[0], draft: true });
     const first = res.links[0];
     /* 0221: "📤 <name> sent a signing request to N signers" (no title or names) */
     await senderStep(senderName, me.email, "sent", { signers: signers.length }).catch(() => undefined);
@@ -154,6 +159,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     const m = e instanceof Error ? e.message : "";
+    if (/sign_envelopes_status_check|violates check constraint/i.test(m)) return NextResponse.json({ error: "Drafts are being set up (run supabase/150_fd_sign_drafts.sql)." }, { status: 503 });
     if (/parse|PDF|encrypt/i.test(m)) return NextResponse.json({ error: "This PDF could not be read. If it has a password, remove it and try again." }, { status: 400 });
     return fail(e, "send");
   }
