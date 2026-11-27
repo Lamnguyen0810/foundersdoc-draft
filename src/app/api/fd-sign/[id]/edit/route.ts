@@ -7,13 +7,18 @@ import { ctx, fail, UUID } from "../../common";
  * Everything it was saved with: title, message, folder, people (and what each one does), boxes,
  * copies, key controllers, supplemental document lines and daily reminders. The PDF itself comes
  * from /api/sign/file?e=<id> (the owner may read it). Only the account that saved it; drafts only.
+ *
+ * 0311: ?copy=1 — the same for "Duplicate", from any of my requests (draft, sent, completed or cancelled).
+ * A request that was sent may hold what its signers typed in their boxes: those answers are left out (the
+ * boxes and their questions are kept), so a copy never carries one person's answers to the next.
  */
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Params = { params: Promise<{ id: string }> };
 
-export async function GET(_req: NextRequest, { params }: Params) {
+export async function GET(req: NextRequest, { params }: Params) {
+  const copy = req.nextUrl.searchParams.get("copy") === "1";
   const { id } = await params;
   const c = await ctx();
   if (c instanceof NextResponse) return c;
@@ -22,7 +27,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     const o = await c.store.ownerOf(id);
     const env = o?.owner_id === c.me.id ? await c.store.envelope(id) : null;
     if (!env) return NextResponse.json({ error: "Not found." }, { status: 404 });
-    if (env.status !== "draft") return NextResponse.json({ error: "Only a draft can be edited. This one has been sent." }, { status: 409 });
+    if (env.status !== "draft" && !copy) return NextResponse.json({ error: "Only a draft can be edited. This one has been sent: use Duplicate instead." }, { status: 409 });
+    const keepValues = env.status === "draft";
     const signers = (await c.store.signers(id)).sort((a, b) => a.position - b.position);
     const [fields, viewers, controllers, events, order, phones] = await Promise.all([
       c.store.fields(id),
@@ -38,7 +44,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
       message: env.message,
       folderId: o?.folder_id ?? null,
       signers: signers.map((s, i) => ({ name: s.name, email: s.email, role: s.role, channel: phones[i]!.channel, phone: phones[i]!.phone })),
-      fields: fields.map((f) => ({ position: f.position, kind: f.kind, page: f.page, x: f.x, y: f.y, w: f.w, h: f.h, label: f.label ?? undefined, required: f.required, value: f.value ?? undefined })),
+      fields: fields.map((f) => ({ position: f.position, kind: f.kind, page: f.page, x: f.x, y: f.y, w: f.w, h: f.h, label: f.label ?? undefined, required: f.required, value: keepValues ? (f.value ?? undefined) : undefined })),
       cc: viewers.map((v) => v.email),
       controllers,
       supplements: events.filter((e) => e.event === "supplement").map((e) => e.detail ?? "").filter(Boolean),
