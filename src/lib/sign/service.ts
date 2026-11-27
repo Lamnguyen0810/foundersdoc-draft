@@ -118,9 +118,12 @@ async function invite(store: SignStore, rows: Signer[], titles: string[], origin
   const sender = await senderOf(store, first.envelope_id);
   /* 0257: option certificates carry the vesting's own subject line; anything else keeps FD Sign's */
   const subject = reason !== "link" && !sender ? await certificateSubject(await Promise.all(rows.map((r) => store.envelope(r.envelope_id))), "sign", reason === "reminded") : null;
+  /* 0313: an approver's email says "to approve", someone who only fills in "to complete" */
+  const ord = await orderOf(store, first.envelope_id, (await store.signers(first.envelope_id)).length);
+  const asks = approves(ord, first.position) ? ("approve" as const) : fillsOnly(ord, first) ? ("complete" as const) : null;
   const emailed =
     reason !== "link"
-      ? await notify({ kind: "invite", to: first.email, name: first.name, role: first.role, link, documents: titles, message, ...(sender ? { sender } : {}), ...(reason === "reminded" ? { reminder: true } : {}), ...(subject ? { subject } : {}) })
+      ? await notify({ kind: "invite", to: first.email, name: first.name, role: first.role, link, documents: titles, message, ...(sender ? { sender } : {}), ...(reason === "reminded" ? { reminder: true } : {}), ...(subject ? { subject } : {}), ...(asks ? { asks } : {}) })
       : false;
   return { name: first.name, email: first.email, role: first.role, documents: titles, link, emailed };
 }
@@ -455,7 +458,7 @@ export async function submitSignature(
   await slack(store, open.map((m) => m.envelope_id), `✅ *${open[0].name}* (${open[0].role}) signed ${what(signedTitles)}`);
   for (const m of open) await signerStep(store, m.envelope_id, m.position, "signed"); // 0221
   /* 0296: the key controllers hear who has signed and who hasn't (the completed email follows for the last one) */
-  for (const m of open) if (!toComplete.includes(m.envelope_id)) await tellControllers(store, m.envelope_id, { kind: "signed", name: m.name, role: m.role }, m.email);
+  for (const m of open) if (!toComplete.includes(m.envelope_id)) await tellControllers(store, m.envelope_id, { kind: "signed", name: m.name, role: m.role, did: input.kind !== "none" ? "signed" : approves(await orderOf(store, m.envelope_id, (await store.signers(m.envelope_id)).length), m.position) ? "approved" : "filled" }, m.email);
   /* finish the documents everyone has now signed (after the "signed" update, so Slack reads in order) */
   for (const id of toComplete) {
     await complete(store, id, input.origin, input.who, { token: input.token, ids: new Set(open.map((o) => o.id)) });
@@ -589,6 +592,7 @@ export async function tellControllers(store: SignStore, envelopeId: string, even
     signedAt: s.signed_at,
     does: approves(ord, s.position) ? ("approve" as const) : fillsOnly(ord, s) ? ("fill" as const) : ("sign" as const),
     heldFor: held(ord, s, signers) ? approversOf(ord, s.position).filter((a) => signers.find((x) => x.position === a)?.status !== "signed").map(nameAt) : [],
+    step: stepOf(ord, s),
     notNeeded: needless(ord, s, signers)
       ? approvedBy(ord, (ord.approve ?? []).find(([a]) => a === s.position)![1], signers).map(nameAt).join(" and ")
       : undefined,
