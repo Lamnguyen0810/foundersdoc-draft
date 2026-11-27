@@ -47,6 +47,8 @@ test("parallel directors, then a person who only fills in; daily reminders", asy
     const fields = [
       ...[1, 2, 3, 4].map((position) => ({ position, kind: "signature" as const, page: 1, x: 0.1, y: 0.1 * position, w: 0.3, h: 0.05 })),
       { position: 5, kind: "text" as const, page: 1, x: 0.5, y: 0.9, w: 0.2, h: 0.03, label: "Date", required: true },
+      /* 0306: filled in already by the sender */
+      { position: 1, kind: "text" as const, page: 1, x: 0.5, y: 0.1, w: 0.2, h: 0.03, label: "Designation", required: true, value: "President" },
     ];
     const who = { ip: null, ua: null };
     const owner = { id: "11111111-1111-4111-8111-111111111111", email: "owner@example.com", name: "Example Consulting", folderId: null };
@@ -63,9 +65,11 @@ test("parallel directors, then a person who only fills in; daily reminders", asy
     assert.deepEqual(links.map((l) => l.name), names.slice(0, 4), "all four directors get their link at once");
     const tok = (name: string) => links.find((l) => l.name === name)!.link.split("/sign/")[1]!;
     assert.equal((await viewForToken(s, tok("Chris Lim"), null))!.state, "ready", "the fourth director need not wait");
+    assert.equal((await viewForToken(s, tok("Alex Tan"), null))!.documents[0]!.fields.find((f) => f.kind === "text")?.value, "President", "a pre-filled box reaches the signer");
 
     await submitSignature(s, { token: tok("Sam Wong"), kind: "type", png: null, typed: "Sam Wong", origin: "http://localhost:3000", who });
-    await submitSignature(s, { token: tok("Alex Tan"), kind: "type", png: null, typed: "Alex Tan", origin: "http://localhost:3000", who });
+    const pre = (await viewForToken(s, tok("Alex Tan"), null))!.documents[0]!.fields.find((f) => f.kind === "text")!;
+    await submitSignature(s, { token: tok("Alex Tan"), kind: "type", png: null, typed: "Alex Tan", values: { [pre.id!]: "President" }, origin: "http://localhost:3000", who });
     assert.ok(!sent.some((x) => x.to === "pat@example.com"), "the cosec waits for every director");
     await assert.rejects(submitSignature(s, { token: tok("Jamie Lee"), kind: "none", png: null, typed: null, origin: "http://localhost:3000", who }), /Please sign first/);
     await submitSignature(s, { token: tok("Jamie Lee"), kind: "type", png: null, typed: "Jamie Lee", origin: "http://localhost:3000", who });

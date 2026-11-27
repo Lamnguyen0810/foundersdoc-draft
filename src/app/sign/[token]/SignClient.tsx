@@ -162,7 +162,10 @@ export default function SignClient({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   /* text boxes and checkboxes on my lines (FD Sign, SQL 120): field id -> what I typed, or "yes" */
-  const [vals, setVals] = useState<Record<string, string>>({});
+  /* 0306: a text box the sender filled in already starts with that (they can change it) */
+  const [vals, setVals] = useState<Record<string, string>>(() =>
+    Object.fromEntries(view.documents.flatMap((x) => x.fields.filter((f) => f.id && f.kind === "text" && f.value).map((f) => [f.id!, f.value!]))),
+  );
   /* text boxes the signer resized (fractions of the page); sent with the signature, kept in the signed PDF */
   const [sizes, setSizes] = useState<Record<string, { w: number; h: number }>>({});
   function grip(e: React.PointerEvent<HTMLSpanElement>, f: { id?: string; x: number; y: number; w: number; h: number }) {

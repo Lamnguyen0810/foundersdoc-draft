@@ -603,7 +603,7 @@ function memoryStore(): SignStore {
       return "Aditya Haripurkar";
     },
     async insertFields(envelopeId, fields) {
-      m.fld.set(envelopeId, [...(m.fld.get(envelopeId) ?? []), ...fields.map((f) => ({ ...f, id: crypto.randomUUID(), required: f.required ?? true, value: null }))]);
+      m.fld.set(envelopeId, [...(m.fld.get(envelopeId) ?? []), ...fields.map((f) => ({ ...f, id: crypto.randomUUID(), required: f.required ?? true, value: f.value ?? null }))]);
     },
     async fields(envelopeId) {
       return (m.fld.get(envelopeId) ?? []).map((f) => ({ ...f }));
