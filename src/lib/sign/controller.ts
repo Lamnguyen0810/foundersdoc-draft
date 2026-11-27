@@ -178,8 +178,8 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
   const todoL = lines.filter((l) => !isApprover(l) && (kind(l) === "now" || kind(l) === "wait"));
   const apprL = lines.filter(isApprover);
   /* a loading bar: one segment per person, filling up from the left as people sign. Two colours only (Lam, 0312):
-     green once signed or approved, grey while not yet. Approvers get a blue "APPROVAL" bracket above their
-     segment(s), pointing down onto them (side-by-side approvers share one), so it reads at a glance (Rachel). The stripes are a background pattern (Apple Mail, Gmail); where an email app drops
+     green once signed or approved, grey while not yet. With approvers there are two bars, SIGNING and APPROVAL,
+     each with its own count, so it reads at a glance (Rachel). The stripes are a background pattern (Apple Mail, Gmail); where an email app drops
      it (Outlook) the segment is plain green. The person icons stay in the signing order below. */
   const pctDone = total ? Math.round((done / total) * 100) : 0;
   const isDone = (l: L) => kind(l) === "done" || kind(l) === "approved";
@@ -188,44 +188,38 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
       ? "background-color:#16a34a;background-image:repeating-linear-gradient(135deg,rgba(255,255,255,0.18) 0,rgba(255,255,255,0.18) 6px,rgba(255,255,255,0) 6px,rgba(255,255,255,0) 12px);"
       : "background-color:#e5e7eb;";
   const shown = lines.filter((l) => kind(l) !== "skip").sort((x, y) => Number(isDone(y)) - Number(isDone(x)));
-  const w = (100 / Math.max(shown.length, 1)).toFixed(2);
-  /* side-by-side approvers share one bracket: runs of [isApprover, count] */
-  const runs: Array<[boolean, number]> = [];
-  shown.forEach((l) => {
-    const last = runs[runs.length - 1];
-    if (last && last[0] === isApprover(l) && isApprover(l)) last[1]++;
-    else runs.push([isApprover(l), 1]);
-  });
-  let at = 0;
-  const brackets = runs
-    .map(([ap, n]) => {
-      const end = (at += n) === shown.length;
-      const pad = `padding:0 ${end ? 0 : 3}px 4px 0;`;
-      return ap
-        ? `<td colspan="${n}" align="center" valign="bottom" style="${pad}">` +
-            `<div style="${F}font-size:10px;line-height:13px;font-weight:bold;letter-spacing:0.6px;color:#1d4ed8;white-space:nowrap;padding-bottom:3px;">APPROVAL</div>` +
-            `<div style="height:5px;border:2px solid #2563eb;border-bottom:0;border-radius:4px 4px 0 0;font-size:1px;line-height:1px;">&nbsp;</div></td>`
-        : Array.from({ length: n }, () => `<td style="${pad}font-size:1px;line-height:1px;">&nbsp;</td>`).join("");
-    })
-    .join("");
-  const bar =
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;table-layout:fixed;margin-top:14px;">` +
-    (shown.some(isApprover) ? `<tr>${brackets}</tr>` : "") +
-    `<tr>` +
-    shown
-      .map(
-        (l, i) =>
-          `<td width="${w}%" style="padding:0 ${i === shown.length - 1 ? 0 : 3}px 0 0;"><div style="height:16px;${fill(l)}border-radius:${i === 0 ? "8px" : "2px"} ${i === shown.length - 1 ? "8px 8px" : "2px 2px"} ${i === 0 ? "8px" : "2px"};font-size:1px;line-height:1px;">&nbsp;</div></td>`,
-      )
-      .join("") +
-    `</tr><tr>` +
-    shown
-      .map(
-        (l) =>
-          `<td width="${w}%" align="center" valign="top" style="padding:6px 3px 0 0;${F}font-size:11px;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${isDone(l) ? "#15803d" : "#9ca3af"};font-weight:${isDone(l) ? "bold" : "normal"};">${esc(firstOf(l))}</td>`,
-      )
-      .join("") +
+  /* one bar: segments for these people, their first names under them */
+  const barOf = (xs: L[], top: number) => {
+    const w = (100 / Math.max(xs.length, 1)).toFixed(2);
+    return (
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;table-layout:fixed;margin-top:${top}px;"><tr>` +
+      xs
+        .map(
+          (l, i) =>
+            `<td width="${w}%" style="padding:0 ${i === xs.length - 1 ? 0 : 3}px 0 0;"><div style="height:16px;${fill(l)}border-radius:${i === 0 ? "8px" : "2px"} ${i === xs.length - 1 ? "8px 8px" : "2px 2px"} ${i === 0 ? "8px" : "2px"};font-size:1px;line-height:1px;">&nbsp;</div></td>`,
+        )
+        .join("") +
+      `</tr><tr>` +
+      xs
+        .map(
+          (l) =>
+            `<td width="${w}%" align="center" valign="top" style="padding:6px 3px 0 0;${F}font-size:11px;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:${isDone(l) ? "#15803d" : "#9ca3af"};font-weight:${isDone(l) ? "bold" : "normal"};">${esc(firstOf(l))}</td>`,
+        )
+        .join("") +
+      `</tr></table>`
+    );
+  };
+  /* Lam: with approvers, two bars, SIGNING and APPROVAL, each with its own count, so nobody mixes them up */
+  const barHead = (label: string, color: string, xs: L[], top: number) =>
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin-top:${top}px;"><tr>` +
+    `<td style="${MONO}font-size:10px;line-height:14px;letter-spacing:1.5px;font-weight:bold;color:${color};">${label}</td>` +
+    `<td align="right" style="${MONO}font-size:11px;line-height:14px;font-weight:bold;color:#0f1115;">${xs.filter(isDone).length} / ${xs.length}</td>` +
     `</tr></table>`;
+  const signL = shown.filter((l) => !isApprover(l));
+  const okL = shown.filter(isApprover);
+  const bar = okL.length
+    ? barHead("SIGNING", "#15803d", signL, 16) + barOf(signL, 6) + barHead("APPROVAL", "#1d4ed8", okL, 14) + barOf(okL, 6)
+    : barOf(shown, 14);
   const nameList = (xs: L[], mark: (l: L) => string) =>
     xs.length
       ? xs
