@@ -622,11 +622,19 @@ export async function tellControllers(store: SignStore, envelopeId: string, even
     notNeeded: needless(ord, s, signers)
       ? approvedBy(ord, (ord.approve ?? []).find(([a]) => a === s.position)![1], signers).map(nameAt).join(" and ")
       : undefined,
+    /* 0317: for the signing register */
+    invitedAt: s.status === "invited" ? s.invited_at : null,
+    ...(() => {
+      const t = (ord.approve ?? []).find(([a]) => a === s.position)?.[1];
+      return t !== undefined ? { approvesFor: nameAt(t), anyOne: (ord.anyOf ?? []).includes(t) } : {};
+    })(),
+    afterApproval: approversOf(ord, s.position).length > 0,
   }));
+  const sentAt = signers.map((s) => s.invited_at).filter((x): x is string => !!x).sort()[0] ?? null;
   const list: Array<{ email: string; to: "controller" | "sender" }> = [...controllers.map((email) => ({ email, to: "controller" as const })), ...(toSender ? [{ email: own, to: "sender" as const }] : [])];
   let sent = 0;
   for (const r of list) {
-    const mail = statusMail({ title: env.title, signers: rows, event, from: sender?.name ?? null, to: r.to });
+    const mail = statusMail({ title: env.title, signers: rows, event, from: sender?.name ?? null, to: r.to, sentAt });
     const ok = await sendEmail({ kind: "status_update", to: r.email, name: r.to === "sender" ? (sender?.name ?? "") : r.email.split("@")[0], subject: mail.subject, html: mail.html, text: mail.text, link: "" }).catch(() => false);
     if (ok) sent++;
   }
