@@ -10,6 +10,7 @@ import type { Envelope, SignField, SignStore, Signer } from "./store";
 import { cleanText, signerSize } from "./fields";
 import { statusMail, type StatusEvent } from "./controller";
 import { sendEmail } from "./notify";
+import { orderLine, parseOrder, type Order } from "./order";
 
 /**
  * FD Sign rules, in one place:
@@ -49,8 +50,20 @@ export interface DocInput {
   controllers?: string[];
   /** 0296: supplemental documents inserted into the PDF before sending, for the audit trail */
   supplements?: string[];
+  /** 0304: steps (same number = sign at the same time) and who only fills in (positions), and daily reminders */
+  order?: Order;
+  remindDaily?: boolean;
   fields: SignField[];
 }
+
+/** 0304: an envelope's signing order (from its "order" line in the audit trail; default one after another) */
+export async function orderOf(store: SignStore, envelopeId: string, n: number): Promise<Order> {
+  const line = (await store.events(envelopeId)).filter((e) => e.event === "order").pop();
+  return parseOrder(line?.detail, n);
+}
+const stepOf = (o: Order, s: Signer) => o.steps[s.position - 1] ?? s.position;
+/** a person who only fills in (no signature) */
+export const fillsOnly = (o: Order, s: Pick<Signer, "position">) => o.fill.includes(s.position);
 
 export interface Who {
   ip: string | null;
@@ -142,9 +155,14 @@ export async function createSend(
         for (const c of d.controllers) await store.addEvent({ envelope_id: id, signer_id: null, event: "controller", ip: null, user_agent: null, detail: c });
       }
       for (const line of d.supplements ?? []) await store.addEvent({ envelope_id: id, signer_id: null, event: "supplement", ip: null, user_agent: null, detail: line.slice(0, 200) });
+      const ol = d.order ? orderLine(d.order) : null;
+      if (ol) await store.addEvent({ envelope_id: id, signer_id: null, event: "order", ip: null, user_agent: null, detail: ol });
+      if (d.remindDaily) await store.addEvent({ envelope_id: id, signer_id: null, event: "remind_daily", ip: null, user_agent: null, detail: null });
       await store.insertFields(id, d.fields.filter((f) => f.position >= 1 && f.position <= d.signers.length && f.page >= 1 && f.page <= pages));
       const rows = await store.signers(id);
-      firsts.push({ row: rows[0], title: d.title });
+      /* 0304: everyone in the first step gets their link now (parallel signing) */
+      const o = d.order ? parseOrder(orderLine(d.order), rows.length) : null;
+      for (const r of rows) if ((o ? stepOf(o, r) : r.position) === 1) firsts.push({ row: r, title: d.title });
     }
   } catch (e) {
     /* 0210: a save that fails half way (nothing emailed yet) must not leave a request that looks
@@ -198,6 +216,8 @@ export interface SignView {
   waitingFor: string | null;
   /** Who sent it: the account holder's name for own requests, null = Founders Doc */
   sender: string | null;
+  /** 0304: this person only fills in their boxes (no signature) */
+  fillOnly?: boolean;
 }
 
 /** What a signing link shows. Null when the link is unknown. */
@@ -208,12 +228,15 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
   const docs: SignView["documents"] = [];
   let waitingFor: string | null = null;
   let message: string | null = null;
+  let fillOnly = false;
   for (const me of mine) {
     const env = await store.envelope(me.envelope_id);
     if (!env) continue;
     message = message ?? env.message;
     const all = await store.signers(env.id);
-    const before = all.filter((s) => s.position < me.position && s.status !== "signed");
+    const o = await orderOf(store, env.id, all.length);
+    if (fillsOnly(o, me)) fillOnly = true;
+    const before = all.filter((s) => stepOf(o, s) < stepOf(o, me) && s.status !== "signed");
     if (before.length && !waitingFor) waitingFor = `${before[0].name} (${before[0].role})`;
     docs.push({
       envelopeId: env.id,
@@ -246,6 +269,7 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
     message,
     waitingFor,
     sender,
+    fillOnly,
   };
 }
 
@@ -263,7 +287,8 @@ export async function submitSignature(
   store: SignStore,
   input: {
     token: string;
-    kind: "draw" | "type";
+    /** "none": a person who only fills in (0304) */
+    kind: "draw" | "type" | "none";
     png: Uint8Array | null;
     typed: string | null;
     origin: string;
@@ -290,7 +315,9 @@ export async function submitSignature(
     const env = await store.envelope(me.envelope_id);
     if (!env || env.status !== "sent") throw new SignError("This document is no longer open for signing.", 409);
     const all = await store.signers(env.id);
-    if (all.some((s) => s.position < me.position && s.status !== "signed")) throw new SignError("It is not your turn yet: an earlier signer still has to sign.", 409);
+    const o = await orderOf(store, env.id, all.length);
+    if (all.some((s) => stepOf(o, s) < stepOf(o, me) && s.status !== "signed")) throw new SignError("It is not your turn yet: an earlier signer still has to sign.", 409);
+    if ((input.kind === "none") !== fillsOnly(o, me)) throw new SignError(input.kind === "none" ? "Please sign first." : "This person only fills in: no signature is needed.", 400);
   }
   /* what this signer typed or ticked in their own boxes; a required one left empty stops the signing */
   const answers = new Map<string, Array<{ id: string; value: string; w?: number; h?: number }>>();
@@ -321,22 +348,30 @@ export async function submitSignature(
     await store.updateSigner(me.id, {
       status: "signed",
       signed_at: at,
-      signature_kind: input.kind,
+      signature_kind: input.kind === "none" ? null : input.kind,
       signature_png: input.kind === "draw" ? input.png : null,
       typed_name: input.kind === "type" ? input.typed : null,
       ip: input.who.ip,
       user_agent: input.who.ua,
     });
-    await store.addEvent({ envelope_id: me.envelope_id, signer_id: me.id, event: "signed", ip: input.who.ip, user_agent: input.who.ua, detail: `${input.kind === "draw" ? "drawn signature" : "typed signature"}${resized ? ` · resized ${resized} text box${resized === 1 ? "" : "es"}` : ""}` });
+    await store.addEvent({ envelope_id: me.envelope_id, signer_id: me.id, event: input.kind === "none" ? "filled" : "signed", ip: input.who.ip, user_agent: input.who.ua, detail: `${input.kind === "draw" ? "drawn signature" : input.kind === "type" ? "typed signature" : "filled in, no signature needed"}${resized ? ` · resized ${resized} text box${resized === 1 ? "" : "es"}` : ""}` });
     const env = (await store.envelope(me.envelope_id))!;
     const all = await store.signers(env.id);
-    const next = all.find((s) => s.position > me.position && s.status === "waiting");
-    if (next) {
-      const k = person(next); // the same next person on several documents gets one link
-      const g = nextGroups.get(k) ?? { rows: [], titles: [], message: env.message };
-      g.rows.push(next);
-      g.titles.push(env.title);
-      nextGroups.set(k, g);
+    const o = await orderOf(store, env.id, all.length);
+    /* 0304: the next step starts when everyone in this step has signed (parallel signers wait for each other) */
+    const sameStep = all.some((s) => s.id !== me.id && stepOf(o, s) === stepOf(o, me) && s.status !== "signed");
+    const later = all.filter((s) => s.status === "waiting" && stepOf(o, s) > stepOf(o, me));
+    const nextStep = later.length ? Math.min(...later.map((s) => stepOf(o, s))) : null;
+    if (sameStep) {
+      /* others at the same time still to sign */
+    } else if (nextStep !== null) {
+      for (const next of later.filter((s) => stepOf(o, s) === nextStep)) {
+        const k = person(next); // the same next person on several documents gets one link
+        const g = nextGroups.get(k) ?? { rows: [], titles: [], message: env.message };
+        g.rows.push(next);
+        g.titles.push(env.title);
+        nextGroups.set(k, g);
+      }
     } else if (all.every((s) => s.status === "signed" || s.id === me.id)) {
       toComplete.push(env.id);
     }
@@ -513,10 +548,34 @@ export async function remind(store: SignStore, ownerId: string, envelopeId: stri
   if (env.status !== "sent") throw new SignError("Only a request that is still open can be reminded.", 409);
   const last = (await store.events(envelopeId)).filter((e) => e.event === "reminded").pop();
   if (last && Date.now() - Date.parse(last.at) < 3_600_000) throw new SignError("A reminder went out less than an hour ago.", 429);
-  const now = (await store.signers(envelopeId)).find((s) => s.status === "invited");
-  if (!now) throw new SignError("Nobody is waiting to sign.", 409);
-  if (isExpired(now)) throw new SignError("This request has expired. Cancel it and send it again.", 410);
-  return invite(store, [now], [env.title], origin, env.message, who, "reminded");
+  /* 0304: everyone whose turn it is (several when they sign at the same time) */
+  const now = (await store.signers(envelopeId)).filter((s) => s.status === "invited");
+  if (!now.length) throw new SignError("Nobody is waiting to sign.", 409);
+  if (now.every(isExpired)) throw new SignError("This request has expired. Cancel it and send it again.", 410);
+  const sent: SentLink[] = [];
+  for (const s of now.filter((x) => !isExpired(x))) sent.push(await invite(store, [s], [env.title], origin, env.message, who, "reminded"));
+  return { ...sent[0]!, name: sent.map((x) => x.name).join(", ") };
+}
+
+/**
+ * 0304: daily reminders (the sender ticked "Remind daily until signed"): once a day, everyone whose turn it is
+ * and who was not emailed in the last 20 hours gets a reminder (a fresh link, like the Remind button). Own
+ * requests only. Returns how many people were reminded.
+ */
+export async function remindDaily(store: SignStore, origin: string): Promise<number> {
+  let n = 0;
+  for (const id of await store.dailyReminders()) {
+    const env = await store.envelope(id);
+    if (!env || env.status !== "sent") continue;
+    const events = await store.events(id);
+    for (const s of (await store.signers(id)).filter((x) => x.status === "invited" && !isExpired(x))) {
+      const last = events.filter((e) => e.signer_id === s.id && (e.event === "invited" || e.event === "reminded" || e.event === "link")).pop();
+      if (last && Date.now() - Date.parse(last.at) < 20 * 3_600_000) continue;
+      await invite(store, [s], [env.title], origin, env.message, { ip: null, ua: "daily reminder" }, "reminded");
+      n++;
+    }
+  }
+  return n;
 }
 
 /** What a round of Founders Doc reminders did (0250). Counts only: nobody is named. */

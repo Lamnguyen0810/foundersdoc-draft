@@ -63,6 +63,9 @@ const EVENT_TEXT: Record<string, string> = {
   copy_sent: "Signed copy sent (CC)",
   supplement: "Supplemental document inserted",
   controller: "Key controller added (status updates)",
+  order: "Signing order set",
+  remind_daily: "Daily reminders on",
+  filled: "Filled in (no signature needed)",
 };
 
 function wrap(text: string, font: PDFFont, size: number, width: number, t: (s: string) => string = pdfText): string[] {
@@ -272,7 +275,8 @@ export async function buildSignedPdf(input: {
     y -= 15;
   }
   /* Anyone who signed but had no box on the document: their signature here. */
-  const unplaced = signers.filter((s) => s.status === "signed" && !placed.has(s.position));
+  /* 0304: a person who only filled in (no signature kind) never gets a signature drawn for them */
+  const unplaced = signers.filter((s) => s.status === "signed" && !!s.signature_kind && !placed.has(s.position));
   if (unplaced.length) {
     y -= 10;
     if (y < 150) {

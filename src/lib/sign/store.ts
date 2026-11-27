@@ -186,6 +186,8 @@ export interface SignStore {
   addControllers(envelopeId: string, emails: string[]): Promise<void>;
   controllers(envelopeId: string): Promise<string[]>;
   controllersReady(): Promise<boolean>;
+  /** 0304: requests whose sender asked for daily reminders (still open or not: the caller checks) */
+  dailyReminders(): Promise<string[]>;
   /* ── FD Sign for everyone (SQL 119). None of these touch ESOP rows (owner_id is null on those). ── */
   /** Is SQL 119 run? */
   ownersReady(): Promise<boolean>;
@@ -260,6 +262,11 @@ function supabaseStore(): SignStore {
     },
     async events(envelopeId) {
       return (must(await db.from("sign_events").select("*").eq("envelope_id", envelopeId).order("at").order("id")) ?? []) as SignEvent[];
+    },
+    async dailyReminders() {
+      const since = new Date(Date.now() - 60 * 86_400_000).toISOString();
+      const rows = (must(await db.from("sign_events").select("envelope_id").eq("event", "remind_daily").gte("at", since).limit(500)) ?? []) as Array<{ envelope_id: string }>;
+      return [...new Set(rows.map((r) => r.envelope_id))];
     },
     async recent(limit) {
       /* the admin list shows Founders Doc requests only, never people's own (SQL 119); before 119 every row is Founders Doc's */
@@ -571,6 +578,9 @@ function memoryStore(): SignStore {
     },
     async events(envelopeId) {
       return m.ev.filter((e) => e.envelope_id === envelopeId);
+    },
+    async dailyReminders() {
+      return [...new Set(m.ev.filter((e) => e.event === "remind_daily").map((e) => e.envelope_id))];
     },
     async recent(limit) {
       const envs = [...m.env.values()].filter((e) => !e.owner_id).sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(0, limit);
