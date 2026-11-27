@@ -63,7 +63,7 @@ export function Av({ name, i, state, s = 26 }: { name: string; i: number; state?
   );
 }
 
-export const STATUS_TEXT: Record<DocStatus, string> = { waiting_me: "Waiting for you", waiting: "Waiting", completed: "Completed", cancelled: "Cancelled", expired: "Expired" };
+export const STATUS_TEXT: Record<DocStatus, string> = { draft: "Draft, not sent", waiting_me: "Waiting for you", waiting: "Waiting", completed: "Completed", cancelled: "Cancelled", expired: "Expired" };
 export function Pill({ d }: { d: Pick<DocRow, "status" | "waitingFor" | "signed" | "total"> }) {
   const cls = d.status === "waiting_me" ? "me" : d.status;
   const text = d.status === "waiting" && d.waitingFor ? `Waiting for ${d.waitingFor}` : STATUS_TEXT[d.status];

@@ -3,9 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminClientConfigured, supabaseAdmin } from "@/lib/supabase/admin";
 import { activity } from "@/lib/sign/slack";
 import { isQuietAccount } from "@/lib/quiet";
+import { signStore } from "@/lib/sign/store";
+import { remindDaily } from "@/lib/sign/service";
 
 /**
  * GET /api/fd-sign/stalled, once a day (vercel.json, 02:00 UTC = 10am Singapore),
+ * 0304: also sends the daily reminders senders asked for (service.remindDaily).
  * with `Authorization: Bearer <CRON_SECRET>`. 0221.
  *
  * "Flag anyone who stops partway": every signer whose turn came more than 2 days ago and
@@ -81,12 +84,15 @@ export async function GET(req: NextRequest) {
   if (!authorised(req)) return NextResponse.json({ error: "Not found." }, { status: 404 });
   if (!isAdminClientConfigured()) return NextResponse.json({ error: "SUPABASE_SECRET_KEY is not set." }, { status: 503 });
   const db = supabaseAdmin();
+  /* 0304: first, the daily reminders a sender asked for ("Remind daily until signed") */
+  const store = signStore();
+  const reminded = store === "no-secret-key" ? 0 : await remindDaily(store, SITE).catch((e) => (console.error("[fd-sign] daily reminders failed:", e), 0));
   const before = new Date(Date.now() - DAYS * 86_400_000).toISOString();
 
   const s = await db.from("sign_signers").select("envelope_id, position, invited_at, viewed_at").eq("status", "invited").lt("invited_at", before).order("invited_at").limit(200);
   if (s.error) return NextResponse.json({ error: s.error.message }, { status: 500 });
   const rows = (s.data ?? []) as Row[];
-  if (!rows.length) return NextResponse.json({ ok: true, stalled: 0 });
+  if (!rows.length) return NextResponse.json({ ok: true, stalled: 0, reminded });
 
   const ids = [...new Set(rows.map((r) => r.envelope_id))];
   const e = await db.from("sign_envelopes").select("id, status, owner_email, owner_name, esop_holder_id, esop_tranche, created_at").in("id", ids);

@@ -155,6 +155,8 @@ export default function SignClient({
   const [mode, setMode] = useState<"draw" | "type">("draw");
   const [typed, setTyped] = useState(view.signerName);
   const [consent, setConsent] = useState(false);
+  /* 0304: this person only fills in (no signature) */
+  const fillOnly = !!view.fillOnly;
   const [drawn, setDrawn] = useState(false);
   const [png, setPng] = useState("");
   const [busy, setBusy] = useState(false);
@@ -328,6 +330,7 @@ export default function SignClient({
   }
   /* the bottom bar / card button: next place, or Finish when nothing is left */
   function nextOrFinish() {
+    if (fillOnly) return todo[0] ? goTo(todo[0].k) : void sign();
     if (!adopted) return openSheet(signLeft[0]?.k ?? null);
     if (todo[0]) return goTo(todo[0].k);
     void sign();
@@ -335,7 +338,8 @@ export default function SignClient({
 
   async function sign() {
     setErr("");
-    if (!adopted || !consent) return openSheet(signLeft[0]?.k ?? null);
+    if (fillOnly && !consent) return setErr("Please tick the box to agree to complete this electronically.");
+    if (!fillOnly && (!adopted || !consent)) return openSheet(signLeft[0]?.k ?? null);
     if (signLeft.length) {
       goTo(signLeft[0].k);
       return setErr(`Tap the remaining ${signLeft.length === 1 ? "place" : `${signLeft.length} places`} to sign.`);
@@ -353,9 +357,9 @@ export default function SignClient({
         body: JSON.stringify({
           token,
           consent,
-          kind: mode,
-          png: mode === "draw" ? png || undefined : undefined,
-          typed: mode === "type" ? typed : undefined,
+          kind: fillOnly ? "none" : mode,
+          png: !fillOnly && mode === "draw" ? png || undefined : undefined,
+          typed: !fillOnly && mode === "type" ? typed : undefined,
           ...(asks.length ? { values: vals } : {}),
           ...(Object.keys(sizes).length ? { sizes } : {}),
         }),
@@ -584,7 +588,25 @@ export default function SignClient({
               )}
             </div>
           )}
-          {view.state === "ready" && ok && (
+          {/* 0304: a person who only fills in (e.g. the date on the dating line): no signature */}
+          {view.state === "ready" && ok && fillOnly && (
+            <div className="fs-card fs-sigcard">
+              <h2>Fill in and finish</h2>
+              <p className="fs-small fs-tight">No signature is needed from you. Fill in your boxes, then press Finish.</p>
+              <label className="fs-consent">
+                <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+                <span>I agree to complete this document electronically.</span>
+              </label>
+              {err && <p className="fs-err">{err}</p>}
+              <button className="fs-btn primary" disabled={busy} onClick={nextOrFinish}>
+                {busy ? "Saving…" : todo.length ? "Next: fill in ↓" : "Finish"}
+              </button>
+              <p className="fs-small">
+                Completing as <b>{view.signerName}</b> ({view.signerEmail}). We record the time, your IP address and browser in the audit trail.
+              </p>
+            </div>
+          )}
+          {view.state === "ready" && ok && !fillOnly && (
             <div className="fs-card fs-sigcard">
               <h2>Your signature</h2>
               {code.required && <p className="fs-verified">✓ {via.channel === "email" ? "Email" : CHANNEL_TEXT[via.channel]} confirmed</p>}
@@ -631,7 +653,7 @@ export default function SignClient({
           )}
           {view.state === "signed" && (
             <div className="fs-card done">
-              <h2>✓ Signed</h2>
+              <h2>✓ {fillOnly ? "Done" : "Signed"}</h2>
               <p className="fs-small">{done ? "All parties have signed." : "Waiting for the other signers. You'll get the signed copy by email."}</p>
             </div>
           )}

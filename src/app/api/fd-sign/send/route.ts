@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSend } from "@/lib/sign/service";
+import { cleanSteps } from "@/lib/sign/order";
 import { parseFields } from "@/lib/sign/fields";
 import { who } from "@/lib/sign/http";
 import { isHookConfigured } from "@/lib/sign/notify";
@@ -17,6 +18,8 @@ import { CHANNEL_TEXT, normalisePhone, type CodeChannel } from "@/lib/sign/phone
  *   { title, message?, folderId?, signers: [{ name, email, role? }] (1–10, in signing order),
  *     cc?: [email] (≤ 5), fields: [{ position, kind: signature|date|name, page, x, y, w, h }],
  *     controllers?: [email] (≤ 3, 0296: key controllers, a status email each time someone signs),
+ *     steps?: [1, 1, 1, 1, 2] (0304: the same number signs at the same time), fillOnly?: [5] (positions: no signature,
+ *     text / date boxes only), remindDaily?: true (a reminder each day to whoever's turn it is),
  *     supplements?: [line] (≤ 10, 0296: supplemental documents already inserted in the PDF, for the audit trail) }
  * Every signer needs at least one signature box. Signers confirm an email code before signing.
  * Never touches ESOP: no holder link, owner_id set (SQL 119), nothing posted to Slack.
@@ -96,9 +99,24 @@ export async function POST(req: NextRequest) {
     .filter(Boolean)
     .slice(0, 10);
 
+  /* 0304: signing at the same time (steps) and people who only fill in (no signature) */
+  const steps = meta.steps === undefined ? signers.map((_, i) => i + 1) : cleanSteps(meta.steps, signers.length);
+  if (!steps) return NextResponse.json({ error: "The signing order isn't valid. Please check the People step." }, { status: 400 });
+  const fill = [...new Set((Array.isArray(meta.fillOnly) ? meta.fillOnly : []).map(Number))].filter((p) => Number.isInteger(p) && p >= 1 && p <= signers.length);
+  const remindDaily = meta.remindDaily === true;
+  /* 0305: save as a draft (SQL 150), send later from the document page */
+  const draft = meta.draft === true;
+
   const fields = parseFields(meta.fields, signers.length);
-  const missing = signers.findIndex((_, i) => !fields.some((f) => f.position === i + 1 && f.kind === "signature"));
-  if (missing >= 0) return NextResponse.json({ error: `${signers[missing].name} needs a signature box on the document.` }, { status: 400 });
+  for (let i = 0; i < signers.length; i++) {
+    const mine = fields.filter((f) => f.position === i + 1);
+    if (fill.includes(i + 1)) {
+      if (!mine.some((f) => f.kind === "text" || f.kind === "date" || f.kind === "checkbox" || f.kind === "name"))
+        return NextResponse.json({ error: `${signers[i].name} fills in only: add a text or date box for them on the document.` }, { status: 400 });
+      if (mine.some((f) => f.kind === "signature" || f.kind === "initials"))
+        return NextResponse.json({ error: `${signers[i].name} fills in only: remove their signature and initials boxes.` }, { status: 400 });
+    } else if (!mine.some((f) => f.kind === "signature")) return NextResponse.json({ error: `${signers[i].name} needs a signature box on the document.` }, { status: 400 });
+  }
   if (!(await store.boxesReady())) return NextResponse.json({ error: "FD Sign is being set up (run supabase/113_fd_sign_fields.sql)." }, { status: 503 });
   if (fields.some((f) => NEW_FIELD_KINDS.has(f.kind)) && !(await store.fieldsV2Ready()))
     return NextResponse.json({ error: "Initials, text boxes and checkboxes are being set up (run supabase/120_fd_sign_more_fields.sql). Signature, date and name boxes work now." }, { status: 503 });
@@ -116,14 +134,17 @@ export async function POST(req: NextRequest) {
   const senderName = typedName.length >= 2 ? typedName : me.name;
   try {
     const res = await createSend(store, {
-      docs: [{ title, fileName: file.name.slice(0, 200) || "document.pdf", bytes, esopHolderId: null, esopTranche: null, signers, cc, controllers, supplements, fields }],
+      docs: [{ title, fileName: file.name.slice(0, 200) || "document.pdf", bytes, esopHolderId: null, esopTranche: null, signers, cc, controllers, supplements, order: { steps, fill }, remindDaily, fields }],
       batch: false,
       message,
       createdBy: me.email,
       origin: req.nextUrl.origin,
       who: who(req),
       owner: { id: me.id, email: me.email, name: senderName, folderId },
+      draft,
     });
+    /* 0305: saved, not sent: nobody is emailed */
+    if (draft) return NextResponse.json({ ok: true, id: res.envelopeIds[0], draft: true });
     const first = res.links[0];
     /* 0221: "📤 <name> sent a signing request to N signers" (no title or names) */
     await senderStep(senderName, me.email, "sent", { signers: signers.length }).catch(() => undefined);
@@ -138,6 +159,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     const m = e instanceof Error ? e.message : "";
+    if (/sign_envelopes_status_check|violates check constraint/i.test(m)) return NextResponse.json({ error: "Drafts are being set up (run supabase/150_fd_sign_drafts.sql)." }, { status: 503 });
     if (/parse|PDF|encrypt/i.test(m)) return NextResponse.json({ error: "This PDF could not be read. If it has a password, remove it and try again." }, { status: 400 });
     return fail(e, "send");
   }

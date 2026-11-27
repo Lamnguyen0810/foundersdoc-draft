@@ -55,7 +55,7 @@ export default function DetailPage({ id }: { id: string }) {
     return () => clearTimeout(t);
   }, [toast]);
 
-  async function act(action: "remind" | "cancel" | "move", folderId?: string | null) {
+  async function act(action: "remind" | "cancel" | "move" | "send" | "discard", folderId?: string | null) {
     if (action === "cancel" && !confirm("Cancel this request? Nobody will be able to sign it any more.")) return;
     setBusy(action);
     setErr("");
@@ -63,7 +63,7 @@ export default function DetailPage({ id }: { id: string }) {
     const j = await r.json().catch(() => ({}));
     setBusy("");
     if (!r.ok) return setErr(j.error || "Could not do that.");
-    setToast(action === "remind" ? `Reminder sent to ${j.to}.` : action === "cancel" ? "Request cancelled." : "Moved.");
+    setToast(action === "remind" ? `Reminder sent to ${j.to}.` : action === "cancel" ? "Request cancelled." : action === "send" ? `Sent for signing to ${j.to}.` : action === "discard" ? "Draft discarded." : "Moved.");
     void load();
     void list.reload();
   }
@@ -110,6 +110,13 @@ export default function DetailPage({ id }: { id: string }) {
                     Sign now
                   </button>
                 )}
+                {/* 0305: a saved draft: send it now, or throw it away */}
+                {doc.status === "draft" && (
+                  <button className="fds-btn sm gold" disabled={!!busy} onClick={() => void act("send")}>
+                    <Ic n="mail" s={15} />
+                    {busy === "send" ? "Sending…" : "Send now"}
+                  </button>
+                )}
                 {(doc.status === "waiting" || doc.status === "waiting_me") && !meNow && (
                   <button className={`fds-btn sm${params.get("remind") === "1" ? " pulse" : ""}`} disabled={!!busy} onClick={() => void act("remind")}>
                     <Ic n="bell" s={15} />
@@ -133,7 +140,17 @@ export default function DetailPage({ id }: { id: string }) {
                     Cancel request
                   </button>
                 )}
+                {doc.status === "draft" && (
+                  <button className="fds-btn sm ghost danger" disabled={!!busy} onClick={() => void act("discard")}>
+                    Discard draft
+                  </button>
+                )}
               </div>
+              {doc.status === "draft" && (
+                <div className="fds-err" style={{ background: "var(--fds-gold-soft)", color: "var(--fds-gold-tx)" }}>
+                  Saved as a draft. Nobody has been emailed yet. Check it, then press <b>Send now</b> when you are ready: everything you set up (people, boxes, copies, order and reminders) goes out as it is.
+                </div>
+              )}
 
               <div className="fds-dgrid">
                 <div className="fds-card fds-pv">
@@ -146,7 +163,7 @@ export default function DetailPage({ id }: { id: string }) {
                       Folder <b>{folder?.name ?? "None"}</b>
                     </div>
                     <div>
-                      Sent <b>{dayTime(doc.createdAt)}</b>
+                      {doc.status === "draft" ? "Saved" : "Sent"} <b>{dayTime(doc.createdAt)}</b>
                     </div>
                     {doc.completedAt && (
                       <div>

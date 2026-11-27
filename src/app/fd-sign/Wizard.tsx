@@ -13,6 +13,7 @@ import { Ic, SignCredits, signLeft, useList, type SignAllowanceView } from "./ui
 import PageEditor, { type EditSummary } from "./PageEditor";
 import ExitAsk, { type ExitAnswer } from "./ExitAsk";
 import Supplements, { saveFile } from "./Supplements";
+import { stepsFrom } from "@/lib/sign/order";
 
 /* New signing request, in 4 steps: Document → People → Fields → Review and send.
    Signers sign in the order listed; each gets an email when it's their turn and
@@ -45,9 +46,13 @@ interface Person {
   /** 0222: how they get the signing code, and their mobile for WhatsApp / SMS */
   via: CodeChannel;
   phone: string;
+  /** 0304: signs at the same time as the person above (parallel) */
+  together: boolean;
+  /** 0304: only fills in text / date boxes, no signature (e.g. the dating line) */
+  fill: boolean;
 }
 let seq = 0;
-const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "", via: "email", phone: "" });
+const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "", via: "email", phone: "", together: false, fill: false });
 
 /** channels = the phone channels switched on in Vercel (lib/sign/phone.ts); none = email codes only, as before */
 /** plan (0223, FD_SIGN_PRICING=on): this month's requests and WhatsApp / SMS codes; null = Beta, nothing shown */
@@ -106,6 +111,8 @@ export default function Wizard({
   const [cc, setCc] = useState("");
   /* 0296: key controllers (a status email each time someone signs), and the supplemental documents inserted */
   const [ctl, setCtl] = useState("");
+  /* 0304: a reminder each day to whoever's turn it is */
+  const [daily, setDaily] = useState(false);
   const [inserted, setInserted] = useState<string[]>([]);
   const [message, setMessage] = useState("");
   /* 0199: the name signers see ("Rachel Wong sent you a document"); starts as the account name */
@@ -118,7 +125,7 @@ export default function Wizard({
   const [askReq, setAskReq] = useState(true);
   const [placed, setPlaced] = useState(false);
   const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"" | "draft" | "send">("");
   const input = useRef<HTMLInputElement>(null);
 
   const me = data?.me;
@@ -301,8 +308,15 @@ export default function Wizard({
     else if (ccList.length > 5 || ccList.some((e) => !EMAIL.test(e))) p[2] = "Copies: up to 5 valid email addresses.";
     else if (ctlList.length > 3 || ctlList.some((e) => !EMAIL.test(e))) p[2] = "Status updates: up to 3 valid email addresses.";
     else if (filled.some((x) => x.via !== "email" && !normalisePhone(x.phone))) p[2] = "Add a mobile number with the country code (e.g. +65 9123 4567) for WhatsApp / SMS codes.";
-    const missing = filled.findIndex((_, i) => !boxes.some((b) => b.position === i + 1 && b.kind === "signature"));
-    if (missing >= 0) p[3] = `${filled[missing].name || `Person ${missing + 1}`} needs a signature box.`;
+    /* 0304: a person who only fills in needs a text or date box and no signature box; everyone else a signature box */
+    filled.forEach((x, i) => {
+      if (p[3]) return;
+      const mine = boxes.filter((b) => b.position === i + 1);
+      const who = x.name || `Person ${i + 1}`;
+      if (x.fill && !mine.some((b) => b.kind === "text" || b.kind === "date" || b.kind === "name" || b.kind === "checkbox")) p[3] = `${who} fills in only: add a text or date box for them.`;
+      else if (x.fill && mine.some((b) => b.kind === "signature" || b.kind === "initials")) p[3] = `${who} fills in only: remove their signature box.`;
+      else if (!x.fill && !mine.some((b) => b.kind === "signature")) p[3] = `${who} needs a signature box.`;
+    });
     return p;
   }, [file, title, people, boxes, ccList, ctlList]);
   const signers = people.filter((x) => x.name.trim() || x.email.trim());
@@ -311,7 +325,8 @@ export default function Wizard({
      otherwise (or for people beyond the blocks) on the line that names them. */
   const placeAll = (): Box[] => {
     if (!info) return [];
-    const auto = autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" })), { everyone: true });
+    /* 0304: no signature box for a person who only fills in (they get text / date boxes by hand) */
+    const auto = autoPlace(info, signers.map((s) => ({ name: s.name.trim(), role: s.role.trim() || "Signer" })), { everyone: true }).filter((b) => !signers[b.position - 1]?.fill);
     if (!fromDraft?.blocks.length) return auto;
     const out: Box[] = [];
     signers.forEach((_, i) => {
@@ -396,13 +411,14 @@ export default function Wizard({
     window.scrollTo({ top: 0 });
   }
 
-  async function send() {
+  /* 0305: draft = save it without sending (send it later from the document page) */
+  async function send(draft = false) {
     for (const k of [1, 2, 3])
       if (problems[k]) {
         setStep(k);
         return setErr(problems[k]);
       }
-    setBusy(true);
+    setBusy(draft ? "draft" : "send");
     setErr("");
     try {
       const fd = new FormData();
@@ -422,6 +438,11 @@ export default function Wizard({
           })),
           cc: ccList,
           controllers: ctlList,
+          /* 0304 */
+          steps: stepsFrom(signers.map((s) => s.together)),
+          fillOnly: signers.flatMap((s, i) => (s.fill ? [i + 1] : [])),
+          remindDaily: daily,
+          draft,
           supplements: inserted,
           fields: boxes.map(({ position, kind, page, x, y, w, h, label, required }) => ({ position, kind, page, x, y, w, h, ...(asks(kind) ? { label: label?.trim() || undefined, required: !!required } : {}) })),
         }),
@@ -435,10 +456,10 @@ export default function Wizard({
         /* preview only */
       }
       progress.current.sent = true;
-      router.push(`/fd-sign/d/${j.id}?sent=${encodeURIComponent(j.emailedTo || signers[0].name)}`);
+      router.push(j.draft ? `/fd-sign/d/${j.id}?draft=1` : `/fd-sign/d/${j.id}?sent=${encodeURIComponent(j.emailedTo || signers[0].name)}`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not send.");
-      setBusy(false);
+      setBusy("");
     }
   }
 
@@ -672,7 +693,7 @@ export default function Wizard({
           <div>
             <div className="fds-wh">
               <h2>Who needs to sign?</h2>
-              <p>In signing order. Each person is emailed when the one before has signed.</p>
+              <p>In signing order. Each person is emailed when the one before has signed. Tick &ldquo;at the same time&rdquo; for people who sign together (e.g. all the directors).</p>
             </div>
             {noneLeft && allow && <SignCredits a={allow} newTab />}
             {phoneLocked && (
@@ -727,6 +748,17 @@ export default function Wizard({
                     <small>{p.via === "email" ? "The code goes to the same email as the link." : `A second check: the link comes by email, the code by ${CHANNEL_TEXT[p.via]}.`}</small>
                   </div>
                 )}
+                {/* 0304: parallel signing, and people who only fill in (e.g. the date on the dating line) */}
+                <div className="fds-pc-opts">
+                  {i > 0 && (
+                    <label className="fds-chk">
+                      <input type="checkbox" checked={p.together} onChange={(e) => setP(p.key, { together: e.target.checked })} /> Signs at the same time as person {i}
+                    </label>
+                  )}
+                  <label className="fds-chk">
+                    <input type="checkbox" checked={p.fill} onChange={(e) => setP(p.key, { fill: e.target.checked })} /> Fills in only, no signature (e.g. the date)
+                  </label>
+                </div>
               </div>
             ))}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 6 }}>
@@ -743,6 +775,9 @@ export default function Wizard({
               <label htmlFor="fds-cc">Send a copy of the signed document to (optional)</label>
               <input id="fds-cc" className="fds-inp" value={cc} onChange={(e) => setCc(e.target.value)} placeholder="finance@company.com, partner@company.com" />
             </div>
+            <label className="fds-chk" style={{ marginTop: 14 }}>
+              <input type="checkbox" checked={daily} onChange={(e) => setDaily(e.target.checked)} /> Remind daily until signed (an email each morning to whoever&rsquo;s turn it is)
+            </label>
             <div className="fds-fld" style={{ marginTop: 16 }}>
               <label htmlFor="fds-ctl">Status updates to a key controller (optional)</label>
               <input id="fds-ctl" className="fds-inp" value={ctl} onChange={(e) => setCtl(e.target.value)} placeholder="cosec@company.com" />
@@ -774,7 +809,21 @@ export default function Wizard({
                     </span>
                     <span>
                       <b>{s.email.trim().toLowerCase() === me?.email ? "You" : s.name || "Someone"}</b>
-                      <small>{i === 0 ? "emailed when you send" : `after ${signers[i - 1].email.trim().toLowerCase() === me?.email ? "you sign" : `${signers[i - 1].name.split(/\s+/)[0] || "they"} signs`}`}</small>
+                      <small>
+                        {(() => {
+                          /* 0304: who signs together, and who only fills in */
+                          const st = stepsFrom(signers.map((x) => x.together));
+                          const first = (x: Person) => (x.email.trim().toLowerCase() === me?.email ? "you" : x.name.split(/\s+/)[0] || "they");
+                          const before = signers.filter((_, k) => st[k] === st[i]! - 1);
+                          const when =
+                            st[i] === 1
+                              ? "emailed when you send"
+                              : i > 0 && st[i] === st[i - 1]
+                                ? `at the same time as ${first(signers[i - 1]!)}`
+                                : `after ${before.map(first).join(" and ")} ${before.length === 1 && first(before[0]!) !== "you" ? "signs" : "sign"}`;
+                          return `${when}${s.fill ? " · fills in only" : ""}`;
+                        })()}
+                      </small>
                     </span>
                   </div>
                   <div className="ln" />
@@ -1119,10 +1168,15 @@ export default function Wizard({
             <Ic n="chev" s={16} w={2} />
           </button>
         ) : (
-          <button className="fds-btn gold lg" onClick={() => void send()} disabled={busy}>
-            <Ic n="mail" s={16} w={2} />
-            {busy ? "Sending…" : "Send for signing"}
-          </button>
+          <span style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="fds-btn lg" onClick={() => void send(true)} disabled={!!busy} title="Keep it to send later: nobody is emailed">
+              {busy === "draft" ? "Saving…" : "Save as draft"}
+            </button>
+            <button className="fds-btn gold lg" onClick={() => void send()} disabled={!!busy}>
+              <Ic n="mail" s={16} w={2} />
+              {busy === "send" ? "Sending…" : "Send for signing"}
+            </button>
+          </span>
         )}
       </div>
     </div>

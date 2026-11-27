@@ -23,7 +23,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
   if (b.consent !== true) return NextResponse.json({ error: "Please tick the box to agree to sign electronically." }, { status: 400 });
-  const kind = b.kind === "type" ? "type" : b.kind === "draw" ? "draw" : null;
+  /* 0304: "none" = a person who only fills in (the service checks they are one) */
+  const kind = b.kind === "type" ? "type" : b.kind === "draw" ? "draw" : b.kind === "none" ? "none" : null;
   if (!kind) return NextResponse.json({ error: "Draw or type your signature." }, { status: 400 });
   let png: Uint8Array | null = null;
   let typed: string | null = null;
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     if (!m) return NextResponse.json({ error: "Draw your signature first." }, { status: 400 });
     png = new Uint8Array(Buffer.from(m[1], "base64"));
     if (png.length < 200 || png[0] !== 0x89 || png[1] !== 0x50) return NextResponse.json({ error: "Draw your signature first." }, { status: 400 });
-  } else {
+  } else if (kind === "type") {
     typed = String(b.typed ?? "").trim().replace(/\s+/g, " ").slice(0, 80);
     if (typed.length < 2) return NextResponse.json({ error: "Type your full name." }, { status: 400 });
   }
