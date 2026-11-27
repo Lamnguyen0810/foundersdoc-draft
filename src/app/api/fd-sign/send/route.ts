@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSend } from "@/lib/sign/service";
+import { createSend, discardDraft } from "@/lib/sign/service";
 import { cleanApprovals, cleanSteps } from "@/lib/sign/order";
 import { parseFields } from "@/lib/sign/fields";
 import { who } from "@/lib/sign/http";
@@ -112,6 +112,13 @@ export async function POST(req: NextRequest) {
   const remindDaily = meta.remindDaily === true;
   /* 0305: save as a draft (SQL 150), send later from the document page */
   const draft = meta.draft === true;
+  /* 0310: saved from "Edit draft": this replaces that draft (checked: mine, and still a draft) */
+  const replaces = typeof meta.replaces === "string" && UUID.test(meta.replaces) ? meta.replaces : null;
+  if (replaces) {
+    const o = await store.ownerOf(replaces);
+    const old = o?.owner_id === me.id ? await store.envelope(replaces) : null;
+    if (!old || old.status !== "draft") return NextResponse.json({ error: "That draft has already been sent or discarded. Please start a new request." }, { status: 409 });
+  }
 
   const fields = parseFields(meta.fields, signers.length);
   for (let i = 0; i < signers.length; i++) {
@@ -151,6 +158,8 @@ export async function POST(req: NextRequest) {
       owner: { id: me.id, email: me.email, name: senderName, folderId },
       draft,
     });
+    /* 0310: the edited draft replaces the old one (the new one is saved first, so nothing is lost) */
+    if (replaces) await discardDraft(store, me.id, replaces, who(req)).catch((e) => console.error("[fd-sign] replacing a draft:", e));
     /* 0305: saved, not sent: nobody is emailed */
     if (draft) return NextResponse.json({ ok: true, id: res.envelopeIds[0], draft: true });
     const first = res.links[0];

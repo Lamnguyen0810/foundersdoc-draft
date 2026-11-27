@@ -112,6 +112,12 @@ export default function DetailPage({ id }: { id: string }) {
                 )}
                 {/* 0305: a saved draft: send it now, or throw it away */}
                 {doc.status === "draft" && (
+                  <Link className="fds-btn sm" href={`/fd-sign/new?edit=${doc.id}`}>
+                    <Ic n="pen" s={15} />
+                    Edit draft
+                  </Link>
+                )}
+                {doc.status === "draft" && (
                   <button className="fds-btn sm gold" disabled={!!busy} onClick={() => void act("send")}>
                     <Ic n="mail" s={15} />
                     {busy === "send" ? "Sending…" : "Send now"}

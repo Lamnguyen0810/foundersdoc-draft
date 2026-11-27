@@ -408,6 +408,79 @@ export default function Wizard({
     void pick(handoff.file);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the checked file
   }, [handoff]);
+  /* 0310: "Edit draft": open a saved draft again, with everything it was saved with */
+  const [editing, setEditing] = useState<string | null>(null);
+  const editId = params.get("edit");
+  const editAsked = useRef(false);
+  async function openEdit(id: string) {
+    setFileErr("");
+    try {
+      const r = await fetch(`/api/fd-sign/${id}/edit`, { cache: "no-store" });
+      const j = (await r.json().catch(() => ({}))) as {
+        error?: string;
+        title: string;
+        fileName: string;
+        message: string | null;
+        folderId: string | null;
+        signers: Array<{ name: string; email: string; role: string; channel: CodeChannel; phone: string | null }>;
+        fields: Array<Omit<Box, "id">>;
+        cc: string[];
+        controllers: string[];
+        supplements: string[];
+        order: { steps: number[]; fill: number[]; approve?: Array<[number, number]>; anyOf?: number[] };
+        remindDaily: boolean;
+      };
+      if (!r.ok) throw new Error(j.error || "Could not open that draft.");
+      const pdf = await fetch(`/api/sign/file?e=${id}`, { cache: "no-store" });
+      if (!pdf.ok) throw new Error("Could not open the draft's document.");
+      const f = new File([await pdf.blob()], `${(j.fileName || j.title).replace(/\.(pdf|docx)$/i, "")}.pdf`, { type: "application/pdf" });
+      const doc = await openPdf(f);
+      const i = await readPdf(doc);
+      void doc.destroy();
+      const keys = j.signers.map(() => blank().key);
+      const ap = j.order.approve ?? [];
+      setPeople(
+        j.signers.map((x, k) => {
+          const target = ap.find(([a]) => a === k + 1)?.[1];
+          return {
+            key: keys[k]!,
+            name: x.name,
+            email: x.email,
+            role: x.role,
+            via: x.channel ?? "email",
+            phone: x.phone ?? "",
+            together: k > 0 && j.order.steps[k] === j.order.steps[k - 1],
+            fill: j.order.fill.includes(k + 1),
+            approveFor: target ? keys[target - 1]! : "",
+            /* Rachel (0309): one approval is enough unless all were asked for */
+            allApprove: ap.some(([, t]) => t === k + 1) && !(j.order.anyOf ?? []).includes(k + 1),
+          };
+        }),
+      );
+      setInfo(i);
+      setFile(f);
+      setBoxes(j.fields.map((b) => ({ ...b, id: boxId() })));
+      setPlaced(true);
+      setUntrimmed(null);
+      setConverted(null);
+      setInserted(j.supplements);
+      setTitle(j.title);
+      setMessage(j.message ?? "");
+      setFolderId(j.folderId ?? "");
+      setCc(j.cc.join(", "));
+      setCtl(j.controllers.join(", "));
+      setDaily(j.remindDaily);
+      setEditing(id);
+      setReached(4);
+    } catch (e) {
+      setFileErr(e instanceof Error ? e.message : "Could not open that draft.");
+    }
+  }
+  useEffect(() => {
+    if (!editId || editAsked.current || !/^[0-9a-f-]{36}$/i.test(editId)) return;
+    editAsked.current = true;
+    void openEdit(editId);
+  }, [editId]);
   const wanted = params.get("draft");
   const asked = useRef(false);
   useEffect(() => {
@@ -468,6 +541,8 @@ export default function Wizard({
           }),
           remindDaily: daily,
           draft,
+          /* 0310: saving or sending an edited draft replaces it */
+          ...(editing ? { replaces: editing } : {}),
           supplements: inserted,
           fields: boxes.map(({ position, kind, page, x, y, w, h, label, required, value }) => ({ position, kind, page, x, y, w, h, ...(asks(kind) ? { label: label?.trim() || undefined, required: !!required } : {}), ...(kind === "text" && value?.trim() ? { value: value.trim() } : {}) })),
         }),
@@ -611,6 +686,11 @@ export default function Wizard({
               </div>
             )}
             {fileErr && <div className="fds-err">{fileErr}</div>}
+            {editing && (
+              <div className="fds-err" style={{ background: "var(--fds-gold-soft)", color: "var(--fds-gold-tx)" }}>
+                Editing a saved draft. Change anything, then <b>Save as draft</b> again (it replaces the old one) or <b>Send for signing</b>. Nobody has been emailed.
+              </div>
+            )}
             {converted && file && (
               <div className="fds-err" style={{ background: "var(--fds-blue-soft)", color: "var(--fds-blue-tx)" }}>
                 Converted from Word ({converted.name}). Please check it in step 3: the text, headings, bold and lists are kept, but not the exact fonts and spacing.
@@ -924,7 +1004,16 @@ export default function Wizard({
               <button key={i} className={`fds-who ${active === i + 1 ? "on" : ""}`} style={{ ["--c" as string]: colour(i + 1) }} onClick={() => setActive(i + 1)}>
                 <span className="fds-dot" style={{ background: colour(i + 1) }} />
                 {s.name || `Person ${i + 1}`}
-                {boxes.some((b) => b.position === i + 1 && b.kind === "signature") ? <small>{fieldCount(i + 1)} {fieldCount(i + 1) === 1 ? "field" : "fields"}</small> : <small className="miss">needs signature</small>}
+                {signers[i]?.approveFor ? (
+                  /* 0308: approvers get no boxes */
+                  <small>approves, no boxes</small>
+                ) : signers[i]?.fill ? (
+                  fieldCount(i + 1) ? <small>{fieldCount(i + 1)} {fieldCount(i + 1) === 1 ? "field" : "fields"} · fills in</small> : <small className="miss">needs a text or date box</small>
+                ) : boxes.some((b) => b.position === i + 1 && b.kind === "signature") ? (
+                  <small>{fieldCount(i + 1)} {fieldCount(i + 1) === 1 ? "field" : "fields"}</small>
+                ) : (
+                  <small className="miss">needs signature</small>
+                )}
               </button>
             ))}
             <button
@@ -1223,7 +1312,7 @@ export default function Wizard({
           ) : step === 2 ? (
             `${signers.length} ${signers.length === 1 ? "person signs" : "people sign"}${ccList.length ? ` · ${ccList.length} ${ccList.length === 1 ? "copy" : "copies"}` : ""}`
           ) : step === 3 ? (
-            problems[3] ? <span style={{ color: "var(--fds-red-tx)" }}>{problems[3]}</span> : <span className="fds-ok">Everyone has a signature box</span>
+            problems[3] ? <span style={{ color: "var(--fds-red-tx)" }}>{problems[3]}</span> : <span className="fds-ok">{signers.some((x) => x.fill || x.approveFor) ? "Everyone has their boxes" : "Everyone has a signature box"}</span>
           ) : (
             <>
               <Ic n="mail" s={15} />
