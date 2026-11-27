@@ -140,3 +140,48 @@ test("a draft: saved with everything, nobody emailed, not counted; then sent, or
     delete process.env.SIGN_HOOK_URL;
   }
 });
+
+test("0307: directors signing at the same moment: the next person is invited once, the request completes once", async () => {
+  const s = signStore() as SignStore;
+  const sent: Array<{ to: string; kind: string; link?: string }> = [];
+  const closed = globalThis.fetch;
+  process.env.SIGN_HOOK_URL = "https://hooks.zapier.com/hooks/catch/0/test/";
+  globalThis.fetch = (async (_u: RequestInfo | URL, init?: RequestInit) => {
+    await new Promise((r) => setTimeout(r, Math.random() * 5)); /* emails take a moment: the calls interleave */
+    const b = JSON.parse(String(init?.body ?? "{}")) as { to: string; kind: string; link?: string };
+    sent.push({ to: b.to, kind: b.kind, link: b.link });
+    return new Response("{}", { status: 200 });
+  }) as typeof fetch;
+  try {
+    const names = ["Alex Tan", "Jamie Lee", "Sam Wong", "Chris Lim", "Pat Ng"];
+    const signers = names.map((n, i) => ({ name: n, email: `${n.split(" ")[0]!.toLowerCase()}@example.com`, role: i < 4 ? "Director" : "Company secretary" }));
+    const fields = [
+      ...[1, 2, 3, 4].map((position) => ({ position, kind: "signature" as const, page: 1, x: 0.1, y: 0.1 * position, w: 0.3, h: 0.05 })),
+      { position: 5, kind: "text" as const, page: 1, x: 0.5, y: 0.9, w: 0.2, h: 0.03, label: "Day", required: true },
+    ];
+    const who = { ip: null, ua: null };
+    const owner = { id: "44444444-4444-4444-8444-444444444444", email: "owner@example.com", name: "Example Consulting", folderId: null };
+    const { envelopeIds, links } = await createSend(s, { docs: [{ title: "Directors' Resolutions", fileName: "d.pdf", bytes: await pdf(), esopHolderId: null, esopTranche: null, signers, fields, order: { steps: [1, 1, 1, 1, 2], fill: [5] } }], batch: false, message: null, createdBy: "test", origin: "http://localhost:3000", who, owner });
+    const tok = (name: string) => links.find((l) => l.name === name)!.link.split("/sign/")[1]!;
+    /* all four at once, and Alex presses twice */
+    const results = await Promise.allSettled([...names.slice(0, 4), "Alex Tan"].map((n) => submitSignature(s, { token: tok(n), kind: "type", png: null, typed: n, origin: "http://localhost:3000", who })));
+    assert.equal(results.filter((r) => r.status === "fulfilled").length, 4, "each director signs once");
+    assert.match(String((results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason), /already signed/);
+    const invites = sent.filter((x) => x.to === "pat@example.com" && x.link?.includes("/sign/"));
+    assert.equal(invites.length, 1, "Pat is invited once");
+    const signed = (await s.events(envelopeIds[0]!)).filter((e) => e.event === "signed").length;
+    assert.equal(signed, 4);
+
+    /* the last two of a step sign together, with nobody after them: one completion, one set of signed copies */
+    const two = await createSend(s, { docs: [{ title: "Note", fileName: "n.pdf", bytes: await pdf(), esopHolderId: null, esopTranche: null, signers: signers.slice(0, 2), fields: fields.slice(0, 2), order: { steps: [1, 1], fill: [] } }], batch: false, message: null, createdBy: "test", origin: "http://localhost:3000", who, owner });
+    const t2 = (name: string) => two.links.find((l) => l.name === name)!.link.split("/sign/")[1]!;
+    const before = sent.filter((x) => x.kind === "completed").length;
+    await Promise.all(["Alex Tan", "Jamie Lee"].map((n) => submitSignature(s, { token: t2(n), kind: "type", png: null, typed: n, origin: "http://localhost:3000", who })));
+    assert.equal((await s.envelope(two.envelopeIds[0]!))!.status, "completed");
+    assert.equal((await s.events(two.envelopeIds[0]!)).filter((e) => e.event === "completed").length, 1, "completed once");
+    assert.equal(sent.filter((x) => x.kind === "completed").length - before, 3, "signed copies once: 2 signers and the sender");
+  } finally {
+    globalThis.fetch = closed;
+    delete process.env.SIGN_HOOK_URL;
+  }
+});
