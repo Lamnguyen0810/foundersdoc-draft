@@ -410,12 +410,15 @@ export default function Wizard({
   }, [handoff]);
   /* 0310: "Edit draft": open a saved draft again, with everything it was saved with */
   const [editing, setEditing] = useState<string | null>(null);
-  const editId = params.get("edit");
+  /* 0311: "Duplicate": the same, but a new request (the original is not changed) */
+  const [copied, setCopied] = useState<string | null>(null);
+  const editId = params.get("edit") ?? params.get("copy");
+  const asCopy = !params.get("edit") && !!params.get("copy");
   const editAsked = useRef(false);
-  async function openEdit(id: string) {
+  async function openEdit(id: string, copy = false) {
     setFileErr("");
     try {
-      const r = await fetch(`/api/fd-sign/${id}/edit`, { cache: "no-store" });
+      const r = await fetch(`/api/fd-sign/${id}/edit${copy ? "?copy=1" : ""}`, { cache: "no-store" });
       const j = (await r.json().catch(() => ({}))) as {
         error?: string;
         title: string;
@@ -464,13 +467,14 @@ export default function Wizard({
       setUntrimmed(null);
       setConverted(null);
       setInserted(j.supplements);
-      setTitle(j.title);
+      setTitle(copy ? `${j.title} (copy)`.slice(0, 200) : j.title);
       setMessage(j.message ?? "");
       setFolderId(j.folderId ?? "");
       setCc(j.cc.join(", "));
       setCtl(j.controllers.join(", "));
       setDaily(j.remindDaily);
-      setEditing(id);
+      if (copy) setCopied(j.title);
+      else setEditing(id);
       setReached(4);
     } catch (e) {
       setFileErr(e instanceof Error ? e.message : "Could not open that draft.");
@@ -479,8 +483,8 @@ export default function Wizard({
   useEffect(() => {
     if (!editId || editAsked.current || !/^[0-9a-f-]{36}$/i.test(editId)) return;
     editAsked.current = true;
-    void openEdit(editId);
-  }, [editId]);
+    void openEdit(editId, asCopy);
+  }, [editId, asCopy]);
   const wanted = params.get("draft");
   const asked = useRef(false);
   useEffect(() => {
@@ -686,6 +690,11 @@ export default function Wizard({
               </div>
             )}
             {fileErr && <div className="fds-err">{fileErr}</div>}
+            {copied && (
+              <div className="fds-err" style={{ background: "var(--fds-blue-soft)", color: "var(--fds-blue-tx)" }}>
+                A copy of &ldquo;{copied}&rdquo;, with its document, people, boxes and settings. Change anything, then save it as a draft or send it. The original is not changed.
+              </div>
+            )}
             {editing && (
               <div className="fds-err" style={{ background: "var(--fds-gold-soft)", color: "var(--fds-gold-tx)" }}>
                 Editing a saved draft. Change anything, then <b>Save as draft</b> again (it replaces the old one) or <b>Send for signing</b>. Nobody has been emailed.
@@ -1310,7 +1319,12 @@ export default function Wizard({
               Only you and the people you add can see this document
             </>
           ) : step === 2 ? (
-            `${signers.length} ${signers.length === 1 ? "person signs" : "people sign"}${ccList.length ? ` · ${ccList.length} ${ccList.length === 1 ? "copy" : "copies"}` : ""}`
+            /* 0311: say why Continue is off (e.g. an approver below the person they approve for) */
+            problems[2] && signers.some((x) => x.name.trim() || x.email.trim()) ? (
+              <span style={{ color: "var(--fds-red-tx)" }}>{problems[2]}</span>
+            ) : (
+              `${signers.length} ${signers.length === 1 ? "person signs" : "people sign"}${ccList.length ? ` · ${ccList.length} ${ccList.length === 1 ? "copy" : "copies"}` : ""}`
+            )
           ) : step === 3 ? (
             problems[3] ? <span style={{ color: "var(--fds-red-tx)" }}>{problems[3]}</span> : <span className="fds-ok">{signers.some((x) => x.fill || x.approveFor) ? "Everyone has their boxes" : "Everyone has a signature box"}</span>
           ) : (

@@ -111,6 +111,11 @@ export default function DetailPage({ id }: { id: string }) {
                   </button>
                 )}
                 {/* 0305: a saved draft: send it now, or throw it away */}
+                {/* 0311: a new request from this one: everything copied, ready to change */}
+                <Link className="fds-btn sm" href={`/fd-sign/new?copy=${doc.id}`} title="A new request with the same document, people, boxes and settings">
+                  <Ic n="copy" s={15} />
+                  Duplicate
+                </Link>
                 {doc.status === "draft" && (
                   <Link className="fds-btn sm" href={`/fd-sign/new?edit=${doc.id}`}>
                     <Ic n="pen" s={15} />
