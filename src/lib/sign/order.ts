@@ -13,6 +13,8 @@ export interface Order {
   /** 0308: [approver, signer] positions: the approver reviews and approves first, and only then does that signer
    *  get their link (e.g. AppWorks' legal team and Nathan approve before their director signs). The others are not held up. */
   approve?: Array<[number, number]>;
+  /** 0309: signers for whom ONE approval is enough (any of their approvers); the others then need not approve */
+  anyOf?: number[];
 }
 
 /** 0308: who must approve before this position may sign */
@@ -43,7 +45,8 @@ export function orderLine(o: Order): string | null {
   const parallel = o.steps.some((s, i) => s !== i + 1);
   const ap = o.approve ?? [];
   if (!parallel && !o.fill.length && !ap.length) return null;
-  return [parallel ? `steps ${o.steps.join("-")}` : "", o.fill.length ? `fill-in ${o.fill.join(",")}` : "", ap.length ? `approve ${ap.map(([a, t]) => `${a}>${t}`).join(",")}` : ""].filter(Boolean).join(" · ").slice(0, 200) || null;
+  const any = (o.anyOf ?? []).filter((t) => ap.some(([, x]) => x === t));
+  return [parallel ? `steps ${o.steps.join("-")}` : "", o.fill.length ? `fill-in ${o.fill.join(",")}` : "", ap.length ? `approve ${ap.map(([a, t]) => `${a}>${t}`).join(",")}` : "", any.length ? `any ${any.join(",")}` : ""].filter(Boolean).join(" · ").slice(0, 200) || null;
 }
 
 /** 0308: approvals that make sense: an approver approves one signer who signs (not themselves, not another approver,
@@ -73,7 +76,8 @@ export function parseOrder(detail: string | null | undefined, n: number): Order 
   const approve = (/approve ([\d>,]+)/.exec(detail ?? "")?.[1]?.split(",") ?? [])
     .map((x) => x.split(">").map(Number) as [number, number])
     .filter(([a, t]) => [a, t].every((p) => Number.isInteger(p) && p >= 1 && p <= n));
-  return { steps: cleanSteps(steps, n) ?? plain(n), fill, ...(approve.length ? { approve } : {}) };
+  const anyOf = (/(?:^|· )any ([\d,]+)/.exec(detail ?? "")?.[1]?.split(",").map(Number) ?? []).filter((p) => Number.isInteger(p) && p >= 1 && p <= n);
+  return { steps: cleanSteps(steps, n) ?? plain(n), fill, ...(approve.length ? { approve } : {}), ...(anyOf.length ? { anyOf } : {}) };
 }
 
 /** what the "order" line means, in words, for the audit trail */

@@ -14,6 +14,8 @@ export interface StatusSigner {
   does?: "sign" | "approve" | "fill";
   /** 0308: waiting for these approvers first */
   heldFor?: string[];
+  /** 0309: an approver no longer needed: this person already approved (one is enough) */
+  notNeeded?: string;
 }
 export type StatusEvent = { kind: "signed"; name: string; role: string } | { kind: "completed" } | { kind: "voided" };
 
@@ -32,6 +34,7 @@ export function statusLines(signers: StatusSigner[], voided = false): Array<{ na
     const verb = s.does === "approve" ? "Approved" : s.does === "fill" ? "Filled in" : "Signed";
     if (s.status === "signed") return { name: s.name, role: s.role, done: true, text: `${verb} ${s.signedAt ? sgtTime(s.signedAt) : ""}`.trim() };
     const not = s.does === "approve" ? "Not approved yet" : s.does === "fill" ? "Not filled in yet" : "Not signed yet";
+    if (!voided && s.notNeeded) return { name: s.name, role: s.role, done: true, text: `Not needed: ${s.notNeeded} has approved` };
     if (!voided && s.status === "waiting" && s.heldFor?.length) return { name: s.name, role: s.role, done: false, text: `${not}: waiting for approval by ${s.heldFor.join(" and ")}` };
     if (voided) return { name: s.name, role: s.role, done: false, text: "Not signed (request cancelled)" };
     if (s.status === "invited") return { name: s.name, role: s.role, done: false, text: `${not}: their turn now` };

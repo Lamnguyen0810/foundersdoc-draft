@@ -52,9 +52,11 @@ interface Person {
   fill: boolean;
   /** 0308: approves first (no boxes, no signature) before this person (their key) signs; "" = signs */
   approveFor: string;
+  /** 0309: with 2+ approvers, one approval is enough (default) or all of them must approve */
+  allApprove: boolean;
 }
 let seq = 0;
-const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "", via: "email", phone: "", together: false, fill: false, approveFor: "" });
+const blank = (): Person => ({ key: `p${Date.now().toString(36)}${seq++}`, name: "", email: "", role: "", via: "email", phone: "", together: false, fill: false, approveFor: "", allApprove: false });
 
 /** channels = the phone channels switched on in Vercel (lib/sign/phone.ts); none = email codes only, as before */
 /** plan (0223, FD_SIGN_PRICING=on): this month's requests and WhatsApp / SMS codes; null = Beta, nothing shown */
@@ -459,6 +461,7 @@ export default function Wizard({
           /* 0304 */
           steps: stepsFrom(signers.map((s) => s.together)),
           fillOnly: signers.flatMap((s, i) => (s.fill ? [i + 1] : [])),
+          approveAny: signers.flatMap((s, i) => (!s.allApprove && signers.some((y) => y.approveFor === s.key) ? [i + 1] : [])),
           approve: signers.flatMap((s, i) => {
             const t = s.approveFor ? signers.findIndex((y) => y.key === s.approveFor) : -1;
             return t >= 0 ? [[i + 1, t + 1]] : [];
@@ -800,6 +803,16 @@ export default function Wizard({
                         ))}
                     </select>
                   </label>
+                  {/* 0309: two or more approvers: is one approval enough? */}
+                  {people.filter((o) => o.approveFor === p.key).length > 1 && (
+                    <label className="fds-chk fds-does">
+                      <span>Needs:</span>
+                      <select className="fds-inp" aria-label={`Person ${i + 1} needs`} value={p.allApprove ? "all" : "any"} onChange={(e) => setP(p.key, { allApprove: e.target.value === "all" })}>
+                        <option value="any">Any one approval</option>
+                        <option value="all">All approvals</option>
+                      </select>
+                    </label>
+                  )}
                 </div>
               </div>
             ))}
@@ -868,7 +881,7 @@ export default function Wizard({
                           const tgt = s.approveFor ? signers.find((y) => y.key === s.approveFor) : null;
                           const by = signers.filter((y) => y.approveFor === s.key).map(first);
                           const list = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}` : (xs[0] ?? ""));
-                          const once = by.length ? `once ${list(by)} approve${by.length === 1 ? "s" : ""}` : "";
+                          const once = by.length ? (by.length > 1 && !s.allApprove ? `once ${by.join(" or ")} approves` : `once ${list(by)} approve${by.length === 1 ? "s" : ""}`) : "";
                           return `${once && st[i] === 1 ? once : when}${once && st[i] !== 1 ? `, ${once}` : ""}${s.fill ? " · fills in only" : ""}${tgt ? ` · approves before ${first(tgt)} signs` : ""}`;
                         })()}
                       </small>

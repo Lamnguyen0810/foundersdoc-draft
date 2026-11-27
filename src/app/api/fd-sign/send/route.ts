@@ -107,6 +107,8 @@ export async function POST(req: NextRequest) {
   const approve = cleanApprovals(meta.approve, steps, fill);
   if (!approve) return NextResponse.json({ error: "Approvals: each approver approves one person who signs, and comes before them or at the same time." }, { status: 400 });
   const approvers = new Set(approve.map(([a]) => a));
+  /* 0309: for these signers one approval is enough */
+  const anyOf = [...new Set((Array.isArray(meta.approveAny) ? meta.approveAny : []).map(Number))].filter((t) => approve.some(([, x]) => x === t));
   const remindDaily = meta.remindDaily === true;
   /* 0305: save as a draft (SQL 150), send later from the document page */
   const draft = meta.draft === true;
@@ -140,7 +142,7 @@ export async function POST(req: NextRequest) {
   const senderName = typedName.length >= 2 ? typedName : me.name;
   try {
     const res = await createSend(store, {
-      docs: [{ title, fileName: file.name.slice(0, 200) || "document.pdf", bytes, esopHolderId: null, esopTranche: null, signers, cc, controllers, supplements, order: { steps, fill, approve }, remindDaily, fields }],
+      docs: [{ title, fileName: file.name.slice(0, 200) || "document.pdf", bytes, esopHolderId: null, esopTranche: null, signers, cc, controllers, supplements, order: { steps, fill, approve, anyOf }, remindDaily, fields }],
       batch: false,
       message,
       createdBy: me.email,
