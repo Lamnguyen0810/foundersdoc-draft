@@ -1,4 +1,6 @@
 import "server-only";
+import { stampId } from "./stamp";
+import { laterBoxes, type LaterBox } from "./later";
 import { createHash, randomBytes } from "node:crypto";
 import { buildSignedPdf, pageCount, sha256 } from "./pdf";
 import { autoFields } from "./place";
@@ -121,9 +123,16 @@ async function invite(store: SignStore, rows: Signer[], titles: string[], origin
   /* 0313: an approver's email says "to approve", someone who only fills in "to complete" */
   const ord = await orderOf(store, first.envelope_id, (await store.signers(first.envelope_id)).length);
   const asks = approves(ord, first.position) ? ("approve" as const) : fillsOnly(ord, first) ? ("complete" as const) : null;
+  /* 0316: say who fills in boxes after everyone has signed (e.g. Founders Doc dating the resolutions) */
+  const everyone = await store.signers(first.envelope_id);
+  const later = laterBoxes({
+    me: { position: first.position, step: stepOf(ord, first) },
+    people: everyone.map((s) => ({ position: s.position, name: s.name, role: s.role, step: stepOf(ord, s), done: s.status === "signed", fillOnly: fillsOnly(ord, s), skip: needless(ord, s, everyone) })),
+    fields: await fieldsFor(store, first.envelope_id, everyone),
+  }).note;
   const emailed =
     reason !== "link"
-      ? await notify({ kind: "invite", to: first.email, name: first.name, role: first.role, link, documents: titles, message, ...(sender ? { sender } : {}), ...(reason === "reminded" ? { reminder: true } : {}), ...(subject ? { subject } : {}), ...(asks ? { asks } : {}) })
+      ? await notify({ kind: "invite", to: first.email, name: first.name, role: first.role, link, documents: titles, message, ...(sender ? { sender } : {}), ...(reason === "reminded" ? { reminder: true } : {}), ...(subject ? { subject } : {}), ...(asks ? { asks } : {}), ...(later ? { later } : {}) })
       : false;
   return { name: first.name, email: first.email, role: first.role, documents: titles, link, emailed };
 }
@@ -264,7 +273,11 @@ export interface SignView {
     signers: Array<{ name: string; role: string; status: Signer["status"]; signedAt: string | null; me: boolean }>;
     /** Where THIS signer signs on this document. */
     fields: SignField[];
+    /** 0316: boxes other people still fill in (grey placeholders, no values) */
+    later: LaterBox[];
   }>;
+  /** 0316: e.g. "Founders Doc (Cosec) will fill in the Day and Month boxes once everyone has signed." */
+  laterNote: string | null;
   message: string | null;
   waitingFor: string | null;
   /** Who sent it: the account holder's name for own requests, null = Founders Doc */
@@ -285,6 +298,7 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
   let message: string | null = null;
   let fillOnly = false;
   let approveOnly = false;
+  const notes: string[] = [];
   for (const me of mine) {
     const env = await store.envelope(me.envelope_id);
     if (!env) continue;
@@ -301,7 +315,16 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
       pages: env.page_count,
       status: env.status,
       signers: all.map((s) => ({ name: s.name, role: s.role, status: s.status, signedAt: s.signed_at, me: s.id === me.id })),
-      fields: (await fieldsFor(store, env.id, all)).filter((f) => f.position === me.position),
+      ...(await (async () => {
+        const fs = await fieldsFor(store, env.id, all);
+        const l = laterBoxes({
+          me: { position: me.position, step: stepOf(o, me) },
+          people: all.map((s) => ({ position: s.position, name: s.name, role: s.role, step: stepOf(o, s), done: s.status === "signed", fillOnly: fillsOnly(o, s), skip: needless(o, s, all) })),
+          fields: fs,
+        });
+        if (l.note && !notes.includes(l.note)) notes.push(l.note);
+        return { fields: fs.filter((f) => f.position === me.position), later: l.boxes };
+      })()),
     });
     if (who && !me.viewed_at && me.status !== "signed") {
       await store.updateSigner(me.id, { viewed_at: new Date().toISOString() });
@@ -328,6 +351,7 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
     sender,
     fillOnly,
     approveOnly,
+    laterNote: voided || allSigned ? null : notes.join(" ") || null,
   };
 }
 
@@ -554,7 +578,9 @@ export async function signedPdf(store: SignStore, envelopeId: string, opts: { au
       if (p) pngs.set(s.id, p);
     }
   }
-  return buildSignedPdf({ original, envelope: env, signers, pngs, events: await store.events(envelopeId), fields: await fieldsFor(store, envelopeId, signers), audit: opts.audit, fontBytes: opts.origin ? await signFonts(opts.origin).catch(() => null) : null });
+  const out = await buildSignedPdf({ original, envelope: env, signers, pngs, events: await store.events(envelopeId), fields: await fieldsFor(store, envelopeId, signers), audit: opts.audit, fontBytes: opts.origin ? await signFonts(opts.origin).catch(() => null) : null });
+  /* 0316: the document ID on every page (ESOP certificates keep their own design) */
+  return env.esop_holder_id ? out : stampId(out, envelopeId);
 }
 
 /** Founders Doc cancels an open request: nobody can sign it any more; the links show "cancelled". */

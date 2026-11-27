@@ -25,13 +25,16 @@ export interface SignMail {
   subject?: string;
   /** 0313: what this person is asked to do: sign (default), approve (an approver), or complete (fills in only) */
   asks?: "sign" | "approve" | "complete";
+  /** 0316: who fills in boxes after everyone has signed, e.g. "Founders Doc (Cosec) will fill in the Day and Month boxes once everyone has signed." */
+  later?: string;
 }
 
 const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** The whole email, ready for the Zap's Gmail step (Body = this one field). */
-export function emailHtml(p: { heading: string; documents: string[]; message: string | null; link: string; button: string; from?: string; asks?: "sign" | "approve" | "complete" }): string {
+export function emailHtml(p: { heading: string; documents: string[]; message: string | null; link: string; button: string; from?: string; asks?: "sign" | "approve" | "complete"; later?: string }): string {
   const docs = p.documents.map(esc).join("<br>");
+  const later = p.later ? `<p style="margin:12px 0 0 0;font-size:13px;line-height:20px;color:#666666;">&#9203; ${esc(p.later)}</p>` : "";
   const link = esc(p.link);
   const msg = p.message ? `<p style="margin:14px 0 0 0;white-space:pre-line;">${esc(p.message)}</p>` : "";
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FD Sign</title></head>
@@ -44,7 +47,7 @@ export function emailHtml(p: { heading: string; documents: string[]; message: st
 <p style="margin:14px 0 0 0;font-size:24px;line-height:30px;font-weight:bold;color:#161616;">${esc(p.heading)}</p></td></tr>
 <tr><td style="padding:14px 32px 0 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#666666;">
 <p style="margin:0 0 10px 0;">${p.documents.length > 1 ? "Documents:" : "Document:"}</p>
-<p style="margin:0;padding:12px 14px;background-color:#f4f4f4;border-radius:8px;color:#161616;font-weight:bold;">${docs}</p>${msg}</td></tr>
+<p style="margin:0;padding:12px 14px;background-color:#f4f4f4;border-radius:8px;color:#161616;font-weight:bold;">${docs}</p>${later}${msg}</td></tr>
 <tr><td style="padding:22px 32px 0 32px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="#161616" style="background-color:#161616;border-radius:8px;">
 <a href="${link}" style="display:inline-block;padding:13px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;">${esc(p.button)} &rarr;</a></td></tr></table></td></tr>
 <tr><td style="padding:18px 32px 0 32px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#9a9a96;">
@@ -125,6 +128,7 @@ export async function notify(mail: SignMail): Promise<boolean> {
   delete plain.sender;
   delete plain.reminder;
   delete plain.asks;
+  delete plain.later;
   const payload = {
     ...plain,
     documents_text: mail.documents.join("\n"),
@@ -137,7 +141,7 @@ export async function notify(mail: SignMail): Promise<boolean> {
     /* 0254: signing emails are never copied to anyone; the field is always there so the Zap can map it */
     cc: "",
     /* the finished email: the Gmail step's Body is just this field */
-    html: emailHtml({ heading, documents: mail.documents, message: mail.message, link: mail.link, button, asks, ...(from ? { from } : {}) }),
+    html: emailHtml({ heading, documents: mail.documents, message: mail.message, link: mail.link, button, asks, ...(from ? { from } : {}), ...(mail.kind === "invite" && mail.later ? { later: mail.later } : {}) }),
   };
   return post(hook, payload);
 }

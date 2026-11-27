@@ -5,9 +5,10 @@ import { downloadStep } from "@/lib/sign/slack";
 import { adminEmail } from "@/lib/sign/http";
 import { signAccount } from "@/lib/sign/account";
 import type { SignStore } from "@/lib/sign/store";
+import { stampId } from "@/lib/sign/stamp";
 
 /**
- * GET /api/sign/file?e=<envelope id>&t=<token>[&signed=1][&doc=1][&download=1]
+ * GET /api/sign/file?e=<envelope id>&t=<token>[&signed=1][&doc=1][&download=1][&raw=1]
  * doc=1: the signed document on its own (e.g. just the certificate), no audit trail page.
  * The original PDF, or the signed one (signatures stamped on their lines + audit
  * trail). Allowed for a signer on that envelope (by their link) or an admin.
@@ -29,8 +30,12 @@ export async function GET(req: NextRequest) {
   if (!env) return NextResponse.json({ error: "Not found." }, { status: 404 });
   const wantSigned = q.get("signed") === "1";
   const docOnly = wantSigned && q.get("doc") === "1";
-  const bytes = wantSigned ? await signedPdf(store, envelopeId, { audit: !docOnly, origin: req.nextUrl.origin }) : await store.original(envelopeId);
+  let bytes = wantSigned ? await signedPdf(store, envelopeId, { audit: !docOnly, origin: req.nextUrl.origin }) : await store.original(envelopeId);
   if (!bytes) return NextResponse.json({ error: "Not found." }, { status: 404 });
+  /* 0316: the document ID on every page of what people read and download (the signed copy has it already).
+     raw=1: the sender's own setup screen re-reads the untouched original to edit or copy a request. */
+  const raw = q.get("raw") === "1" && !token;
+  if (!wantSigned && !raw && !env.esop_holder_id) bytes = await stampId(bytes, env.id);
   /* 0233: a download (not a preview) tells #fdai-signing who took a copy; after the answer, so it never slows the file */
   if (q.get("download") === "1" && (token || owner)) {
     after(async () => {

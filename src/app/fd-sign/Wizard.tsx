@@ -434,7 +434,7 @@ export default function Wizard({
         remindDaily: boolean;
       };
       if (!r.ok) throw new Error(j.error || "Could not open that draft.");
-      const pdf = await fetch(`/api/sign/file?e=${id}`, { cache: "no-store" });
+      const pdf = await fetch(`/api/sign/file?e=${id}&raw=1`, { cache: "no-store" });
       if (!pdf.ok) throw new Error("Could not open the draft's document.");
       const f = new File([await pdf.blob()], `${(j.fileName || j.title).replace(/\.(pdf|docx)$/i, "")}.pdf`, { type: "application/pdf" });
       const doc = await openPdf(f);

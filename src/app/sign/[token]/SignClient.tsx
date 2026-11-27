@@ -424,6 +424,7 @@ export default function SignClient({
               </span>
             ))}
           </div>
+          {view.laterNote && !done && <p className="fs-later-note">⏳ {view.laterNote}</p>}
           {ready && (
             <div className="fs-goto">
               <span>
@@ -442,8 +443,21 @@ export default function SignClient({
             <PdfPages
               key={`${d.envelopeId}-${view.state}`}
               src={fileUrl(doc, view.state === "signed")}
-              overlay={(page) =>
-                mine
+              overlay={(page) => [
+                /* 0316: boxes other people fill in later (e.g. the date once everyone has signed): grey, nothing to do here */
+                ...(done ? [] : d.later)
+                  .filter((b) => b.page === page)
+                  .map((b, i) => (
+                    <div
+                      key={`later-${i}`}
+                      className="fs-later"
+                      style={{ left: `${b.x * 100}%`, top: `${b.y * 100}%`, width: `${b.w * 100}%`, height: `${b.h * 100}%` }}
+                      title={`${b.label}: ${b.by} fills this in${b.atEnd ? " once everyone has signed" : ""}. Nothing to do here.`}
+                    >
+                      <span>{b.atEnd ? `⏳ ${b.label}` : `${b.label} · ${b.by.split(/\s+/)[0]}`}</span>
+                    </div>
+                  )),
+                ...mine
                   .map((f, fi) => ({ f, k: key(doc, fi) }))
                   .filter(({ f }) => f.page === page)
                   .map(({ f, k }, i) => {
@@ -489,8 +503,8 @@ export default function SignClient({
                         {f.kind === "name" && <span className="fs-here-d">{view.signerName}</span>}
                       </div>
                     );
-                  })
-              }
+                  }),
+              ]}
             />
           </div>
           <div className="fs-doc-actions">
