@@ -12,7 +12,7 @@ import type { Envelope, SignField, SignStore, Signer } from "./store";
 import { cleanText, signerSize } from "./fields";
 import { statusMail, type StatusEvent } from "./controller";
 import { sendEmail } from "./notify";
-import { approversOf, approves, orderLine, parseOrder, type Order } from "./order";
+import { approversOf, approves, alsoSigns, approvesOnly, orderLine, parseOrder, type Order } from "./order";
 
 /**
  * FD Sign rules, in one place:
@@ -78,6 +78,8 @@ const held = (o: Order, s: Signer, all: Signer[]) => {
 /** 0309: an approver no longer needed (another approver already approved, and one is enough): they hold nothing up */
 export const needless = (o: Order, s: Signer, all: Signer[]) => {
   if (s.status === "signed") return false;
+  /* 0319: someone who approves AND signs still signs, even when another approval was enough */
+  if (alsoSigns(o, s.position)) return false;
   const t = (o.approve ?? []).find(([a]) => a === s.position)?.[1];
   return t !== undefined && (o.anyOf ?? []).includes(t) && approvedBy(o, t, all).length > 0;
 };
@@ -122,7 +124,7 @@ async function invite(store: SignStore, rows: Signer[], titles: string[], origin
   const subject = reason !== "link" && !sender ? await certificateSubject(await Promise.all(rows.map((r) => store.envelope(r.envelope_id))), "sign", reason === "reminded") : null;
   /* 0313: an approver's email says "to approve", someone who only fills in "to complete" */
   const ord = await orderOf(store, first.envelope_id, (await store.signers(first.envelope_id)).length);
-  const asks = approves(ord, first.position) ? ("approve" as const) : fillsOnly(ord, first) ? ("complete" as const) : null;
+  const asks = alsoSigns(ord, first.position) ? ("approve-sign" as const) : approves(ord, first.position) ? ("approve" as const) : fillsOnly(ord, first) ? ("complete" as const) : null;
   /* 0316: say who fills in boxes after everyone has signed (e.g. Founders Doc dating the resolutions) */
   const everyone = await store.signers(first.envelope_id);
   const later = laterBoxes({
@@ -286,6 +288,8 @@ export interface SignView {
   fillOnly?: boolean;
   /** 0308: this person only approves (no boxes, no signature) */
   approveOnly?: boolean;
+  /** 0319: this person approves AND signs: their signature also approves it for this person */
+  approvesFor?: string | null;
 }
 
 /** What a signing link shows. Null when the link is unknown. */
@@ -298,6 +302,7 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
   let message: string | null = null;
   let fillOnly = false;
   let approveOnly = false;
+  let approvesFor: string | null = null;
   const notes: string[] = [];
   for (const me of mine) {
     const env = await store.envelope(me.envelope_id);
@@ -305,8 +310,14 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
     message = message ?? env.message;
     const all = await store.signers(env.id);
     const o = await orderOf(store, env.id, all.length);
-    if (fillsOnly(o, me) || approves(o, me.position)) fillOnly = true;
-    if (approves(o, me.position)) approveOnly = true;
+    if (fillsOnly(o, me) || approvesOnly(o, me.position)) fillOnly = true;
+    if (approvesOnly(o, me.position)) approveOnly = true;
+    /* 0319: their signature also approves it for someone */
+    if (alsoSigns(o, me.position)) {
+      const t = (o.approve ?? []).find(([a]) => a === me.position)?.[1];
+      const who = all.find((x) => x.position === t);
+      if (who && !approvesFor) approvesFor = who.name;
+    }
     const before = all.filter((s) => stepOf(o, s) < stepOf(o, me) && s.status !== "signed" && !needless(o, s, all));
     if (before.length && !waitingFor) waitingFor = `${before[0].name} (${before[0].role})`;
     docs.push({
@@ -351,6 +362,7 @@ export async function viewForToken(store: SignStore, token: string, who: Who | n
     sender,
     fillOnly,
     approveOnly,
+    approvesFor,
     laterNote: voided || allSigned ? null : notes.join(" ") || null,
   };
 }
@@ -399,8 +411,8 @@ export async function submitSignature(
     const all = await store.signers(env.id);
     const o = await orderOf(store, env.id, all.length);
     if (all.some((s) => stepOf(o, s) < stepOf(o, me) && s.status !== "signed" && !needless(o, s, all))) throw new SignError("It is not your turn yet: an earlier signer still has to sign.", 409);
-    if ((input.kind === "none") !== (fillsOnly(o, me) || approves(o, me.position)))
-      throw new SignError(input.kind === "none" ? "Please sign first." : approves(o, me.position) ? "This person only approves: no signature is needed." : "This person only fills in: no signature is needed.", 400);
+    if ((input.kind === "none") !== (fillsOnly(o, me) || approvesOnly(o, me.position)))
+      throw new SignError(input.kind === "none" ? "Please sign first." : approvesOnly(o, me.position) ? "This person only approves: no signature is needed." : "This person only fills in: no signature is needed.", 400);
   }
   /* what this signer typed or ticked in their own boxes; a required one left empty stops the signing */
   const answers = new Map<string, Array<{ id: string; value: string; w?: number; h?: number }>>();
@@ -439,7 +451,14 @@ export async function submitSignature(
     if (!mine) throw new SignError("You have already signed.", 409);
     const a = answers.get(me.envelope_id);
     if (a) await store.setFieldValues(me.envelope_id, a);
-    const approving = input.kind === "none" && approves(await orderOf(store, me.envelope_id, (await store.signers(me.envelope_id)).length), me.position);
+    const ord0 = await orderOf(store, me.envelope_id, (await store.signers(me.envelope_id)).length);
+    const approving = input.kind === "none" && approvesOnly(ord0, me.position);
+    /* 0319: an approver who also signs: the approval is recorded first, then the signature */
+    if (input.kind !== "none" && alsoSigns(ord0, me.position)) {
+      const t = (ord0.approve ?? []).find(([a]) => a === me.position)?.[1];
+      const tName = (await store.signers(me.envelope_id)).find((x) => x.position === t)?.name;
+      await store.addEvent({ envelope_id: me.envelope_id, signer_id: me.id, event: "approved", ip: input.who.ip, user_agent: input.who.ua, detail: `approved by signing${tName ? `, before ${tName} signs` : ""}` });
+    }
     await store.addEvent({ envelope_id: me.envelope_id, signer_id: me.id, event: approving ? "approved" : input.kind === "none" ? "filled" : "signed", ip: input.who.ip, user_agent: input.who.ua, detail: `${input.kind === "draw" ? "drawn signature" : input.kind === "type" ? "typed signature" : approving ? "approved, no signature needed" : "filled in, no signature needed"}${resized ? ` · resized ${resized} text box${resized === 1 ? "" : "es"}` : ""}` });
     const env = (await store.envelope(me.envelope_id))!;
     const all = await store.signers(env.id);
@@ -482,7 +501,10 @@ export async function submitSignature(
   await slack(store, open.map((m) => m.envelope_id), `✅ *${open[0].name}* (${open[0].role}) signed ${what(signedTitles)}`);
   for (const m of open) await signerStep(store, m.envelope_id, m.position, "signed"); // 0221
   /* 0296: the key controllers hear who has signed and who hasn't (the completed email follows for the last one) */
-  for (const m of open) if (!toComplete.includes(m.envelope_id)) await tellControllers(store, m.envelope_id, { kind: "signed", name: m.name, role: m.role, did: input.kind !== "none" ? "signed" : approves(await orderOf(store, m.envelope_id, (await store.signers(m.envelope_id)).length), m.position) ? "approved" : "filled" }, m.email);
+  for (const m of open) if (!toComplete.includes(m.envelope_id)) await tellControllers(store, m.envelope_id, { kind: "signed", name: m.name, role: m.role, did: await (async () => {
+          const o2 = await orderOf(store, m.envelope_id, (await store.signers(m.envelope_id)).length);
+          return input.kind !== "none" ? (alsoSigns(o2, m.position) ? ("approved and signed" as const) : ("signed" as const)) : approvesOnly(o2, m.position) ? ("approved" as const) : ("filled" as const);
+        })() }, m.email);
   /* finish the documents everyone has now signed (after the "signed" update, so Slack reads in order) */
   for (const id of toComplete) {
     await complete(store, id, input.origin, input.who, { token: input.token, ids: new Set(open.map((o) => o.id)) });
@@ -616,7 +638,7 @@ export async function tellControllers(store: SignStore, envelopeId: string, even
     role: s.role,
     status: s.status,
     signedAt: s.signed_at,
-    does: approves(ord, s.position) ? ("approve" as const) : fillsOnly(ord, s) ? ("fill" as const) : ("sign" as const),
+    does: approvesOnly(ord, s.position) ? ("approve" as const) : fillsOnly(ord, s) ? ("fill" as const) : ("sign" as const),
     heldFor: held(ord, s, signers) ? approversOf(ord, s.position).filter((a) => signers.find((x) => x.position === a)?.status !== "signed").map(nameAt) : [],
     step: stepOf(ord, s),
     notNeeded: needless(ord, s, signers)
@@ -629,6 +651,7 @@ export async function tellControllers(store: SignStore, envelopeId: string, even
       return t !== undefined ? { approvesFor: nameAt(t), anyOne: (ord.anyOf ?? []).includes(t) } : {};
     })(),
     afterApproval: approversOf(ord, s.position).length > 0,
+    alsoSigns: alsoSigns(ord, s.position),
   }));
   const sentAt = signers.map((s) => s.invited_at).filter((x): x is string => !!x).sort()[0] ?? null;
   const list: Array<{ email: string; to: "controller" | "sender" }> = [...controllers.map((email) => ({ email, to: "controller" as const })), ...(toSender ? [{ email: own, to: "sender" as const }] : [])];

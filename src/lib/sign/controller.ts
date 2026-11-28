@@ -26,8 +26,10 @@ export interface StatusSigner {
   anyOne?: boolean;
   /** 0317: a signer who needs an approval first (shown in the step after their approvers) */
   afterApproval?: boolean;
+  /** 0319: an approver who also signs (does "sign", approvesFor set): their signature is their approval */
+  alsoSigns?: boolean;
 }
-export type StatusEvent = { kind: "signed"; name: string; role: string; /** 0312 */ did?: "signed" | "approved" | "filled" } | { kind: "completed" } | { kind: "voided" };
+export type StatusEvent = { kind: "signed"; name: string; role: string; /** 0312, 0319 */ did?: "signed" | "approved" | "filled" | "approved and signed" } | { kind: "completed" } | { kind: "voided" };
 
 const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -71,7 +73,7 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
   const voided = p.event.kind === "voided";
   const head =
     p.event.kind === "signed"
-      ? `${p.event.name} (${p.event.role}) has ${p.event.did === "approved" ? "approved" : p.event.did === "filled" ? "filled in their part" : "signed"}`
+      ? `${p.event.name} (${p.event.role}) has ${p.event.did === "approved" ? "approved" : p.event.did === "approved and signed" ? "approved and signed" : p.event.did === "filled" ? "filled in their part" : "signed"}`
       : p.event.kind === "completed"
         ? "Everyone has signed"
         : "This signing request was cancelled";
@@ -104,7 +106,8 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
   type K = "skip" | "approved" | "done" | "now" | "wait";
   const kind = (l: L): K =>
     /^Not needed/.test(l.text) ? "skip" : /^Approved/.test(l.text) ? "approved" : /^(Signed|Filled in)/.test(l.text) ? "done" : /their turn now/.test(l.text) ? "now" : "wait";
-  const first = (n: string) => n.split(/\s+/)[0]!;
+  /* first names in the summaries; "Founders Doc" is a name as a whole */
+  const first = (n: string) => (/^founders doc$/i.test(n.trim()) ? n.trim() : n.split(/\s+/)[0]!);
   const listNames = (xs: string[]) => (xs.length > 1 ? `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}` : (xs[0] ?? ""));
   const short = (iso: string) => sgtTime(iso).replace(/ \d{4},/, ",");
   const GREEN = "#16a34a";
@@ -118,14 +121,14 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
   const rows: R[] = p.signers
     .map((s, i) => {
       const step = stepAt(s, i);
-      const heldHere = !!s.afterApproval && p.signers.some((x, j) => x.does === "approve" && x.approvesFor === s.name.split(/\s+/)[0] && stepAt(x, j) === step);
+      const heldHere = !!s.afterApproval && p.signers.some((x, j) => !!x.approvesFor && x.approvesFor === s.name.split(/\s+/)[0] && stepAt(x, j) === step);
       return { s, l: lines[i]!, k: kind(lines[i]!), i, step, sub: heldHere ? 1 : 0 };
     })
-    .sort((a, b) => a.step - b.step || a.sub - b.sub || (a.s.does === "approve" ? 0 : 1) - (b.s.does === "approve" ? 0 : 1) || a.i - b.i);
+    .sort((a, b) => a.step - b.step || a.sub - b.sub || (a.s.approvesFor ? 0 : 1) - (b.s.approvesFor ? 0 : 1) || a.i - b.i);
   const keyOf = (r: R) => `${r.step}.${r.sub}`;
   const groupNo = new Map<string, number>();
   for (const r of rows) if (!groupNo.has(keyOf(r))) groupNo.set(keyOf(r), groupNo.size + 1);
-  const act = (r: R) => (r.s.does === "approve" ? "Approve" : r.s.does === "fill" ? "Fill in" : "Sign");
+  const act = (r: R) => (r.s.does === "approve" ? "Approve" : r.s.alsoSigns ? "Approve & sign" : r.s.does === "fill" ? "Fill in" : "Sign");
   const isDone = (r: R) => r.k === "done" || r.k === "approved";
   const colour = (r: R) => (isDone(r) ? (r.k === "approved" || r.s.does === "approve" ? BLUE : GREEN) : r.k === "now" && !voided ? ORANGE : GREY);
   const ink = (c: string) => (c === GREEN ? "#15803d" : c === BLUE ? "#1d4ed8" : c === ORANGE ? "#c2410c" : "#9ca3af");
@@ -161,9 +164,11 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
   const segs: Array<{ c: string; a: string; n: number }> = [];
   for (const r of counted) {
     const c = colour(r);
+    /* 0319: in the bar, approving and signing counts as signing (the register shows both) */
+    const a = r.s.alsoSigns ? "Sign" : act(r);
     const last = segs[segs.length - 1];
-    if (last && last.c === c && last.a === act(r)) last.n++;
-    else segs.push({ c, a: act(r), n: 1 });
+    if (last && last.c === c && last.a === a) last.n++;
+    else segs.push({ c, a, n: 1 });
   }
   const pct = (n: number) => ((n / Math.max(counted.length, 1)) * 100).toFixed(2);
   const bar =
@@ -194,13 +199,13 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
     cell("NEXT", "#d1d5db", voided ? [] : counted.filter((r) => r.k === "wait").map((r) => first(r.s.name)), true) +
     `</tr></table></td></tr></table>`;
   /* the signing register */
-  const oneOf = (r: R) => rows.filter((x) => x.s.does === "approve" && x.s.approvesFor && x.s.approvesFor === r.s.approvesFor);
+  const oneOf = (r: R) => rows.filter((x) => x.s.approvesFor && x.s.approvesFor === r.s.approvesFor);
   const pill = (r: R) => {
     const [t, bg, fg] =
       r.k === "approved" || (r.k === "done" && r.s.does === "approve")
         ? ["APPROVED", BLUE, "#ffffff"]
         : r.k === "done"
-          ? [r.s.does === "fill" ? "FILLED IN" : "SIGNED", GREEN, "#ffffff"]
+          ? [r.s.does === "fill" ? "FILLED IN" : r.s.alsoSigns ? "APPROVED & SIGNED" : "SIGNED", GREEN, "#ffffff"]
           : voided
             ? ["NOT SIGNED", "#f2f3f5", "#6b7280"]
             : r.k === "skip"
@@ -216,7 +221,7 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
     if (r.k === "skip") return `${r.s.notNeeded ?? "Another approver"} approved first`;
     if (r.k === "now") return r.s.invitedAt ? `Emailed ${short(r.s.invitedAt)}` : "Emailed";
     if (r.s.heldFor?.length) {
-      const any = rows.some((x) => x.s.does === "approve" && x.s.anyOne && x.s.approvesFor === first(r.s.name));
+      const any = rows.some((x) => !!x.s.approvesFor && x.s.anyOne && x.s.approvesFor === first(r.s.name));
       return `Emailed after ${r.s.heldFor.join(any ? " or " : " and ")} ${any || r.s.heldFor.length === 1 ? "approves" : "approve"}`;
     }
     const prior = counted.filter((x) => (groupNo.get(keyOf(x)) ?? 0) < (groupNo.get(keyOf(r)) ?? 0) && !isDone(x));
@@ -236,11 +241,12 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
         seen.add(g);
         const size = rows.filter((x) => keyOf(x) === g).length;
         const extra =
-          head && r.s.does === "approve" && r.s.anyOne && oneOf(r).length > 1
+          (r.s.alsoSigns && r.s.approvesFor ? ` &middot; Approves for ${esc(r.s.approvesFor)}` : "") +
+          (head && r.s.approvesFor && r.s.anyOne && oneOf(r).length > 1
             ? ` &middot; Any 1 of ${oneOf(r).length}`
-            : head && size > 1 && r.s.does !== "approve"
+            : head && size > 1 && !r.s.approvesFor
               ? " &middot; At the same time"
-              : "";
+              : "");
         const bg = r.k === "now" && !voided ? "background-color:#fff7ed;" : "";
         const line = idx < rows.length - 1 ? "border-bottom:1px solid #eef0f3;" : "";
         const TD = `vertical-align:top;padding:13px 12px;${bg}${line}`;
@@ -257,9 +263,9 @@ export function statusMail(p: { title: string; signers: StatusSigner[]; event: S
     `</table>`;
   /* e.g. "Step 3 was released when Legal Team approved at 11:20 am. Only one approval is needed in Step 2." */
   const released = rows
-    .filter((r) => r.s.does === "approve" && isDone(r) && r.s.approvesFor && r.s.signedAt)
+    .filter((r) => !!r.s.approvesFor && isDone(r) && r.s.signedAt)
     .map((r) => {
-      const target = rows.find((x) => first(x.s.name) === r.s.approvesFor && x.s.does !== "approve");
+      const target = rows.find((x) => first(x.s.name) === r.s.approvesFor && !x.s.approvesFor);
       if (!target || target.k === "wait") return "";
       const t = sgtTime(r.s.signedAt!).split(", ").pop();
       return `Step ${groupNo.get(keyOf(target))} was released when ${r.s.name} approved at ${t}.${r.s.anyOne && oneOf(r).length > 1 ? ` Only one approval is needed in Step ${groupNo.get(keyOf(r))}.` : ""}`;

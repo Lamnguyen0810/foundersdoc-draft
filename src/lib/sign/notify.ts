@@ -24,7 +24,7 @@ export interface SignMail {
   /** 0257: a ready subject (ESOP option certificates carry the vesting's own line); absent = FD Sign's usual one */
   subject?: string;
   /** 0313: what this person is asked to do: sign (default), approve (an approver), or complete (fills in only) */
-  asks?: "sign" | "approve" | "complete";
+  asks?: "sign" | "approve" | "complete" | "approve-sign";
   /** 0316/0318: boxes filled in after everyone has signed, e.g. "The Day and Month will be filled in by the system once everyone has signed." */
   later?: string;
 }
@@ -32,7 +32,7 @@ export interface SignMail {
 const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** The whole email, ready for the Zap's Gmail step (Body = this one field). */
-export function emailHtml(p: { heading: string; documents: string[]; message: string | null; link: string; button: string; from?: string; asks?: "sign" | "approve" | "complete"; later?: string }): string {
+export function emailHtml(p: { heading: string; documents: string[]; message: string | null; link: string; button: string; from?: string; asks?: "sign" | "approve" | "complete" | "approve-sign"; later?: string }): string {
   const docs = p.documents.map(esc).join("<br>");
   const later = p.later ? `<p style="margin:12px 0 0 0;font-size:13px;line-height:20px;color:#666666;">&#9203; ${esc(p.later)}</p>` : "";
   const link = esc(p.link);
@@ -52,7 +52,7 @@ export function emailHtml(p: { heading: string; documents: string[]; message: st
 <a href="${link}" style="display:inline-block;padding:13px 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;">${esc(p.button)} &rarr;</a></td></tr></table></td></tr>
 <tr><td style="padding:18px 32px 0 32px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;color:#9a9a96;">
 <p style="margin:0;">Or open this private link: <a href="${link}" style="color:#666666;word-break:break-all;">${link}</a></p>
-<p style="margin:10px 0 0 0;">This link is personal to you; please don't forward it.${p.asks === "approve" ? " No signature is needed from you: please review the document and approve it." : p.asks === "complete" ? " No signature is needed from you: please fill in your part." : " Electronic signatures are recognised in Singapore under the Electronic Transactions Act 2010."}</p></td></tr>
+<p style="margin:10px 0 0 0;">This link is personal to you; please don't forward it.${p.asks === "approve" ? " No signature is needed from you: please review the document and approve it." : p.asks === "complete" ? " No signature is needed from you: please fill in your part." : p.asks === "approve-sign" ? " Please review the document: your signature also counts as your approval. Electronic signatures are recognised in Singapore under the Electronic Transactions Act 2010." : " Electronic signatures are recognised in Singapore under the Electronic Transactions Act 2010."}</p></td></tr>
 <tr><td style="padding:24px 32px 28px 32px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:23px;color:#666666;">
 ${
     p.from
@@ -110,8 +110,8 @@ export async function notify(mail: SignMail): Promise<boolean> {
   const first = mail.name.split(/\s+/)[0];
   /* 0313: an approver is asked to approve, someone who only fills in to complete; everyone else to sign */
   const asks = mail.asks ?? "sign";
-  const verb = asks === "approve" ? "approve" : asks === "complete" ? "complete" : "sign";
-  const waits = asks === "approve" ? "your approval" : asks === "complete" ? "you to complete it" : "your signature";
+  const verb = asks === "approve" ? "approve" : asks === "complete" ? "complete" : asks === "approve-sign" ? "approve and sign" : "sign";
+  const waits = asks === "approve" ? "your approval" : asks === "complete" ? "you to complete it" : asks === "approve-sign" ? "your approval and signature" : "your signature";
   const heading =
     mail.kind === "invite"
       ? from
@@ -120,7 +120,7 @@ export async function notify(mail: SignMail): Promise<boolean> {
           : `${from} sent you a document to ${verb}`
         : `${first}, please review and ${verb}`
       : "All parties have signed";
-  const button = mail.kind === "invite" ? (n === 1 ? `Review & ${verb}` : `Review & ${verb} ${n} documents`) : mail.role === "Sender" ? "Open in FD Sign" : "Download the signed copy";
+  const button = mail.kind === "invite" ? (asks === "approve-sign" ? (n === 1 ? "Review, approve & sign" : `Review, approve & sign ${n} documents`) : n === 1 ? `Review & ${verb}` : `Review & ${verb} ${n} documents`) : mail.role === "Sender" ? "Open in FD Sign" : "Download the signed copy";
   const subject =
     mail.subject?.trim() ||
     (mail.kind === "invite" ? (from ? `${mail.reminder ? "Reminder: " : ""}${from} sent you a document to ${verb}: ${what}` : `Please ${verb}: ${what}`) : `Signed: ${what}`);
