@@ -448,6 +448,10 @@ export default function SignClient({
             ))}
           </div>
           {view.laterNote && !done && <p className="fs-later-note">⏳ {view.laterNote}</p>}
+          {/* 0319: an approver who also signs */}
+          {view.approvesFor && view.state === "ready" && (
+            <p className="fs-later-note">✓ Your signature also counts as your approval: once you sign, {view.approvesFor} can sign.</p>
+          )}
           {ready && (
             <div className="fs-goto">
               <span>

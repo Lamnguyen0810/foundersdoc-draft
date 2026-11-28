@@ -109,6 +109,8 @@ export async function POST(req: NextRequest) {
   const approvers = new Set(approve.map(([a]) => a));
   /* 0309: for these signers one approval is enough */
   const anyOf = [...new Set((Array.isArray(meta.approveAny) ? meta.approveAny : []).map(Number))].filter((t) => approve.some(([, x]) => x === t));
+  /* 0319: approvers who also sign (their signature is their approval) */
+  const signs = [...new Set((Array.isArray(meta.approveSign) ? meta.approveSign : []).map(Number))].filter((a) => approvers.has(a));
   const remindDaily = meta.remindDaily === true;
   /* 0305: save as a draft (SQL 150), send later from the document page */
   const draft = meta.draft === true;
@@ -123,7 +125,7 @@ export async function POST(req: NextRequest) {
   const fields = parseFields(meta.fields, signers.length);
   for (let i = 0; i < signers.length; i++) {
     const mine = fields.filter((f) => f.position === i + 1);
-    if (approvers.has(i + 1)) {
+    if (approvers.has(i + 1) && !signs.includes(i + 1)) {
       if (mine.length) return NextResponse.json({ error: `${signers[i].name} only approves: remove their boxes from the document.` }, { status: 400 });
     } else if (fill.includes(i + 1)) {
       if (!mine.some((f) => f.kind === "text" || f.kind === "date" || f.kind === "checkbox" || f.kind === "name"))
@@ -149,7 +151,7 @@ export async function POST(req: NextRequest) {
   const senderName = typedName.length >= 2 ? typedName : me.name;
   try {
     const res = await createSend(store, {
-      docs: [{ title, fileName: file.name.slice(0, 200) || "document.pdf", bytes, esopHolderId: null, esopTranche: null, signers, cc, controllers, supplements, order: { steps, fill, approve, anyOf }, remindDaily, fields }],
+      docs: [{ title, fileName: file.name.slice(0, 200) || "document.pdf", bytes, esopHolderId: null, esopTranche: null, signers, cc, controllers, supplements, order: { steps, fill, approve, anyOf, signs }, remindDaily, fields }],
       batch: false,
       message,
       createdBy: me.email,
