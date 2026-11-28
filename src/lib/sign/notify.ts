@@ -25,7 +25,7 @@ export interface SignMail {
   subject?: string;
   /** 0313: what this person is asked to do: sign (default), approve (an approver), or complete (fills in only) */
   asks?: "sign" | "approve" | "complete";
-  /** 0316: who fills in boxes after everyone has signed, e.g. "Founders Doc (Cosec) will fill in the Day and Month boxes once everyone has signed." */
+  /** 0316/0318: boxes filled in after everyone has signed, e.g. "The Day and Month will be filled in by the system once everyone has signed." */
   later?: string;
 }
 

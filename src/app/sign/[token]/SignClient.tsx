@@ -106,6 +106,19 @@ export default function SignClient({
   const [via, setVia] = useState<{ channel: CodeChannel; to: string }>({ channel: code.channel ?? "email", to: code.to });
   const by = via.channel === "email" ? "email" : CHANNEL_TEXT[via.channel];
   const [codeSent, setCodeSent] = useState(false);
+  /* 0318 (Rachel: "they said to email me a code … but then there was no place to insert the code"): phones often
+     reload the page while you switch to your email app for the code, which forgot that a code was sent. The page
+     now remembers it for 10 minutes (the code's life), and "I already have a code" always opens the box. */
+  const codeKey = `fds-code:${token.slice(0, 16)}`;
+  useEffect(() => {
+    try {
+      const at = Number(window.localStorage.getItem(codeKey) ?? 0);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- read once after the first render (the server has no storage)
+      if (at && Date.now() - at < 10 * 60_000) setCodeSent(true);
+    } catch {
+      /* storage blocked: the "I already have a code" button still works */
+    }
+  }, [codeKey]);
   const [codeVal, setCodeVal] = useState("");
   const [codeBusy, setCodeBusy] = useState(false);
   const [codeErr, setCodeErr] = useState("");
@@ -126,6 +139,11 @@ export default function SignClient({
       if (j.channel && j.to) setVia({ channel: j.channel, to: j.to });
       if (j.fellBack) setCodeErr(`${CHANNEL_TEXT[code.channel ?? "email"]} didn't go through, so we emailed the code instead.`);
       setCodeSent(true);
+      try {
+        window.localStorage.setItem(codeKey, String(Date.now()));
+      } catch {
+        /* storage blocked */
+      }
       setCodeVal("");
       setDevCode(j.devCode ?? "");
       setWait(30);
@@ -144,6 +162,11 @@ export default function SignClient({
       const j = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) throw new Error(j.error || "That code isn't right.");
       setOk(true);
+      try {
+        window.localStorage.removeItem(codeKey);
+      } catch {
+        /* storage blocked */
+      }
     } catch (e) {
       setCodeErr(e instanceof Error ? e.message : "That code isn't right.");
     } finally {
@@ -392,7 +415,7 @@ export default function SignClient({
         </span>
       </header>
 
-      <div className="fs-wrap">
+      <div className={`fs-wrap ${view.state === "ready" && !ok ? "need-code" : ""}`}>
         <section className="fs-doc">
           <div className="fs-doc-top">
             <div>
@@ -452,9 +475,9 @@ export default function SignClient({
                       key={`later-${i}`}
                       className="fs-later"
                       style={{ left: `${b.x * 100}%`, top: `${b.y * 100}%`, width: `${b.w * 100}%`, height: `${b.h * 100}%` }}
-                      title={`${b.label}: ${b.by} fills this in${b.atEnd ? " once everyone has signed" : ""}. Nothing to do here.`}
+                      title={`${b.label}: ${b.atEnd ? "filled in once everyone has signed" : "filled in by another party"}. Nothing to do here.`}
                     >
-                      <span>{b.atEnd ? `⏳ ${b.label}` : `${b.label} · ${b.by.split(/\s+/)[0]}`}</span>
+                      <span>⏳ {b.label}</span>
                     </div>
                   )),
                 ...mine
@@ -533,15 +556,22 @@ export default function SignClient({
             </div>
           )}
           {view.state === "ready" && !ok && (
-            <div className="fs-card">
+            <div className="fs-card fs-verify" id="fs-verify">
               <h2>First, confirm it&rsquo;s you</h2>
               <p className="fs-small fs-tight">
                 {codeSent ? "We sent" : "We\u2019ll send"} a 6-digit code {via.channel === "email" ? "by email" : `by ${by}`} to <b>{via.to}</b>. It works for 10 minutes.
               </p>
               {!codeSent ? (
-                <button className="fs-btn primary" disabled={codeBusy} onClick={() => void askCode()}>
-                  {codeBusy ? "Sending…" : via.channel === "email" ? "Email me a code" : `Send me a code by ${by}`}
-                </button>
+                <>
+                  <button className="fs-btn primary" disabled={codeBusy} onClick={() => void askCode()}>
+                    {codeBusy ? "Sending…" : via.channel === "email" ? "Email me a code" : `Send me a code by ${by}`}
+                  </button>
+                  <p className="fs-small">
+                    <button className="fs-textbtn" onClick={() => setCodeSent(true)}>
+                      I already have a code
+                    </button>
+                  </p>
+                </>
               ) : (
                 <>
                   <input
@@ -696,6 +726,14 @@ export default function SignClient({
         </aside>
       </div>
 
+      {view.state === "ready" && !ok && (
+        <div className="fs-mbar">
+          <span>{codeSent ? "Enter the 6-digit code" : "First, confirm it\u2019s you"}</span>
+          <button className="fs-btn primary" onClick={() => document.getElementById("fs-verify")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+            {codeSent ? "Enter code ↑" : "Get my code ↑"}
+          </button>
+        </div>
+      )}
       {view.state === "ready" && ok && (
         <div className="fs-mbar">
           <span>{!adopted ? "Tap Start, or a yellow box" : todo.length ? `${todo.length} left` : "All done"}</span>

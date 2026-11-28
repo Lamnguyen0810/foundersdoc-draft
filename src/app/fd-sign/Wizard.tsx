@@ -1211,7 +1211,7 @@ export default function Wizard({
                 maxLength={80}
                 value={fromName ?? me?.name ?? ""}
                 onChange={(e) => setFromName(e.target.value)}
-                placeholder="e.g. Rachel Wong"
+                placeholder="e.g. Alex Tan"
                 aria-label="Your name, as signers see it"
               />
               <small className={`fds-namehint ${nameLooksLikeEmail ? "warn" : ""}`}>
