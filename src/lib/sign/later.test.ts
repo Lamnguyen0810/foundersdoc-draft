@@ -25,14 +25,16 @@ test("later boxes: other people's date and text boxes, with a note when they com
   ];
   const a = laterBoxes({ me: { position: 1, step: 1 }, people, fields });
   assert.deepEqual(
-    a.boxes.map((b) => [b.label, b.by, b.atEnd]),
+    a.boxes.map((b) => [b.label, b.atEnd]),
     [
-      ["Day", "Pat Ng", true],
-      ["Month", "Pat Ng", true],
+      ["Day", true],
+      ["Month", true],
     ],
     "only the other person's boxes, not signatures",
   );
-  assert.equal(a.note, "Pat Ng (Founders Doc) will fill in the Day and Month boxes once everyone has signed.");
+  /* 0318 (Rachel): nobody is named */
+  assert.equal(a.note, "The Day and Month will be filled in by the system once everyone has signed.");
+  assert.ok(!JSON.stringify(a).includes("Pat"), "no name in the boxes or the note");
   assert.equal(laterBoxes({ me: { position: 2, step: 2 }, people, fields }).boxes.length, 0, "the person filling in sees their own boxes only");
   const done = people.map((p) => (p.position === 2 ? { ...p, done: true } : p));
   assert.equal(laterBoxes({ me: { position: 1, step: 1 }, people: done, fields }).boxes.length, 0, "nothing once filled in");
@@ -97,10 +99,12 @@ test("the signer sees the date boxes filled in later, the email says so, and the
     const id = envelopeIds[0]!;
     const alex = links[0]!.link.split("/sign/")[1]!;
     const v = (await viewForToken(s, alex, null))!;
-    assert.deepEqual(v.documents[0]!.later.map((b) => `${b.label}/${b.by}/${b.atEnd}`), ["Day/Pat Ng/true", "Month/Pat Ng/true"]);
-    assert.equal(v.laterNote, "Pat Ng (Founders Doc) will fill in the Day and Month boxes once everyone has signed.");
+    assert.deepEqual(v.documents[0]!.later.map((b) => `${b.label}/${b.atEnd}`), ["Day/true", "Month/true"]);
+    assert.equal(v.laterNote, "The Day and Month will be filled in by the system once everyone has signed.");
+    assert.ok(!JSON.stringify(v.documents[0]!.later).includes("Pat"), "no names in the boxes");
     const inv = sent.find((x) => x.to === "alex@example.com" && x.kind === "invite")!;
-    assert.ok(inv.html?.includes("will fill in the Day and Month boxes once everyone has signed"), "the signing email says who dates it");
+    assert.ok(inv.html?.includes("The Day and Month will be filled in by the system once everyone has signed."), "the signing email says the dates come at the end");
+    assert.ok(!inv.html?.includes("Pat Ng"), "without naming the person who dates it");
     assert.equal(inv.later, undefined, "the note is in the email body, not a loose field");
 
     await submitSignature(s, { token: alex, kind: "type", png: null, typed: "Alex Tan", origin: "http://localhost:3000", who });

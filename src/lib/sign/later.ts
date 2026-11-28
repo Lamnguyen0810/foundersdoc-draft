@@ -3,9 +3,10 @@ import type { SignField } from "./store";
 /**
  * 0316 (Rachel): "Justin should be able to see that someone will be populating it later". On a signing
  * page, the boxes other people still have to fill in (a date, a name, a text box) show as grey
- * placeholders with who fills them in, and when the person filling them in comes last and only fills
- * in (e.g. Founders Doc dating the resolutions), a note says so: "… will fill in the Day and Month boxes
- * once everyone has signed". Signatures and ticks of others are not shown. Nobody's values are shown. Pure.
+ * placeholders, and when the person filling them in comes last and only fills in (the dating of the
+ * resolutions), a note says so. 0318 (Rachel): no names in these boxes or the note ("the system will fill
+ * in the dates once everyone has signed"): nobody is named as acting for anyone. Signatures and ticks of
+ * others are not shown. Nobody's values are shown. Pure.
  */
 
 export interface LaterBox {
@@ -16,9 +17,7 @@ export interface LaterBox {
   h: number;
   /** what the box is for: its label, or Date / Name / Text */
   label: string;
-  /** who fills it in */
-  by: string;
-  /** they fill it in at the end, once everyone has signed */
+  /** it is filled in at the end, once everyone has signed */
   atEnd: boolean;
 }
 
@@ -54,15 +53,10 @@ export function laterBoxes(p: { me: { position: number; step: number }; people: 
       w: f.w,
       h: f.h,
       label: (f.label ?? "").trim() || DEFAULT[f.kind] || "Text",
-      by: who.name,
       atEnd: who.fillOnly && who.step === last && who.step > p.me.step,
     });
   }
-  const notes = p.people
-    .filter((x) => boxes.some((b) => b.atEnd && b.by === x.name))
-    .map((x) => {
-      const labels = [...new Set(boxes.filter((b) => b.atEnd && b.by === x.name).map((b) => b.label))];
-      return `${x.name} (${x.role}) will fill in the ${and(labels)} ${labels.length === 1 ? "box" : "boxes"} once everyone has signed.`;
-    });
-  return { boxes, note: notes.length ? notes.join(" ") : null };
+  const labels = [...new Set(boxes.filter((b) => b.atEnd).map((b) => b.label))];
+  const note = labels.length ? `The ${and(labels)} will be filled in by the system once everyone has signed.` : null;
+  return { boxes, note };
 }

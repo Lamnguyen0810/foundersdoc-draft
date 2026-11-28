@@ -276,7 +276,7 @@ export interface SignView {
     /** 0316: boxes other people still fill in (grey placeholders, no values) */
     later: LaterBox[];
   }>;
-  /** 0316: e.g. "Founders Doc (Cosec) will fill in the Day and Month boxes once everyone has signed." */
+  /** 0316/0318: e.g. "The Day and Month will be filled in by the system once everyone has signed." (no names) */
   laterNote: string | null;
   message: string | null;
   waitingFor: string | null;
